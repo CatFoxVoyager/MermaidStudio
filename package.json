@@ -1,0 +1,90 @@
+{
+  "name": "mermaid-studio",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:report": "playwright show-report",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint src --ext ts,tsx --fix",
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write src/**/*.{ts,tsx}",
+    "format:check": "prettier --check src/**/*.{ts,tsx}",
+    "prepare": "husky install",
+    "docs": "node scripts/generate-docs.cjs",
+    "docs:check": "node scripts/check-doc-quality.cjs",
+    "docs:test": "node scripts/test-docs.cjs",
+    "e2e:install": "npx playwright install",
+    "e2e:report": "node scripts/generate-e2e-report.js"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "^6.20.1",
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/language": "^6.12.2",
+    "@codemirror/lint": "^6.9.5",
+    "@codemirror/search": "^6.6.0",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/theme-one-dark": "^6.1.3",
+    "@codemirror/view": "^6.40.0",
+    "@radix-ui/react-context-menu": "^2.1.5",
+    "@radix-ui/react-toast": "^1.1.5",
+    "@types/dompurify": "^3.0.5",
+    "codemirror": "^6.0.2",
+    "dompurify": "^3.3.3",
+    "html-to-image": "^1.11.13",
+    "i18next": "^25.10.5",
+    "lucide-react": "^0.263.1",
+    "mermaid": "^11.13.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-i18next": "^16.6.2"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "@playwright/test": "^1.58.2",
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "@vitejs/plugin-react": "^4.0.3",
+    "autoprefixer": "^10.4.14",
+    "eslint": "^8.45.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.3",
+    "husky": "^8.0.3",
+    "jsdom": "^29.0.1",
+    "lint-staged": "^16.4.0",
+    "postcss": "^8.4.27",
+    "prettier": "^3.0.0",
+    "tailwindcss": "^3.3.3",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.0.2",
+    "vite": "^4.4.5",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^0.34.1"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{css,md}": [
+      "prettier --write"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}

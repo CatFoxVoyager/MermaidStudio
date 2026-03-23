@@ -1,0 +1,222 @@
+name: Documentation Maintenance
+
+on:
+  push:
+    paths:
+      - 'docs/**'
+      - 'src/**'
+      - 'README.md'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'src/**'
+      - 'README.md'
+      - '.github/workflows/docs.yml'
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  # Check documentation freshness
+  check-freshness:
+    name: Check Documentation Freshness
+    runs-on: ubuntu-latest
+    outputs:
+      needs-update: ${{ steps.check.outputs.needs-update }}
+      update-type: ${{ steps.check.outputs.update-type }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check if documentation needs updates
+        id: check
+        run: |
+          echo "Checking documentation freshness..."
+
+          # Get current date
+          CURRENT_DATE=$(date -u +"%Y-%m-%d")
+
+          # Check last update date in docs
+          if [ -f docs/README.md ]; then
+            LAST_UPDATE=$(grep -o "Updated: [0-9-]*" docs/README.md | head -1 | cut -d' ' -f2)
+            if [ -n "$LAST_UPDATE" ]; then
+              # Calculate days since last update
+              DAYS_SINCE=$(( ( $(date -d "$CURRENT_DATE" +%s) - $(date -d "$LAST_UPDATE" +%s) ) / 86400 ))
+
+              if [ $DAYS_SINCE -gt 30 ]; then
+                echo "needs-update=true" >> $GITHUB_OUTPUT
+                echo "update-type=stale" >> $GITHUB_OUTPUT
+                echo "Documentation last updated $DAYS_SINCE days ago"
+              else
+                echo "needs-update=false" >> $GITHUB_OUTPUT
+                echo "Documentation is up to date"
+              fi
+            else
+              echo "needs-update=true" >> $GITHUB_OUTPUT
+              echo "update-type=missing-date" >> $GITHUB_OUTPUT
+              echo "Last update date not found"
+            fi
+          else
+            echo "needs-update=true" >> $GITHUB_OUTPUT
+            echo "update-type=missing-file" >> $GITHUB_OUTPUT
+          fi
+
+  # Generate documentation report
+  generate-report:
+    name: Generate Documentation Report
+    runs-on: ubuntu-latest
+    if: always()
+    needs: check-freshness
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate documentation report
+        run: |
+          echo "📊 Generating Documentation Report..."
+
+          # Create report directory
+          mkdir -p docs/reports
+
+          # Generate comprehensive report
+          cat > docs/reports/documentation-status.md << EOF
+# Documentation Status Report
+Generated: $(date -u +"%Y-%m-%d %T UTC")
+
+## Overview
+This report provides insights into the documentation status and areas for improvement.
+
+## Files Inventory
+EOF
+
+          # List all documentation files
+          echo "" >> docs/reports/documentation-status.md
+          echo "### Documentation Files" >> docs/reports/documentation-status.md
+          echo "" >> docs/reports/documentation-status.md
+          find docs/ -type f -name "*.md" | sort | while read file; do
+            size=$(wc -c < "$file")
+            lines=$(wc -l < "$file")
+            echo "- $file ($size bytes, $lines lines)" >> docs/reports/documentation-status.md
+          done
+
+          # Check for broken links
+          echo "" >> docs/reports/documentation-status.md
+          echo "### Link Validation" >> docs/reports/documentation-status.md
+          echo "" >> docs/reports/documentation-status.md
+          echo "Running link validation..." >> docs/reports/documentation-status.md
+          echo "" >> docs/reports/documentation-status.md
+
+          # Count markdown files
+          TOTAL_FILES=$(find docs/ -name "*.md" | wc -l)
+          PROCESSED_FILES=0
+          BROKEN_LINKS=0
+
+          find docs/ -name "*.md" | while read file; do
+            if markdown-link-check "$file" --quiet; then
+              echo "✓ $file - All links OK" >> docs/reports/documentation-status.md
+            else
+              echo "✗ $file - Has broken links" >> docs/reports/documentation-status.md
+              BROKEN_LINKS=$((BROKEN_LINKS + 1))
+            fi
+            PROCESSED_FILES=$((PROCESSED_FILES + 1))
+          done
+
+          echo "" >> docs/reports/documentation-status.md
+          echo "### Summary" >> docs/reports/documentation-status.md
+          echo "" >> docs/reports/documentation-status.md
+          echo "- Total markdown files: $TOTAL_FILES" >> docs/reports/documentation-status.md
+          echo "- Files checked: $PROCESSED_FILES" >> docs/reports/documentation-status.md
+          echo "- Files with broken links: $BROKEN_LINKS" >> docs/reports/documentation-status.md
+
+          # Check documentation coverage
+          echo "" >> docs/reports/documentation-status.md
+          echo "### Documentation Coverage" >> docs/reports/documentation-status.md
+          echo "" >> docs/reports/documentation-status.md
+
+          # Count TypeScript files vs documented ones
+          TOTAL_TS=$(find src/ -name "*.ts" -o -name "*.tsx" | wc -l)
+          DOCUMENTED_TS=$(find src/ -name "*.ts" -o -name "*.tsx" | xargs grep -l "///" | wc -l)
+
+          if [ $TOTAL_TS -gt 0 ]; then
+            COVERAGE_PERCENT=$(( (DOCUMENTED_TS * 100) / TOTAL_TS ))
+            echo "- TypeScript files: $TOTAL_TS" >> docs/reports/documentation-status.md
+            echo "- Documented TypeScript files: $DOCUMENTED_TS" >> docs/reports/documentation-status.md
+            echo "- Documentation coverage: $COVERAGE_PERCENT%" >> docs/reports/documentation-status.md
+          fi
+
+          echo "Documentation report generated successfully"
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: docs-report
+          path: docs/reports/
+          retention-days: 90
+
+  # Create issue for stale documentation
+  create-stale-issue:
+    name: Create Stale Documentation Issue
+    runs-on: ubuntu-latest
+    if: needs.check-freshness.outputs.needs-update == 'true'
+    needs: check-freshness
+    steps:
+      - name: Create issue
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Documentation Update Required',
+              body: `Documentation is stale and needs to be updated.
+
+**Last updated:** ${needs.check-freshness.outputs.update-type === 'missing-date' ? 'Unknown' : '${needs.check-freshness.outputs.update-type === 'missing-file' ? 'Never' : 'More than 30 days ago'}'}
+
+This issue was automatically created by the documentation maintenance workflow.
+
+**Next Steps:**
+1. Review the documentation in \`docs/\` directory
+2. Update any outdated information
+3. Add new features or changes that aren't documented
+4. Fix any broken links found in the validation
+
+**Priority:** Medium
+**Labels:** documentation, maintenance, stale`,
+              labels: ['documentation', 'maintenance', 'stale'],
+              assignees: [context.actor]
+            })
+
+  # Schedule documentation review
+  schedule-review:
+    name: Schedule Documentation Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - name: Create review reminder
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Scheduled Documentation Review',
+              body: `This is a scheduled reminder to review and update the documentation.
+
+**Review Checklist:**
+- [ ] User guides are accurate and up-to-date
+- [ ] API documentation matches current implementation
+- [ ] Installation instructions work
+- [ ] Troubleshooting section covers common issues
+- [ ] Examples are still valid
+- [ ] Links are working
+- [ ] Screenshots and diagrams are current
+- [ ] New features are documented
+
+**Due Date:** In one week
+
+This issue was automatically created by the documentation maintenance workflow.`,
+              labels: ['documentation', 'review', 'scheduled'],
+              assignees: [context.actor]
+            })

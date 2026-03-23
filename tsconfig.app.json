@@ -1,0 +1,51 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Path Aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@/components/*": ["src/components/*"],
+      "@/lib/*": ["src/lib/*"],
+      "@/services/*": ["src/services/*"],
+      "@/types": ["src/types"],
+      "@/types/*": ["src/types/*"],
+      "@/hooks": ["src/hooks"],
+      "@/hooks/*": ["src/hooks/*"],
+      "@/constants": ["src/constants"],
+      "@/constants/*": ["src/constants/*"],
+      "@/utils": ["src/utils"],
+      "@/utils/*": ["src/utils/*"],
+      "@/ai": ["src/components/ai"],
+      "@/ai/*": ["src/components/ai/*"],
+      "@/editor": ["src/components/editor"],
+      "@/editor/*": ["src/components/editor/*"],
+      "@/preview": ["src/components/preview"],
+      "@/preview/*": ["src/components/preview/*"],
+      "@/sidebar": ["src/components/sidebar"],
+      "@/sidebar/*": ["src/components/sidebar/*"],
+      "@/visual": ["src/components/visual"],
+      "@/visual/*": ["src/components/visual/*"]
+    }
+  },
+  "include": ["src"]
+}

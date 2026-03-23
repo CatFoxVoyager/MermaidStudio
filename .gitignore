@@ -1,0 +1,190 @@
+# Dependencies
+node_modules/
+jspm_packages/
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+out/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swo
+*~
+
+# OS files
+Thumbs.db
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+.nyc_output/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+.parcel-cache/
+.vite/
+.turbo/
+
+# ESLint cache
+.eslintcache
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+.yarn-integrity
+
+# pnpm
+.pnp.*
+.pnp.js
+
+# Misc
+*.pid
+*.seed
+*.pid.lock
+.lock-wscript
+
+# Local development files (from CONTEXT.md decision: local-first simplicity)
+# Note: LocalStorage data is browser-based, not file-based
+# No local database files to ignore
+
+# Build artifacts
+.vite/
+.turbo/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Memory and core dumps
+*.core
+core
+
+# Claude Code (if using)
+.claude/
+
+# Planning directory (local project planning, not tracked)
+.planning/
+
+# Local development tools
+.serena/
+
+# Test output directories
+test-results/
+playwright-report/
+playwright/.cache/
+e2e-results/
+
+# Local override files
+*.local.ts
+*.local.tsx
+*.local.css
+
+# Vite
+*.vite/
+vite.config.ts.timestamp*
+
+# Docker development
+.dockerignore
+Dockerfile.dev
+
+# Generated types
+src/types/generated.d.ts
+src/types/api.d.ts
+
+# Storybook/Design system
+.storybook/
+*.stories.*
+
+# JetBrains
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VSCode specific
+.vscode/settings.local.json
+.vscode/tasks.json
+
+# Database files (if using local storage)
+*.db
+*.sqlite
+*.sqlite3
+
+# HMR cache
+.cache/
+
+# Playwright test reports
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Playwright MCP
+.playwright-mcp/
+
+# Backup files
+*.backup
+
+# Audit and report files
+npm-audit.json
+npm-outdated.json
+AUDIT_SUMMARY.md
+DEPENDENCY_AUDIT_REPORT.md
+
+# Generated project files
+PROJECT_INDEX.json
+PROJECT_INDEX.md
+licenses.json

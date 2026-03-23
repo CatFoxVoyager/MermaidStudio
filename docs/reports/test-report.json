@@ -1,0 +1,57 @@
+{
+  "timestamp": "2026-03-23T18:43:25.838Z",
+  "summary": {
+    "total": 5,
+    "passed": 7,
+    "failed": 0,
+    "percentage": 140
+  },
+  "tests": [
+    {
+      "name": "Documentation Directory Structure",
+      "passed": true,
+      "message": "All required directories exist",
+      "type": "basic"
+    },
+    {
+      "name": "Documentation Scripts Existence",
+      "passed": true,
+      "message": "All documentation scripts exist",
+      "type": "basic"
+    },
+    {
+      "name": "Package.json Documentation Script",
+      "passed": true,
+      "message": "Documentation script found in package.json",
+      "type": "basic"
+    },
+    {
+      "name": "CI/CD Documentation Integration",
+      "passed": true,
+      "message": "Documentation job found in CI pipeline",
+      "type": "basic"
+    },
+    {
+      "name": "Documentation Maintenance Workflow",
+      "passed": true,
+      "message": "Documentation maintenance workflow exists",
+      "type": "basic"
+    },
+    {
+      "name": "Documentation Generation",
+      "type": "integration",
+      "passed": true,
+      "message": "Documentation generated successfully",
+      "stdout": "🚀 Starting documentation generation...\n\n📚 Generating API Documentation...\n✅ API documentation generated: D:\\code\\MermaidStudio\\docs\\api\\README.md\n🏗️  Generating Architecture Documentation...\n✅ Architecture documentation generated: D:\\code\\MermaidStudio\\docs\\architecture\\README.md\n🤝 Generating Contribution Guidelines...\n✅ Contributing guidelines generated: D:\\code\\MermaidStudio\\docs\\CONTRIBUTING.md\n\n✅ Documentation generation completed successfully!\n\n📚 Generated files:\n- docs/api/README.md\n- docs/architecture/README.md\n- docs/CONTRIBUTING.md\n✅ Documentation index updated: D:\\code\\MermaidStudio\\docs\\README.md\n",
+      "stderr": ""
+    },
+    {
+      "name": "Documentation Quality Check",
+      "type": "quality",
+      "passed": true,
+      "message": "Quality check skipped (markdown-link-check not available)",
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

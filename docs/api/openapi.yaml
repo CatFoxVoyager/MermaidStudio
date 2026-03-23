@@ -1,0 +1,357 @@
+openapi: 3.0.0
+info:
+  title: MermaidStudio Internal API
+  version: 1.0.0
+  description: Internal API documentation for MermaidStudio application interfaces
+  contact:
+    name: MermaidStudio Team
+    email: dev@mermaidstudio.com
+
+servers:
+  - url: http://localhost:5173
+    description: Development server
+  - url: https://app.mermaidstudio.com
+    description: Production server
+
+paths:
+  # Component APIs
+  /components/app-layout:
+    get:
+      summary: Get AppLayout component documentation
+      description: Retrieve documentation for the main layout component
+      responses:
+        '200':
+          description: Component documentation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  props:
+                    type: object
+                    description: Component props interface
+                  usage:
+                    type: string
+                    description: Usage example
+                  events:
+                    type: array
+                    items:
+                      type: string
+                      description: Available events
+
+  /components/code-editor:
+    get:
+      summary: Get CodeEditor component documentation
+      description: Retrieve documentation for the code editor component
+      responses:
+        '200':
+          description: Component documentation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeEditor'
+
+  # Hook APIs
+  /hooks/use-theme:
+    get:
+      summary: Get useTheme hook documentation
+      description: Retrieve documentation for the theme management hook
+      responses:
+        '200':
+          description: Hook documentation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomHook'
+
+  /hooks/use-tabs:
+    get:
+      summary: Get useTabs hook documentation
+      description: Retrieve documentation for the tab management hook
+      responses:
+        '200':
+          description: Hook documentation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomHook'
+
+  # Service APIs
+  /services/storage:
+    post:
+      summary: Save diagram
+      description: Save a diagram to local storage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Diagram'
+      responses:
+        '200':
+          description: Diagram saved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  id:
+                    type: string
+        '400':
+          description: Invalid diagram data
+
+    get:
+      summary: Get all diagrams
+      description: Retrieve all stored diagrams
+      responses:
+        '200':
+          description: List of diagrams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Diagram'
+
+    delete:
+      summary: Delete diagram
+      description: Delete a diagram from local storage
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Diagram deleted successfully
+        '404':
+          description: Diagram not found
+
+  /services/ai/generate:
+    post:
+      summary: Generate diagram with AI
+      description: Generate a diagram using AI providers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                  description: Natural language description of the diagram
+                provider:
+                  type: string
+                  description: AI provider to use
+                model:
+                  type: string
+                  description: Specific model to use
+      responses:
+        '200':
+          description: Generated diagram
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  diagram:
+                    type: string
+                    description: Mermaid diagram syntax
+                  confidence:
+                    type: number
+                    description: Generation confidence score
+                  provider:
+                    type: string
+                    description: Used AI provider
+
+  # Mermaid APIs
+  /mermaid/render:
+    post:
+      summary: Render diagram
+      description: Render Mermaid syntax to SVG
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                  description: Mermaid diagram syntax
+                id:
+                  type: string
+                  description: Unique identifier for the diagram
+                theme:
+                  type: string
+                  enum: [light, dark]
+                  description: Theme for rendering
+      responses:
+        '200':
+          description: Rendered diagram
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiagramRenderResult'
+        '400':
+          description: Invalid diagram syntax
+
+  /mermaid/detect-type:
+    post:
+      summary: Detect diagram type
+      description: Detect the type of diagram from Mermaid syntax
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                  description: Mermaid diagram syntax
+      responses:
+        '200':
+          description: Detected diagram type
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    description: Diagram type
+                  confidence:
+                    type: number
+                    description: Detection confidence
+
+components:
+  schemas:
+    Diagram:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier
+        title:
+          type: string
+          description: Diagram title
+        content:
+          type: string
+          description: Mermaid diagram content
+        type:
+          type: string
+          description: Diagram type
+        createdAt:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+        tags:
+          type: array
+          items:
+            type: string
+          description: Diagram tags
+        folder:
+          type: string
+          description: Folder name
+
+    DiagramRenderResult:
+      type: object
+      properties:
+        svg:
+          type: string
+          description: Rendered SVG output
+        error:
+          type: string
+          nullable: true
+          description: Error message if rendering failed
+        renderTime:
+          type: number
+          description: Render time in milliseconds
+
+    CodeEditor:
+      type: object
+      properties:
+        content:
+          type: string
+          description: Editor content
+        onChange:
+          type: string
+          description: Change handler function
+        language:
+          type: string
+          enum: [mermaid]
+          description: Language mode
+        theme:
+          type: string
+          enum: [light, dark]
+          description: Editor theme
+        error:
+          type: string
+          nullable: true
+          description: Error message
+
+    CustomHook:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Hook name
+        description:
+          type: string
+          description: Hook description
+        return:
+          type: object
+          description: Return object
+        example:
+          type: string
+          description: Usage example
+
+    ValidationResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+          description: Whether the input is valid
+        error:
+          type: string
+          nullable: true
+          description: Error message if invalid
+
+    Toast:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Toast identifier
+        message:
+          type: string
+          description: Toast message
+        type:
+          type: string
+          enum: [success, error, warning]
+          description: Toast type
+        duration:
+          type: number
+          description: Toast duration in milliseconds
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Components
+    description: UI Components documentation
+  - name: Hooks
+    description: React Hooks documentation
+  - name: Services
+    description: Business logic services
+  - name: Mermaid
+    description: Mermaid integration utilities
