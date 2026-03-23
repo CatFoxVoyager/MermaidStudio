@@ -1,90 +1,128 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-/* ─── CSS Variables ──────────────────────────────────────────── */
+/* ─── Tailwind v4 CSS Configuration ───────────────────────────── */
+@theme {
+  /* Font Families */
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Custom Colors (mapped from CSS variables) */
+  --color-surface-base: oklch(var(--surface-base-rgb) / 1);
+  --color-surface-raised: oklch(var(--surface-raised-rgb) / 1);
+  --color-surface-floating: oklch(var(--surface-floating-rgb) / 1);
+  --color-border-subtle: oklch(var(--border-subtle-rgb) / 1);
+  --color-border-strong: oklch(var(--border-strong-rgb) / 1);
+  --color-text-primary: oklch(var(--text-primary-rgb) / 1);
+  --color-text-secondary: oklch(var(--text-secondary-rgb) / 1);
+  --color-text-tertiary: oklch(var(--text-tertiary-rgb) / 1);
+  --color-accent: oklch(var(--accent-rgb) / 1);
+  --color-accent-dim: oklch(var(--accent-rgb) / 0.1);
+
+  /* Custom Animations */
+  --animate-fade-in: fadeIn 0.15s ease-out;
+  --animate-slide-up: slideUp 0.2s ease-out;
+  --animate-slide-in-right: slideInRight 0.2s ease-out;
+  --animate-pulse-dot: pulseDot 1.2s ease-in-out infinite;
+}
+
+/* ─── CSS Variables (unchanged) ─────────────────────────────────── */
 :root {
-  --surface-base: #fafaf9;
-  --surface-raised: #ffffff;
-  --surface-floating: #f4f4f2;
-  --border-subtle: rgba(0,0,0,0.07);
-  --border-strong: rgba(0,0,0,0.14);
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
-  --accent: #0d7377;
-  --accent-dim: rgba(13,115,119,0.1);
-  --accent-rgb: 13,115,119;
+  --surface-base-rgb: 98% 98% 97%;
+  --surface-raised-rgb: 100% 100% 100%;
+  --surface-floating-rgb: 96% 96% 95%;
+  --border-subtle-rgb: 0 0 0 / 0.07;
+  --border-strong-rgb: 0 0 0 / 0.14;
+  --text-primary-rgb: 6% 9% 15%;
+  --text-secondary-rgb: 42% 45% 47%;
+  --text-tertiary-rgb: 61% 64% 66%;
+  --accent-rgb: 0.55 0.52 0.42;
 }
 
 .dark {
-  --surface-base: #0d1117;
-  --surface-raised: #161b22;
-  --surface-floating: #21262d;
-  --border-subtle: rgba(255,255,255,0.08);
-  --border-strong: rgba(255,255,255,0.16);
-  --text-primary: #f0f6fc;
-  --text-secondary: #8b949e;
-  --text-tertiary: #484f58;
-  --accent: #2dd4bf;
-  --accent-dim: rgba(45,212,191,0.12);
-  --accent-rgb: 45,212,191;
+  --surface-base-rgb: 5% 7% 9%;
+  --surface-raised-rgb: 9% 11% 13%;
+  --surface-floating-rgb: 13% 15% 18%;
+  --border-subtle-rgb: 255 255 255 / 0.08;
+  --border-strong-rgb: 255 255 255 / 0.16;
+  --text-primary-rgb: 94% 96% 99%;
+  --text-secondary-rgb: 55% 58% 62%;
+  --text-tertiary-rgb: 28% 31% 34%;
+  --accent-rgb: 0.75 0.85 0.82;
 }
 
-/* ─── Base ───────────────────────────────────────────────────── */
+/* ─── Custom Keyframes ──────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* ─── Base Styles (unchanged) ───────────────────────────────────── */
 * { box-sizing: border-box; }
 
 html { -webkit-font-smoothing: antialiased; }
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
-  background: var(--surface-base);
-  color: var(--text-primary);
+  font-family: var(--font-sans);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
   overflow: hidden;
 }
 
-/* ─── Scrollbars ──────────────────────────────────────────────── */
+/* ─── Scrollbars ────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(var(--accent-rgb), 0.5); }
+::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--color-accent) 50%, transparent); }
 
-/* ─── Keyboard badges ────────────────────────────────────────── */
+/* ─── Keyboard badges ───────────────────────────────────────────── */
 kbd {
   display: inline-flex;
   align-items: center;
   padding: 1px 5px;
   border-radius: 4px;
   font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
-  background: var(--surface-floating);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  background: var(--color-surface-floating);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-subtle);
 }
 
-/* ─── Preview grid ───────────────────────────────────────────── */
+/* ─── Preview grid ──────────────────────────────────────────────── */
 .preview-grid {
-  background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1px);
+  background-image: radial-gradient(circle, var(--color-border-strong) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
-/* ─── Mermaid ────────────────────────────────────────────────── */
+/* ─── Mermaid ────────────────────────────────────────────────────── */
 .mermaid-container svg { max-width: 100%; height: auto; }
 
-/* Mermaid HTML labels - ensure text is visible */
 .mermaid-container .nodeLabel,
 .mermaid-container .edgeLabel,
 .mermaid-container .cluster label,
 .mermaid-container div,
 .mermaid-container span {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-family: var(--font-sans) !important;
   font-size: 14px !important;
   color: inherit !important;
 }
 
-/* Ensure foreignObject content displays properly */
 .mermaid-container foreignObject {
   overflow: visible !important;
 }
@@ -95,20 +133,18 @@ kbd {
   white-space: nowrap !important;
 }
 
-/* Fix Mermaid node labels - ensure they are visible and properly colored */
 .mermaid-container .nodeLabel {
-  color: var(--text-primary) !important;
+  color: var(--color-text-primary) !important;
 }
 
 .mermaid-container .edgeLabel {
-  color: var(--text-secondary) !important;
+  color: var(--color-text-secondary) !important;
 }
 
 .mermaid-container .cluster .label {
-  color: var(--text-primary) !important;
+  color: var(--color-text-primary) !important;
 }
 
-/* Dark mode fixes */
 .dark .mermaid-container .nodeLabel,
 .dark .mermaid-container foreignObject div,
 .dark .mermaid-container foreignObject span {
@@ -119,15 +155,14 @@ kbd {
   color: #8b949e !important;
 }
 
-/* ─── CodeMirror ─────────────────────────────────────────────── */
+/* ─── CodeMirror ─────────────────────────────────────────────────── */
 .cm-editor { height: 100%; font-size: 13px; }
 .cm-editor.cm-focused { outline: none !important; }
 .cm-scroller {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+  font-family: var(--font-mono) !important;
   line-height: 1.65 !important;
 }
 
-/* Dark CM overrides */
 .dark .cm-editor { background: #0d1117 !important; }
 .dark .cm-gutters {
   background: #0d1117 !important;
@@ -139,7 +174,6 @@ kbd {
 .dark .cm-cursor { border-left-color: #2dd4bf !important; }
 .dark .cm-selectionBackground { background: rgba(45,212,191,0.15) !important; }
 
-/* Light CM overrides */
 .cm-editor { background: #fff !important; }
 .cm-gutters {
   background: #f4f4f2 !important;
@@ -151,17 +185,17 @@ kbd {
 .cm-cursor { border-left-color: #0d7377 !important; }
 .cm-selectionBackground { background: rgba(13,115,119,0.1) !important; }
 
-/* ─── Resize handle ──────────────────────────────────────────── */
+/* ─── Resize handle ──────────────────────────────────────────────── */
 .resize-handle {
   width: 4px;
   flex-shrink: 0;
   cursor: col-resize;
   position: relative;
-  background: var(--border-subtle);
+  background: var(--color-border-subtle);
   transition: background 0.15s;
 }
 .resize-handle:hover, .resize-handle.dragging {
-  background: rgba(var(--accent-rgb), 0.35);
+  background: color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 .resize-handle::after {
   content: '';
@@ -170,14 +204,14 @@ kbd {
   transform: translate(-50%, -50%);
   width: 2px; height: 28px;
   border-radius: 2px;
-  background: var(--border-strong);
+  background: var(--color-border-strong);
   transition: background 0.15s;
 }
 .resize-handle:hover::after, .resize-handle.dragging::after {
-  background: var(--accent);
+  background: var(--color-accent);
 }
 
-/* ─── Visual Editor ──────────────────────────────────────────── */
+/* ─── Visual Editor ──────────────────────────────────────────────── */
 .visual-node-overlay {
   border-radius: 4px;
   transition: outline 0.1s ease, background 0.1s ease;
@@ -186,45 +220,30 @@ kbd {
 }
 
 .visual-node-overlay:hover {
-  outline: 2px solid rgba(var(--accent-rgb), 0.55);
-  background: rgba(var(--accent-rgb), 0.06);
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
 }
 
 .visual-node-overlay.selected {
-  outline: 2px solid var(--accent);
-  background: rgba(var(--accent-rgb), 0.08);
+  outline: 2px solid var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
   animation: nodeSelect 0.15s ease-out;
 }
 
 .visual-node-overlay.connect-source {
-  outline: 2px dashed var(--accent);
-  background: rgba(var(--accent-rgb), 0.12);
+  outline: 2px dashed var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
 @keyframes nodeSelect {
-  from { outline-width: 4px; background: rgba(var(--accent-rgb), 0.18); }
-  to   { outline-width: 2px; background: rgba(var(--accent-rgb), 0.08); }
+  from { outline-width: 4px; background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
+  to   { outline-width: 2px; background: color-mix(in srgb, var(--color-accent) 8%, transparent); }
 }
 
-/* ─── Toast ──────────────────────────────────────────────────── */
+/* ─── Toast ───────────────────────────────────────────────────────── */
 .toast-enter { animation: slideUp 0.2s ease-out; }
 
-/* ─── Modal ─────────────────────────────────────────────────── */
+/* ─── Modal ───────────────────────────────────────────────────────── */
 .animate-fade-in { animation: fadeIn 0.15s ease-out; }
 .animate-slide-up { animation: slideUp 0.2s ease-out; }
 .animate-slide-in-right { animation: slideInRight 0.2s ease-out; }
-
-/* ─── Keyframes ──────────────────────────────────────────────── */
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes slideInRight {
-  from { opacity: 0; transform: translateX(12px); }
-  to   { opacity: 1; transform: translateX(0); }
-}
-@keyframes pulseDot {
-  0%, 100% { opacity: 0.3; transform: scale(0.8); }
-  50%       { opacity: 1;   transform: scale(1); }
-}
