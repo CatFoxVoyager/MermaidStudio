@@ -1,0 +1,64 @@
+sequenceDiagram
+    participant U as User
+    participant UI as User Interface
+    participant E as Code Editor
+    participant M as Mermaid Core
+    participant P as Preview Panel
+    participant S as Storage Service
+    participant AI as AI Service
+    participant LLM as LLM Provider
+
+    Note over U,LLM: Diagram Creation Flow
+
+    U->>UI: Click "New Diagram"
+    UI->>S: Create empty diagram
+    S->>UI: Return diagram ID
+    UI->>E: Open new tab with empty content
+
+    U->>E: Start typing diagram code
+    E->>E: Debounce input (300ms)
+    E->>M: renderDiagram(content, id)
+    M->>M: Parse & validate syntax
+    M->>M: Render SVG with theme
+    M->>P: Update preview
+    P->>UI: Display rendered diagram
+
+    U->>E: Press Ctrl+S to save
+    E->>S: saveDiagram(diagram)
+    S->>S: Store in localStorage
+    S->>E: Update tab as saved
+    E->>UI: Show "Saved" notification
+
+    Note over U,LLM: AI Generation Flow
+
+    U->>UI: Click "AI Generate" button
+    UI->>AI: Open AI panel
+    AI->>UI: Show prompt input
+    U->>AI: "Create a flowchart for user registration"
+    AI->>LLM: API call with prompt
+    LLM->>AI: Return generated diagram
+    AI->>E: Insert generated code
+    E->>M: renderDiagram(content, id)
+    M->>P: Update preview
+
+    Note over U,LLM: Error Handling Flow
+
+    M->>M: Detect syntax error
+    M->>E: Display error message
+    E->>UI: Show error in status bar
+    U->>UI: Click "Fix with AI"
+    UI->>AI: Call fixDiagram with error
+    AI->>LLM: API call with error context
+    LLM->>AI: Return fixed code
+    AI->>E: Replace with fixed code
+
+    Note over U,LLM: Version Control Flow
+
+    U->>UI: Click "Show History"
+    UI->>S: Get version history
+    S->>UI: Return version list
+    UI->>UI: Show history modal
+    U->>UI: Select version to restore
+    UI->>E: Replace content with selected version
+    E->>M: renderDiagram(content, id)
+    M->>P: Update preview

@@ -1,0 +1,120 @@
+graph TB
+    subgraph "Frontend Application"
+        subgraph "App Layer"
+            App[App.tsx]
+            Layout[AppLayout]
+            Modals[Modal System]
+        end
+
+        subgraph "Components"
+            Editor[Code Editor]
+            Workspace[Workspace Panel]
+            Preview[Preview Panel]
+            AI[AI Panel]
+            Visual[Visual Editor]
+            Sidebar[Sidebar]
+            Toolbar[Top Bar]
+        end
+
+        subgraph "Hooks & State"
+            Theme[useTheme]
+            Tabs[useTabs]
+            Toast[useToast]
+            Keyboard[useKeyboardShortcuts]
+            Modal[useModalManager]
+            Diagram[useDiagramActions]
+        end
+    end
+
+    subgraph "Core Services"
+        subgraph "Mermaid Integration"
+            Core[Mermaid Core]
+            Language[Language Extensions]
+            Autocomplete[Code Autocomplete]
+            Validate[Validation]
+        end
+
+        subgraph "AI Services"
+            Providers[AI Providers]
+            Generate[Diagram Generation]
+            Fix[Diagram Fixing]
+            Improve[Diagram Improvement]
+        end
+
+        subgraph "Storage Services"
+            LocalStorage[Local Storage]
+            Encryption[Data Encryption]
+            Versioning[Version History]
+        end
+    end
+
+    subgraph "External Dependencies"
+        subgraph "Libraries"
+            Mermaid[Mermaid v10.2.3]
+            React[React 18.2.0]
+            TypeScript[TypeScript 5.0.2]
+            Tailwind[Tailwind CSS]
+        end
+
+        subgraph "AI Providers"
+            OpenAI[OpenAI API]
+            Anthropic[Anthropic API]
+            Google[Google AI API]
+        end
+
+        subgraph "Build Tools"
+            Vite[Vite Build Tool]
+            ESLint[Code Linting]
+            Prettier[Code Formatting]
+        end
+    end
+
+    subgraph "Development & Testing"
+        subgraph "Testing"
+            Vitest[Vitest Framework]
+            Coverage[Test Coverage]
+            UI[UI Testing]
+        end
+
+        subgraph "Development"
+            DevTools[React DevTools]
+            HotReload[Hot Module Replacement]
+            Linting[Real-time Linting]
+        end
+    end
+
+    %% Connections
+    App --> Layout
+    Layout --> Editor
+    Layout --> Workspace
+    Layout --> Preview
+    Layout --> AI
+    Layout --> Visual
+    Layout --> Sidebar
+    Layout --> Toolbar
+
+    Editor --> Core
+    AI --> Providers
+    Preview --> Core
+    Visual --> Core
+
+    Core --> Mermaid
+    Providers --> OpenAI
+    Providers --> Anthropic
+    Providers --> Google
+
+    Theme --> React
+    Tabs --> React
+    Toast --> React
+    Keyboard --> React
+    Modal --> React
+    Diagram --> React
+
+    %% Service connections
+    LocalStorage --> Encryption
+    Versioning --> LocalStorage
+
+    %% Development connections
+    App --> DevTools
+    Editor --> HotReload
+    Vitest --> Coverage
