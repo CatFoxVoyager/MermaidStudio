@@ -172,7 +172,7 @@ jobs:
               title: 'Documentation Update Required',
               body: `Documentation is stale and needs to be updated.
 
-              **Last updated:** ${{ needs.check-freshness.outputs.update-type === 'missing-date' ? 'Unknown' : (needs.check-freshness.outputs.update-type === 'missing-file' ? 'Never' : 'More than 30 days ago') }}
+              **Last updated:** ${{ needs.check-freshness.outputs.update-type == 'missing-date' ? 'Unknown' : (needs.check-freshness.outputs.update-type == 'missing-file' ? 'Never' : 'More than 30 days ago') }}
 
               This issue was automatically created by the documentation maintenance workflow.
 
