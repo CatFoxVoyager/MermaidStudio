@@ -20,8 +20,12 @@ interface NodeOverlay {
   height: number;
 }
 
-function extractSvgNodes(container: HTMLDivElement): NodeOverlay[] {
-  const svg = container.querySelector('svg');
+function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElement): NodeOverlay[] {
+  // Find SVG in Shadow DOM
+  const shadowRoot = shadowHost.shadowRoot;
+  if (!shadowRoot) return [];
+
+  const svg = shadowRoot.querySelector('svg');
   if (!svg) {return [];}
 
   const nodeElements = svg.querySelectorAll('g.node, g.nodeLabel');
@@ -37,7 +41,7 @@ function extractSvgNodes(container: HTMLDivElement): NodeOverlay[] {
 
     try {
       const rect = el.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
+      const containerRect = outerContainer.getBoundingClientRect();
       overlays.push({
         id: nodeId,
         x: rect.left - containerRect.left,
@@ -72,6 +76,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const shadowHostRef = useRef<HTMLDivElement>(null);
+  const svgContainerRef = useRef<HTMLDivElement>(null);
   const svgNaturalSizeRef = useRef({ width: 0, height: 0 });
   const zoomRef = useRef(1);
   const renderIdRef = useRef(0);
@@ -187,7 +192,24 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     shadowRoot.appendChild(svgContainer);
 
     // Store reference for size calculations (pointing to SVG container in Shadow DOM)
-    containerRef.current = svgContainer as unknown as HTMLDivElement;
+    svgContainerRef.current = svgContainer as unknown as HTMLDivElement;
+
+    // Capture SVG natural size for fit-to-screen
+    const svgElement = svgContainer.querySelector('svg');
+    if (svgElement) {
+      svgNaturalSizeRef.current = {
+        width: svgElement.getAttribute('width') ? parseFloat(svgElement.getAttribute('width')!) : 0,
+        height: svgElement.getAttribute('height') ? parseFloat(svgElement.getAttribute('height')!) : 0,
+      };
+      // If no explicit size, use viewBox
+      if (svgNaturalSizeRef.current.width === 0 || svgNaturalSizeRef.current.height === 0) {
+        const viewBox = svgElement.getAttribute('viewBox');
+        if (viewBox) {
+          const [, , w, h] = viewBox.split(/\s+/).map(Number);
+          svgNaturalSizeRef.current = { width: w, height: h };
+        }
+      }
+    }
 
   }, [svg, content]);
 
@@ -202,9 +224,9 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
 
   // Extract node overlays after SVG renders
   useEffect(() => {
-    if (!svg || !containerRef.current) return;
+    if (!svg || !svgContainerRef.current || !containerRef.current || !shadowHostRef.current) return;
     const timer = setTimeout(() => {
-      const nodes = extractSvgNodes(containerRef.current);
+      const nodes = extractSvgNodes(containerRef.current!, shadowHostRef.current!);
       setNodeOverlays(nodes);
     }, 100);
     return () => clearTimeout(timer);
@@ -238,9 +260,9 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
   }
 
   const handleFitToScreen = useCallback(() => {
-    if (!containerRef.current) {return;}
+    if (!shadowHostRef.current?.shadowRoot) {return;}
 
-    const svgElement = containerRef.current?.querySelector('svg');
+    const svgElement = shadowHostRef.current.shadowRoot.querySelector('svg');
     if (!svgElement) {return;}
 
     const { width: naturalWidth, height: naturalHeight } = svgNaturalSizeRef.current;

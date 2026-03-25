@@ -172,18 +172,18 @@ jobs:
               title: 'Documentation Update Required',
               body: `Documentation is stale and needs to be updated.
 
-**Last updated:** ${needs.check-freshness.outputs.update-type === 'missing-date' ? 'Unknown' : '${needs.check-freshness.outputs.update-type === 'missing-file' ? 'Never' : 'More than 30 days ago'}'}
+              **Last updated:** ${{ needs.check-freshness.outputs.update-type === 'missing-date' ? 'Unknown' : (needs.check-freshness.outputs.update-type === 'missing-file' ? 'Never' : 'More than 30 days ago') }}
 
-This issue was automatically created by the documentation maintenance workflow.
+              This issue was automatically created by the documentation maintenance workflow.
 
-**Next Steps:**
-1. Review the documentation in \`docs/\` directory
-2. Update any outdated information
-3. Add new features or changes that aren't documented
-4. Fix any broken links found in the validation
+              **Next Steps:**
+              1. Review the documentation in \`docs/\` directory
+              2. Update any outdated information
+              3. Add new features or changes that aren't documented
+              4. Fix any broken links found in the validation
 
-**Priority:** Medium
-**Labels:** documentation, maintenance, stale`,
+              **Priority:** Medium
+              **Labels:** documentation, maintenance, stale`,
               labels: ['documentation', 'maintenance', 'stale'],
               assignees: [context.actor]
             })
@@ -204,19 +204,19 @@ This issue was automatically created by the documentation maintenance workflow.
               title: 'Scheduled Documentation Review',
               body: `This is a scheduled reminder to review and update the documentation.
 
-**Review Checklist:**
-- [ ] User guides are accurate and up-to-date
-- [ ] API documentation matches current implementation
-- [ ] Installation instructions work
-- [ ] Troubleshooting section covers common issues
-- [ ] Examples are still valid
-- [ ] Links are working
-- [ ] Screenshots and diagrams are current
-- [ ] New features are documented
+              **Review Checklist:**
+              - [ ] User guides are accurate and up-to-date
+              - [ ] API documentation matches current implementation
+              - [ ] Installation instructions work
+              - [ ] Troubleshooting section covers common issues
+              - [ ] Examples are still valid
+              - [ ] Links are working
+              - [ ] Screenshots and diagrams are current
+              - [ ] New features are documented
 
-**Due Date:** In one week
+              **Due Date:** In one week
 
-This issue was automatically created by the documentation maintenance workflow.`,
+              This issue was automatically created by the documentation maintenance workflow.`,
               labels: ['documentation', 'review', 'scheduled'],
               assignees: [context.actor]
             })
