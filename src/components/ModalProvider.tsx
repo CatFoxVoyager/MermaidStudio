@@ -6,6 +6,7 @@ import { BackupPanel } from '@/components/modals/tools/BackupPanel';
 import { SaveTemplateModal } from '@/components/modals/diagram/SaveTemplateModal';
 import { FullscreenPreview } from '@/preview/FullscreenPreview';
 import { AISettingsModal } from '@/ai/AISettingsModal';
+import { KeyboardShortcuts } from '@/components/modals/tools/KeyboardShortcuts';
 import { Toast } from '@/components/shared/Toast';
 import type { Diagram, Template } from '@/types';
 
@@ -18,6 +19,7 @@ interface ModalProviderProps {
   showBackup: boolean;
   showSaveTemplate: boolean;
   showAISettings: boolean;
+  showHelp: boolean;
   showFullscreen: boolean;
   // Callbacks
   onCloseTemplates: () => void;
@@ -27,6 +29,7 @@ interface ModalProviderProps {
   onCloseBackup: () => void;
   onCloseSaveTemplate: () => void;
   onCloseAISettings: () => void;
+  onCloseHelp: () => void;
   onCloseFullscreen: () => void;
   // Modal-specific props
   activeTab?: { id: string; title: string; content: string; diagram_id: string } | null;
@@ -56,6 +59,7 @@ export function ModalProvider({
   showBackup,
   showSaveTemplate,
   showAISettings,
+  showHelp,
   showFullscreen,
   onCloseTemplates,
   onCloseHistory,
@@ -64,6 +68,7 @@ export function ModalProvider({
   onCloseBackup,
   onCloseSaveTemplate,
   onCloseAISettings,
+  onCloseHelp,
   onCloseFullscreen,
   activeTab,
   handleTemplateSelect,
@@ -125,6 +130,11 @@ export function ModalProvider({
       {showAISettings && setAiSettingsKey && (
         <AISettingsModal
           onClose={() => { onCloseAISettings(); setAiSettingsKey(k => k + 1); }}
+        />
+      )}
+      {showHelp && (
+        <KeyboardShortcuts
+          onClose={onCloseHelp}
         />
       )}
       {showBackup && (

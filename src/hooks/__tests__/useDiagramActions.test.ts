@@ -21,6 +21,12 @@ vi.mock('@/services/storage/database', () => ({
     parent_id: null,
     created_at: new Date().toISOString(),
   })),
+  getSettings: vi.fn(() => Promise.resolve({
+    theme: 'light',
+    language: 'en',
+    lastOpenDiagramId: null,
+  })),
+  updateSettings: vi.fn(() => Promise.resolve()),
 }));
 
 // Mock i18n

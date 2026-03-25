@@ -45,6 +45,8 @@ export interface ModalState {
   showSaveTemplate: boolean;
   /** AI settings modal visibility */
   showAISettings: boolean;
+  /** Help modal visibility */
+  showHelp: boolean;
   /** Fullscreen preview visibility */
   showFullscreen: boolean;
   /** Diagram colors panel visibility */
@@ -70,6 +72,7 @@ const INITIAL_MODAL_STATE: ModalState = {
   showBackup: false,
   showSaveTemplate: false,
   showAISettings: false,
+  showHelp: false,
   showFullscreen: false,
   showDiagramColors: false,
   showAdvancedStyle: false,

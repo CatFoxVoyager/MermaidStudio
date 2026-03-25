@@ -10,6 +10,8 @@ import {
   useToast,
   useDiagramActions,
   useModalProviderProps,
+  useAppShortcuts,
+  useKeyboardShortcuts,
 } from '@/hooks';
 
 export default function App() {
@@ -42,6 +44,18 @@ export default function App() {
   const modalOpen = (n: keyof typeof modals) => () => openModal(n);
   const modalToggle = (n: keyof typeof modals) => () => toggleModal(n);
 
+  const shortcuts = useAppShortcuts({
+    openModal,
+    toggleModal,
+    newDiagram,
+    activeTab,
+    handleSave: modalProps.handleSave,
+    toggleFocusMode: modalProps.toggleFocusMode,
+    setSidebarOpen,
+  });
+
+  useKeyboardShortcuts(shortcuts);
+
   return (
     <>
       <AppLayout
@@ -55,7 +69,7 @@ export default function App() {
       />
       <ModalProvider
         {...modals}
-        onCloseTemplates={modalClose('showTemplates')} onCloseHistory={modalClose('showHistory')} onCloseExport={modalClose('showExport')} onClosePalette={modalClose('showPalette')} onCloseBackup={modalClose('showBackup')} onCloseSaveTemplate={modalClose('showSaveTemplate')} onCloseAISettings={modalClose('showAISettings')} onCloseFullscreen={modalClose('showFullscreen')}
+        onCloseTemplates={modalClose('showTemplates')} onCloseHistory={modalClose('showHistory')} onCloseExport={modalClose('showExport')} onClosePalette={modalClose('showPalette')} onCloseBackup={modalClose('showBackup')} onCloseSaveTemplate={modalClose('showSaveTemplate')} onCloseAISettings={modalClose('showAISettings')} onCloseHelp={modalClose('showHelp')} onCloseFullscreen={modalClose('showFullscreen')}
         activeTab={activeTab} handleTemplateSelect={handleTemplateSelect} handleRestore={modalProps.handleRestore} handleCopyLink={modalProps.handleCopyLink}
         newDiagram={newDiagram} handleNewFolder={handleNewFolder} diagrams={diagrams} onOpenDiagram={openDiagram}
         toggleAI={modalToggle('showAI')} toggleTheme={toggleTheme} theme={theme as 'light' | 'dark'} aiSettingsKey={aiSettingsKey} setAiSettingsKey={setAiSettingsKey}

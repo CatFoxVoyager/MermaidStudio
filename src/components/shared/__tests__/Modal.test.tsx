@@ -277,7 +277,7 @@ describe('Modal Component', () => {
         </Modal>
       );
       const overlay = screen.getByTestId('modal-overlay');
-      expect(overlay).toHaveClass('backdrop-blur-xs');
+      expect(overlay).toHaveClass('backdrop-blur-sm');
     });
   });
 });

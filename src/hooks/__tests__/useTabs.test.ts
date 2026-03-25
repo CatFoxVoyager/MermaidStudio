@@ -17,6 +17,12 @@ vi.mock('@/services/storage/database', () => ({
   })),
   updateDiagram: vi.fn(() => Promise.resolve()),
   saveVersion: vi.fn(() => Promise.resolve()),
+  getSettings: vi.fn(() => Promise.resolve({
+    theme: 'light',
+    language: 'en',
+    lastOpenDiagramId: null,
+  })),
+  updateSettings: vi.fn(() => Promise.resolve()),
 }));
 
 describe('useTabs Hook', () => {
@@ -220,7 +226,13 @@ describe('useTabs Hook', () => {
 
       await act(async () => {
         await result.current.openDiagram('diagram-1');
+      });
+      
+      await act(async () => {
         await result.current.openDiagram('diagram-2');
+      });
+
+      act(() => {
         result.current.setActiveTabId('tab_diagram-1');
       });
 

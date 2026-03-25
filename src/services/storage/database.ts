@@ -139,7 +139,15 @@ async function migrateFromLocalStorage(): Promise<DBData> {
 async function getFromLocalStorageFallback(): Promise<DBData> {
   try {
     const raw = localStorage.getItem(LOCAL_KEY);
-    if (raw) {return JSON.parse(raw) as DBData;}
+    if (raw) {
+      const parsed = JSON.parse(raw) as DBData;
+      // Apply migrations if needed (same as migrateFromLocalStorage)
+      if (parsed.userTemplates) {parsed.userTemplates = [];}
+      if (parsed.settings.ai_provider) {parsed.settings.ai_provider = 'openai';}
+      if (parsed.settings.ai_base_url) {parsed.settings.ai_base_url = 'https://api.openai.com';}
+      if (parsed.settings.ai_model) {parsed.settings.ai_model = 'gpt-5.3-instant';}
+      return parsed;
+    }
   } catch (error) {
     console.warn('[DB] Failed to read from localStorage fallback:', error);
   }

@@ -31,6 +31,12 @@ vi.mock('@/services/storage/database', () => ({
   getDiagram: vi.fn(() => Promise.resolve({ id: 'diagram-1', title: 'Test Diagram', content: 'graph TD\nA-->B' })),
   updateDiagram: vi.fn(() => Promise.resolve()),
   saveVersion: vi.fn(() => Promise.resolve()),
+  getSettings: vi.fn(() => Promise.resolve({
+    theme: 'light',
+    language: 'en',
+    lastOpenDiagramId: null,
+  })),
+  updateSettings: vi.fn(() => Promise.resolve()),
 }));
 
 // Mock Mermaid
