@@ -203,7 +203,14 @@ export function WorkspacePanel({
           </div>
           <div className={`resize-handle ${dragging ? 'dragging' : ''}`} onMouseDown={onMouseDown} />
           <div style={{ width: `${100 - splitPos}%` }} className="flex flex-col overflow-hidden">
-            <PreviewPanel content={activeTab.content} theme={theme} onExport={onShowExport} onRenderTime={onRenderTime} onFullscreen={onFullscreen} />
+            <PreviewPanel
+              content={activeTab.content}
+              theme={theme}
+              onChange={v => onContentChange(activeTab.id, v)}
+              onExport={onShowExport}
+              onRenderTime={onRenderTime}
+              onFullscreen={onFullscreen}
+            />
           </div>
         </div>
       )}
