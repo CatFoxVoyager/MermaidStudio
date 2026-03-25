@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle, Copy, Check, Download, Move } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle, Copy, Check, Download, Move, X } from 'lucide-react';
 import { renderDiagram, detectDiagramType } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
-import { parseFrontmatter } from '@/lib/mermaid/codeUtils';
+import { parseFrontmatter, parseDiagram, updateNodeStyle, getNodeStyle } from '@/lib/mermaid/codeUtils';
+import { ColorPicker } from '@/components/visual/ColorPicker';
+import type { NodeStyle } from '@/lib/mermaid/codeUtils';
 
 const TYPE_LABELS: Record<string, string> = {
   flowchart: 'Flowchart', sequence: 'Sequence', classDiagram: 'Class',
@@ -10,20 +12,64 @@ const TYPE_LABELS: Record<string, string> = {
   pie: 'Pie', mindmap: 'Mindmap', gitGraph: 'Git Graph', unknown: 'Diagram',
 };
 
+interface NodeOverlay {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function extractSvgNodes(container: HTMLDivElement): NodeOverlay[] {
+  const svg = container.querySelector('svg');
+  if (!svg) {return [];}
+
+  const nodeElements = svg.querySelectorAll('g.node, g.nodeLabel');
+  const overlays: NodeOverlay[] = [];
+  const seen = new Set<string>();
+
+  nodeElements.forEach(el => {
+    const idAttr = el.id ?? '';
+    const flowchartMatch = idAttr.match(/flowchart-([^-]+)-\d+/);
+    const nodeId = flowchartMatch ? flowchartMatch[1] : null;
+    if (!nodeId || seen.has(nodeId)) {return;}
+    seen.add(nodeId);
+
+    try {
+      const rect = el.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      overlays.push({
+        id: nodeId,
+        x: rect.left - containerRect.left,
+        y: rect.top - containerRect.top,
+        width: rect.width,
+        height: rect.height,
+      });
+    } catch {
+      // skip
+    }
+  });
+
+  return overlays;
+}
+
 interface Props {
   content: string;
   theme: 'dark' | 'light';
+  onChange?: (content: string) => void;
   onExport?: () => void;
   onRenderTime?: (ms: number) => void;
   onFullscreen?: () => void;
 }
 
-export function PreviewPanel({ content, theme, onExport, onRenderTime, onFullscreen }: Props) {
+export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime, onFullscreen }: Props) {
   const [svg, setSvg] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [copied, setCopied] = useState(false);
+  const [nodeOverlays, setNodeOverlays] = useState<Array<NodeOverlay>>([]);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const shadowHostRef = useRef<HTMLDivElement>(null);
   const svgNaturalSizeRef = useRef({ width: 0, height: 0 });
@@ -154,6 +200,36 @@ export function PreviewPanel({ content, theme, onExport, onRenderTime, onFullscr
     };
   }, []);
 
+  // Extract node overlays after SVG renders
+  useEffect(() => {
+    if (!svg || !containerRef.current) return;
+    const timer = setTimeout(() => {
+      const nodes = extractSvgNodes(containerRef.current);
+      setNodeOverlays(nodes);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [svg, zoom]);
+
+  // Node click handlers
+  const handleNodeClick = useCallback((e: React.MouseEvent, nodeId: string) => {
+    e.stopPropagation();
+    setSelectedNodeId(nodeId === selectedNodeId ? null : nodeId);
+  }, [selectedNodeId]);
+
+  const handleCanvasClick = useCallback(() => {
+    setSelectedNodeId(null);
+  }, []);
+
+  // Color change handler
+  const handleColorChange = useCallback((field: keyof NodeStyle, value: string) => {
+    if (!selectedNodeId || !onChange) return;
+    const parsed = parseDiagram(content);
+    const currentStyle = getNodeStyle(parsed.styles, parsed.classDefs, parsed.nodeClasses, selectedNodeId);
+    const updatedStyle = { ...currentStyle, [field]: value };
+    const updatedContent = updateNodeStyle(content, selectedNodeId, updatedStyle);
+    onChange(updatedContent);
+  }, [selectedNodeId, content, onChange]);
+
   async function copySvg() {
     if (!svg) {return;}
     await navigator.clipboard.writeText(svg);
@@ -197,6 +273,12 @@ export function PreviewPanel({ content, theme, onExport, onRenderTime, onFullscr
   }, []);
 
   const type = detectDiagramType(content);
+
+  // Get selected node data for color picker
+  const parsed = parseDiagram(content);
+  const selectedNodeStyle = selectedNodeId
+    ? getNodeStyle(parsed.styles, parsed.classDefs, parsed.nodeClasses, selectedNodeId)
+    : null;
 
   return (
     <div data-testid="preview-panel" className="flex flex-col h-full" style={{ background: 'var(--surface-raised)' }}>
@@ -250,7 +332,7 @@ export function PreviewPanel({ content, theme, onExport, onRenderTime, onFullscr
         </div>
       </div>
 
-      <div ref={containerRef} className="flex-1 overflow-auto preview-grid">
+      <div ref={containerRef} className="flex-1 overflow-auto preview-grid" onClick={handleCanvasClick}>
         {error ? (
           <div className="flex flex-col items-center justify-center h-full p-8 text-center" data-testid="error-message">
             <div className="w-10 h-10 rounded-full flex items-center justify-center mb-3"
@@ -287,6 +369,72 @@ export function PreviewPanel({ content, theme, onExport, onRenderTime, onFullscr
                 height: '100%'
               }}
             />
+
+            {selectedNodeId && selectedNodeStyle && onChange && (
+              <div className="absolute top-2 left-2 z-20 w-64 rounded-xl border shadow-lg p-3 animate-fade-in"
+                style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
+                <div className="flex items-center justify-between mb-3 pb-2 border-b"
+                  style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      Edit Node
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium"
+                      style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
+                      {selectedNodeId}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setSelectedNodeId(null)}
+                    className="p-1 rounded-sm transition-colors hover:bg-white/8"
+                    style={{ color: 'var(--text-tertiary)' }}
+                    title="Close">
+                    <X size={12} />
+                  </button>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <ColorPicker
+                    label="Fill Color"
+                    value={selectedNodeStyle.fill ?? ''}
+                    onChange={v => handleColorChange('fill', v)}
+                  />
+                  <ColorPicker
+                    label="Border Color"
+                    value={selectedNodeStyle.stroke ?? ''}
+                    onChange={v => handleColorChange('stroke', v)}
+                  />
+                  <ColorPicker
+                    label="Text Color"
+                    value={selectedNodeStyle.color ?? ''}
+                    onChange={v => handleColorChange('color', v)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {nodeOverlays.map(overlay => {
+              const isSelected = overlay.id === selectedNodeId;
+              return (
+                <div
+                  key={overlay.id}
+                  onClick={e => handleNodeClick(e, overlay.id)}
+                  className={`node-overlay ${isSelected ? 'selected' : ''}`}
+                  style={{
+                    position: 'absolute',
+                    left: overlay.x,
+                    top: overlay.y,
+                    width: overlay.width,
+                    height: overlay.height,
+                    cursor: 'pointer',
+                    zIndex: 5,
+                    border: isSelected ? '2px solid var(--accent)' : '2px solid transparent',
+                    borderRadius: '4px',
+                    transition: 'border-color 0.15s',
+                  }}
+                  title={`Click to edit ${overlay.id}`}
+                />
+              );
+            })}
           </div>
         )}
       </div>
