@@ -702,10 +702,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
                   overflowY: 'auto'
                 }}
               >
-                <div className="sticky top-0 p-2 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-base)' }}>
-                  <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>
-                    Click a node to change color
-                  </span>
+                <div className="sticky top-0 p-2 border-b flex items-center justify-end" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-base)' }}>
                   <button
                     onClick={() => setShowNodeColorsPanel(false)}
                     className="p-1 rounded-sm transition-colors hover:bg-white/8"
