@@ -160,6 +160,36 @@ function extractBranchesAndAssignColors(content: string, palette: ColorPalette):
 function applyNodeStyles(content: string, nodeStyles: NodeStyle[]): string {
   if (nodeStyles.length === 0) return content;
 
+  // Extract diagram body (without YAML frontmatter) for type detection
+  const bodyContent = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
+
+  // Diagram types that DO NOT support class/classDef
+  const unsupportedTypes = [
+    /sequenceDiagram|sequencediagram/i,
+    /gantt/i,
+    /pie/i,
+    /erDiagram|erdiagram/i,
+    /gitGraph/i,
+    /journey/i,
+    /requirementDiagram/i,
+    /quadrantChart/i,
+    /xychart-beta/i,
+    /sankey-beta/i,
+    /timeline/i,
+    /mindmap/i,
+    /stateDiagram|statediagram/i,
+    /block/i,
+    /c4/i,
+  ];
+
+  // Check if this is an unsupported diagram type
+  const isUnsupported = unsupportedTypes.some(regex => regex.test(bodyContent));
+
+  // If unsupported, don't apply any node styles
+  if (isUnsupported) {
+    return content;
+  }
+
   // Remove existing class definitions and assignments
   let cleaned = content.replace(/classDef\s+\w+\s+([^\n]+)/gi, '');
   cleaned = cleaned.replace(/class\s+[^,\n]+(,\s*[^,\n]+)*/gi, '');
