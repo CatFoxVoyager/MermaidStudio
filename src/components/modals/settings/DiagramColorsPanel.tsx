@@ -1,4 +1,4 @@
-import { RotateCcw, X, Palette, Hash, Plus, ChevronDown, Check } from 'lucide-react';
+import { RotateCcw, X, Palette, Check } from 'lucide-react';
 import { colorPalettes } from '@/constants/colorPalettes';
 import type { ColorPalette } from '@/types';
 import { useTranslation } from 'react-i18next';
@@ -177,16 +177,15 @@ function applyNodeStyles(content: string, nodeStyles: NodeStyle[]): string {
     /pie/i,
     /erDiagram|erdiagram/i,
     /gitGraph/i,
-    /journey/i,
     /requirementDiagram/i,
     /quadrantChart/i,
     /xychart-beta/i,
     /sankey-beta/i,
     /timeline/i,
     /mindmap/i,
-    /stateDiagram|statediagram/i,
-    /block/i,
-    /c4/i,
+    /zenuml/i,
+    /kanban/i,
+    /packet/i,
   ];
 
   // Check if this is an unsupported diagram type
@@ -261,19 +260,6 @@ function extractCurrentPalette(content: string): ColorPalette | null {
   return colorPalettes.find(p => p.colors.primary.toUpperCase() === primaryColor) || null;
 }
 
-const PREDEFINED_COLORS = [
-  '#FF6B6B', '#EE5A5A', '#DC2626', '#B91C1C',
-  '#FFA07A', '#FF9F43', '#F59E0B', '#EA580C',
-  '#FFD93D', '#FCD34D', '#FBBF24', '#EAB308',
-  '#6BCF7F', '#4ADE80', '#22C55E', '#16A34A',
-  '#2DD4BF', '#14B8A6', '#0D9488', '#0F766E',
-  '#74C0FC', '#60A5FA', '#3B82F6', '#2563EB',
-  '#A78BFA', '#8B5CF6', '#7C3AED', '#6D28D9',
-  '#C084FC', '#A855F7', '#9333EA', '#7E22CE',
-  '#F472B6', '#EC4899', '#DB2777', '#BE185D',
-  '#F3F4F6', '#D1D5DB', '#9CA3AF', '#6B7280',
-];
-
 const SAMPLE_DIAGRAM = `flowchart TD
     A[Start] --> B{Decision}
     B -->|Yes| C[Process A]
@@ -293,8 +279,6 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
 
   // Node Styles state
   const [nodeStyles, setNodeStyles] = useState<NodeStyle[]>([]);
-  const [showNodeColorsPicker, setShowNodeColorsPicker] = useState(false);
-  const [expandedNodeId, setExpandedNodeId] = useState<string | null>(null);
 
   // Initialize node styles from current content
   useEffect(() => {
@@ -350,16 +334,6 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
   };
 
   // Apply individual node color change
-  const handleNodeColorChange = (nodeId: string, color: string) => {
-    const updatedStyles = nodeStyles.map(ns => ns.id === nodeId ? { ...ns, color } : ns);
-    setNodeStyles(updatedStyles);
-
-    // Immediately apply to diagram
-    const cleanContent = stripThemeDirective(currentContent);
-    const contentWithNodeColors = applyNodeStyles(cleanContent, updatedStyles);
-    onContentChange(contentWithNodeColors);
-  };
-
   const handleResetToDefault = () => {
     if (currentContent) {
       onContentChange(stripThemeDirective(currentContent));
@@ -367,40 +341,6 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
       setSelectedPalette(null);
     }
   };
-
-  const toggleNodeExpanded = (nodeId: string) => {
-    setExpandedNodeId(expandedNodeId === nodeId ? null : nodeId);
-  };
-
-  const getPaletteColors = () => {
-    if (!activePalette) {
-      return PREDEFINED_COLORS;
-    }
-    const c = activePalette.colors;
-    return [
-      c.primary,
-      c.secondary,
-      c.accent,
-      c.success,
-      c.warning,
-      c.error,
-      c.neutral_light,
-      c.neutral_dark,
-      adjustBrightness(c.primary, 20),
-      adjustBrightness(c.primary, -20),
-      adjustBrightness(c.secondary, 20),
-      adjustBrightness(c.secondary, -20),
-    ];
-  };
-
-  function adjustBrightness(hex: string, percent: number): string {
-    const num = parseInt(hex.replace('#', ''), 16);
-    const amt = Math.round(2.55 * percent);
-    const R = Math.min(255, Math.max(0, (num >> 16) + amt));
-    const G = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amt));
-    const B = Math.min(255, Math.max(0, (num & 0x0000FF) + amt));
-    return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
-  }
 
   if (!isOpen) {return null;}
 
@@ -511,22 +451,10 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
               {/* Preview Section - Below the palette colors, shown on click */}
               {showPreview && (
                 <div className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
                     <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>
                       Preview
                     </span>
-                    <button
-                      onClick={() => setShowNodeColorsPicker(!showNodeColorsPicker)}
-                      className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-medium transition-colors"
-                      style={{
-                        color: showNodeColorsPicker ? 'white' : 'var(--accent)',
-                        background: showNodeColorsPicker ? 'var(--accent)' : 'transparent',
-                        border: showNodeColorsPicker ? 'none' : '1px solid var(--accent)'
-                      }}
-                    >
-                      <Hash size={10} />
-                      {showNodeColorsPicker ? 'Hide Colors' : 'Color Nodes'}
-                    </button>
                   </div>
                   <div className="relative">
                     {/* Preview Diagram */}
@@ -543,94 +471,6 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
                       />
                     </div>
 
-                    {/* Floating Node Colors Picker */}
-                    {showNodeColorsPicker && nodeStyles.length > 0 && (
-                      <div
-                        className="absolute border rounded-lg shadow-lg z-10"
-                        style={{
-                          background: 'var(--surface-raised)',
-                          borderColor: 'var(--border-subtle)',
-                          bottom: '10px',
-                          left: '10px',
-                          right: '10px',
-                          maxHeight: '160px',
-                          overflowY: 'auto'
-                        }}
-                      >
-                        <div className="p-2 border-b sticky top-0" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-base)' }}>
-                          <span className="text-[9px] font-medium" style={{ color: 'var(--text-secondary)' }}>
-                            Click a node to change color
-                          </span>
-                        </div>
-                        <div className="p-2 space-y-1">
-                          {nodeStyles.map((node) => (
-                            <div key={node.id}>
-                              <div
-                                className="flex items-center gap-2 px-2 py-1.5 rounded border cursor-pointer hover:bg-white/4 transition-colors"
-                                style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}
-                                onClick={() => toggleNodeExpanded(node.id)}
-                              >
-                                <div
-                                  className="w-4 h-4 rounded border shrink-0"
-                                  style={{ backgroundColor: node.color, borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }}
-                                />
-                                <span className="text-[9px] truncate flex-1" style={{ color: 'var(--text-primary)' }}>
-                                  {node.label}
-                                </span>
-                                <ChevronDown
-                                  size={10}
-                                  style={{
-                                    color: 'var(--text-tertiary)',
-                                    transform: expandedNodeId === node.id ? 'rotate(180deg)' : 'rotate(0deg)',
-                                    transition: 'transform 0.2s'
-                                  }}
-                                />
-                              </div>
-
-                              {expandedNodeId === node.id && (
-                                <div className="mt-1 p-2 rounded border" style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
-                                  <div className="grid grid-cols-6 gap-1 mb-2">
-                                    {getPaletteColors().slice(0, 12).map((color, index) => (
-                                      <button
-                                        key={`${color}-${index}`}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleNodeColorChange(node.id, color);
-                                        }}
-                                        className="w-6 h-6 rounded border hover:scale-110 transition-transform"
-                                        style={{
-                                          backgroundColor: color,
-                                          borderColor: node.color === color ? 'var(--accent)' : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'),
-                                          borderWidth: node.color === color ? '2px' : '1px'
-                                        }}
-                                        title={color}
-                                      />
-                                    ))}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-[8px]" style={{ color: 'var(--text-tertiary)' }}>Custom:</span>
-                                    <input
-                                      type="text"
-                                      value={node.color}
-                                      onChange={(e) => handleNodeColorChange(node.id, e.target.value)}
-                                      className="flex-1 px-1.5 py-0.5 text-[8px] font-mono rounded border outline-hidden"
-                                      style={{
-                                        background: 'var(--surface-base)',
-                                        borderColor: 'var(--border-subtle)',
-                                        color: 'var(--text-primary)'
-                                      }}
-                                      placeholder="#0066CC"
-                                      maxLength={7}
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}

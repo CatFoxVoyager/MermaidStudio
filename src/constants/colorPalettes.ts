@@ -1,4 +1,4 @@
-import type { ColorPalette, DiagramStyleOptions } from '@/types';
+import type { ColorPalette, DiagramStyleOptions, LayoutEngine } from '@/types';
 
 export const colorPalettes: ColorPalette[] = [
   {
@@ -406,25 +406,92 @@ function objectToYaml(obj: Record<string, unknown>, indent: number = 0): string 
   return result;
 }
 
-export function generateStyleOnlyConfig(styleOptions: DiagramStyleOptions): string {
+export function generateStyleOnlyConfig(styleOptions: DiagramStyleOptions, diagramType?: string): string {
   const config: Record<string, unknown> = {
     theme: 'base',
     themeVariables: {
       fontFamily: styleOptions.fontFamily,
       fontSize: styleOptions.fontSize + 'px',
     },
-    flowchart: {
-      curve: styleOptions.curveStyle,
-      padding: styleOptions.nodePadding,
-      htmlLabels: true,
-      nodeSpacing: styleOptions.nodeSpacing,
-      rankSpacing: styleOptions.rankSpacing,
-      useMaxWidth: styleOptions.useMaxWidth,
-    },
   };
 
-  if (styleOptions.layoutEngine && styleOptions.layoutEngine !== 'dagre') {
-    config.layout = styleOptions.layoutEngine;
+  // Detect diagram type if not provided
+  const type = diagramType || detectDiagramTypeFromContent('');
+
+  // Add type-specific configuration
+  switch (type) {
+    case 'flowchart':
+    case 'graph':
+    case 'flowchart,sequence':
+    case 'journey':
+    case 'c4':
+    case 'block':
+    case 'architecture':
+      config.flowchart = {
+        curve: styleOptions.curveStyle,
+        padding: styleOptions.nodePadding,
+        htmlLabels: true,
+        nodeSpacing: styleOptions.nodeSpacing,
+        rankSpacing: styleOptions.rankSpacing,
+        useMaxWidth: styleOptions.useMaxWidth,
+      };
+      if (styleOptions.layoutEngine && styleOptions.layoutEngine !== 'dagre') {
+        config.layout = styleOptions.layoutEngine;
+      }
+      break;
+
+    case 'sequence':
+    case 'sequencediagram':
+      config.sequence = {
+        diagramMarginX: styleOptions.diagramMarginX ?? 50,
+        diagramMarginY: styleOptions.diagramMarginY ?? 10,
+        actorMargin: styleOptions.actorMargin ?? 50,
+        width: styleOptions.actorWidth ?? 150,
+        height: styleOptions.actorHeight ?? 65,
+        boxMargin: styleOptions.boxMargin ?? 10,
+        mirrorActors: styleOptions.mirrorActors ?? false,
+        useMaxWidth: true,
+      };
+      break;
+
+    case 'gantt':
+      config.gantt = {
+        titleTopMargin: styleOptions.titleTopMargin ?? 25,
+        barHeight: styleOptions.barHeight ?? 20,
+        barGap: styleOptions.barGap ?? 4,
+        topPadding: styleOptions.topPadding ?? 50,
+        leftPadding: styleOptions.leftPadding ?? 75,
+        axisFormat: styleOptions.axisFormat ?? '%Y-%m-%d',
+        sectionMargin: styleOptions.sectionMargin ?? 10,
+      };
+      break;
+
+    case 'statediagram':
+    case 'state':
+    case 'stateDiagram':
+    case 'classdiagram':
+    case 'class':
+    case 'classDiagram':
+    case 'erdiagram':
+    case 'er':
+    case 'erDiagram':
+      // These use flowchart config for layout
+      config.flowchart = {
+        curve: styleOptions.curveStyle,
+        padding: styleOptions.nodePadding,
+        htmlLabels: true,
+        nodeSpacing: styleOptions.nodeSpacing,
+        rankSpacing: styleOptions.rankSpacing,
+        useMaxWidth: styleOptions.useMaxWidth,
+      };
+      if (styleOptions.layoutEngine && styleOptions.layoutEngine !== 'dagre') {
+        config.layout = styleOptions.layoutEngine;
+      }
+      break;
+
+    default:
+      // For unsupported types, just use theme variables
+      break;
   }
 
   return `---\nconfig:\n${objectToYaml(config, 2)}---`;
@@ -436,11 +503,11 @@ export function applyStyleToContent(content: string, styleOptions: DiagramStyleO
 
   // Parse existing YAML config to preserve color settings
   const existingConfig = extractExistingConfig(content);
-  const styleConfig = generateStyleOnlyConfig(styleOptions);
+  const styleConfig = generateStyleOnlyConfig(styleOptions, diagramType);
 
   // If there's existing config, merge styles with it (preserving colors)
   if (existingConfig) {
-    const mergedConfig = mergeConfigWithStyles(existingConfig, styleOptions);
+    const mergedConfig = mergeConfigWithStyles(existingConfig, styleOptions, diagramType);
     return `---\nconfig:\n${objectToYaml(mergedConfig, 2)}---\n\n${stripped}`;
   }
 
@@ -526,7 +593,7 @@ function extractExistingConfig(content: string): Record<string, unknown> | null 
   }
 }
 
-function mergeConfigWithStyles(existingConfig: Record<string, unknown>, styleOptions: DiagramStyleOptions): Record<string, unknown> {
+function mergeConfigWithStyles(existingConfig: Record<string, unknown>, styleOptions: DiagramStyleOptions, diagramType?: string): Record<string, unknown> {
   const result: Record<string, unknown> = {
     theme: (existingConfig.theme as string) || 'base',
     themeVariables: { ...(existingConfig.themeVariables as Record<string, string>) },
@@ -540,19 +607,94 @@ function mergeConfigWithStyles(existingConfig: Record<string, unknown>, styleOpt
     (result.themeVariables as Record<string, string>).fontSize = styleOptions.fontSize + 'px';
   }
 
-  // Add flowchart config with styles
-  result.flowchart = {
-    curve: styleOptions.curveStyle,
-    padding: styleOptions.nodePadding,
-    htmlLabels: true,
-    nodeSpacing: styleOptions.nodeSpacing,
-    rankSpacing: styleOptions.rankSpacing,
-    useMaxWidth: styleOptions.useMaxWidth,
-  };
+  // Detect diagram type if not provided
+  const type = diagramType || detectDiagramTypeFromContent('');
 
-  // Add layout config if specified
-  if (styleOptions.layoutEngine && styleOptions.layoutEngine !== 'dagre') {
-    result.layout = styleOptions.layoutEngine;
+  // Add type-specific configuration, preserving existing non-style settings
+  switch (type) {
+    case 'flowchart':
+    case 'graph':
+    case 'journey':
+    case 'c4':
+    case 'block':
+    case 'architecture': {
+      // Preserve existing flowchart config where applicable
+      const existingFlowchart = existingConfig.flowchart as Record<string, unknown> | undefined;
+      result.flowchart = {
+        ...(existingFlowchart || {}),
+        curve: styleOptions.curveStyle,
+        padding: styleOptions.nodePadding,
+        htmlLabels: true,
+        nodeSpacing: styleOptions.nodeSpacing,
+        rankSpacing: styleOptions.rankSpacing,
+        useMaxWidth: styleOptions.useMaxWidth,
+      };
+      if (styleOptions.layoutEngine && styleOptions.layoutEngine !== 'dagre') {
+        result.layout = styleOptions.layoutEngine;
+      }
+      break;
+    }
+
+    case 'sequence':
+    case 'sequencediagram': {
+      const existingSequence = existingConfig.sequence as Record<string, unknown> | undefined;
+      result.sequence = {
+        ...(existingSequence || {}),
+        diagramMarginX: styleOptions.diagramMarginX ?? 50,
+        diagramMarginY: styleOptions.diagramMarginY ?? 10,
+        actorMargin: styleOptions.actorMargin ?? 50,
+        width: styleOptions.actorWidth ?? 150,
+        height: styleOptions.actorHeight ?? 65,
+        boxMargin: styleOptions.boxMargin ?? 10,
+        mirrorActors: styleOptions.mirrorActors ?? false,
+        useMaxWidth: true,
+      };
+      break;
+    }
+
+    case 'gantt': {
+      const existingGantt = existingConfig.gantt as Record<string, unknown> | undefined;
+      result.gantt = {
+        ...(existingGantt || {}),
+        titleTopMargin: styleOptions.titleTopMargin ?? 25,
+        barHeight: styleOptions.barHeight ?? 20,
+        barGap: styleOptions.barGap ?? 4,
+        topPadding: styleOptions.topPadding ?? 50,
+        leftPadding: styleOptions.leftPadding ?? 75,
+        axisFormat: styleOptions.axisFormat ?? '%Y-%m-%d',
+        sectionMargin: styleOptions.sectionMargin ?? 10,
+      };
+      break;
+    }
+
+    case 'statediagram':
+    case 'state':
+    case 'stateDiagram':
+    case 'classdiagram':
+    case 'class':
+    case 'classDiagram':
+    case 'erdiagram':
+    case 'er':
+    case 'erDiagram': {
+      // These use flowchart config for layout
+      const existingFlowchart2 = existingConfig.flowchart as Record<string, unknown> | undefined;
+      result.flowchart = {
+        ...(existingFlowchart2 || {}),
+        curve: styleOptions.curveStyle,
+        padding: styleOptions.nodePadding,
+        htmlLabels: true,
+        nodeSpacing: styleOptions.nodeSpacing,
+        rankSpacing: styleOptions.rankSpacing,
+        useMaxWidth: styleOptions.useMaxWidth,
+      };
+      if (styleOptions.layoutEngine && styleOptions.layoutEngine !== 'dagre') {
+        result.layout = styleOptions.layoutEngine;
+      }
+      break;
+    }
+
+    default:
+      break;
   }
 
   return result;
@@ -604,4 +746,103 @@ function stripYamlFrontmatter(content: string): string {
     .replace(/^\s*---[\s\S]*?---\s*/i, '')
     .replace(/^\s*%%\{init:[\s\S]*?\}%%\s*/i, '')
     .trim();
+}
+
+// Extract style options from existing YAML config
+export function extractStyleOptionsFromContent(content: string): Partial<DiagramStyleOptions> {
+  const existingConfig = extractExistingConfig(content);
+  if (!existingConfig) return {};
+
+  const options: Partial<DiagramStyleOptions> = {};
+
+  // Extract from themeVariables
+  const themeVars = existingConfig.themeVariables as Record<string, unknown>;
+  if (themeVars) {
+    if (themeVars.fontFamily && typeof themeVars.fontFamily === 'string') {
+      options.fontFamily = themeVars.fontFamily;
+    }
+    if (themeVars.fontSize && typeof themeVars.fontSize === 'string') {
+      const match = themeVars.fontSize.match(/(\d+)/);
+      if (match) options.fontSize = parseInt(match[1], 10);
+    }
+  }
+
+  // Extract from flowchart config
+  const flowchart = existingConfig.flowchart as Record<string, unknown>;
+  if (flowchart) {
+    if (flowchart.curve && typeof flowchart.curve === 'string') {
+      options.curveStyle = flowchart.curve as DiagramStyleOptions['curveStyle'];
+    }
+    if (typeof flowchart.padding === 'number') {
+      options.nodePadding = flowchart.padding;
+    }
+    if (typeof flowchart.nodeSpacing === 'number') {
+      options.nodeSpacing = flowchart.nodeSpacing;
+    }
+    if (typeof flowchart.rankSpacing === 'number') {
+      options.rankSpacing = flowchart.rankSpacing;
+    }
+    if (typeof flowchart.useMaxWidth === 'boolean') {
+      options.useMaxWidth = flowchart.useMaxWidth;
+    }
+  }
+
+  // Extract from sequence config
+  const sequence = existingConfig.sequence as Record<string, unknown>;
+  if (sequence) {
+    if (typeof sequence.diagramMarginX === 'number') {
+      options.diagramMarginX = sequence.diagramMarginX;
+    }
+    if (typeof sequence.diagramMarginY === 'number') {
+      options.diagramMarginY = sequence.diagramMarginY;
+    }
+    if (typeof sequence.actorMargin === 'number') {
+      options.actorMargin = sequence.actorMargin;
+    }
+    if (typeof sequence.width === 'number') {
+      options.actorWidth = sequence.width;
+    }
+    if (typeof sequence.height === 'number') {
+      options.actorHeight = sequence.height;
+    }
+    if (typeof sequence.boxMargin === 'number') {
+      options.boxMargin = sequence.boxMargin;
+    }
+    if (typeof sequence.mirrorActors === 'boolean') {
+      options.mirrorActors = sequence.mirrorActors;
+    }
+  }
+
+  // Extract from gantt config
+  const gantt = existingConfig.gantt as Record<string, unknown>;
+  if (gantt) {
+    if (typeof gantt.titleTopMargin === 'number') {
+      options.titleTopMargin = gantt.titleTopMargin;
+    }
+    if (typeof gantt.barHeight === 'number') {
+      options.barHeight = gantt.barHeight;
+    }
+    if (typeof gantt.barGap === 'number') {
+      options.barGap = gantt.barGap;
+    }
+    if (typeof gantt.topPadding === 'number') {
+      options.topPadding = gantt.topPadding;
+    }
+    if (typeof gantt.leftPadding === 'number') {
+      options.leftPadding = gantt.leftPadding;
+    }
+    if (gantt.axisFormat && typeof gantt.axisFormat === 'string') {
+      options.axisFormat = gantt.axisFormat;
+    }
+    if (typeof gantt.sectionMargin === 'number') {
+      options.sectionMargin = gantt.sectionMargin;
+    }
+  }
+
+  // Extract layout engine
+  if (existingConfig.layout && typeof existingConfig.layout === 'string') {
+    options.layoutEngine = existingConfig.layout as LayoutEngine;
+  }
+
+  return options;
 }

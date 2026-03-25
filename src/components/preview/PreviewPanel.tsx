@@ -5,6 +5,7 @@ import { sanitizeSVG } from '@/utils/sanitization';
 import { parseFrontmatter } from '@/lib/mermaid/codeUtils';
 import { colorPalettes } from '@/constants/colorPalettes';
 import type { ColorPalette } from '@/types';
+import { getStylingCapabilities } from '@/types';
 
 const TYPE_LABELS: Record<string, string> = {
   flowchart: 'Flowchart', sequence: 'Sequence', classDiagram: 'Class',
@@ -519,6 +520,8 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
   }, []);
 
   const type = detectDiagramType(content);
+  const stylingCapabilities = getStylingCapabilities(type);
+  const supportsClassDef = stylingCapabilities.supportsClassDef;
 
   // Check if a color palette is already applied
   const activePalette = extractCurrentPalette(content);
@@ -552,6 +555,10 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
             className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
             <ZoomIn size={13} />
           </button>
+          <button onClick={() => setZoom(1)} title="Reset zoom"
+            className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
+            <RefreshCw size={13} />
+          </button>
           <button
             data-testid="fit-button"
             onClick={handleFitToScreen}
@@ -567,7 +574,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
             </button>
           )}
           <div className="w-px h-4 mx-1" style={{ background: 'var(--border-subtle)' }} />
-          {onChange && nodeColorStyles.length > 0 && !activePalette && (
+          {onChange && supportsClassDef && nodeColorStyles.length > 0 && !activePalette && (
             <button
               onClick={() => setShowNodeColorsPanel(!showNodeColorsPanel)}
               title="Node Colors"

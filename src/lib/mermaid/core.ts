@@ -196,15 +196,75 @@ export async function renderDiagram(content: string, id: string): Promise<{ svg:
 }
 
 export function detectDiagramType(content: string): DiagramType {
-  const first = content.trim().split('\n')[0].toLowerCase().trim();
+  // Remove YAML frontmatter if present
+  let body = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
+  body = body.replace(/^\s*%%\{init:[\s\S]*?\}%%\s*/i, '').trim();
+
+  const first = body.split('\n')[0]?.toLowerCase().trim();
+  if (!first) return 'unknown';
+
+  // Flowchart and variants
   if (first.startsWith('flowchart') || first.startsWith('graph')) {return 'flowchart';}
+
+  // Sequence diagram
   if (first.startsWith('sequencediagram')) {return 'sequence';}
+
+  // Class diagram
   if (first.startsWith('classdiagram')) {return 'classDiagram';}
+
+  // State diagram
   if (first.startsWith('statediagram')) {return 'stateDiagram';}
+
+  // ER diagram
   if (first.startsWith('erdiagram')) {return 'erDiagram';}
+
+  // Gantt chart
   if (first.startsWith('gantt')) {return 'gantt';}
+
+  // Pie chart
   if (first.startsWith('pie')) {return 'pie';}
+
+  // Mindmap
   if (first.startsWith('mindmap')) {return 'mindmap';}
+
+  // Git graph
   if (first.startsWith('gitgraph')) {return 'gitGraph';}
+
+  // Journey map
+  if (first.startsWith('journey')) {return 'journey';}
+
+  // Timeline
+  if (first.startsWith('timeline')) {return 'timeline';}
+
+  // Quadrant chart
+  if (first.startsWith('quadrantchart')) {return 'quadrantChart';}
+
+  // Requirement diagram
+  if (first.startsWith('requirementdiagram')) {return 'requirementDiagram';}
+
+  // Sankey diagram
+  if (first.startsWith('sankey-beta') || first.startsWith('sankey')) {return 'sankey';}
+
+  // XY Chart
+  if (first.startsWith('xychart-beta')) {return 'xyChart';}
+
+  // Block diagram
+  if (first.startsWith('blockbeta') || first.startsWith('block')) {return 'blockDiagram';}
+
+  // C4 diagram
+  if (first.startsWith('c4')) {return 'c4';}
+
+  // Architecture diagram
+  if (first.startsWith('architecture')) {return 'architectureDiagram';}
+
+  // ZenUML
+  if (first.startsWith('zenuml')) {return 'zenuml';}
+
+  // Packet diagram
+  if (first.startsWith('packet')) {return 'packetDiagram';}
+
+  // Kanban
+  if (first.startsWith('kanban')) {return 'kanban';}
+
   return 'unknown';
 }
