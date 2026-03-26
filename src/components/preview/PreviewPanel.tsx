@@ -2,9 +2,11 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle, Copy, Check, Download, Move } from 'lucide-react';
 import { renderDiagram, detectDiagramType } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
-import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter } from '@/lib/mermaid/codeUtils';
-import type { NodeStyle } from '@/lib/mermaid/codeUtils';
+import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, addNode, generateNodeId, removeNode } from '@/lib/mermaid/codeUtils';
+import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
+import { EdgeStylePanel } from './EdgeStylePanel';
+import { ShapeToolbar } from '../visual/ShapeToolbar';
 import { getStylingCapabilities } from '@/types';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -58,6 +60,83 @@ function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElem
   return overlays;
 }
 
+function addEdgeClickTargets(
+  shadowHost: HTMLDivElement,
+  containerEl: HTMLDivElement,
+  onEdgeClick: (index: number) => void,
+): () => void {
+  const shadowRoot = shadowHost.shadowRoot;
+  if (!shadowRoot) return () => {};
+
+  const svg = shadowRoot.querySelector('svg');
+  if (!svg) return () => {};
+
+  const edgePaths = svg.querySelectorAll('.edgePaths path.flowchart-link');
+  if (edgePaths.length === 0) return () => {};
+
+  // Create an overlay SVG in the main DOM (above node overlays which have z-index: 5)
+  const svgRect = svg.getBoundingClientRect();
+  const containerRect = containerEl.getBoundingClientRect();
+  const viewBox = svg.getAttribute('viewBox');
+
+  const overlaySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  overlaySvg.setAttribute('data-edge-overlay', 'true');
+  overlaySvg.style.position = 'absolute';
+  overlaySvg.style.left = `${svgRect.left - containerRect.left}px`;
+  overlaySvg.style.top = `${svgRect.top - containerRect.top}px`;
+  overlaySvg.style.width = `${svgRect.width}px`;
+  overlaySvg.style.height = `${svgRect.height}px`;
+  overlaySvg.style.zIndex = '10';
+  overlaySvg.style.pointerEvents = 'none';
+  overlaySvg.style.overflow = 'visible';
+  if (viewBox) {
+    overlaySvg.setAttribute('viewBox', viewBox);
+  }
+
+  edgePaths.forEach((path, index) => {
+    const d = path.getAttribute('d');
+    if (!d) return;
+
+    const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    hitPath.setAttribute('d', d);
+    hitPath.setAttribute('stroke', 'transparent');
+    hitPath.setAttribute('stroke-width', '15');
+    hitPath.setAttribute('fill', 'none');
+    hitPath.style.pointerEvents = 'stroke';
+    hitPath.style.cursor = 'pointer';
+
+    hitPath.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      onEdgeClick(index);
+    });
+
+    overlaySvg.appendChild(hitPath);
+  });
+
+  containerEl.appendChild(overlaySvg);
+  return () => overlaySvg.remove();
+}
+
+function highlightSelectedEdge(shadowHost: HTMLDivElement, edgeIndex: number | null) {
+  const shadowRoot = shadowHost.shadowRoot;
+  if (!shadowRoot) return;
+
+  const svg = shadowRoot.querySelector('svg');
+  if (!svg) return;
+
+  const edgePaths = svg.querySelectorAll('.edgePaths path.flowchart-link');
+  edgePaths.forEach((path, index) => {
+    if (index === edgeIndex) {
+      (path as SVGPathElement).setAttribute('data-selected-edge', 'true');
+      (path as SVGPathElement).style.filter = 'drop-shadow(0 0 4px var(--accent))';
+    } else {
+      (path as SVGPathElement).removeAttribute('data-selected-edge');
+      (path as SVGPathElement).style.filter = '';
+    }
+  });
+}
+
 interface Props {
   content: string;
   theme: 'dark' | 'light';
@@ -78,6 +157,11 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
   const [panelStyles, setPanelStyles] = useState<Map<string, NodeStyle>>(new Map());
   const [panelLabels, setPanelLabels] = useState<Map<string, string>>(new Map());
+  const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(null);
+  const [parsedEdges, setParsedEdges] = useState<ParsedEdge[]>([]);
+  const [parsedLinkStyles, setParsedLinkStyles] = useState<Map<number, EdgeStyle>>(new Map());
+  const [toolMode, setToolMode] = useState<'select' | 'connect'>('select');
+  const [dragShape, setDragShape] = useState<NodeShape | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const shadowHostRef = useRef<HTMLDivElement>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
@@ -86,6 +170,8 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
   const renderIdRef = useRef(0);
   const debounceRef = useRef<number>(0);
   const skipResyncRef = useRef(false);
+  const edgeCleanupRef = useRef<(() => void) | null>(null);
+  const relativeContainerRef = useRef<HTMLDivElement>(null);
 
   const type = detectDiagramType(content);
   const stylingCapabilities = getStylingCapabilities(type);
@@ -220,7 +306,22 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
       }
     }
 
+    // Inject edge click hit targets (must be after SVG is in DOM)
+    if (supportsClassDef && relativeContainerRef.current) {
+      edgeCleanupRef.current = addEdgeClickTargets(shadowHostRef.current, relativeContainerRef.current, (index) => {
+        setSelectedNodeIds(new Set());
+        setSelectedEdgeIndex(prev => prev === index ? null : index);
+      });
+    }
+
   }, [svg, content]);
+
+  // Cleanup edge hit targets on unmount
+  useEffect(() => {
+    return () => {
+      edgeCleanupRef.current?.();
+    };
+  }, []);
 
   // Cleanup shadow root on unmount
   useEffect(() => {
@@ -241,6 +342,12 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     return () => clearTimeout(timer);
   }, [svg, zoom]);
 
+  // Highlight selected edge when selection changes
+  useEffect(() => {
+    if (!shadowHostRef.current) return;
+    highlightSelectedEdge(shadowHostRef.current, selectedEdgeIndex);
+  }, [selectedEdgeIndex, svg]);
+
   // Parse diagram and initialize node/label/style data
   useEffect(() => {
     if (!supportsClassDef) return;
@@ -253,6 +360,8 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     }
     setPanelLabels(labels);
     setPanelStyles(styles);
+    setParsedEdges(parsed.edges);
+    setParsedLinkStyles(parsed.linkStyles);
   }, [content, supportsClassDef]);
 
   // Auto-resync: update panel styles when content changes from code editor
@@ -273,6 +382,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
   const handleNodeClick = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
     if (!supportsClassDef) return;
+    setSelectedEdgeIndex(null);
     if (e.shiftKey) {
       setSelectedNodeIds(prev => {
         const next = new Set(prev);
@@ -292,7 +402,10 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     if (selectedNodeIds.size > 0) {
       setSelectedNodeIds(new Set());
     }
-  }, [selectedNodeIds]);
+    if (selectedEdgeIndex !== null) {
+      setSelectedEdgeIndex(null);
+    }
+  }, [selectedNodeIds, selectedEdgeIndex]);
 
   // Style change handler: writes classDef/class lines to code via onChange
   const handleStyleChange = useCallback((nodeIds: string[], styleUpdate: Partial<NodeStyle>) => {
@@ -344,6 +457,67 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     onChange(result);
     setSelectedNodeIds(new Set());
   }, [onChange, content]);
+
+  // Edge style change handler
+  const handleEdgeStyleChange = useCallback((edgeIndex: number, styleUpdate: Partial<EdgeStyle>) => {
+    if (!onChange) return;
+    const existingStyle = parsedLinkStyles.get(edgeIndex) ?? {};
+    const mergedStyle = { ...existingStyle, ...styleUpdate };
+    const result = updateLinkStyle(content, edgeIndex, mergedStyle);
+    onChange(result);
+  }, [onChange, content, parsedLinkStyles]);
+
+  // Edge arrow type change handler
+  const handleEdgeArrowChange = useCallback((source: string, target: string, arrowType: string) => {
+    if (!onChange) return;
+    const result = updateEdgeArrowType(content, source, target, arrowType);
+    onChange(result);
+  }, [onChange, content]);
+
+  // Edge label change handler
+  const handleEdgeLabelChange = useCallback((source: string, target: string, label: string) => {
+    if (!onChange) return;
+    const result = updateEdgeLabel(content, source, target, label);
+    onChange(result);
+  }, [onChange, content]);
+
+  // Edge reset handler
+  const handleEdgeReset = useCallback((edgeIndex: number) => {
+    if (!onChange) return;
+    const result = removeLinkStyles(content, [edgeIndex]);
+    onChange(result);
+    setSelectedEdgeIndex(null);
+  }, [onChange, content]);
+
+  // Shape insertion handler: adds a new node to the diagram
+  const handleAddShape = useCallback((shape: NodeShape) => {
+    if (!onChange) return;
+    const parsed = parseDiagram(content);
+    const existingIds = parsed.nodes.map(n => n.id);
+    const id = generateNodeId(existingIds);
+    const result = addNode(content, id, 'New Node', shape);
+    onChange(result);
+    setSelectedNodeIds(new Set([id]));
+    setSelectedEdgeIndex(null);
+  }, [onChange, content]);
+
+  // Delete selected nodes handler
+  const handleDeleteSelected = useCallback(() => {
+    if (!onChange) return;
+    let updated = content;
+    selectedNodeIds.forEach(id => { updated = removeNode(updated, id); });
+    setSelectedNodeIds(new Set());
+    setSelectedEdgeIndex(null);
+    onChange(updated);
+  }, [onChange, content, selectedNodeIds]);
+
+  // Drop handler: adds a shape when dragged onto the canvas
+  const handleDropOnCanvas = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (!dragShape) return;
+    handleAddShape(dragShape);
+    setDragShape(null);
+  }, [dragShape, handleAddShape]);
 
   async function copySvg() {
     if (!svg) {return;}
@@ -443,7 +617,18 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
         </div>
       </div>
 
-      <div ref={containerRef} className="flex-1 overflow-auto preview-grid" onClick={handleCanvasClick}>
+      {supportsClassDef && (
+        <ShapeToolbar
+          toolMode={toolMode}
+          onToolMode={setToolMode}
+          onAddShape={handleAddShape}
+          onDragStart={shape => setDragShape(shape)}
+          onDeleteSelected={handleDeleteSelected}
+          hasSelection={selectedNodeIds.size > 0}
+        />
+      )}
+
+      <div ref={containerRef} className="flex-1 overflow-auto preview-grid" onClick={handleCanvasClick} onDragOver={e => e.preventDefault()} onDrop={handleDropOnCanvas}>
         {error ? (
           <div className="flex flex-col items-center justify-center h-full p-8 text-center" data-testid="error-message">
             <div className="w-10 h-10 rounded-full flex items-center justify-center mb-3"
@@ -469,7 +654,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Start typing to see a live preview</p>
           </div>
         ) : (
-          <div className="relative min-h-full flex items-center justify-center p-8">
+          <div ref={relativeContainerRef} className="relative min-h-full flex items-center justify-center p-8">
             <div
               ref={shadowHostRef}
               className="transition-transform duration-150"
@@ -489,6 +674,19 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
                 onClose={() => setSelectedNodeIds(new Set())}
                 onStyleChange={handleStyleChange}
                 onReset={handleResetStyles}
+              />
+            )}
+
+            {selectedEdgeIndex !== null && parsedEdges[selectedEdgeIndex] && supportsClassDef && (
+              <EdgeStylePanel
+                edge={parsedEdges[selectedEdgeIndex]}
+                edgeIndex={selectedEdgeIndex}
+                edgeStyle={parsedLinkStyles.get(selectedEdgeIndex) ?? {}}
+                onClose={() => setSelectedEdgeIndex(null)}
+                onArrowChange={handleEdgeArrowChange}
+                onLabelChange={handleEdgeLabelChange}
+                onStyleChange={handleEdgeStyleChange}
+                onReset={handleEdgeReset}
               />
             )}
 
