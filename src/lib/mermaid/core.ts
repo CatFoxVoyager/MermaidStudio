@@ -115,7 +115,9 @@ function doInit(theme: 'dark' | 'light', useBase: boolean) {
     fontSize: 14,
     flowchart: { curve: 'basis', padding: 20, htmlLabels: false },
     sequence: { useMaxWidth: true, actorMargin: 50 },
-    themeVariables: useBase ? {} : (theme === 'dark' ? darkVars : lightVars),
+    // Always provide base themeVariables, even with useBase
+    // The YAML frontmatter in the content will merge/override these
+    themeVariables: theme === 'dark' ? darkVars : lightVars,
   });
 }
 

@@ -245,11 +245,12 @@ describe('Database API Key Encryption', () => {
       expect(diagram.id).toBeDefined();
       expect(diagram.title).toBe('Test Diagram');
       // Should include base theme config
+      // Note: Mermaid expects quoted values for themeVariables
       expect(diagram.content).toContain('---');
       expect(diagram.content).toContain('config:');
-      expect(diagram.content).toContain('theme: base');
+      expect(diagram.content).toContain("theme: 'base'");
       expect(diagram.content).toContain('themeVariables:');
-      expect(diagram.content).toContain('primaryColor: #fff4dd');
+      expect(diagram.content).toContain("primaryColor: '#fff4dd'");
       expect(diagram.content).toContain('flowchart TD\n  A --> B');
     });
 
@@ -288,11 +289,12 @@ describe('Database API Key Encryption', () => {
       expect(diagram.id).toBeDefined();
       expect(diagram.title).toBe('Test Diagram');
       // Should include base theme config to prevent unwanted default colors
+      // Note: Mermaid expects quoted values for themeVariables
       expect(diagram.content).toContain('---');
       expect(diagram.content).toContain('config:');
-      expect(diagram.content).toContain('theme: base');
+      expect(diagram.content).toContain("theme: 'base'");
       expect(diagram.content).toContain('themeVariables:');
-      expect(diagram.content).toContain('primaryColor: #fff4dd');
+      expect(diagram.content).toContain("primaryColor: '#fff4dd'");
       expect(diagram.content).toContain('flowchart TD\n  A --> B');
       expect(diagram.created_at).toBeDefined();
       expect(diagram.updated_at).toBeDefined();

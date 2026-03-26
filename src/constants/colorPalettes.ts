@@ -473,18 +473,10 @@ function objectToYaml(obj: Record<string, unknown>, indent: number = 0): string 
     } else if (Array.isArray(value)) {
       result += `${spaces}${key}:\n${spaces}  - ${(value as unknown[]).join('\n' + spaces + '  - ')}\n`;
     } else if (typeof value === 'string') {
-      // Don't quote certain values that Mermaid expects unquoted:
-      // - Colors starting with #
-      // - Theme names (base, default, forest, neutral, dark)
-      // - Boolean strings (true, false)
-      // - Numbers
-      const unquotedValues = ['#', 'base', 'default', 'forest', 'neutral', 'dark', 'true', 'false'];
-      const shouldNotQuote = unquotedValues.some(v => value.startsWith(v) || value === v) || /^\d+$/.test(value);
-      if (shouldNotQuote) {
-        result += `${spaces}${key}: ${value}\n`;
-      } else {
-        result += `${spaces}${key}: '${value}'\n`;
-      }
+      // Always quote string values for Mermaid compatibility
+      // Colors like #fff4dd MUST be quoted: '#fff4dd'
+      // Theme names like 'base' should be quoted: 'base'
+      result += `${spaces}${key}: '${value}'\n`;
     } else {
       result += `${spaces}${key}: ${value}\n`;
     }
