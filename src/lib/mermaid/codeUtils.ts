@@ -23,6 +23,11 @@ export interface NodeStyle {
   stroke?: string;
   strokeWidth?: string;
   color?: string;
+  strokeDasharray?: string;  // e.g., "5 5" for dashed
+  fontWeight?: string;       // e.g., "bold", "normal"
+  fontSize?: string;         // e.g., "16px", "14px"
+  rx?: string;              // e.g., "10"
+  ry?: string;              // e.g., "10"
 }
 
 export interface ParsedDiagram {
@@ -81,13 +86,20 @@ const STANDALONE_NODE_RE = /^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)$/;
 
 function parseStyleValue(val: string): NodeStyle {
   const style: NodeStyle = {};
-  val.split(';').forEach(part => {
+  // Try comma split first (classDef format), fall back to semicolon (style format)
+  const separator = val.includes(',') && !val.includes(';') ? ',' : ';';
+  val.split(separator).forEach(part => {
     const [k, v] = part.trim().split(':').map(s => s.trim());
     if (!k || !v) {return;}
     if (k === 'fill') {style.fill = v;}
     else if (k === 'stroke') {style.stroke = v;}
     else if (k === 'stroke-width') {style.strokeWidth = v;}
+    else if (k === 'stroke-dasharray') {style.strokeDasharray = v;}
     else if (k === 'color') {style.color = v;}
+    else if (k === 'font-weight') {style.fontWeight = v;}
+    else if (k === 'font-size') {style.fontSize = v;}
+    else if (k === 'rx') {style.rx = v;}
+    else if (k === 'ry') {style.ry = v;}
   });
   return style;
 }
@@ -97,7 +109,12 @@ function styleToString(style: NodeStyle): string {
   if (style.fill !== undefined) {parts.push(`fill:${style.fill}`);}
   if (style.stroke !== undefined) {parts.push(`stroke:${style.stroke}`);}
   if (style.strokeWidth !== undefined) {parts.push(`stroke-width:${style.strokeWidth}`);}
+  if (style.strokeDasharray !== undefined) {parts.push(`stroke-dasharray:${style.strokeDasharray}`);}
   if (style.color !== undefined) {parts.push(`color:${style.color}`);}
+  if (style.fontWeight !== undefined) {parts.push(`font-weight:${style.fontWeight}`);}
+  if (style.fontSize !== undefined) {parts.push(`font-size:${style.fontSize}`);}
+  if (style.rx !== undefined) {parts.push(`rx:${style.rx}`);}
+  if (style.ry !== undefined) {parts.push(`ry:${style.ry}`);}
   return parts.join(',');
 }
 
@@ -274,6 +291,80 @@ export function removeNode(source: string, nodeId: string): string {
     return true;
   });
   return lines.join('\n');
+}
+
+export function removeNodeStyles(source: string, nodeIds: string[]): string {
+  const ids = new Set(nodeIds);
+  const lines = source.split('\n');
+  const classNamesToRemove = new Set<string>();
+
+  // First pass: find classDef classNames used ONLY by the target nodes
+  const classUsageCount = new Map<string, Set<string>>();
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('class ')) {
+      const rest = trimmed.slice(6).trim();
+      const parts = rest.split(/\s+/);
+      if (parts.length >= 2) {
+        const idsInLine = parts[0].split(',').map(id => id.trim());
+        const cls = parts[1];
+        if (!classUsageCount.has(cls)) {classUsageCount.set(cls, new Set());}
+        for (const id of idsInLine) {
+          classUsageCount.get(cls)!.add(id);
+        }
+      }
+    }
+  }
+
+  // Only mark classDefs for removal if ALL their node users are in the target set
+  for (const [cls, nodeSet] of classUsageCount) {
+    const allUsersAreTargets = [...nodeSet].every(id => ids.has(id));
+    if (allUsersAreTargets) {
+      classNamesToRemove.add(cls);
+    }
+  }
+
+  // Second pass: remove style, class assignment, and classDef lines
+  const filtered = lines.filter(line => {
+    const trimmed = line.trim();
+
+    // Remove style lines for target nodes
+    for (const id of ids) {
+      if (trimmed.startsWith(`style ${id} `) || trimmed.startsWith(`style ${id}\t`)) {
+        return false;
+      }
+    }
+
+    // Remove class assignment lines for target nodes
+    if (trimmed.startsWith('class ')) {
+      const rest = trimmed.slice(6).trim();
+      const parts = rest.split(/\s+/);
+      if (parts.length >= 2) {
+        const idsInLine = parts[0].split(',').map(id => id.trim());
+        if (idsInLine.some(id => ids.has(id))) {
+          return false;
+        }
+      }
+    }
+
+    // Remove classDef lines that are only used by target nodes
+    if (trimmed.startsWith('classDef ')) {
+      const rest = trimmed.slice(9).trim();
+      const spaceIdx = rest.search(/\s/);
+      if (spaceIdx !== -1) {
+        const className = rest.slice(0, spaceIdx);
+        if (classNamesToRemove.has(className)) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  });
+
+  // Clean up excessive blank lines
+  const result = filtered.join('\n').replace(/\n{3,}/g, '\n\n');
+  return result.trimEnd() + '\n';
 }
 
 export function addEdge(source: string, sourceId: string, targetId: string, arrowType = '-->', label = ''): string {
