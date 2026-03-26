@@ -19,8 +19,8 @@ const ARROW_OPTIONS = [
   { value: '---',   label: 'Line (---)' },
   { value: '-.->',  label: 'Dotted (-.->)' },
   { value: '==>',   label: 'Thick (==>)' },
-  { value: '-->>',  label: 'Double Arrow (-->>)' },
   { value: 'o--o',  label: 'Circle (o--o)' },
+  { value: 'x--x',  label: 'Cross (x--x)' },
   { value: '<-->',  label: 'Bidirectional (<-->)' },
 ] as const;
 

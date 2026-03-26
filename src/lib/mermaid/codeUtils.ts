@@ -220,7 +220,7 @@ export function removeLinkStyles(source: string, indices: number[]): string {
 export function updateEdgeArrowType(source: string, srcId: string, tgtId: string, newType: string): string {
   const lines = source.split('\n');
   const arrowPattern = new RegExp(
-    `(${escapeRegex(srcId)})\\s*(\\[[^\\]]*\\])?\\s*(-->|---|-\\.->|==>|-->>|\\.->|<-->|o--o|--o|o--|--\\|>|\\|>|~~~)\\|?([^|]*)?\\|?\\s*(${escapeRegex(tgtId)})`
+    `(${escapeRegex(srcId)})\\s*(\\[[^\\]]*\\])?\\s*(-->|---|-\\.->|==>|\\.->|<-->|o--o|--o|o--|x--x|--\\|>|\\|>|~~~)\\|?([^|]*)?\\|?\\s*(${escapeRegex(tgtId)})`
   );
 
   for (let i = 0; i < lines.length; i++) {
@@ -243,7 +243,7 @@ export function updateEdgeArrowType(source: string, srcId: string, tgtId: string
 export function updateEdgeLabel(source: string, srcId: string, tgtId: string, newLabel: string): string {
   const lines = source.split('\n');
   const arrowPattern = new RegExp(
-    `(${escapeRegex(srcId)})\\s*(\\[[^\\]]*\\])?\\s*(-->|---|-\\.->|==>|-->>|\\.->|<-->|o--o|--o|o--|--\\|>|\\|>|~~~)\\|?([^|]*)?\\|?\\s*(${escapeRegex(tgtId)})`
+    `(${escapeRegex(srcId)})\\s*(\\[[^\\]]*\\])?\\s*(-->|---|-\\.->|==>|\\.->|<-->|o--o|--o|o--|x--x|--\\|>|\\|>|~~~)\\|?([^|]*)?\\|?\\s*(${escapeRegex(tgtId)})`
   );
 
   for (let i = 0; i < lines.length; i++) {
@@ -325,7 +325,7 @@ export function parseDiagram(source: string): ParsedDiagram {
     const linkStyleMatch = trimmed.match(/^linkStyle\s+(\d+)\s+(.+)$/);
     if (linkStyleMatch) {continue;}
 
-    const edgeMatch = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*)\s*(?:\[([^\]]*)\])?\s*(-->|---|-.->|-\.->|==>|-->>|\.->|<-->|o--o|--o|o--|--\|>|\|>|~~~)[^\n]*/);
+    const edgeMatch = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*)\s*(?:\[([^\]]*)\])?\s*(-->|---|-.->|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|--\|>|\|>|~~~)[^\n]*/);
     if (edgeMatch) {
       const sourceId = edgeMatch[1];
       if (!seenIds.has(sourceId)) {
@@ -333,7 +333,7 @@ export function parseDiagram(source: string): ParsedDiagram {
         nodes.push({ id: sourceId, label: sourceId, shape: 'rect', raw: sourceId });
       }
 
-      const arrowMatch = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*)((?:\[[^\]]*\])?)\s*(-->|---|-.->|-\.->|==>|-->>|\.->|<-->|o--o|--o|o--|--\|>|\|>|~~~)\|?([^|]*)?\|?\s*([A-Za-z_][A-Za-z0-9_-]*)((?:\[[^\]]*\]|(?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|>)[^\n]*)?)/);
+      const arrowMatch = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*)((?:\[[^\]]*\])?)\s*(-->|---|-.->|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|--\|>|\|>|~~~)\|?([^|]*)?\|?\s*([A-Za-z_][A-Za-z0-9_-]*)((?:\[[^\]]*\]|(?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|>)[^\n]*)?)/);
       if (arrowMatch) {
         const targetId = arrowMatch[5];
         if (!seenIds.has(targetId)) {
@@ -435,8 +435,8 @@ export function removeNode(source: string, nodeId: string): string {
     if (trimmed.startsWith(`style ${nodeId}\t`)) {return false;}
     if (trimmed.startsWith(`class ${nodeId} `)) {return false;}
 
-    const edgeRe = new RegExp(`(^|\\s)${nodeId}(\\s*)(-->|---|-.->|-\\.->|==>|-->>|\\.->|<-->|o--o|--|~~~)`);
-    const edgeRe2 = new RegExp(`(-->|---|-.->|-\\.->|==>|-->>|\\.->|<-->|o--o|--|~~~)[^\\n]*\\s${nodeId}\\s*$`);
+    const edgeRe = new RegExp(`(^|\\s)${nodeId}(\\s*)(-->|---|-.->|-\\.->|==>|x--x|\\.->|<-->|o--o|--|~~~)`);
+    const edgeRe2 = new RegExp(`(-->|---|-.->|-\\.->|==>|x--x|\\.->|<-->|o--o|--|~~~)[^\\n]*\\s${nodeId}\\s*$`);
     if (edgeRe.test(trimmed) || edgeRe2.test(trimmed)) {return false;}
 
     const nodeMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[)[^\n]+)/);

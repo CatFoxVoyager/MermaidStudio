@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle, Copy, Check, Download, Move } from 'lucide-react';
 import { renderDiagram, detectDiagramType } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
-import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, addNode, generateNodeId, removeNode } from '@/lib/mermaid/codeUtils';
+import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, addNode, addEdge, generateNodeId, removeNode } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
 import { EdgeStylePanel } from './EdgeStylePanel';
@@ -161,6 +161,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
   const [parsedEdges, setParsedEdges] = useState<ParsedEdge[]>([]);
   const [parsedLinkStyles, setParsedLinkStyles] = useState<Map<number, EdgeStyle>>(new Map());
   const [toolMode, setToolMode] = useState<'select' | 'connect'>('select');
+  const [connectFirst, setConnectFirst] = useState<string | null>(null);
   const [dragShape, setDragShape] = useState<NodeShape | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const shadowHostRef = useRef<HTMLDivElement>(null);
@@ -172,6 +173,8 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
   const skipResyncRef = useRef(false);
   const edgeCleanupRef = useRef<(() => void) | null>(null);
   const relativeContainerRef = useRef<HTMLDivElement>(null);
+  const toolModeRef = useRef(toolMode);
+  toolModeRef.current = toolMode;
 
   const type = detectDiagramType(content);
   const stylingCapabilities = getStylingCapabilities(type);
@@ -309,6 +312,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     // Inject edge click hit targets (must be after SVG is in DOM)
     if (supportsClassDef && relativeContainerRef.current) {
       edgeCleanupRef.current = addEdgeClickTargets(shadowHostRef.current, relativeContainerRef.current, (index) => {
+        if (toolModeRef.current === 'connect') return;
         setSelectedNodeIds(new Set());
         setSelectedEdgeIndex(prev => prev === index ? null : index);
       });
@@ -383,6 +387,18 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     e.stopPropagation();
     if (!supportsClassDef) return;
     setSelectedEdgeIndex(null);
+    if (toolMode === 'connect') {
+      if (!connectFirst) {
+        setConnectFirst(nodeId);
+        return;
+      }
+      if (connectFirst !== nodeId) {
+        onChange(addEdge(content, connectFirst, nodeId));
+      }
+      setConnectFirst(null);
+      setToolMode('select');
+      return;
+    }
     if (e.shiftKey) {
       setSelectedNodeIds(prev => {
         const next = new Set(prev);
@@ -396,16 +412,20 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
       );
       onNodeSelect?.(nodeId);
     }
-  }, [supportsClassDef, onNodeSelect]);
+  }, [supportsClassDef, onNodeSelect, toolMode, connectFirst, onChange, content]);
 
   const handleCanvasClick = useCallback(() => {
+    if (toolMode === 'connect') {
+      setConnectFirst(null);
+      return;
+    }
     if (selectedNodeIds.size > 0) {
       setSelectedNodeIds(new Set());
     }
     if (selectedEdgeIndex !== null) {
       setSelectedEdgeIndex(null);
     }
-  }, [selectedNodeIds, selectedEdgeIndex]);
+  }, [selectedNodeIds, selectedEdgeIndex, toolMode]);
 
   // Style change handler: writes classDef/class lines to code via onChange
   const handleStyleChange = useCallback((nodeIds: string[], styleUpdate: Partial<NodeStyle>) => {
@@ -692,22 +712,24 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
 
             {nodeOverlays.map(overlay => {
               const isSelected = selectedNodeIds.has(overlay.id);
+              const isConnectSource = connectFirst === overlay.id;
               return (
                 <div
                   key={overlay.id}
                   onClick={e => handleNodeClick(e, overlay.id)}
-                  className={`node-overlay ${isSelected ? 'selected' : ''}`}
+                  className={`node-overlay ${isSelected ? 'selected' : ''} ${isConnectSource ? 'connect-source' : ''}`}
                   style={{
                     position: 'absolute',
                     left: overlay.x,
                     top: overlay.y,
                     width: overlay.width,
                     height: overlay.height,
-                    cursor: supportsClassDef ? 'pointer' : 'default',
+                    cursor: toolMode === 'connect' ? 'crosshair' : (supportsClassDef ? 'pointer' : 'default'),
                     zIndex: 5,
-                    border: isSelected ? '2px solid var(--accent)' : '2px solid transparent',
+                    border: isSelected ? '2px solid var(--accent)' : isConnectSource ? '2px dashed var(--accent)' : '2px solid transparent',
                     borderRadius: '4px',
                     transition: 'border-color 0.15s',
+                    background: isConnectSource ? 'rgba(var(--accent-rgb), 0.1)' : undefined,
                   }}
                   title={supportsClassDef ? `Click to edit ${overlay.id}` : overlay.id}
                 />
