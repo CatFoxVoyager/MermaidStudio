@@ -1165,6 +1165,28 @@ function stripYamlFrontmatter(content: string): string {
     .trim();
 }
 
+/**
+ * Wraps diagram content with base theme config to ensure consistent appearance
+ * This prevents Mermaid from applying its default colors (including the beige background)
+ * when creating new diagrams or using templates
+ */
+export function addBaseThemeConfig(content: string): string {
+  const stripped = stripYamlFrontmatter(content);
+
+  // Base theme variables to ensure consistent appearance
+  const baseConfig = {
+    themeVariables: {
+      // Base theme colors (light/transparent theme as default)
+      background: '#f4f4f4',
+      primaryColor: '#fff4dd',
+      noteBkgColor: '#fff5ad',
+      noteTextColor: '#333',
+    },
+  };
+
+  return `---\nconfig:\n${objectToYaml(baseConfig, 2)}---\n\n${stripped}`;
+}
+
 // Extract style options from existing YAML config
 // Extract style options from existing YAML config
 export function extractStyleOptionsFromContent(content: string): Partial<DiagramStyleOptions> {
