@@ -33,12 +33,25 @@ export function ColorPicker({ label, value, onChange }: Props) {
     else {setHex('');}
   }, [value]);
 
+  // Track if click is inside dropdown to prevent closing
+  const isInsideRef = useRef(false);
+
   useEffect(() => {
     function onOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {setOpen(false);}
+      // Don't close if click is inside our component
+      if (isInsideRef.current) {
+        isInsideRef.current = false;
+        return;
+      }
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     }
-    if (open) {document.addEventListener('mousedown', onOutside);}
-    return () => document.removeEventListener('mousedown', onOutside);
+    if (open) {
+      // Use pointerdown for better compatibility with input fields
+      document.addEventListener('pointerdown', onOutside);
+    }
+    return () => document.removeEventListener('pointerdown', onOutside);
   }, [open]);
 
   function handleHexChange(v: string) {
@@ -78,7 +91,7 @@ export function ColorPicker({ label, value, onChange }: Props) {
         {open && (
           <div className="absolute left-0 top-full mt-1 z-50 w-56 rounded-xl border shadow-2xl p-3 animate-fade-in"
             style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}
-            onMouseDown={e => e.stopPropagation()}>
+            onPointerDown={() => { isInsideRef.current = true; }}>
             <div className="grid grid-cols-8 gap-1 mb-3">
               {PRESETS.map(color => (
                 <button
