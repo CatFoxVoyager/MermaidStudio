@@ -1,11 +1,12 @@
-import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
-import { HexColorPicker } from 'react-colorful';
-import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle, Copy, Check, Download, Move, X, Hash } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle, Copy, Check, Download, Move, Group } from 'lucide-react';
 import { renderDiagram, detectDiagramType } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
-import { parseFrontmatter } from '@/lib/mermaid/codeUtils';
-import { colorPalettes } from '@/constants/colorPalettes';
-import type { ColorPalette } from '@/types';
+import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, addNode, addEdge, generateNodeId, removeNode, updateNodeLabel, updateSubgraphLabel, addSubgraph } from '@/lib/mermaid/codeUtils';
+import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape } from '@/lib/mermaid/codeUtils';
+import { NodeStylePanel } from './NodeStylePanel';
+import { EdgeStylePanel } from './EdgeStylePanel';
+import { ShapeToolbar } from '../visual/ShapeToolbar';
 import { getStylingCapabilities } from '@/types';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -22,192 +23,13 @@ interface NodeOverlay {
   height: number;
 }
 
-interface NodeColorStyle {
+interface SubgraphOverlay {
   id: string;
   label: string;
-  color: string;
-  isCustom?: boolean;
-}
-
-const PREDEFINED_COLORS = [
-  '#FF6B6B', '#EE5A5A', '#DC2626', '#B91C1C',
-  '#FFA07A', '#FF9F43', '#F59E0B', '#EA580C',
-  '#FFD93D', '#FCD34D', '#FBBF24', '#EAB308',
-  '#6BCF7F', '#4ADE80', '#22C55E', '#16A34A',
-  '#2DD4BF', '#14B8A6', '#0D9488', '#0F766E',
-  '#74C0FC', '#60A5FA', '#3B82F6', '#2563EB',
-  '#A78BFA', '#8B5CF6', '#7C3AED', '#6D28D9',
-  '#C084FC', '#A855F7', '#9333EA', '#7E22CE',
-  '#F472B6', '#EC4899', '#DB2777', '#BE185D',
-  '#F3F4F6', '#D1D5DB', '#9CA3AF', '#6B7280',
-];
-
-// Simple node parser to extract node IDs and labels from Mermaid code
-function extractNodes(content: string): Array<{ id: string; label: string }> {
-  const nodes: Array<{ id: string; label: string }> = [];
-  const lines = content.split('\n');
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    // Skip comments, empty lines, and style directives
-    if (!trimmed || trimmed.startsWith('%%') || trimmed.startsWith('---') || trimmed.startsWith('classDef') || trimmed.startsWith('class ')) continue;
-
-    // Match patterns like:
-    // A[Label]
-    // B{Decision}
-    // A([Start])
-    // A --> B
-    const nodeMatch = trimmed.match(/^([A-Za-z0-9_]+)\[([^\]]*)\]/) ||
-                    trimmed.match(/^([A-Za-z0-9_]+){([^}]*)}/) ||
-                    trimmed.match(/^([A-Za-z0-9_]+)\(\[([^\]]*)\]\)/) ||
-                    trimmed.match(/^([A-Za-z0-9_]+)\(\(([^(]*)\)\)/) ||
-                    trimmed.match(/^([A-Za-z0-9_]+)\[\[([^\]]*)\]\]/);
-
-    if (nodeMatch) {
-      const nodeId = nodeMatch[1];
-      let nodeLabel = nodeMatch[2] || nodeId;
-      nodeLabel = nodeLabel.trim() || nodeId;
-      if (!nodes.find(n => n.id === nodeId)) {
-        nodes.push({ id: nodeId, label: nodeLabel });
-      }
-    }
-
-    // Also match nodes that appear in relationships (e.g., A --> B)
-    const relationMatch = trimmed.match(/^([A-Za-z0-9_]+)(?:\([^)]*\)|\[[^\]]*\]|\{[^}]*\})?\s*-->/);
-    if (relationMatch) {
-      const nodeId = relationMatch[1];
-      if (!nodes.find(n => n.id === nodeId)) {
-        nodes.push({ id: nodeId, label: nodeId });
-      }
-    }
-
-    // Match target nodes in relationships
-    const targetMatch = trimmed.match(/-->\s*(?:\|[^|]+\|)?\s*([A-Za-z0-9_]+)/);
-    if (targetMatch) {
-      const nodeId = targetMatch[1];
-      if (!nodes.find(n => n.id === nodeId)) {
-        nodes.push({ id: nodeId, label: nodeId });
-      }
-    }
-  }
-
-  return nodes;
-}
-
-// Extract current palette from content
-function extractCurrentPalette(content: string): ColorPalette | null {
-  const classDefMatch = content.match(/classDef\s+\w+\s+fill:(#[A-Fa-f0-9]{6})/i);
-  if (classDefMatch) {
-    const primaryColor = classDefMatch[1].toUpperCase();
-    return colorPalettes.find(p => p.colors.primary.toUpperCase() === primaryColor) || null;
-  }
-  let match = content.match(/primaryColor:\s*['"]?([^'"\n\s]+)['"]?/);
-  if (!match) {
-    match = content.match(/'primaryColor'\s*:\s*'([^']+)'/);
-  }
-  if (!match) {return null;}
-  const primaryColor = match[1].toUpperCase();
-  return colorPalettes.find(p => p.colors.primary.toUpperCase() === primaryColor) || null;
-}
-
-// Strip theme directives and classDefs
-function stripThemeDirective(content: string): string {
-  return content
-    .replace(/^\s*---[\s\S]*?---\s*/i, '')
-    .replace(/^\s*%%\{init:[\s\S]*?\}%%\s*/i, '')
-    .replace(/^[ \t]*classDef\s+\w+\s+[^\n]*$/gm, '')
-    .replace(/^[ \t]*class\s+[^\n]*$/gm, '')
-    .replace(/\n\s*\n\s*\n/g, '\n\n')
-    .trim();
-}
-
-// Function to add node styles to Mermaid content
-function applyNodeStyles(content: string, nodeStyles: NodeColorStyle[]): string {
-  if (nodeStyles.length === 0) return content;
-
-  // Extract diagram body (without YAML frontmatter) for type detection
-  const bodyContent = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
-
-  // Diagram types that DO NOT support class/classDef
-  const unsupportedTypes = [
-    /sequenceDiagram|sequencediagram/i,
-    /gantt/i,
-    /pie/i,
-    /erDiagram|erdiagram/i,
-    /gitGraph/i,
-    /journey/i,
-    /requirementDiagram/i,
-    /quadrantChart/i,
-    /xychart-beta/i,
-    /sankey-beta/i,
-    /timeline/i,
-    /mindmap/i,
-    /stateDiagram|statediagram/i,
-    /block/i,
-    /c4/i,
-  ];
-
-  const isUnsupported = unsupportedTypes.some(regex => regex.test(bodyContent));
-  if (isUnsupported) return content;
-
-  const customNodeIds = new Set(nodeStyles.map(ns => ns.id));
-
-  function getContrastColor(hexColor: string): string {
-    const r = parseInt(hexColor.substr(1, 2), 16);
-    const g = parseInt(hexColor.substr(3, 2), 16);
-    const b = parseInt(hexColor.substr(5, 2), 16);
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    return luminance > 0.5 ? '#000000' : '#ffffff';
-  }
-
-  // Process content line by line
-  const lines = content.split('\n');
-  const processedLines = lines.map(line => {
-    const trimmed = line.trim();
-
-    // Remove old userColor classDefs (our own, not the palette's)
-    if (/^classDef\s+userColor_\d+\s+/i.test(trimmed)) {
-      return null;
-    }
-
-    // Handle class assignment lines (e.g., "class A,B,C someStyle")
-    const classMatch = trimmed.match(/^class\s+(.+?)\s+(\S+)$/);
-    if (classMatch) {
-      const nodeIds = classMatch[1].split(',').map(id => id.trim());
-      const styleName = classMatch[2];
-
-      // Check if any of the nodes in this line are being customized
-      const hasCustomNode = nodeIds.some(id => customNodeIds.has(id));
-
-      if (hasCustomNode) {
-        // Remove customized nodes from this line
-        const remainingNodes = nodeIds.filter(id => !customNodeIds.has(id));
-
-        if (remainingNodes.length === 0) {
-          // All nodes in this line are customized, remove the line
-          return null;
-        } else {
-          // Keep only the non-customized nodes
-          return `    class ${remainingNodes.join(',')} ${styleName}`;
-        }
-      }
-    }
-
-    return line;
-  });
-
-  // Build new classDefs and class assignments for custom nodes
-  const newLines: string[] = [];
-  nodeStyles.forEach((nodeStyle, index) => {
-    const className = `userColor_${index}`;
-    const textColor = getContrastColor(nodeStyle.color);
-    newLines.push(`    classDef ${className} fill:${nodeStyle.color},stroke:#333,stroke-width:1px,color:${textColor}`);
-    newLines.push(`    class ${nodeStyle.id} ${className}`);
-  });
-
-  // Combine: keep processed lines + add new custom lines
-  const result = [...processedLines.filter(l => l !== null), ...newLines];
-  return result.join('\n');
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElement): NodeOverlay[] {
@@ -247,6 +69,130 @@ function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElem
   return overlays;
 }
 
+function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTMLDivElement): SubgraphOverlay[] {
+  const shadowRoot = shadowHost.shadowRoot;
+  if (!shadowRoot) return [];
+
+  const svg = shadowRoot.querySelector('svg');
+  if (!svg) return [];
+
+  const clusterElements = svg.querySelectorAll('g.cluster');
+  const overlays: SubgraphOverlay[] = [];
+
+  clusterElements.forEach(el => {
+    const idAttr = el.id ?? '';
+    const match = idAttr.match(/flowchart-([^-]+)-\d+/);
+    const subgraphId = match ? match[1] : null;
+    if (!subgraphId) return;
+
+    const labelRect = el.querySelector('.cluster-label rect');
+    const labelText = el.querySelector('.cluster-label text, .nodeLabel text');
+    const label = labelText?.textContent ?? subgraphId;
+
+    try {
+      const containerRect = outerContainer.getBoundingClientRect();
+      let x: number, y: number, width: number, height: number;
+
+      if (labelRect) {
+        const rect = labelRect.getBoundingClientRect();
+        x = rect.left - containerRect.left;
+        y = rect.top - containerRect.top;
+        width = rect.width;
+        height = rect.height;
+      } else {
+        const rect = el.getBoundingClientRect();
+        x = rect.left - containerRect.left;
+        y = rect.top - containerRect.top;
+        width = Math.min(rect.width, 200);
+        height = 24;
+      }
+
+      overlays.push({ id: subgraphId, label, x, y, width, height });
+    } catch {
+      // skip
+    }
+  });
+
+  return overlays;
+}
+
+function addEdgeClickTargets(
+  shadowHost: HTMLDivElement,
+  containerEl: HTMLDivElement,
+  onEdgeClick: (index: number) => void,
+): () => void {
+  const shadowRoot = shadowHost.shadowRoot;
+  if (!shadowRoot) return () => {};
+
+  const svg = shadowRoot.querySelector('svg');
+  if (!svg) return () => {};
+
+  const edgePaths = svg.querySelectorAll('.edgePaths path.flowchart-link');
+  if (edgePaths.length === 0) return () => {};
+
+  // Create an overlay SVG in the main DOM (above node overlays which have z-index: 5)
+  const svgRect = svg.getBoundingClientRect();
+  const containerRect = containerEl.getBoundingClientRect();
+  const viewBox = svg.getAttribute('viewBox');
+
+  const overlaySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  overlaySvg.setAttribute('data-edge-overlay', 'true');
+  overlaySvg.style.position = 'absolute';
+  overlaySvg.style.left = `${svgRect.left - containerRect.left}px`;
+  overlaySvg.style.top = `${svgRect.top - containerRect.top}px`;
+  overlaySvg.style.width = `${svgRect.width}px`;
+  overlaySvg.style.height = `${svgRect.height}px`;
+  overlaySvg.style.zIndex = '10';
+  overlaySvg.style.pointerEvents = 'none';
+  overlaySvg.style.overflow = 'visible';
+  if (viewBox) {
+    overlaySvg.setAttribute('viewBox', viewBox);
+  }
+
+  edgePaths.forEach((path, index) => {
+    const d = path.getAttribute('d');
+    if (!d) return;
+
+    const hitPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    hitPath.setAttribute('d', d);
+    hitPath.setAttribute('stroke', 'transparent');
+    hitPath.setAttribute('stroke-width', '15');
+    hitPath.setAttribute('fill', 'none');
+    hitPath.style.pointerEvents = 'stroke';
+    hitPath.style.cursor = 'pointer';
+
+    hitPath.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      onEdgeClick(index);
+    });
+
+    overlaySvg.appendChild(hitPath);
+  });
+
+  containerEl.appendChild(overlaySvg);
+  return () => overlaySvg.remove();
+}
+
+function highlightSelectedEdge(shadowHost: HTMLDivElement, edgeIndex: number | null) {
+  const shadowRoot = shadowHost.shadowRoot;
+  if (!shadowRoot) return;
+
+  const svg = shadowRoot.querySelector('svg');
+  if (!svg) return;
+
+  const edgePaths = svg.querySelectorAll('.edgePaths path.flowchart-link');
+  edgePaths.forEach((path, index) => {
+    if (index === edgeIndex) {
+      (path as SVGPathElement).setAttribute('data-selected-edge', 'true');
+      (path as SVGPathElement).style.filter = 'drop-shadow(0 0 4px var(--accent))';
+    } else {
+      (path as SVGPathElement).removeAttribute('data-selected-edge');
+      (path as SVGPathElement).style.filter = '';
+    }
+  });
+}
+
 interface Props {
   content: string;
   theme: 'dark' | 'light';
@@ -264,11 +210,15 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
   const [zoom, setZoom] = useState(1);
   const [copied, setCopied] = useState(false);
   const [nodeOverlays, setNodeOverlays] = useState<Array<NodeOverlay>>([]);
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [showNodeColorsPanel, setShowNodeColorsPanel] = useState(false);
-  const [nodeColorStyles, setNodeColorStyles] = useState<NodeColorStyle[]>([]);
-  const [nodeColorDropdownOpen, setNodeColorDropdownOpen] = useState(false);
-  const [nodeColorHex, setNodeColorHex] = useState('');
+  const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
+  const [panelStyles, setPanelStyles] = useState<Map<string, NodeStyle>>(new Map());
+  const [panelLabels, setPanelLabels] = useState<Map<string, string>>(new Map());
+  const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(null);
+  const [parsedEdges, setParsedEdges] = useState<ParsedEdge[]>([]);
+  const [parsedLinkStyles, setParsedLinkStyles] = useState<Map<number, EdgeStyle>>(new Map());
+  const [toolMode, setToolMode] = useState<'select' | 'connect'>('select');
+  const [connectFirst, setConnectFirst] = useState<string | null>(null);
+  const [dragShape, setDragShape] = useState<NodeShape | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const shadowHostRef = useRef<HTMLDivElement>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
@@ -276,51 +226,24 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
   const zoomRef = useRef(1);
   const renderIdRef = useRef(0);
   const debounceRef = useRef<number>(0);
-  const nodeColorDropdownContainerRef = useRef<HTMLDivElement>(null);
-  const colorChangeTimeoutRef = useRef<number | null>(null);
-  const isDraggingColorRef = useRef(false);
+  const skipResyncRef = useRef(false);
+  const edgeCleanupRef = useRef<(() => void) | null>(null);
+  const relativeContainerRef = useRef<HTMLDivElement>(null);
+  const [subgraphOverlays, setSubgraphOverlays] = useState<SubgraphOverlay[]>([]);
+  const [editingSubgraphId, setEditingSubgraphId] = useState<string | null>(null);
+  const [subgraphLabelValue, setSubgraphLabelValue] = useState('');
+  const subgraphEditRef = useRef<HTMLInputElement>(null);
+  const toolModeRef = useRef(toolMode);
+  toolModeRef.current = toolMode;
+
+  const type = detectDiagramType(content);
+  const stylingCapabilities = getStylingCapabilities(type);
+  const supportsClassDef = stylingCapabilities.supportsClassDef;
 
   // Keep zoomRef in sync with zoom state
   useEffect(() => {
     zoomRef.current = zoom;
   }, [zoom]);
-
-  // Sync node color hex with selected node color
-  useEffect(() => {
-    const selectedNodeStyle = selectedNodeId
-      ? nodeColorStyles.find(n => n.id === selectedNodeId) ?? null
-      : null;
-    const color = selectedNodeStyle?.color ?? '';
-    if (color && color !== 'none' && color !== 'transparent') {
-      setNodeColorHex(color);
-    } else {
-      setNodeColorHex('');
-    }
-  }, [selectedNodeId, nodeColorStyles]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    if (!nodeColorDropdownOpen) return;
-
-    function handleMouseDown(e: MouseEvent) {
-      if (!nodeColorDropdownContainerRef.current) return;
-      if (!nodeColorDropdownContainerRef.current.contains(e.target as Node)) {
-        setNodeColorDropdownOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handleMouseDown);
-    return () => document.removeEventListener('mousedown', handleMouseDown);
-  }, [nodeColorDropdownOpen]);
-
-  // Cleanup color change timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (colorChangeTimeoutRef.current) {
-        clearTimeout(colorChangeTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const render = useCallback(async () => {
     const id = ++renderIdRef.current;
@@ -446,7 +369,23 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
       }
     }
 
+    // Inject edge click hit targets (must be after SVG is in DOM)
+    if (supportsClassDef && relativeContainerRef.current) {
+      edgeCleanupRef.current = addEdgeClickTargets(shadowHostRef.current, relativeContainerRef.current, (index) => {
+        if (toolModeRef.current === 'connect') return;
+        setSelectedNodeIds(new Set());
+        setSelectedEdgeIndex(prev => prev === index ? null : index);
+      });
+    }
+
   }, [svg, content]);
+
+  // Cleanup edge hit targets on unmount
+  useEffect(() => {
+    return () => {
+      edgeCleanupRef.current?.();
+    };
+  }, []);
 
   // Cleanup shadow root on unmount
   useEffect(() => {
@@ -463,97 +402,234 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     const timer = setTimeout(() => {
       const nodes = extractSvgNodes(containerRef.current!, shadowHostRef.current!);
       setNodeOverlays(nodes);
+      const subgraphs = extractSubgraphOverlays(containerRef.current!, shadowHostRef.current!);
+      setSubgraphOverlays(subgraphs);
     }, 100);
     return () => clearTimeout(timer);
   }, [svg, zoom]);
 
-  // Initialize node color styles from content
+  // Highlight selected edge when selection changes
   useEffect(() => {
-    const nodes = extractNodes(content);
-    if (nodes.length > 0) {
-      // Extract colors from existing classDef if present
-      const colorMap = new Map<string, string>();
-      const classDefRegex = /classDef\s+\w+\s+fill:(#[A-Fa-f0-9]{6})/gi;
-      let match;
-      let index = 0;
-      while ((match = classDefRegex.exec(content)) !== null && index < nodes.length) {
-        colorMap.set(nodes[index].id, match[1]);
-        index++;
-      }
+    if (!shadowHostRef.current) return;
+    highlightSelectedEdge(shadowHostRef.current, selectedEdgeIndex);
+  }, [selectedEdgeIndex, svg]);
 
-      const activePalette = extractCurrentPalette(content);
-      const defaultColor = activePalette?.colors.primary || '#0066CC';
-      const updatedNodes = nodes.map(node => ({
-        id: node.id,
-        label: node.label,
-        color: colorMap.get(node.id) || defaultColor,
-        isCustom: false
-      }));
-      setNodeColorStyles(updatedNodes);
-    } else {
-      setNodeColorStyles([]);
+  // Parse diagram and initialize node/label/style data
+  useEffect(() => {
+    if (!supportsClassDef) return;
+    const parsed = parseDiagram(content);
+    const labels = new Map<string, string>();
+    const styles = new Map<string, NodeStyle>();
+    for (const node of parsed.nodes) {
+      labels.set(node.id, node.label);
+      styles.set(node.id, getNodeStyle(parsed.styles, parsed.classDefs, parsed.nodeClasses, node.id));
     }
-  }, [content]);
+    setPanelLabels(labels);
+    setPanelStyles(styles);
+    setParsedEdges(parsed.edges);
+    setParsedLinkStyles(parsed.linkStyles);
+  }, [content, supportsClassDef]);
 
-  // Node click handlers
+  // Auto-resync: update panel styles when content changes from code editor
+  useEffect(() => {
+    if (!supportsClassDef || selectedNodeIds.size === 0 || skipResyncRef.current) {
+      skipResyncRef.current = false;
+      return;
+    }
+    const parsed = parseDiagram(content);
+    const updatedStyles = new Map<string, NodeStyle>();
+    for (const nodeId of selectedNodeIds) {
+      updatedStyles.set(nodeId, getNodeStyle(parsed.styles, parsed.classDefs, parsed.nodeClasses, nodeId));
+    }
+    setPanelStyles(updatedStyles);
+  }, [content, supportsClassDef, selectedNodeIds]);
+
+  // Node click handler with multi-node selection (shift+click)
   const handleNodeClick = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
-    setSelectedNodeId(nodeId === selectedNodeId ? null : nodeId);
-    if (nodeId !== selectedNodeId) {
+    if (!supportsClassDef) return;
+    setSelectedEdgeIndex(null);
+    if (toolMode === 'connect') {
+      if (!connectFirst) {
+        setConnectFirst(nodeId);
+        return;
+      }
+      if (connectFirst !== nodeId) {
+        onChange(addEdge(content, connectFirst, nodeId));
+      }
+      setConnectFirst(null);
+      setToolMode('select');
+      return;
+    }
+    if (e.shiftKey) {
+      setSelectedNodeIds(prev => {
+        const next = new Set(prev);
+        if (next.has(nodeId)) next.delete(nodeId);
+        else next.add(nodeId);
+        return next;
+      });
+    } else {
+      setSelectedNodeIds(prev =>
+        prev.size === 1 && prev.has(nodeId) ? new Set() : new Set([nodeId])
+      );
       onNodeSelect?.(nodeId);
     }
-  }, [selectedNodeId, onNodeSelect]);
+  }, [supportsClassDef, onNodeSelect, toolMode, connectFirst, onChange, content]);
 
-  const handleCanvasClick = useCallback(() => {
-    setSelectedNodeId(null);
+  const handleAddSubgraph = useCallback(() => {
+    if (!onChange) return;
+    onChange(addSubgraph(content));
+  }, [onChange, content]);
+
+  const startSubgraphEdit = useCallback((e: React.MouseEvent, subgraphId: string, currentLabel: string) => {
+    e.stopPropagation();
+    if (!supportsClassDef) return;
+    setEditingSubgraphId(subgraphId);
+    setSubgraphLabelValue(currentLabel);
+    setSelectedNodeIds(new Set());
+    setSelectedEdgeIndex(null);
+  }, [supportsClassDef]);
+
+  const applySubgraphEdit = useCallback(() => {
+    if (!editingSubgraphId || !onChange) return;
+    const label = subgraphLabelValue.trim();
+    if (label) {
+      const newContent = updateSubgraphLabel(content, editingSubgraphId, label);
+      if (newContent !== content) {
+        onChange(newContent);
+      }
+    }
+    setEditingSubgraphId(null);
+  }, [editingSubgraphId, subgraphLabelValue, content, onChange]);
+
+  const cancelSubgraphEdit = useCallback(() => {
+    setEditingSubgraphId(null);
   }, []);
 
-  // Color change handler for individual nodes
-  const handleNodeColorChange = useCallback((nodeId: string, color: string) => {
-    if (!onChange) return;
-
-    const updatedStyles = nodeColorStyles.map(ns => ns.id === nodeId ? { ...ns, color, isCustom: true } : ns);
-    setNodeColorStyles(updatedStyles);
-
-    // Apply to diagram - only apply custom styles
-    const customStyles = updatedStyles.filter(ns => ns.isCustom);
-    const contentWithNodeColors = applyNodeStyles(content, customStyles);
-    onChange(contentWithNodeColors);
-  }, [nodeColorStyles, content, onChange]);
-
-  function adjustBrightness(hex: string, percent: number): string {
-    const num = parseInt(hex.replace('#', ''), 16);
-    const amt = Math.round(2.55 * percent);
-    const R = Math.min(255, Math.max(0, (num >> 16) + amt));
-    const G = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amt));
-    const B = Math.min(255, Math.max(0, (num & 0x0000FF) + amt));
-    return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
-  }
-
-  // Get palette colors for swatches
-  const getPaletteColors = useCallback(() => {
-    const activePalette = extractCurrentPalette(content);
-    if (!activePalette) {
-      return PREDEFINED_COLORS;
+  const handleCanvasClick = useCallback(() => {
+    if (toolMode === 'connect') {
+      setConnectFirst(null);
+      return;
     }
-    const c = activePalette.colors;
-    return [
-      c.primary,
-      c.secondary,
-      c.accent,
-      c.success,
-      c.warning,
-      c.error,
-      c.neutral_light,
-      c.neutral_dark,
-      adjustBrightness(c.primary, 20),
-      adjustBrightness(c.primary, -20),
-      adjustBrightness(c.secondary, 20),
-      adjustBrightness(c.secondary, -20),
-    ];
-  }, [content]);
+    if (selectedNodeIds.size > 0) {
+      setSelectedNodeIds(new Set());
+    }
+    if (selectedEdgeIndex !== null) {
+      setSelectedEdgeIndex(null);
+    }
+  }, [selectedNodeIds, selectedEdgeIndex, toolMode]);
 
-  const isDark = theme === 'dark';
+  // Style change handler: writes classDef/class lines to code via onChange
+  const handleStyleChange = useCallback((nodeIds: string[], styleUpdate: Partial<NodeStyle>) => {
+    if (!onChange) return;
+    skipResyncRef.current = true;
+
+    // Remove old classDef and class lines for these nodes
+    let result = removeNodeStyles(content, nodeIds);
+
+    // Build new classDefs and class assignments
+    const newLines: string[] = [];
+    const classNameBase = `nodeStyle_${Date.now()}`;
+    nodeIds.forEach((nodeId, index) => {
+      // Merge existing style with update
+      const existingStyle = panelStyles.get(nodeId) ?? {};
+      const mergedStyle = { ...existingStyle, ...styleUpdate };
+
+      // Only create classDef if there are actual style properties
+      if (Object.keys(mergedStyle).length > 0) {
+        const className = `${classNameBase}_${index}`;
+        // Build classDef line
+        const styleParts: string[] = [];
+        if (mergedStyle.fill) styleParts.push(`fill:${mergedStyle.fill}`);
+        if (mergedStyle.stroke) styleParts.push(`stroke:${mergedStyle.stroke}`);
+        if (mergedStyle.strokeWidth) styleParts.push(`stroke-width:${mergedStyle.strokeWidth}`);
+        if (mergedStyle.strokeDasharray) styleParts.push(`stroke-dasharray:${mergedStyle.strokeDasharray}`);
+        if (mergedStyle.color) styleParts.push(`color:${mergedStyle.color}`);
+        if (mergedStyle.fontWeight) styleParts.push(`font-weight:${mergedStyle.fontWeight}`);
+        if (mergedStyle.fontSize) styleParts.push(`font-size:${mergedStyle.fontSize}`);
+        if (mergedStyle.rx) styleParts.push(`rx:${mergedStyle.rx}`);
+        if (mergedStyle.ry) styleParts.push(`ry:${mergedStyle.ry}`);
+        newLines.push(`    classDef ${className} ${styleParts.join(',')}`);
+        newLines.push(`    class ${nodeId} ${className}`);
+      }
+    });
+
+    if (newLines.length > 0) {
+      result = result.trimEnd() + '\n' + newLines.join('\n') + '\n';
+    }
+
+    onChange(result);
+  }, [onChange, content, panelStyles]);
+
+  // Reset handler: removes all classDef/class lines for selected nodes
+  const handleResetStyles = useCallback((nodeIds: string[]) => {
+    if (!onChange) return;
+    skipResyncRef.current = true;
+    const result = removeNodeStyles(content, nodeIds);
+    onChange(result);
+    setSelectedNodeIds(new Set());
+  }, [onChange, content]);
+
+  // Edge style change handler
+  const handleEdgeStyleChange = useCallback((edgeIndex: number, styleUpdate: Partial<EdgeStyle>) => {
+    if (!onChange) return;
+    const existingStyle = parsedLinkStyles.get(edgeIndex) ?? {};
+    const mergedStyle = { ...existingStyle, ...styleUpdate };
+    const result = updateLinkStyle(content, edgeIndex, mergedStyle);
+    onChange(result);
+  }, [onChange, content, parsedLinkStyles]);
+
+  // Edge arrow type change handler
+  const handleEdgeArrowChange = useCallback((source: string, target: string, arrowType: string) => {
+    if (!onChange) return;
+    const result = updateEdgeArrowType(content, source, target, arrowType);
+    onChange(result);
+  }, [onChange, content]);
+
+  // Edge label change handler
+  const handleEdgeLabelChange = useCallback((source: string, target: string, label: string) => {
+    if (!onChange) return;
+    const result = updateEdgeLabel(content, source, target, label);
+    onChange(result);
+  }, [onChange, content]);
+
+  // Edge reset handler
+  const handleEdgeReset = useCallback((edgeIndex: number) => {
+    if (!onChange) return;
+    const result = removeLinkStyles(content, [edgeIndex]);
+    onChange(result);
+    setSelectedEdgeIndex(null);
+  }, [onChange, content]);
+
+  // Shape insertion handler: adds a new node to the diagram
+  const handleAddShape = useCallback((shape: NodeShape) => {
+    if (!onChange) return;
+    const parsed = parseDiagram(content);
+    const existingIds = parsed.nodes.map(n => n.id);
+    const id = generateNodeId(existingIds);
+    const result = addNode(content, id, 'New Node', shape);
+    onChange(result);
+    setSelectedNodeIds(new Set([id]));
+    setSelectedEdgeIndex(null);
+  }, [onChange, content]);
+
+  // Delete selected nodes handler
+  const handleDeleteSelected = useCallback(() => {
+    if (!onChange) return;
+    let updated = content;
+    selectedNodeIds.forEach(id => { updated = removeNode(updated, id); });
+    setSelectedNodeIds(new Set());
+    setSelectedEdgeIndex(null);
+    onChange(updated);
+  }, [onChange, content, selectedNodeIds]);
+
+  // Drop handler: adds a shape when dragged onto the canvas
+  const handleDropOnCanvas = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (!dragShape) return;
+    handleAddShape(dragShape);
+    setDragShape(null);
+  }, [dragShape, handleAddShape]);
 
   async function copySvg() {
     if (!svg) {return;}
@@ -597,18 +673,6 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     scrollableContainer.scrollLeft = 0;
   }, []);
 
-  const type = detectDiagramType(content);
-  const stylingCapabilities = getStylingCapabilities(type);
-  const supportsClassDef = stylingCapabilities.supportsClassDef;
-
-  // Check if a color palette is already applied
-  const activePalette = extractCurrentPalette(content);
-
-  // Get selected node color style from nodeColorStyles
-  const selectedNodeStyle = selectedNodeId
-    ? nodeColorStyles.find(n => n.id === selectedNodeId) ?? null
-    : null;
-
   return (
     <div data-testid="preview-panel" className="flex flex-col h-full" style={{ background: 'var(--surface-raised)' }}>
       <div className="flex items-center justify-between px-3 h-9 shrink-0 border-b"
@@ -651,17 +715,17 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
               <Maximize2 size={13} />
             </button>
           )}
-          <div className="w-px h-4 mx-1" style={{ background: 'var(--border-subtle)' }} />
-          {onChange && supportsClassDef && nodeColorStyles.length > 0 && !activePalette && (
+          {onChange && supportsClassDef && (
             <button
-              onClick={() => setShowNodeColorsPanel(!showNodeColorsPanel)}
-              title="Node Colors"
-              className="p-1 rounded-sm transition-colors hover:bg-white/8"
-              style={{ color: showNodeColorsPanel ? 'var(--accent)' : 'var(--text-tertiary)' }}
-            >
-              <Hash size={13} />
+              data-testid="add-subgraph-button"
+              onClick={handleAddSubgraph}
+              title="Add subgraph"
+              className="flex items-center gap-1 px-1.5 py-1 rounded-sm transition-colors hover:bg-white/8"
+              style={{ color: 'var(--text-tertiary)' }}>
+              <Group size={13} />
             </button>
           )}
+          <div className="w-px h-4 mx-1" style={{ background: 'var(--border-subtle)' }} />
           <button onClick={copySvg} title="Copy SVG"
             className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
             {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
@@ -675,7 +739,18 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
         </div>
       </div>
 
-      <div ref={containerRef} className="flex-1 overflow-auto preview-grid" onClick={handleCanvasClick}>
+      {supportsClassDef && (
+        <ShapeToolbar
+          toolMode={toolMode}
+          onToolMode={setToolMode}
+          onAddShape={handleAddShape}
+          onDragStart={shape => setDragShape(shape)}
+          onDeleteSelected={handleDeleteSelected}
+          hasSelection={selectedNodeIds.size > 0}
+        />
+      )}
+
+      <div ref={containerRef} className="flex-1 overflow-auto preview-grid" onClick={handleCanvasClick} onDragOver={e => e.preventDefault()} onDrop={handleDropOnCanvas}>
         {error ? (
           <div className="flex flex-col items-center justify-center h-full p-8 text-center" data-testid="error-message">
             <div className="w-10 h-10 rounded-full flex items-center justify-center mb-3"
@@ -701,7 +776,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Start typing to see a live preview</p>
           </div>
         ) : (
-          <div className="relative min-h-full flex items-center justify-center p-8">
+          <div ref={relativeContainerRef} className="relative min-h-full flex items-center justify-center p-8">
             <div
               ref={shadowHostRef}
               className="transition-transform duration-150"
@@ -713,208 +788,106 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
               }}
             />
 
-            {selectedNodeId && selectedNodeStyle && onChange && (
-              <div className="absolute top-2 left-2 z-20 w-72 rounded-xl border shadow-lg p-3 animate-fade-in"
-                style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}
-                onClick={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-3 pb-2 border-b"
-                  style={{ borderColor: 'var(--border-subtle)' }}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      Edit Node
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium"
-                      style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}>
-                      {selectedNodeId}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setSelectedNodeId(null)}
-                    className="p-1 rounded-sm transition-colors hover:bg-white/8"
-                    style={{ color: 'var(--text-tertiary)' }}
-                    title="Close">
-                    <X size={12} />
-                  </button>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <div>
-                    <span className="text-[9px] font-medium mb-1 block" style={{ color: 'var(--text-secondary)' }}>Fill Color</span>
-                    <div ref={nodeColorDropdownContainerRef} className="relative">
-                      <button
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          setNodeColorDropdownOpen(v => !v);
-                        }}
-                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md border text-xs transition-colors"
-                        style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}>
-                        <span
-                          className="w-4 h-4 rounded-sm shrink-0 border"
-                          style={{
-                            background: selectedNodeStyle.color ?? 'repeating-conic-gradient(#ccc 0% 25%, white 0% 50%) 0 0 / 8px 8px',
-                            borderColor: 'var(--border-strong)',
-                          }}
-                        />
-                        <span className="flex-1 text-left truncate font-mono">
-                          {selectedNodeStyle.color || 'none'}
-                        </span>
-                      </button>
-
-                      {nodeColorDropdownOpen && (
-                        <div
-                          className="absolute left-0 top-full mt-1 z-50 w-72 rounded-xl border shadow-2xl p-3 animate-fade-in"
-                          style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}
-                          onClick={(e) => e.stopPropagation()}
-                          onPointerDown={(e) => e.stopPropagation()}
-                        >
-                          <div className="grid grid-cols-8 gap-1 mb-3">
-                            {getPaletteColors().map(color => (
-                              <button
-                                key={color}
-                                onMouseDown={(e) => {
-                                  e.preventDefault();
-                                  handleNodeColorChange(selectedNodeId, color);
-                                  setNodeColorDropdownOpen(false);
-                                }}
-                                title={color}
-                                className="w-5 h-5 rounded-md border transition-all hover:scale-110 active:scale-95 flex items-center justify-center"
-                                style={{
-                                  background: color,
-                                  borderColor: selectedNodeStyle.color === color ? 'var(--accent)' : 'var(--border-subtle)',
-                                  outline: selectedNodeStyle.color === color ? '2px solid var(--accent)' : undefined,
-                                  outlineOffset: '1px',
-                                }}
-                              />
-                            ))}
-                          </div>
-                          <div className="space-y-3">
-                            <HexColorPicker
-                              color={nodeColorHex || '#ffffff'}
-                              onChange={(color) => {
-                                setNodeColorHex(color);
-                                // Clear existing timeout
-                                if (colorChangeTimeoutRef.current) {
-                                  clearTimeout(colorChangeTimeoutRef.current);
-                                }
-                                // Debounce the actual color change
-                                colorChangeTimeoutRef.current = window.setTimeout(() => {
-                                  if (selectedNodeId) {
-                                    handleNodeColorChange(selectedNodeId, color);
-                                  }
-                                }, 100);
-                              }}
-                              style={{ width: '100%', height: 120 }}
-                            />
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="text"
-                                value={nodeColorHex}
-                                placeholder="#rrggbb"
-                                onChange={e => {
-                                  const v = e.target.value;
-                                  setNodeColorHex(v);
-                                  if (/^#[0-9a-fA-F]{6}$/.test(v) || /^#[0-9a-fA-F]{3}$/.test(v)) {
-                                    handleNodeColorChange(selectedNodeId, v);
-                                  }
-                                }}
-                                className="flex-1 px-2 py-1 rounded-md border text-xs font-mono"
-                                style={{
-                                  background: 'var(--surface-base)',
-                                  borderColor: 'var(--border-subtle)',
-                                  color: 'var(--text-primary)',
-                                  outline: 'none'
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {selectedNodeIds.size > 0 && supportsClassDef && (
+              <NodeStylePanel
+                selectedNodeIds={Array.from(selectedNodeIds)}
+                nodeStyles={Array.from(selectedNodeIds).map(id => panelStyles.get(id) ?? {})}
+                nodeLabels={panelLabels}
+                onClose={() => setSelectedNodeIds(new Set())}
+                onStyleChange={handleStyleChange}
+                onLabelChange={(nodeId, newLabel) => {
+                  if (onChange) onChange(updateNodeLabel(content, nodeId, newLabel));
+                }}
+                onReset={handleResetStyles}
+              />
             )}
 
-            {/* Floating Node Colors Panel */}
-            {showNodeColorsPanel && nodeColorStyles.length > 0 && (
-              <div
-                className="absolute top-2 left-2 z-20 w-64 rounded-xl border shadow-lg animate-fade-in"
-                style={{
-                  background: 'var(--surface-raised)',
-                  borderColor: 'var(--border-subtle)',
-                  maxHeight: '400px',
-                  overflowY: 'auto'
-                }}
-                onClick={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                <div className="sticky top-0 p-2 border-b flex items-center justify-end" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-base)' }}>
-                  <button
-                    onClick={() => setShowNodeColorsPanel(false)}
-                    className="p-1 rounded-sm transition-colors hover:bg-white/8"
-                    style={{ color: 'var(--text-tertiary)' }}
-                    title="Close"
-                  >
-                    <X size={10} />
-                  </button>
-                </div>
-                <div className="p-2 space-y-2">
-                  {nodeColorStyles.map((node) => (
-                    <div key={node.id} className="p-2 rounded border" style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <div
-                          className="w-4 h-4 rounded border shrink-0"
-                          style={{ backgroundColor: node.color, borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }}
-                        />
-                        <span className="text-[9px] truncate flex-1 font-medium" style={{ color: 'var(--text-primary)' }}>
-                          {node.label}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-6 gap-1">
-                        {getPaletteColors().map((color, index) => (
-                          <button
-                            key={`${color}-${index}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleNodeColorChange(node.id, color);
-                            }}
-                            className="w-5 h-5 rounded border hover:scale-110 transition-transform"
-                            style={{
-                              backgroundColor: color,
-                              borderColor: node.color === color ? 'var(--accent)' : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'),
-                              borderWidth: node.color === color ? '2px' : '1px'
-                            }}
-                            title={color}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            {selectedEdgeIndex !== null && parsedEdges[selectedEdgeIndex] && supportsClassDef && (
+              <EdgeStylePanel
+                edge={parsedEdges[selectedEdgeIndex]}
+                edgeIndex={selectedEdgeIndex}
+                edgeStyle={parsedLinkStyles.get(selectedEdgeIndex) ?? {}}
+                onClose={() => setSelectedEdgeIndex(null)}
+                onArrowChange={handleEdgeArrowChange}
+                onLabelChange={handleEdgeLabelChange}
+                onStyleChange={handleEdgeStyleChange}
+                onReset={handleEdgeReset}
+              />
             )}
 
             {nodeOverlays.map(overlay => {
-              const isSelected = overlay.id === selectedNodeId;
+              const isSelected = selectedNodeIds.has(overlay.id);
+              const isConnectSource = connectFirst === overlay.id;
               return (
                 <div
                   key={overlay.id}
                   onClick={e => handleNodeClick(e, overlay.id)}
-                  className={`node-overlay ${isSelected ? 'selected' : ''}`}
+                  className={`node-overlay ${isSelected ? 'selected' : ''} ${isConnectSource ? 'connect-source' : ''}`}
                   style={{
                     position: 'absolute',
                     left: overlay.x,
                     top: overlay.y,
                     width: overlay.width,
                     height: overlay.height,
-                    cursor: 'pointer',
+                    cursor: toolMode === 'connect' ? 'crosshair' : (supportsClassDef ? 'pointer' : 'default'),
                     zIndex: 5,
-                    border: isSelected ? '2px solid var(--accent)' : '2px solid transparent',
+                    border: isSelected ? '2px solid var(--accent)' : isConnectSource ? '2px dashed var(--accent)' : '2px solid transparent',
+                    borderRadius: '4px',
+                    transition: 'border-color 0.15s',
+                    background: isConnectSource ? 'rgba(var(--accent-rgb), 0.1)' : undefined,
+                  }}
+                  title={supportsClassDef ? `Click to edit ${overlay.id}` : overlay.id}
+                />
+              );
+            })}
+
+            {subgraphOverlays.map(sg => {
+              const isEditing = editingSubgraphId === sg.id;
+              return (
+                <div
+                  key={`sg-${sg.id}`}
+                  onClick={e => startSubgraphEdit(e, sg.id, sg.label)}
+                  className="subgraph-overlay"
+                  style={{
+                    position: 'absolute',
+                    left: sg.x,
+                    top: sg.y,
+                    width: sg.width,
+                    height: sg.height,
+                    cursor: supportsClassDef ? 'pointer' : 'default',
+                    zIndex: 6,
+                    border: isEditing ? '2px solid var(--accent)' : '2px solid transparent',
                     borderRadius: '4px',
                     transition: 'border-color 0.15s',
                   }}
-                  title={`Click to edit ${overlay.id}`}
-                />
+                  title={supportsClassDef ? 'Click to edit subgraph label' : sg.label}
+                >
+                  {isEditing && (
+                    <input
+                      ref={subgraphEditRef}
+                      value={subgraphLabelValue}
+                      onChange={e => setSubgraphLabelValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') applySubgraphEdit();
+                        if (e.key === 'Escape') cancelSubgraphEdit();
+                      }}
+                      onBlur={applySubgraphEdit}
+                      className="absolute z-10 text-center outline-none"
+                      style={{
+                        left: 0, top: 0,
+                        width: '100%', height: '100%',
+                        background: 'var(--surface-base)',
+                        border: '2px solid var(--accent)',
+                        borderRadius: '4px',
+                        color: 'var(--text-primary)',
+                        fontSize: '12px',
+                        padding: '0 4px',
+                        boxSizing: 'border-box',
+                      }}
+                      autoFocus
+                    />
+                  )}
+                </div>
               );
             })}
           </div>
