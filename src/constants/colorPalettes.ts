@@ -473,7 +473,18 @@ function objectToYaml(obj: Record<string, unknown>, indent: number = 0): string 
     } else if (Array.isArray(value)) {
       result += `${spaces}${key}:\n${spaces}  - ${(value as unknown[]).join('\n' + spaces + '  - ')}\n`;
     } else if (typeof value === 'string') {
-      result += `${spaces}${key}: '${value}'\n`;
+      // Don't quote certain values that Mermaid expects unquoted:
+      // - Colors starting with #
+      // - Theme names (base, default, forest, neutral, dark)
+      // - Boolean strings (true, false)
+      // - Numbers
+      const unquotedValues = ['#', 'base', 'default', 'forest', 'neutral', 'dark', 'true', 'false'];
+      const shouldNotQuote = unquotedValues.some(v => value.startsWith(v) || value === v) || /^\d+$/.test(value);
+      if (shouldNotQuote) {
+        result += `${spaces}${key}: ${value}\n`;
+      } else {
+        result += `${spaces}${key}: '${value}'\n`;
+      }
     } else {
       result += `${spaces}${key}: ${value}\n`;
     }
@@ -795,15 +806,27 @@ export function applyStyleToContent(content: string, styleOptions: DiagramStyleO
   // NOTE: When we have diagram config (hasNonFontConfig), we also include
   // base theme variables to prevent Mermaid from applying its default colors.
   if (hasNonFontConfig) {
+    // Set theme to 'base' so that themeVariables are properly applied
+    minimalConfig.theme = 'base';
+
     // Start with base theme variables to ensure consistent appearance
-    // These are the default Mermaid theme variables that prevent unwanted colors
+    // These are Mermaid's standard themeVariables
     minimalConfig.themeVariables = {
       ...(minimalConfig.themeVariables as Record<string, unknown> | {}),
-      // Base theme colors (light/transparent theme as default)
-      background: '#f4f4f4',
+      // Common theme variables
       primaryColor: '#fff4dd',
+      primaryTextColor: '#000',
+      primaryBorderColor: '#666',
+      lineColor: '#666',
+      secondaryColor: '#fff',
+      tertiaryColor: '#fff',
+      fillType0: '#fff4dd',
+      fillType1: '#fff',
+      fillType2: '#f0f0f0',
+      // Note colors
       noteBkgColor: '#fff5ad',
       noteTextColor: '#333',
+      noteBorderColor: '#999',
     };
 
     // Add font settings on top of base theme
@@ -1172,17 +1195,37 @@ function stripYamlFrontmatter(content: string): string {
  */
 export function addBaseThemeConfig(content: string): string {
   const stripped = stripYamlFrontmatter(content);
+  const diagramType = detectDiagramTypeFromContent(stripped);
 
   // Base theme variables to ensure consistent appearance
-  const baseConfig = {
+  // Using Mermaid's standard themeVariables names
+  const baseConfig: Record<string, unknown> = {
+    // Use 'base' theme so that themeVariables are applied
+    theme: 'base',
     themeVariables: {
-      // Base theme colors (light/transparent theme as default)
-      background: '#f4f4f4',
+      // Common theme variables for most diagrams
       primaryColor: '#fff4dd',
+      primaryTextColor: '#000',
+      primaryBorderColor: '#666',
+      lineColor: '#666',
+      secondaryColor: '#fff',
+      tertiaryColor: '#fff',
+      fillType0: '#fff4dd',
+      fillType1: '#fff',
+      fillType2: '#f0f0f0',
+      // Note colors
       noteBkgColor: '#fff5ad',
       noteTextColor: '#333',
+      noteBorderColor: '#999',
     },
   };
+
+  // Add flowchart-specific config for flowcharts
+  if (diagramType === 'flowchart' || diagramType === 'graph') {
+    baseConfig.flowchart = {
+      useMaxWidth: true,
+    };
+  }
 
   return `---\nconfig:\n${objectToYaml(baseConfig, 2)}---\n\n${stripped}`;
 }

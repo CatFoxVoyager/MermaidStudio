@@ -34,8 +34,9 @@ describe('applyStyleToContent', () => {
       expect(result).toContain('useMaxWidth');
       expect(result).toContain('false');
       // Should include base theme variables to prevent default colors
-      expect(result).toContain('background');
-      expect(result).toContain('#f4f4f4');
+      expect(result).toContain('theme: base');
+      expect(result).toContain('primaryColor');
+      expect(result).toContain('#fff4dd');
       expect(result).toContain('themeVariables');
     });
 
@@ -91,7 +92,7 @@ describe('applyStyleToContent', () => {
       expect(result).toContain('14px');
       expect(result).toContain('disableMulticolor');
       expect(result).toContain('themeVariables');
-      expect(result).toContain('background');
+      expect(result).toContain('primaryColor');
     });
 
     it('should apply timeline-specific options', () => {
@@ -151,7 +152,7 @@ describe('applyStyleToContent', () => {
       expect(result).toContain('chartWidth');
       expect(result).toContain('600');
       expect(result).toContain('themeVariables');
-      expect(result).toContain('background');
+      expect(result).toContain('primaryColor');
     });
 
     it('should apply chart dimensions', () => {
@@ -213,7 +214,7 @@ describe('applyStyleToContent', () => {
       expect(result).toContain('xAxisTitle');
       expect(result).toContain('Time');
       expect(result).toContain('themeVariables');
-      expect(result).toContain('background');
+      expect(result).toContain('primaryColor');
     });
   });
 });
