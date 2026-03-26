@@ -854,65 +854,73 @@ function extractExistingConfig(content: string): Record<string, unknown> | null 
 
     const lines = yamlText.split('\n');
     let currentSection: Record<string, unknown> | null = null;
-    let inThemeVariables = false;
-    let themeVarsIndent = 0;
+    let currentSectionIndent = -1;
+    // Base indent is 2 (under 'config:')
+    const baseIndent = 2;
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const trimmed = line.trim();
+      const indent = line.search(/\S/);
 
       // Skip empty lines and comments
       if (!trimmed || trimmed.startsWith('#')) continue;
 
-      // Check for themeVariables section
-      if (trimmed.startsWith('themeVariables:')) {
-        inThemeVariables = true;
-        themeVarsIndent = line.search(/\S/);
-        if (!config.themeVariables) {
-          config.themeVariables = {};
+      // Check for key-value or section start
+      const kvMatch = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*):\s*(.*)$/);
+      if (!kvMatch) continue;
+
+      const key = kvMatch[1];
+      let value = kvMatch[2];
+
+      // If at base indent level (2 spaces), this is a top-level config section
+      if (indent === baseIndent) {
+        currentSection = config;
+        currentSectionIndent = indent;
+
+        if (value === '') {
+          // Empty value means this is a section start (like 'flowchart:' or 'themeVariables:')
+          config[key] = {};
+          currentSection = config[key] as Record<string, unknown>;
+          currentSectionIndent = indent;
+          continue;
         }
-        currentSection = config.themeVariables as Record<string, unknown>;
+      } else if (currentSection && indent > currentSectionIndent) {
+        // Nested under current section
+      } else {
+        // Same or lesser indent - go back to config level
+        currentSection = config;
+        currentSectionIndent = baseIndent;
+      }
+
+      // Parse the value
+      if (value === '' && kvMatch[1] !== 'themeVariables') {
+        // Start of a nested section
+        if (currentSection) {
+          (currentSection as Record<string, unknown>)[key] = {};
+          currentSection = (currentSection as Record<string, unknown>)[key] as Record<string, unknown>;
+          currentSectionIndent = indent;
+        }
         continue;
       }
 
-      // Check for other top-level sections
-      const sectionMatch = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*):$/);
-      if (sectionMatch && !line.startsWith(' ')) {
-        inThemeVariables = false;
-        const sectionName = sectionMatch[1];
-        config[sectionName] = {};
-        currentSection = config[sectionName] as Record<string, unknown>;
-        continue;
+      // Remove quotes from string values
+      if ((value.startsWith("'") && value.endsWith("'")) ||
+          (value.startsWith('"') && value.endsWith('"'))) {
+        value = value.slice(1, -1);
       }
 
-      // Parse key-value pairs within current section - more permissive regex
+      // Handle boolean values
+      if (value === 'true') value = true;
+      if (value === 'false') value = false;
+
+      // Handle numeric values
+      if (!isNaN(Number(value)) && value !== '') {
+        value = Number(value);
+      }
+
       if (currentSection) {
-        const indent = line.search(/\S/);
-
-        // Match keys with letters, numbers, underscores, and common symbols
-        // This allows for theme variable names like primaryColor, pie1, cScale0, etc.
-        const kvMatch = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*):\s*(.*)$/);
-        if (kvMatch) {
-          const key = kvMatch[1];
-          let value = kvMatch[2];
-
-          // Remove quotes from string values
-          if ((value.startsWith("'") && value.endsWith("'")) ||
-              (value.startsWith('"') && value.endsWith('"'))) {
-            value = value.slice(1, -1);
-          }
-
-          // Handle boolean values
-          if (value === 'true') value = true;
-          if (value === 'false') value = false;
-
-          // Handle numeric values
-          if (!isNaN(Number(value)) && value !== '') {
-            value = Number(value);
-          }
-
-          (currentSection as Record<string, unknown>)[key] = value;
-        }
+        (currentSection as Record<string, unknown>)[key] = value;
       }
     }
 
