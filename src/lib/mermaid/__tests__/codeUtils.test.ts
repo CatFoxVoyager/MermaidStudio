@@ -918,19 +918,27 @@ describe('addSubgraph', () => {
 });
 
 describe('updateSubgraphLabel', () => {
-  it('should change label in multi-line format', () => {
-    const source = 'flowchart TD\nsubgraph S1\n  Old Label\n  A-->B\nend';
+  it('should change label in bracket format', () => {
+    const source = 'flowchart TD\n  subgraph S1["Old Label"]\n    A-->B\n  end';
     const result = updateSubgraphLabel(source, 'S1', 'New Label');
 
-    expect(result).toContain('New Label');
+    expect(result).toContain('subgraph S1["New Label"]');
     expect(result).not.toContain('Old Label');
   });
 
-  it('should change label in inline format', () => {
+  it('should change label in multi-line format and convert to bracket', () => {
+    const source = 'flowchart TD\nsubgraph S1\n  Old Label\n  A-->B\nend';
+    const result = updateSubgraphLabel(source, 'S1', 'New Label');
+
+    expect(result).toContain('subgraph S1["New Label"]');
+    expect(result).not.toContain('Old Label');
+  });
+
+  it('should change label in inline format and convert to bracket', () => {
     const source = 'flowchart TD\nsubgraph S1 Old Label\n  A-->B\nend';
     const result = updateSubgraphLabel(source, 'S1', 'New Label');
 
-    expect(result).toContain('subgraph S1 New Label');
+    expect(result).toContain('subgraph S1["New Label"]');
     expect(result).not.toContain('Old Label');
   });
 

@@ -625,7 +625,7 @@ export function addSubgraph(source: string, id?: string, label?: string): string
   }
 
   const prefix = insertIdx > 0 && lines[insertIdx - 1].trim() !== '' ? '\n' : '';
-  const block = `${prefix}  subgraph ${subgraphId}\n    ${subgraphLabel}\n  end`;
+  const block = `${prefix}  subgraph ${subgraphId}["${subgraphLabel}"]\n  end`;
 
   lines.splice(insertIdx, 0, block);
   return lines.join('\n');
@@ -633,23 +633,47 @@ export function addSubgraph(source: string, id?: string, label?: string): string
 
 export function updateSubgraphLabel(source: string, subgraphId: string, newLabel: string): string {
   const lines = source.split('\n');
+  const idPattern = escapeRegex(subgraphId);
+
+  // Match bracket format: subgraph id["label"] or subgraph id[label]
+  const bracketRe = new RegExp(`^(\\s*subgraph\\s+${idPattern})\\[["']?[^"\\]]*["']?\\]`, '');
+  // Match inline format: subgraph id label
+  const inlineRe = new RegExp(`^(\\s*subgraph\\s+${idPattern})\\s+(?!\\[)\\S`, '');
+  // Match bare subgraph id (label on next line)
+  const bareRe = new RegExp(`^\\s*subgraph\\s+${idPattern}\\s*$`, '');
+
   for (let i = 0; i < lines.length; i++) {
-    const match = lines[i].trim().match(new RegExp(`^subgraph\\s+${escapeRegex(subgraphId)}(?:\\s+(.+))?$`));
-    if (match) {
-      if (match[1] !== undefined) {
-        lines[i] = lines[i].replace(match[0], `subgraph ${subgraphId} ${newLabel}`);
-        return lines.join('\n');
-      }
+    const bracketMatch = lines[i].match(bracketRe);
+    if (bracketMatch) {
+      const indent = lines[i].match(/^(\s*)/)?.[1] ?? '';
+      lines[i] = `${indent}subgraph ${subgraphId}["${newLabel}"]`;
+      return lines.join('\n');
+    }
+
+    const inlineMatch = lines[i].match(inlineRe);
+    if (inlineMatch) {
+      const indent = lines[i].match(/^(\s*)/)?.[1] ?? '';
+      lines[i] = `${indent}subgraph ${subgraphId}["${newLabel}"]`;
+      return lines.join('\n');
+    }
+
+    if (bareRe.test(lines[i])) {
+      // Label is on the next non-empty, non-end line
       for (let j = i + 1; j < lines.length; j++) {
         const nextTrimmed = lines[j].trim();
         if (nextTrimmed === '' || nextTrimmed === 'end' || nextTrimmed.startsWith('subgraph') || nextTrimmed.startsWith('direction')) {
           continue;
         }
-        const indent = lines[j].match(/^(\s*)/)?.[1] ?? '    ';
-        lines[j] = `${indent}${newLabel}`;
+        // Remove the old label line and convert to bracket format
+        const indent = lines[i].match(/^(\s*)/)?.[1] ?? '';
+        lines[i] = `${indent}subgraph ${subgraphId}["${newLabel}"]`;
+        lines.splice(j, 1);
         return lines.join('\n');
       }
-      break;
+      // No label line found — just add bracket label
+      const indent = lines[i].match(/^(\s*)/)?.[1] ?? '';
+      lines[i] = `${indent}subgraph ${subgraphId}["${newLabel}"]`;
+      return lines.join('\n');
     }
   }
   return source;
