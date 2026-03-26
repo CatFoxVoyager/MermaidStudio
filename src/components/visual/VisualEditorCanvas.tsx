@@ -4,7 +4,7 @@ import { renderDiagram } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
 import {
   parseDiagram, updateNodeStyle, updateNodeLabel, updateNodeShape,
-  addNode, removeNode, addEdge, generateNodeId, getNodeStyle,
+  addNode, removeNode, addEdge, generateNodeId, getNodeStyle, addSubgraph,
 } from '@/lib/mermaid/codeUtils';
 import { ShapeToolbar } from './ShapeToolbar';
 import { PropertiesPanel } from './PropertiesPanel';
@@ -232,6 +232,10 @@ export function VisualEditorCanvas({ content, theme, onChange }: Props) {
     onChange(lines.join('\n'));
   }
 
+  function handleAddSubgraph() {
+    onChange(addSubgraph(content));
+  }
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selection.nodeIds.length > 0) {
@@ -269,6 +273,7 @@ export function VisualEditorCanvas({ content, theme, onChange }: Props) {
         onDragStart={shape => setDragShape(shape)}
         onDeleteSelected={handleDeleteSelected}
         hasSelection={selection.nodeIds.length > 0}
+        onAddSubgraph={handleAddSubgraph}
       />
 
       <div className="flex flex-1 overflow-hidden">

@@ -1,4 +1,4 @@
-import { MousePointer2, Link, Trash2 } from 'lucide-react';
+import { MousePointer2, Link, Trash2, Group } from 'lucide-react';
 import type { NodeShape, ToolMode } from './types';
 
 interface ShapeButtonProps {
@@ -60,9 +60,10 @@ interface Props {
   onDragStart: (shape: NodeShape) => void;
   onDeleteSelected: () => void;
   hasSelection: boolean;
+  onAddSubgraph?: () => void;
 }
 
-export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, onDeleteSelected, hasSelection }: Props) {
+export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, onDeleteSelected, hasSelection, onAddSubgraph }: Props) {
   return (
     <div className="flex items-center gap-1 px-3 py-2 shrink-0 border-b overflow-x-auto"
       style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
@@ -102,6 +103,24 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
           <ShapeButton key={shape} shape={shape} label={label} onDragStart={onDragStart} onClick={onAddShape} />
         ))}
       </div>
+
+      {onAddSubgraph && (
+        <>
+          <div className="w-px h-8 shrink-0 mx-1" style={{ background: 'var(--border-subtle)' }} />
+          <button
+            onClick={onAddSubgraph}
+            title="Add subgraph"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0"
+            style={{
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border-subtle)',
+            }}>
+            <Group size={12} />
+            <span>Subgraph</span>
+          </button>
+        </>
+      )}
 
       {hasSelection && (
         <>

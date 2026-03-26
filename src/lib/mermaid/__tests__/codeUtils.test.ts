@@ -16,6 +16,16 @@ import {
   parseFrontmatter,
   generateFrontmatter,
   removeNodeStyles,
+  parseStyleValue,
+  styleToString,
+  parseLinkStyles,
+  edgeStyleToString,
+  updateLinkStyle,
+  removeLinkStyles,
+  updateEdgeArrowType,
+  updateEdgeLabel,
+  addSubgraph,
+  updateSubgraphLabel,
 } from '../codeUtils';
 
 describe('Mermaid Code Utilities', () => {
@@ -46,6 +56,28 @@ describe('Mermaid Code Utilities', () => {
 
       expect(result.edges).toHaveLength(1);
       expect(result.edges[0].label).toBe('yes');
+    });
+
+    it('should extract labels from nodes defined on edge lines', () => {
+      const source = `flowchart TD
+A([Start]) --> B{Is it working?}
+B -->|Yes| C[Great!]
+B -->|No| D[Debug it]
+D --> B
+C --> E([End])`;
+      const result = parseDiagram(source);
+
+      const byId = (id: string) => result.nodes.find(n => n.id === id)!;
+      expect(byId('A').label).toBe('Start');
+      expect(byId('A').shape).toBe('stadium');
+      expect(byId('B').label).toBe('Is it working?');
+      expect(byId('B').shape).toBe('rhombus');
+      expect(byId('C').label).toBe('Great!');
+      expect(byId('C').shape).toBe('rect');
+      expect(byId('D').label).toBe('Debug it');
+      expect(byId('D').shape).toBe('rect');
+      expect(byId('E').label).toBe('End');
+      expect(byId('E').shape).toBe('stadium');
     });
 
     it('should parse subgraphs', () => {
@@ -392,213 +424,520 @@ A-->B`;
       expect(result.nodes[0].label).toBe('Node A');
     });
   });
-});
 
-describe('Extended NodeStyle', () => {
-  it('should parse comma-separated classDef string with all 9 properties', () => {
-    const source = 'flowchart TD\nA-->B\nclassDef default fill:#fff,stroke:#333,stroke-width:2px,stroke-dasharray:5 5,color:#000,font-weight:bold,font-size:16px,rx:10,ry:10';
-    const result = parseDiagram(source);
+  describe('Extended NodeStyle', () => {
+    describe('parseStyleValue', () => {
+      it('should parse comma-separated classDef string with all 9 properties', () => {
+        const result = parseStyleValue('fill:red,stroke:blue,stroke-width:2px,stroke-dasharray:5 5,color:white,font-weight:bold,font-size:16px,rx:10,ry:10');
+        expect(result).toEqual({
+          fill: 'red',
+          stroke: 'blue',
+          strokeWidth: '2px',
+          strokeDasharray: '5 5',
+          color: 'white',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          rx: '10',
+          ry: '10',
+        });
+      });
 
-    const style = result.classDefs.get('default');
-    expect(style).toBeDefined();
-    expect(style?.fill).toBe('#fff');
-    expect(style?.stroke).toBe('#333');
-    expect(style?.strokeWidth).toBe('2px');
-    expect(style?.strokeDasharray).toBe('5 5');
-    expect(style?.color).toBe('#000');
-    expect(style?.fontWeight).toBe('bold');
-    expect(style?.fontSize).toBe('16px');
-    expect(style?.rx).toBe('10');
-    expect(style?.ry).toBe('10');
-  });
+      it('should parse semicolon-separated style string with all 9 properties', () => {
+        const result = parseStyleValue('fill:red;stroke:blue;stroke-width:2px;stroke-dasharray:5 5;color:white;font-weight:bold;font-size:16px;rx:10;ry:10');
+        expect(result).toEqual({
+          fill: 'red',
+          stroke: 'blue',
+          strokeWidth: '2px',
+          strokeDasharray: '5 5',
+          color: 'white',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          rx: '10',
+          ry: '10',
+        });
+      });
 
-  it('should parse semicolon-separated style string with all 9 properties', () => {
-    const source = 'flowchart TD\nA-->B\nstyle A fill:#fff;stroke:#333;stroke-width:2px;stroke-dasharray:5 5;color:#000;font-weight:bold;font-size:16px;rx:10;ry:10';
-    const result = parseDiagram(source);
+      it('should handle stroke-dasharray with spaces', () => {
+        const result = parseStyleValue('stroke-dasharray:5 5');
+        expect(result.strokeDasharray).toBe('5 5');
+      });
 
-    const style = result.styles.get('A');
-    expect(style).toBeDefined();
-    expect(style?.fill).toBe('#fff');
-    expect(style?.stroke).toBe('#333');
-    expect(style?.strokeWidth).toBe('2px');
-    expect(style?.strokeDasharray).toBe('5 5');
-    expect(style?.color).toBe('#000');
-    expect(style?.fontWeight).toBe('bold');
-    expect(style?.fontSize).toBe('16px');
-    expect(style?.rx).toBe('10');
-    expect(style?.ry).toBe('10');
-  });
+      it('should be backward-compatible with old 4-property input', () => {
+        const result = parseStyleValue('fill:red,stroke:blue,stroke-width:2px,color:white');
+        expect(result).toEqual({
+          fill: 'red',
+          stroke: 'blue',
+          strokeWidth: '2px',
+          color: 'white',
+        });
+      });
 
-  it('should handle stroke-dasharray with spaces (e.g., "5 5")', () => {
-    const source = 'flowchart TD\nA-->B\nclassDef dashed fill:none,stroke:#333,stroke-dasharray:5 5';
-    const result = parseDiagram(source);
+      it('should handle partial properties', () => {
+        const result = parseStyleValue('fill:#eee,font-weight:bold');
+        expect(result).toEqual({
+          fill: '#eee',
+          fontWeight: 'bold',
+        });
+      });
+    });
 
-    const style = result.classDefs.get('dashed');
-    expect(style?.strokeDasharray).toBe('5 5');
-  });
+    describe('styleToString extended', () => {
+      it('should output all 9 properties as comma-separated CSS', () => {
+        const style = {
+          fill: 'red',
+          stroke: 'blue',
+          strokeWidth: '2px',
+          strokeDasharray: '5 5',
+          color: 'white',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          rx: '10',
+          ry: '10',
+        };
+        const result = styleToString(style);
+        expect(result).toBe('fill:red,stroke:blue,stroke-width:2px,stroke-dasharray:5 5,color:white,font-weight:bold,font-size:16px,rx:10,ry:10');
+      });
 
-  it('should be backward-compatible with old 4-property input', () => {
-    const source = 'flowchart TD\nA-->B\nclassDef old fill:red,stroke:blue,stroke-width:2px,color:white';
-    const result = parseDiagram(source);
+      it('should return empty string for empty style', () => {
+        const result = styleToString({});
+        expect(result).toBe('');
+      });
 
-    const style = result.classDefs.get('old');
-    expect(style).toEqual({
-      fill: 'red',
-      stroke: 'blue',
-      strokeWidth: '2px',
-      color: 'white',
+      it('should output only defined properties', () => {
+        const style = { fill: 'red', fontWeight: 'bold' };
+        const result = styleToString(style);
+        expect(result).toBe('fill:red,font-weight:bold');
+      });
+    });
+
+    describe('getNodeStyle extended', () => {
+      it('should return merged style including new properties', () => {
+        const styles = new Map([['A', { fill: 'red', fontWeight: 'bold' }]]);
+        const classDefs = new Map([['myClass', { stroke: 'blue', fontSize: '16px' }]]);
+        const nodeClasses = new Map([['A', ['myClass']]]);
+
+        const result = getNodeStyle(styles, classDefs, nodeClasses, 'A');
+
+        expect(result).toEqual({
+          fill: 'red',
+          fontWeight: 'bold',
+          stroke: 'blue',
+          fontSize: '16px',
+        });
+      });
+    });
+
+    describe('parseDiagram extended', () => {
+      it('should correctly parse classDef lines with new properties', () => {
+        const source = 'flowchart TD\nA-->B\nclassDef myClass fill:red,stroke-dasharray:5 5,font-weight:bold';
+        const result = parseDiagram(source);
+
+        expect(result.classDefs.get('myClass')).toEqual({
+          fill: 'red',
+          strokeDasharray: '5 5',
+          fontWeight: 'bold',
+        });
+      });
     });
   });
 
-  it('should return merged style including new properties from getNodeStyle', () => {
-    const styles = new Map([['A', { strokeDasharray: '5 5', fontWeight: 'bold' }]]);
-    const classDefs = new Map([['myClass', { fill: 'blue', fontSize: '16px', rx: '10' }]]);
-    const nodeClasses = new Map([['A', ['myClass']]]);
+  describe('removeNodeStyles', () => {
+    it('should remove classDef, class assignment, and style lines for a single node', () => {
+      const source = [
+        'flowchart TD',
+        'A-->B',
+        'style A fill:red',
+        'classDef myClass fill:blue',
+        'class A myClass',
+      ].join('\n');
 
-    const result = getNodeStyle(styles, classDefs, nodeClasses, 'A');
+      const result = removeNodeStyles(source, ['A']);
 
-    expect(result).toEqual({
-      fill: 'blue',
-      fontSize: '16px',
-      rx: '10',
-      strokeDasharray: '5 5',
-      fontWeight: 'bold',
+      expect(result).not.toContain('style A fill:red');
+      expect(result).not.toContain('class A myClass');
+      expect(result).not.toContain('classDef myClass fill:blue');
+      expect(result).toContain('flowchart TD');
+      expect(result).toContain('A-->B');
     });
-  });
 
-  it('should parse classDef lines with new properties via parseDiagram', () => {
-    const source = 'flowchart TD\nA-->B\nclassDef highlight fill:yellow,stroke:orange,stroke-width:3px,stroke-dasharray:10 5,color:black,font-weight:bold,font-size:18px,rx:15,ry:15\nclass A highlight';
-    const result = parseDiagram(source);
+    it('should handle multiple node IDs', () => {
+      const source = [
+        'flowchart TD',
+        'A-->B',
+        'style A fill:red',
+        'style B fill:blue',
+        'classDef clsA fill:red',
+        'classDef clsB fill:blue',
+        'class A clsA',
+        'class B clsB',
+      ].join('\n');
 
-    const style = result.classDefs.get('highlight');
-    expect(style?.fontWeight).toBe('bold');
-    expect(style?.fontSize).toBe('18px');
-    expect(style?.rx).toBe('15');
-    expect(style?.ry).toBe('15');
-    expect(style?.strokeDasharray).toBe('10 5');
+      const result = removeNodeStyles(source, ['A', 'B']);
+
+      expect(result).not.toContain('style A fill:red');
+      expect(result).not.toContain('style B fill:blue');
+      expect(result).not.toContain('class A clsA');
+      expect(result).not.toContain('class B clsB');
+      expect(result).not.toContain('classDef clsA fill:red');
+      expect(result).not.toContain('classDef clsB fill:blue');
+    });
+
+    it('should preserve unrelated lines', () => {
+      const source = [
+        'flowchart TD',
+        'A-->B',
+        'C-->D',
+        'style A fill:red',
+        'classDef myClass fill:blue',
+        'class A myClass',
+        'style C fill:green',
+        'classDef otherClass fill:yellow',
+        'class C otherClass',
+      ].join('\n');
+
+      const result = removeNodeStyles(source, ['A']);
+
+      expect(result).not.toContain('style A fill:red');
+      expect(result).not.toContain('class A myClass');
+      expect(result).not.toContain('classDef myClass fill:blue');
+      // These should be preserved
+      expect(result).toContain('C-->D');
+      expect(result).toContain('style C fill:green');
+      expect(result).toContain('classDef otherClass fill:yellow');
+      expect(result).toContain('class C otherClass');
+    });
+
+    it('should return unchanged content when no matching lines exist', () => {
+      const source = 'flowchart TD\nA-->B';
+      const result = removeNodeStyles(source, ['C']);
+
+      expect(result).toBe(source);
+    });
+
+    it('should clean up excessive blank lines after removal', () => {
+      const source = [
+        'flowchart TD',
+        'A-->B',
+        '',
+        '',
+        'style A fill:red',
+        '',
+        '',
+        '',
+        'classDef myClass fill:blue',
+        '',
+        'class A myClass',
+      ].join('\n');
+
+      const result = removeNodeStyles(source, ['A']);
+
+      // Should not have 3+ consecutive newlines
+      expect(result).not.toMatch(/\n{3,}/);
+    });
   });
 });
 
-describe('styleToString extended', () => {
-  it('should output all 9 properties as comma-separated CSS', () => {
-    // We test through updateNodeStyle which uses styleToString internally
+describe('Edge Style Utilities', () => {
+  describe('parseLinkStyles', () => {
+    it('should parse linkStyle lines', () => {
+      const source = 'flowchart TD\nA-->B\nlinkStyle 0 stroke:red,stroke-width:2px';
+      const result = parseLinkStyles(source);
+
+      expect(result.size).toBe(1);
+      expect(result.get(0)).toEqual({
+        stroke: 'red',
+        strokeWidth: '2px',
+      });
+    });
+
+    it('should parse multiple linkStyle lines', () => {
+      const source = [
+        'flowchart TD',
+        'A-->B',
+        'C-->D',
+        'linkStyle 0 stroke:red',
+        'linkStyle 1 stroke:blue,opacity:0.5',
+      ].join('\n');
+      const result = parseLinkStyles(source);
+
+      expect(result.size).toBe(2);
+      expect(result.get(0)?.stroke).toBe('red');
+      expect(result.get(1)?.stroke).toBe('blue');
+      expect(result.get(1)?.opacity).toBe('0.5');
+    });
+
+    it('should handle semicolon-separated styles', () => {
+      const source = 'flowchart TD\nA-->B\nlinkStyle 0 stroke:red;stroke-width:2px;opacity:0.5';
+      const result = parseLinkStyles(source);
+
+      expect(result.get(0)).toEqual({
+        stroke: 'red',
+        strokeWidth: '2px',
+        opacity: '0.5',
+      });
+    });
+
+    it('should return empty map when no linkStyle lines', () => {
+      const source = 'flowchart TD\nA-->B';
+      const result = parseLinkStyles(source);
+
+      expect(result.size).toBe(0);
+    });
+  });
+
+  describe('edgeStyleToString', () => {
+    it('should convert full EdgeStyle to string', () => {
+      const result = edgeStyleToString({
+        stroke: 'red',
+        strokeWidth: '2px',
+        strokeDasharray: '5 5',
+        opacity: '0.5',
+      });
+      expect(result).toBe('stroke:red,stroke-width:2px,stroke-dasharray:5 5,opacity:0.5');
+    });
+
+    it('should return empty string for empty style', () => {
+      expect(edgeStyleToString({})).toBe('');
+    });
+
+    it('should output only defined properties', () => {
+      const result = edgeStyleToString({ stroke: 'blue' });
+      expect(result).toBe('stroke:blue');
+    });
+  });
+
+  describe('updateLinkStyle', () => {
+    it('should add new linkStyle line', () => {
+      const source = 'flowchart TD\nA-->B';
+      const result = updateLinkStyle(source, 0, { stroke: 'red' });
+
+      expect(result).toContain('linkStyle 0 stroke:red');
+    });
+
+    it('should update existing linkStyle line', () => {
+      const source = 'flowchart TD\nA-->B\nlinkStyle 0 stroke:red';
+      const result = updateLinkStyle(source, 0, { stroke: 'blue' });
+
+      expect(result).toContain('linkStyle 0 stroke:blue');
+      expect(result).not.toContain('stroke:red');
+    });
+
+    it('should remove linkStyle if empty style', () => {
+      const source = 'flowchart TD\nA-->B\nlinkStyle 0 stroke:red';
+      const result = updateLinkStyle(source, 0, {});
+
+      expect(result).not.toContain('linkStyle 0');
+    });
+
+    it('should insert after last existing linkStyle', () => {
+      const source = 'flowchart TD\nA-->B\nC-->D\nlinkStyle 0 stroke:red';
+      const result = updateLinkStyle(source, 1, { stroke: 'blue' });
+
+      const lines = result.split('\n');
+      const linkStyle0Idx = lines.findIndex(l => l.includes('linkStyle 0'));
+      const linkStyle1Idx = lines.findIndex(l => l.includes('linkStyle 1'));
+      expect(linkStyle1Idx).toBeGreaterThan(linkStyle0Idx);
+    });
+  });
+
+  describe('removeLinkStyles', () => {
+    it('should remove specified linkStyle lines', () => {
+      const source = 'flowchart TD\nA-->B\nlinkStyle 0 stroke:red\nlinkStyle 1 stroke:blue';
+      const result = removeLinkStyles(source, [0]);
+
+      expect(result).not.toContain('linkStyle 0');
+      expect(result).toContain('linkStyle 1');
+    });
+
+    it('should handle multiple indices', () => {
+      const source = 'flowchart TD\nA-->B\nlinkStyle 0 stroke:red\nlinkStyle 1 stroke:blue\nlinkStyle 2 stroke:green';
+      const result = removeLinkStyles(source, [0, 2]);
+
+      expect(result).not.toContain('linkStyle 0');
+      expect(result).toContain('linkStyle 1');
+      expect(result).not.toContain('linkStyle 2');
+    });
+
+    it('should preserve non-linkStyle lines', () => {
+      const source = 'flowchart TD\nA-->B\nC-->D\nlinkStyle 0 stroke:red';
+      const result = removeLinkStyles(source, [0]);
+
+      expect(result).toContain('flowchart TD');
+      expect(result).toContain('A-->B');
+      expect(result).toContain('C-->D');
+    });
+  });
+
+  describe('updateEdgeArrowType', () => {
+    it('should change arrow type on simple edge', () => {
+      const source = 'flowchart TD\nA --> B';
+      const result = updateEdgeArrowType(source, 'A', 'B', '==>');
+
+      expect(result).toContain('A ==> B');
+      expect(result).not.toContain('A --> B');
+    });
+
+    it('should preserve edge label when changing arrow', () => {
+      const source = 'flowchart TD\nA -->|label| B';
+      const result = updateEdgeArrowType(source, 'A', 'B', '---');
+
+      expect(result).toContain('A ---|label| B');
+    });
+
+    it('should handle dotted arrow type', () => {
+      const source = 'flowchart TD\nA --> B';
+      const result = updateEdgeArrowType(source, 'A', 'B', '-.->');
+
+      expect(result).toContain('A -.-> B');
+    });
+
+    it('should return unchanged source when edge not found', () => {
+      const source = 'flowchart TD\nA --> B';
+      const result = updateEdgeArrowType(source, 'X', 'Y', '==>');
+
+      expect(result).toBe(source);
+    });
+  });
+
+  describe('updateEdgeLabel', () => {
+    it('should add label to edge without label', () => {
+      const source = 'flowchart TD\nA --> B';
+      const result = updateEdgeLabel(source, 'A', 'B', 'my label');
+
+      expect(result).toContain('A -->|my label| B');
+    });
+
+    it('should update existing edge label', () => {
+      const source = 'flowchart TD\nA -->|old| B';
+      const result = updateEdgeLabel(source, 'A', 'B', 'new');
+
+      expect(result).toContain('A -->|new| B');
+      expect(result).not.toContain('|old|');
+    });
+
+    it('should remove label when empty string', () => {
+      const source = 'flowchart TD\nA -->|label| B';
+      const result = updateEdgeLabel(source, 'A', 'B', '');
+
+      expect(result).toContain('A --> B');
+      expect(result).not.toContain('|');
+    });
+
+    it('should return unchanged source when edge not found', () => {
+      const source = 'flowchart TD\nA --> B';
+      const result = updateEdgeLabel(source, 'X', 'Y', 'label');
+
+      expect(result).toBe(source);
+    });
+  });
+
+  describe('parseDiagram with linkStyles', () => {
+    it('should include linkStyles in parsed diagram', () => {
+      const source = 'flowchart TD\nA-->B\nlinkStyle 0 stroke:red';
+      const result = parseDiagram(source);
+
+      expect(result.linkStyles.size).toBe(1);
+      expect(result.linkStyles.get(0)?.stroke).toBe('red');
+    });
+
+    it('should parse linkStyle with all edge properties', () => {
+      const source = 'flowchart TD\nA-->B\nlinkStyle 0 stroke:red,stroke-width:3px,stroke-dasharray:5 5,opacity:0.7';
+      const result = parseDiagram(source);
+
+      expect(result.linkStyles.get(0)).toEqual({
+        stroke: 'red',
+        strokeWidth: '3px',
+        strokeDasharray: '5 5',
+        opacity: '0.7',
+      });
+    });
+  });
+});
+
+describe('addSubgraph', () => {
+  it('should insert subgraph before trailing meta lines', () => {
+    const source = 'flowchart TD\nA-->B\nstyle A fill:red';
+    const result = addSubgraph(source);
+
+    expect(result).toContain('subgraph subgraph1');
+    expect(result).toContain('New Subgraph');
+    expect(result).toContain('style A fill:red');
+    const subgraphIdx = result.indexOf('subgraph subgraph1');
+    const styleIdx = result.indexOf('style A fill:red');
+    expect(subgraphIdx).toBeLessThan(styleIdx);
+  });
+
+  it('should generate unique sequential IDs', () => {
+    const source = 'flowchart TD\nA-->B\nsubgraph subgraph1\n  C\nend\nsubgraph subgraph2\n  D\nend';
+    const result = addSubgraph(source);
+
+    expect(result).toContain('subgraph subgraph3');
+  });
+
+  it('should use default label "New Subgraph"', () => {
     const source = 'flowchart TD\nA-->B';
-    const result = updateNodeStyle(source, 'A', {
-      fill: '#fff',
-      stroke: '#333',
-      strokeWidth: '2px',
-      strokeDasharray: '5 5',
-      color: '#000',
-      fontWeight: 'bold',
-      fontSize: '16px',
-      rx: '10',
-      ry: '10',
-    });
+    const result = addSubgraph(source);
 
-    expect(result).toContain('style A fill:#fff,stroke:#333,stroke-width:2px,stroke-dasharray:5 5,color:#000,font-weight:bold,font-size:16px,rx:10,ry:10');
+    expect(result).toContain('New Subgraph');
   });
 
-  it('should output empty string for empty style', () => {
-    const source = 'flowchart TD\nA-->B';
-    const result = updateNodeStyle(source, 'A', {});
+  it('should preserve existing content', () => {
+    const source = 'flowchart TD\nA-->B\nB-->C';
+    const result = addSubgraph(source);
 
-    expect(result).not.toContain('style A');
-  });
-});
-
-describe('removeNodeStyles', () => {
-  it('should remove classDef, class assignment, and style lines for a single node', () => {
-    const source = [
-      'flowchart TD',
-      'A-->B',
-      'classDef myStyle fill:red,stroke:blue,font-weight:bold',
-      'class A myStyle',
-      'style A color:white',
-    ].join('\n');
-
-    const result = removeNodeStyles(source, ['A']);
-
-    expect(result).not.toContain('classDef myStyle');
-    expect(result).not.toContain('class A myStyle');
-    expect(result).not.toContain('style A color:white');
-    expect(result).toContain('A-->B');
     expect(result).toContain('flowchart TD');
-  });
-
-  it('should handle multiple node IDs', () => {
-    const source = [
-      'flowchart TD',
-      'A-->B',
-      'B-->C',
-      'classDef style1 fill:red',
-      'class A style1',
-      'class B style1',
-      'style C color:blue',
-    ].join('\n');
-
-    const result = removeNodeStyles(source, ['A', 'B']);
-
-    expect(result).not.toContain('classDef style1');
-    expect(result).not.toContain('class A style1');
-    expect(result).not.toContain('class B style1');
-    expect(result).toContain('style C color:blue');
     expect(result).toContain('A-->B');
     expect(result).toContain('B-->C');
   });
 
-  it('should preserve unrelated lines', () => {
-    const source = [
-      'flowchart TD',
-      'A-->B',
-      'C-->D',
-      'classDef other fill:green',
-      'class C other',
-      'style D color:yellow',
-      'classDef nodeA fill:red,stroke-dasharray:5 5,font-weight:bold',
-      'class A nodeA',
-      'style A fill:red,rx:10',
-    ].join('\n');
+  it('should append after existing subgraphs', () => {
+    const source = 'flowchart TD\nsubgraph S1\n  A\nend';
+    const result = addSubgraph(source);
 
-    const result = removeNodeStyles(source, ['A']);
-
-    expect(result).not.toContain('classDef nodeA');
-    expect(result).not.toContain('class A nodeA');
-    expect(result).not.toContain('style A');
-    expect(result).toContain('classDef other fill:green');
-    expect(result).toContain('class C other');
-    expect(result).toContain('style D color:yellow');
-    expect(result).toContain('C-->D');
+    const s1Idx = result.indexOf('subgraph S1');
+    const newIdx = result.indexOf('subgraph subgraph1');
+    expect(newIdx).toBeGreaterThan(s1Idx);
   });
 
-  it('should return unchanged content when no matching lines exist', () => {
-    const source = [
-      'flowchart TD',
-      'A-->B',
-      'classDef unused fill:red',
-    ].join('\n');
+  it('should handle minimal source', () => {
+    const source = 'flowchart TD';
+    const result = addSubgraph(source);
 
-    const result = removeNodeStyles(source, ['A']);
-
-    expect(result).toContain('flowchart TD');
-    expect(result).toContain('A-->B');
-    expect(result).toContain('classDef unused fill:red');
+    expect(result).toContain('subgraph subgraph1');
+    expect(result).toContain('New Subgraph');
+    expect(result).toContain('end');
   });
 
-  it('should not remove classDef that is shared with non-target nodes', () => {
-    const source = [
-      'flowchart TD',
-      'A-->B',
-      'C-->D',
-      'classDef shared fill:red',
-      'class A shared',
-      'class C shared',
-    ].join('\n');
+  it('should use custom id and label when provided', () => {
+    const source = 'flowchart TD\nA-->B';
+    const result = addSubgraph(source, 'myGroup', 'My Group');
 
-    const result = removeNodeStyles(source, ['A']);
+    expect(result).toContain('subgraph myGroup');
+    expect(result).toContain('My Group');
+  });
+});
 
-    // classDef shared should NOT be removed because C also uses it
-    expect(result).toContain('classDef shared fill:red');
-    expect(result).not.toContain('class A shared');
-    expect(result).toContain('class C shared');
+describe('updateSubgraphLabel', () => {
+  it('should change label in multi-line format', () => {
+    const source = 'flowchart TD\nsubgraph S1\n  Old Label\n  A-->B\nend';
+    const result = updateSubgraphLabel(source, 'S1', 'New Label');
+
+    expect(result).toContain('New Label');
+    expect(result).not.toContain('Old Label');
+  });
+
+  it('should change label in inline format', () => {
+    const source = 'flowchart TD\nsubgraph S1 Old Label\n  A-->B\nend';
+    const result = updateSubgraphLabel(source, 'S1', 'New Label');
+
+    expect(result).toContain('subgraph S1 New Label');
+    expect(result).not.toContain('Old Label');
+  });
+
+  it('should return unchanged source when subgraph not found', () => {
+    const source = 'flowchart TD\nA-->B';
+    const result = updateSubgraphLabel(source, 'nonexistent', 'Label');
+
+    expect(result).toBe(source);
   });
 });
