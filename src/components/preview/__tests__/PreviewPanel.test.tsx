@@ -18,6 +18,29 @@ vi.mock('@/utils/sanitization', () => ({
   sanitizeSVG: vi.fn((svg: string) => svg),
 }));
 
+// Mock codeUtils
+vi.mock('@/lib/mermaid/codeUtils', () => ({
+  parseDiagram: vi.fn(() => ({
+    nodes: [{ id: 'A', label: 'A', shape: 'rect', raw: 'A' }],
+    edges: [],
+    styles: new Map(),
+    classDefs: new Map(),
+    nodeClasses: new Map(),
+  })),
+  getNodeStyle: vi.fn(() => ({})),
+  removeNodeStyles: vi.fn((s: string) => s),
+  parseFrontmatter: vi.fn(() => ({ frontmatter: {}, body: '' })),
+}));
+
+// Mock NodeStylePanel (has ColorPicker dependency that may have DOM requirements)
+vi.mock('@/components/preview/NodeStylePanel', () => ({
+  NodeStylePanel: () => <div data-testid="node-style-panel">NodeStylePanel</div>,
+}));
+
+vi.mock('@/components/visual/ColorPicker', () => ({
+  ColorPicker: () => <div>ColorPicker</div>,
+}));
+
 // Mock scrollIntoView for jsdom
 Element.prototype.scrollIntoView = vi.fn();
 
