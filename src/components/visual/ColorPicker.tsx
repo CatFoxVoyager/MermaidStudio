@@ -77,7 +77,8 @@ export function ColorPicker({ label, value, onChange }: Props) {
 
         {open && (
           <div className="absolute left-0 top-full mt-1 z-50 w-56 rounded-xl border shadow-2xl p-3 animate-fade-in"
-            style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
+            style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}
+            onMouseDown={e => e.stopPropagation()}>
             <div className="grid grid-cols-8 gap-1 mb-3">
               {PRESETS.map(color => (
                 <button
