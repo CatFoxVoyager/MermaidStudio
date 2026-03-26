@@ -720,9 +720,10 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
               data-testid="add-subgraph-button"
               onClick={handleAddSubgraph}
               title="Add subgraph"
-              className="flex items-center gap-1 px-1.5 py-1 rounded-sm transition-colors hover:bg-white/8"
-              style={{ color: 'var(--text-tertiary)' }}>
+              className="flex items-center gap-1.5 px-2 py-1 rounded-sm text-xs font-medium transition-colors hover:bg-white/8"
+              style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
               <Group size={13} />
+              <span>Subgraph</span>
             </button>
           )}
           <div className="w-px h-4 mx-1" style={{ background: 'var(--border-subtle)' }} />
