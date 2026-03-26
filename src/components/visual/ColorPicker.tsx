@@ -24,34 +24,27 @@ interface Props {
 export function ColorPicker({ label, value, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const [hex, setHex] = useState(value && value !== 'none' && value !== 'transparent' ? value : '');
-  const ref = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const nativeRef = useRef<HTMLInputElement>(null);
 
-  // Sync hex when value prop changes (useLayoutEffect for sync during render)
+  // Sync hex when value prop changes
   useLayoutEffect(() => {
     if (value && value !== 'none' && value !== 'transparent') {setHex(value);}
     else {setHex('');}
   }, [value]);
 
-  // Track if click is inside dropdown to prevent closing
-  const isInsideRef = useRef(false);
-
   useEffect(() => {
-    function onOutside(e: MouseEvent) {
-      // Don't close if click is inside our component
-      if (isInsideRef.current) {
-        isInsideRef.current = false;
-        return;
-      }
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+    if (!open) return;
+
+    function handleMouseDown(e: MouseEvent) {
+      if (!containerRef.current) return;
+      if (!containerRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     }
-    if (open) {
-      // Use pointerdown for better compatibility with input fields
-      document.addEventListener('pointerdown', onOutside);
-    }
-    return () => document.removeEventListener('pointerdown', onOutside);
+
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
   }, [open]);
 
   function handleHexChange(v: string) {
@@ -72,9 +65,12 @@ export function ColorPicker({ label, value, onChange }: Props) {
       <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
         {label}
       </span>
-      <div ref={ref} className="relative">
+      <div ref={containerRef} className="relative">
         <button
-          onClick={() => setOpen(v => !v)}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            setOpen(v => !v);
+          }}
           className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md border text-xs transition-colors"
           style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}>
           <span
@@ -90,13 +86,15 @@ export function ColorPicker({ label, value, onChange }: Props) {
 
         {open && (
           <div className="absolute left-0 top-full mt-1 z-50 w-56 rounded-xl border shadow-2xl p-3 animate-fade-in"
-            style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}
-            onPointerDown={() => { isInsideRef.current = true; }}>
+            style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
             <div className="grid grid-cols-8 gap-1 mb-3">
               {PRESETS.map(color => (
                 <button
                   key={color}
-                  onClick={() => handlePreset(color)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handlePreset(color);
+                  }}
                   title={color}
                   className="w-5 h-5 rounded-md border transition-all hover:scale-110 active:scale-95 flex items-center justify-center"
                   style={{
@@ -123,7 +121,10 @@ export function ColorPicker({ label, value, onChange }: Props) {
                 onChange={e => { onChange(e.target.value); setHex(e.target.value); }}
               />
               <button
-                onClick={() => nativeRef.current?.click()}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  nativeRef.current?.click();
+                }}
                 className="flex items-center justify-center w-8 h-7 rounded-md border transition-colors hover:bg-white/5"
                 style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
                 title="Custom color">
