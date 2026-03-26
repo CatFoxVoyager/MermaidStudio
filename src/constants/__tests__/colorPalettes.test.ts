@@ -20,7 +20,7 @@ describe('applyStyleToContent', () => {
       expect(result).not.toContain('themeVariables');
     });
 
-    it('should apply useMaxWidth to pie diagrams', () => {
+    it('should apply useMaxWidth to pie diagrams with base theme variables', () => {
       const pieContent = `pie title Test
   "A" : 10
   "B" : 20`;
@@ -33,6 +33,10 @@ describe('applyStyleToContent', () => {
 
       expect(result).toContain('useMaxWidth');
       expect(result).toContain('false');
+      // Should include base theme variables to prevent default colors
+      expect(result).toContain('background');
+      expect(result).toContain('#f4f4f4');
+      expect(result).toContain('themeVariables');
     });
 
     it('should not modify content if no style options are provided', () => {
@@ -66,6 +70,28 @@ describe('applyStyleToContent', () => {
       // Font-only changes without palette should NOT generate YAML to avoid Mermaid applying default colors
       expect(result).toBe(timelineContent);
       expect(result).not.toContain('themeVariables');
+    });
+
+    it('should apply font settings when combined with timeline-specific options', () => {
+      const timelineContent = `timeline
+    title 2024
+    2024-01-01 : Start
+    2024-12-31 : End`;
+
+      const styleOptions = {
+        fontFamily: 'Georgia, serif',
+        fontSize: 14,
+        disableMulticolor: true,
+      };
+
+      const result = applyStyleToContent(timelineContent, styleOptions);
+
+      // Font settings should be applied since we have diagram config
+      expect(result).toContain('Georgia');
+      expect(result).toContain('14px');
+      expect(result).toContain('disableMulticolor');
+      expect(result).toContain('themeVariables');
+      expect(result).toContain('background');
     });
 
     it('should apply timeline-specific options', () => {
@@ -105,6 +131,29 @@ describe('applyStyleToContent', () => {
       expect(result).not.toContain('Courier New');
     });
 
+    it('should apply font settings when combined with chart dimensions', () => {
+      const quadrantContent = `quadrantChart
+    title Test
+    x-axis Low --> High
+    y-axis Low --> High`;
+
+      const styleOptions = {
+        fontFamily: 'Courier New, monospace',
+        fontSize: 12,
+        chartWidth: 600,
+      };
+
+      const result = applyStyleToContent(quadrantContent, styleOptions);
+
+      // Font settings should be applied since we have diagram config
+      expect(result).toContain('Courier New');
+      expect(result).toContain('12px');
+      expect(result).toContain('chartWidth');
+      expect(result).toContain('600');
+      expect(result).toContain('themeVariables');
+      expect(result).toContain('background');
+    });
+
     it('should apply chart dimensions', () => {
       const quadrantContent = `quadrantChart
     title Test
@@ -142,6 +191,29 @@ describe('applyStyleToContent', () => {
       // Font-only changes without palette should NOT generate YAML to avoid Mermaid applying default colors
       expect(result).toBe(xyContent);
       expect(result).not.toContain('Fira Code');
+    });
+
+    it('should apply font settings when combined with xy chart options', () => {
+      const xyContent = `xychart-beta
+    title "Test Chart"
+    x-axis [Data]
+    y-axis "Value" 0 --> 100`;
+
+      const styleOptions = {
+        fontFamily: 'Fira Code, monospace',
+        fontSize: 11,
+        xAxisTitle: 'Time',
+      };
+
+      const result = applyStyleToContent(xyContent, styleOptions);
+
+      // Font settings should be applied since we have diagram config
+      expect(result).toContain('Fira Code');
+      expect(result).toContain('11px');
+      expect(result).toContain('xAxisTitle');
+      expect(result).toContain('Time');
+      expect(result).toContain('themeVariables');
+      expect(result).toContain('background');
     });
   });
 });

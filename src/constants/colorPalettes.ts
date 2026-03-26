@@ -792,10 +792,21 @@ export function applyStyleToContent(content: string, styleOptions: DiagramStyleO
   }
 
   // Add font settings to themeVariables for all diagram types
-  // NOTE: Only add themeVariables if we have actual diagram config.
-  // Font-only changes WITHOUT a palette should NOT generate YAML to avoid
-  // Mermaid applying default colors (including the beige background).
+  // NOTE: When we have diagram config (hasNonFontConfig), we also include
+  // base theme variables to prevent Mermaid from applying its default colors.
   if (hasNonFontConfig) {
+    // Start with base theme variables to ensure consistent appearance
+    // These are the default Mermaid theme variables that prevent unwanted colors
+    minimalConfig.themeVariables = {
+      ...(minimalConfig.themeVariables as Record<string, unknown> | {}),
+      // Base theme colors (light/transparent theme as default)
+      background: '#f4f4f4',
+      primaryColor: '#fff4dd',
+      noteBkgColor: '#fff5ad',
+      noteTextColor: '#333',
+    };
+
+    // Add font settings on top of base theme
     if (styleOptions.fontFamily !== undefined) {
       minimalConfig.themeVariables = {
         ...(minimalConfig.themeVariables as Record<string, unknown> | {}),
@@ -1140,6 +1151,8 @@ function detectDiagramTypeFromContent(content: string): string | undefined {
   if (first.startsWith('quadrantchart')) return 'quadrant';
   if (first.startsWith('c4')) return 'c4';
   if (first.startsWith('block')) return 'block';
+  if (first.startsWith('xychart')) return 'xyChart';
+  if (first.startsWith('architecture')) return 'architectureDiagram';
 
   return 'flowchart'; // Default
 }
