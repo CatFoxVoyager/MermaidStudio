@@ -15,6 +15,9 @@ import {
   generateNodeId,
   parseFrontmatter,
   generateFrontmatter,
+  removeNodeStyles,
+  parseStyleValue,
+  styleToString,
 } from '../codeUtils';
 
 describe('Mermaid Code Utilities', () => {
@@ -389,6 +392,217 @@ A-->B`;
 
       expect(result.nodes[0].id).toBe('A');
       expect(result.nodes[0].label).toBe('Node A');
+    });
+  });
+
+  describe('Extended NodeStyle', () => {
+    describe('parseStyleValue', () => {
+      it('should parse comma-separated classDef string with all 9 properties', () => {
+        const result = parseStyleValue('fill:red,stroke:blue,stroke-width:2px,stroke-dasharray:5 5,color:white,font-weight:bold,font-size:16px,rx:10,ry:10');
+        expect(result).toEqual({
+          fill: 'red',
+          stroke: 'blue',
+          strokeWidth: '2px',
+          strokeDasharray: '5 5',
+          color: 'white',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          rx: '10',
+          ry: '10',
+        });
+      });
+
+      it('should parse semicolon-separated style string with all 9 properties', () => {
+        const result = parseStyleValue('fill:red;stroke:blue;stroke-width:2px;stroke-dasharray:5 5;color:white;font-weight:bold;font-size:16px;rx:10;ry:10');
+        expect(result).toEqual({
+          fill: 'red',
+          stroke: 'blue',
+          strokeWidth: '2px',
+          strokeDasharray: '5 5',
+          color: 'white',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          rx: '10',
+          ry: '10',
+        });
+      });
+
+      it('should handle stroke-dasharray with spaces', () => {
+        const result = parseStyleValue('stroke-dasharray:5 5');
+        expect(result.strokeDasharray).toBe('5 5');
+      });
+
+      it('should be backward-compatible with old 4-property input', () => {
+        const result = parseStyleValue('fill:red,stroke:blue,stroke-width:2px,color:white');
+        expect(result).toEqual({
+          fill: 'red',
+          stroke: 'blue',
+          strokeWidth: '2px',
+          color: 'white',
+        });
+      });
+
+      it('should handle partial properties', () => {
+        const result = parseStyleValue('fill:#eee,font-weight:bold');
+        expect(result).toEqual({
+          fill: '#eee',
+          fontWeight: 'bold',
+        });
+      });
+    });
+
+    describe('styleToString extended', () => {
+      it('should output all 9 properties as comma-separated CSS', () => {
+        const style = {
+          fill: 'red',
+          stroke: 'blue',
+          strokeWidth: '2px',
+          strokeDasharray: '5 5',
+          color: 'white',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          rx: '10',
+          ry: '10',
+        };
+        const result = styleToString(style);
+        expect(result).toBe('fill:red,stroke:blue,stroke-width:2px,stroke-dasharray:5 5,color:white,font-weight:bold,font-size:16px,rx:10,ry:10');
+      });
+
+      it('should return empty string for empty style', () => {
+        const result = styleToString({});
+        expect(result).toBe('');
+      });
+
+      it('should output only defined properties', () => {
+        const style = { fill: 'red', fontWeight: 'bold' };
+        const result = styleToString(style);
+        expect(result).toBe('fill:red,font-weight:bold');
+      });
+    });
+
+    describe('getNodeStyle extended', () => {
+      it('should return merged style including new properties', () => {
+        const styles = new Map([['A', { fill: 'red', fontWeight: 'bold' }]]);
+        const classDefs = new Map([['myClass', { stroke: 'blue', fontSize: '16px' }]]);
+        const nodeClasses = new Map([['A', ['myClass']]]);
+
+        const result = getNodeStyle(styles, classDefs, nodeClasses, 'A');
+
+        expect(result).toEqual({
+          fill: 'red',
+          fontWeight: 'bold',
+          stroke: 'blue',
+          fontSize: '16px',
+        });
+      });
+    });
+
+    describe('parseDiagram extended', () => {
+      it('should correctly parse classDef lines with new properties', () => {
+        const source = 'flowchart TD\nA-->B\nclassDef myClass fill:red,stroke-dasharray:5 5,font-weight:bold';
+        const result = parseDiagram(source);
+
+        expect(result.classDefs.get('myClass')).toEqual({
+          fill: 'red',
+          strokeDasharray: '5 5',
+          fontWeight: 'bold',
+        });
+      });
+    });
+  });
+
+  describe('removeNodeStyles', () => {
+    it('should remove classDef, class assignment, and style lines for a single node', () => {
+      const source = [
+        'flowchart TD',
+        'A-->B',
+        'style A fill:red',
+        'classDef myClass fill:blue',
+        'class A myClass',
+      ].join('\n');
+
+      const result = removeNodeStyles(source, ['A']);
+
+      expect(result).not.toContain('style A fill:red');
+      expect(result).not.toContain('class A myClass');
+      expect(result).not.toContain('classDef myClass fill:blue');
+      expect(result).toContain('flowchart TD');
+      expect(result).toContain('A-->B');
+    });
+
+    it('should handle multiple node IDs', () => {
+      const source = [
+        'flowchart TD',
+        'A-->B',
+        'style A fill:red',
+        'style B fill:blue',
+        'classDef clsA fill:red',
+        'classDef clsB fill:blue',
+        'class A clsA',
+        'class B clsB',
+      ].join('\n');
+
+      const result = removeNodeStyles(source, ['A', 'B']);
+
+      expect(result).not.toContain('style A fill:red');
+      expect(result).not.toContain('style B fill:blue');
+      expect(result).not.toContain('class A clsA');
+      expect(result).not.toContain('class B clsB');
+      expect(result).not.toContain('classDef clsA fill:red');
+      expect(result).not.toContain('classDef clsB fill:blue');
+    });
+
+    it('should preserve unrelated lines', () => {
+      const source = [
+        'flowchart TD',
+        'A-->B',
+        'C-->D',
+        'style A fill:red',
+        'classDef myClass fill:blue',
+        'class A myClass',
+        'style C fill:green',
+        'classDef otherClass fill:yellow',
+        'class C otherClass',
+      ].join('\n');
+
+      const result = removeNodeStyles(source, ['A']);
+
+      expect(result).not.toContain('style A fill:red');
+      expect(result).not.toContain('class A myClass');
+      expect(result).not.toContain('classDef myClass fill:blue');
+      // These should be preserved
+      expect(result).toContain('C-->D');
+      expect(result).toContain('style C fill:green');
+      expect(result).toContain('classDef otherClass fill:yellow');
+      expect(result).toContain('class C otherClass');
+    });
+
+    it('should return unchanged content when no matching lines exist', () => {
+      const source = 'flowchart TD\nA-->B';
+      const result = removeNodeStyles(source, ['C']);
+
+      expect(result).toBe(source);
+    });
+
+    it('should clean up excessive blank lines after removal', () => {
+      const source = [
+        'flowchart TD',
+        'A-->B',
+        '',
+        '',
+        'style A fill:red',
+        '',
+        '',
+        '',
+        'classDef myClass fill:blue',
+        '',
+        'class A myClass',
+      ].join('\n');
+
+      const result = removeNodeStyles(source, ['A']);
+
+      // Should not have 3+ consecutive newlines
+      expect(result).not.toMatch(/\n{3,}/);
     });
   });
 });
