@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { saveUserTemplate } from '@/services/storage/database';
 import { detectDiagramType } from '@/lib/mermaid/core';
 import { CATEGORIES } from '@/constants/templates';
-import { PaletteSelector } from '@/visual/PaletteSelector';
+import { ThemeSelector } from '@/visual/ThemeSelector';
 import { Modal } from '@/components/shared/Modal';
-import type { DiagramType, ColorPalette } from '@/types';
+import type { DiagramType, MermaidTheme } from '@/types';
 
 interface Props {
   content: string;
@@ -21,8 +21,8 @@ export function SaveTemplateModal({ content, onClose, onSaved }: Props) {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [complexity, setComplexity] = useState<'simple' | 'moderate' | 'advanced'>('simple');
-  const [showPaletteSelector, setShowPaletteSelector] = useState(false);
-  const [selectedPalette, setSelectedPalette] = useState<ColorPalette | null>(null);
+  const [showThemeSelector, setShowThemeSelector] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState<MermaidTheme | null>(null);
 
   async function handleSave() {
     if (!title.trim()) {return;}
@@ -96,16 +96,16 @@ export function SaveTemplateModal({ content, onClose, onSaved }: Props) {
         </div>
 
         <div>
-          <button onClick={() => setShowPaletteSelector(!showPaletteSelector)}
+          <button onClick={() => setShowThemeSelector(!showThemeSelector)}
             className="w-full px-3 py-2 rounded-lg text-xs font-medium border transition-all"
-            style={showPaletteSelector
+            style={showThemeSelector
               ? { background: 'var(--accent)', color: '#fff', borderColor: 'transparent' }
               : { background: 'var(--surface-floating)', color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}>
-            {selectedPalette ? t('templates.selectedPalette', { name: selectedPalette.name }) : t('templates.chooseColorPalette')}
+            {selectedTheme ? t('templates.selectedPalette', { name: selectedTheme.name }) : t('templates.chooseColorPalette')}
           </button>
-          {showPaletteSelector && (
+          {showThemeSelector && (
             <div className="mt-2 p-3 rounded-lg" style={{ background: 'var(--surface-base)' }}>
-              <PaletteSelector onSelect={(palette) => { setSelectedPalette(palette); setShowPaletteSelector(false); }} selectedId={selectedPalette?.id} />
+              <ThemeSelector onSelect={(theme) => { setSelectedTheme(theme); setShowThemeSelector(false); }} selectedId={selectedTheme?.id} />
             </div>
           )}
         </div>

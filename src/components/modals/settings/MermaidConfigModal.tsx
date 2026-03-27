@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/shared/Modal';
-import { colorPalettes, applyPaletteToContent } from '@/constants/colorPalettes';
-import type { ColorPalette } from '@/types';
+import { builtinThemes } from '@/constants/themes';
+import { applyThemeToFrontmatter, stripThemeDirective } from '@/constants/themeDerivation';
+import type { MermaidTheme } from '@/types';
 
 interface MermaidConfigModalProps {
   isOpen: boolean;
@@ -43,9 +44,10 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
   const [config, setConfig] = useState<MermaidConfig>(DEFAULT_CONFIG);
   const hasCustomTheme = currentContent.trimStart().startsWith('%%{init:');
 
-  const handlePaletteSelect = (palette: ColorPalette) => {
+  const handleThemeSelect = (theme: MermaidTheme) => {
     if (currentContent && onContentChange) {
-      const updatedContent = applyPaletteToContent(currentContent, palette);
+      const cleanContent = stripThemeDirective(currentContent);
+      const updatedContent = applyThemeToFrontmatter(cleanContent, theme, config.darkMode);
       onContentChange(updatedContent);
     }
   };
@@ -239,24 +241,27 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
               </button>
             )}
             <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-              {colorPalettes.map((palette) => (
+              {builtinThemes.map((theme) => (
                 <button
-                  key={palette.id}
-                  onClick={() => handlePaletteSelect(palette)}
+                  key={theme.id}
+                  onClick={() => handleThemeSelect(theme)}
                   className="p-3 rounded-lg border border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-400 transition-colors text-left"
-                  title={palette.description}
+                  title={theme.description}
                 >
                   <p className="text-xs font-semibold text-gray-900 dark:text-white mb-2">
-                    {palette.name}
+                    {theme.name}
                   </p>
                   <div className="flex gap-1">
-                    {Object.values(palette.colors).slice(0, 5).map((color, idx) => (
-                      <div
-                        key={idx}
-                        className="w-4 h-4 rounded-sm border border-gray-400 dark:border-gray-500"
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
+                    <div
+                      className="w-4 h-4 rounded-sm border border-gray-400 dark:border-gray-500"
+                      style={{ backgroundColor: theme.coreColors.primaryColor }}
+                      title="Primary"
+                    />
+                    <div
+                      className="w-4 h-4 rounded-sm border border-gray-400 dark:border-gray-500"
+                      style={{ backgroundColor: theme.coreColors.background }}
+                      title="Background"
+                    />
                   </div>
                 </button>
               ))}

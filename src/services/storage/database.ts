@@ -8,7 +8,7 @@
 import type { Diagram, DiagramVersion, Folder, Tag, AppSettings, UserTemplate, BackupData } from '@/types';
 import { encrypt, decrypt } from '@/utils/encryption';
 import { generateSecureId } from '@/utils/crypto';
-import { addBaseThemeConfig } from '@/constants/colorPalettes';
+import { addBaseThemeConfig } from '@/constants/themeDerivation';
 
 const DB_NAME = 'MermaidStudio';
 const DB_VERSION = 1;
