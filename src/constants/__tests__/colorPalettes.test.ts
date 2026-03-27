@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { applyStyleToContent } from '../colorPalettes';
+import { applyStyleToContent, applyC4Palette, stripC4Directives } from '../colorPalettes';
 import { getStylingCapabilities } from '@/types';
-import type { DiagramType } from '@/types';
+import type { DiagramType, ColorPalette } from '@/types';
 
 describe('applyStyleToContent', () => {
   describe('Pie diagrams', () => {
@@ -244,5 +244,111 @@ describe('getStylingCapabilities', () => {
     const caps = getStylingCapabilities('erDiagram' as DiagramType);
     expect(caps.supportsClassDef).toBe(false);
     expect(caps.supportsC4Style).toBe(false);
+  });
+});
+
+describe('applyC4Palette', () => {
+  const testPalette: ColorPalette = {
+    id: 'test-c4',
+    name: 'Test C4',
+    description: 'Test palette for C4',
+    colors: {
+      primary: '#0066CC',
+      secondary: '#004499',
+      accent: '#0099FF',
+      success: '#00AA44',
+      warning: '#FF9900',
+      error: '#CC0000',
+      neutral_light: '#F5F7FA',
+      neutral_dark: '#1A1F2E',
+    },
+  };
+
+  it('generates UpdateElementStyle directives with palette colors', () => {
+    const c4Content = `C4Context
+    title System Context
+    Person(user, "User")
+    System(sys, "System")`;
+
+    const result = applyC4Palette(c4Content, testPalette);
+
+    expect(result).toContain('UpdateElementStyle(person,');
+    expect(result).toContain('UpdateElementStyle(system,');
+    expect(result).toContain(testPalette.colors.primary);
+  });
+
+  it('generates UpdateRelStyle directives with palette colors', () => {
+    const c4Content = `C4Context
+    title System Context
+    Person(user, "User")
+    System(sys, "System")
+    Rel(user, sys, "Uses")`;
+
+    const result = applyC4Palette(c4Content, testPalette);
+
+    expect(result).toContain('UpdateRelStyle(line,');
+    expect(result).toContain(testPalette.colors.secondary);
+  });
+
+  it('C4 content after palette application contains UpdateElementStyle but NOT classDef', () => {
+    const c4Content = `C4Context
+    title System Context
+    Person(user, "User")`;
+
+    const result = applyC4Palette(c4Content, testPalette);
+
+    expect(result).toContain('UpdateElementStyle');
+    expect(result).not.toContain('classDef');
+    expect(result).not.toContain('class ');
+  });
+
+  it('strips existing UpdateElementStyle/UpdateRelStyle before applying new ones', () => {
+    const c4Content = `C4Context
+    title System Context
+    Person(user, "User")
+    UpdateElementStyle(person, $bgColor="#old")
+    UpdateRelStyle(line, $lineColor="#old")`;
+
+    const result = applyC4Palette(c4Content, testPalette);
+
+    expect(result).not.toContain('#old');
+    expect(result).toContain('UpdateElementStyle(person,');
+    expect(result).toContain('UpdateRelStyle(line,');
+  });
+});
+
+describe('stripC4Directives', () => {
+  it('removes UpdateElementStyle lines', () => {
+    const content = `C4Context
+    Person(user, "User")
+    UpdateElementStyle(person, $bgColor="#0066CC")`;
+
+    const result = stripC4Directives(content);
+
+    expect(result).not.toContain('UpdateElementStyle');
+    expect(result).toContain('Person(user, "User")');
+  });
+
+  it('removes UpdateRelStyle lines', () => {
+    const content = `C4Context
+    Rel(user, sys, "Uses")
+    UpdateRelStyle(line, $lineColor="#004499")`;
+
+    const result = stripC4Directives(content);
+
+    expect(result).not.toContain('UpdateRelStyle');
+    expect(result).toContain('Rel(user, sys, "Uses")');
+  });
+
+  it('removes both UpdateElementStyle and UpdateRelStyle lines', () => {
+    const content = `C4Context
+    Person(user, "User")
+    UpdateElementStyle(person, $bgColor="#0066CC")
+    UpdateRelStyle(line, $lineColor="#004499")`;
+
+    const result = stripC4Directives(content);
+
+    expect(result).not.toContain('UpdateElementStyle');
+    expect(result).not.toContain('UpdateRelStyle');
   });
 });
