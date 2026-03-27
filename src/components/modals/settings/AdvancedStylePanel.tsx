@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Type, Maximize2, ArrowLeftRight, ArrowUpDown, Spline, Square, RotateCcw, LayoutGrid, X, SlidersHorizontal } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { DEFAULT_STYLE_OPTIONS, type DiagramStyleOptions, type LayoutEngine, getStylingCapabilities } from '@/types';
 import { applyStyleToContent, extractStyleOptionsFromContent } from '@/constants/colorPalettes';
 import { detectDiagramType } from '@/lib/mermaid/core';
@@ -23,37 +24,6 @@ const FONT_OPTIONS = [
   'Comic Sans MS, cursive',
   'Impact, sans-serif',
   'Fira Code, monospace',
-];
-
-const CURVE_OPTIONS: { value: DiagramStyleOptions['curveStyle']; label: string }[] = [
-  { value: 'basis', label: 'Smooth' },
-  { value: 'linear', label: 'Straight' },
-  { value: 'stepBefore', label: 'Step Before' },
-  { value: 'stepAfter', label: 'Step After' },
-  { value: 'cardinal', label: 'Cardinal' },
-  { value: 'catmullRom', label: 'Catmull-Rom' },
-];
-
-const LAYOUT_OPTIONS: { value: LayoutEngine; label: string; description: string }[] = [
-  { value: 'dagre', label: 'Dagre', description: 'Default hierarchical layout' },
-  { value: 'elk', label: 'ELK', description: 'Eclipse Layout Kernel' },
-  { value: 'elk.stress', label: 'ELK Stress', description: 'Force-directed stress layout' },
-];
-
-// Sequence diagram specific options
-const SEQUENCE_CURVE_OPTIONS: { value: 'basis' | 'linear' | 'natural'; label: string }[] = [
-  { value: 'natural', label: 'Natural' },
-  { value: 'basis', label: 'Basis' },
-  { value: 'linear', label: 'Linear' },
-];
-
-const AXIS_FORMAT_OPTIONS: { value: string; label: string }[] = [
-  { value: '%Y-%m-%d', label: 'YYYY-MM-DD' },
-  { value: '%Y/%m/%d', label: 'YYYY/MM/DD' },
-  { value: '%d-%m-%Y', label: 'DD-MM-YYYY' },
-  { value: '%m/%d/%Y', label: 'MM/DD/YYYY' },
-  { value: '%W%Y', label: 'Week YYYY' },
-  { value: '%Q %Y', label: 'Quarter YYYY' },
 ];
 
 function SliderControl({ label, icon, value, min, max, step, unit, onChange, theme }: {
@@ -114,18 +84,58 @@ function SliderControl({ label, icon, value, min, max, step, unit, onChange, the
 }
 
 export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentChange, theme }: AdvancedStylePanelProps) {
+  const { t } = useTranslation();
   const [styleOptions, setStyleOptions] = useState<DiagramStyleOptions>({ ...DEFAULT_STYLE_OPTIONS });
+
+  const CURVE_OPTIONS: { value: DiagramStyleOptions['curveStyle']; label: string }[] = [
+    { value: 'basis', label: t('advancedStyle.curveSmooth') },
+    { value: 'linear', label: t('advancedStyle.curveStraight') },
+    { value: 'stepBefore', label: t('advancedStyle.curveStepBefore') },
+    { value: 'stepAfter', label: t('advancedStyle.curveStepAfter') },
+    { value: 'cardinal', label: t('advancedStyle.curveCardinal') },
+    { value: 'catmullRom', label: t('advancedStyle.curveCatmullRom') },
+  ];
+
+  const LAYOUT_OPTIONS: { value: LayoutEngine; label: string; description: string }[] = [
+    { value: 'dagre', label: t('advancedStyle.layoutDagre'), description: t('advancedStyle.layoutDagreDesc') },
+    { value: 'elk', label: t('advancedStyle.layoutElk'), description: t('advancedStyle.layoutElkDesc') },
+    { value: 'elk.stress', label: t('advancedStyle.layoutElkStress'), description: t('advancedStyle.layoutElkStressDesc') },
+  ];
+
+  // Sequence diagram specific options
+  const SEQUENCE_CURVE_OPTIONS: { value: 'basis' | 'linear' | 'natural'; label: string }[] = [
+    { value: 'natural', label: t('advancedStyle.seqCurveNatural') },
+    { value: 'basis', label: t('advancedStyle.seqCurveBasis') },
+    { value: 'linear', label: t('advancedStyle.seqCurveLinear') },
+  ];
+
+  const AXIS_FORMAT_OPTIONS: { value: string; label: string }[] = [
+    { value: '%Y-%m-%d', label: 'YYYY-MM-DD' },
+    { value: '%Y/%m/%d', label: 'YYYY/MM/DD' },
+    { value: '%d-%m-%Y', label: 'DD-MM-YYYY' },
+    { value: '%m/%d/%Y', label: 'MM/DD/YYYY' },
+    { value: '%W%Y', label: 'Week YYYY' },
+    { value: '%Q %Y', label: 'Quarter YYYY' },
+  ];
   const [diagramType, setDiagramType] = useState<string>('flowchart');
   const baseContentRef = useRef<string>('');
   const isDark = theme === 'dark';
   const isInitialized = useRef(false);
   const previousContentRef = useRef<string>('');
+  const applyingRef = useRef(false); // Prevents init effect from re-triggering apply loop
 
   const isDefault = JSON.stringify(styleOptions) === JSON.stringify(DEFAULT_STYLE_OPTIONS);
 
   // Store base content when panel opens and initialize styles from it
   useEffect(() => {
     if (isOpen && currentContent) {
+      // Skip if this content change was caused by our own applyStyles
+      if (applyingRef.current) {
+        applyingRef.current = false;
+        previousContentRef.current = currentContent;
+        return;
+      }
+
       // Detect if content has significantly changed (tab switch vs style update)
       const contentChanged = previousContentRef.current !== currentContent;
       const isDifferentTab = contentChanged && !currentContent.includes(baseContentRef.current.slice(0, 100));
@@ -153,7 +163,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   // Define applyStyles function
   const applyStyles = useCallback((opts: DiagramStyleOptions) => {
     if (!baseContentRef.current) {return;}
-    // Always use applyStyleToContent which now preserves existing colors
+    applyingRef.current = true;
     onContentChange(applyStyleToContent(baseContentRef.current, opts));
   }, [onContentChange]);
 
@@ -185,6 +195,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   const isSequence = stylingCapabilities.supportsSequenceConfig;
   const isGantt = stylingCapabilities.supportsGanttConfig;
   const hasConfigOptions = isFlowchart || isSequence || isGantt;
+  const isElkLayout = styleOptions.layoutEngine === 'elk' || styleOptions.layoutEngine === 'elk.stress';
 
   return (
     <div className="flex flex-col h-full border-l" style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}>
@@ -195,8 +206,8 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
             <SlidersHorizontal size={12} style={{ color: 'var(--accent)' }} />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Advanced Styling</span>
-            <span className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>Type: {diagramType}</span>
+            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{t('advancedStyle.title')}</span>
+            <span className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>{t('advancedStyle.type')} {diagramType}</span>
           </div>
         </div>
         <button onClick={handleClose} className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
@@ -209,7 +220,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
             <Type size={11} style={{ color: 'var(--text-tertiary)' }} />
-            <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>Font Family</span>
+            <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.fontFamily')}</span>
           </div>
           <select
             value={styleOptions.fontFamily}
@@ -230,7 +241,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
         </div>
 
         <SliderControl
-          label="Font Size"
+          label={t('advancedStyle.fontSize')}
           icon={<Type size={11} />}
           value={styleOptions.fontSize}
           min={8} max={24} step={1} unit="px"
@@ -241,8 +252,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
         {!hasConfigOptions && (
           <div className="text-center py-6 px-3 rounded-lg border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-floating)' }}>
             <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              No advanced styling options available for <strong>{diagramType}</strong> diagrams.
-              You can still use color palettes and basic font settings.
+              {t('advancedStyle.noOptions', { type: diagramType })}
             </p>
           </div>
         )}
@@ -251,7 +261,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
         {isFlowchart && (
           <>
             <SliderControl
-              label="Node Padding"
+              label={t('advancedStyle.nodePadding')}
               icon={<Maximize2 size={11} />}
               value={styleOptions.nodePadding ?? 15}
               min={0} max={50} step={1} unit="px"
@@ -259,28 +269,41 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
               theme={theme}
             />
 
-            <SliderControl
-              label="Horizontal Spacing"
-              icon={<ArrowLeftRight size={11} />}
-              value={styleOptions.nodeSpacing ?? 50}
-              min={10} max={150} step={5} unit="px"
-              onChange={(v) => update({ nodeSpacing: v })}
-              theme={theme}
-            />
+            {!isElkLayout && (
+              <>
+                <SliderControl
+                  label={t('advancedStyle.horizontalSpacing')}
+                  icon={<ArrowLeftRight size={11} />}
+                  value={styleOptions.nodeSpacing ?? 50}
+                  min={10} max={150} step={5} unit="px"
+                  onChange={(v) => update({ nodeSpacing: v })}
+                  theme={theme}
+                />
 
-            <SliderControl
-              label="Vertical Spacing"
-              icon={<ArrowUpDown size={11} />}
-              value={styleOptions.rankSpacing ?? 50}
-              min={10} max={150} step={5} unit="px"
-              onChange={(v) => update({ rankSpacing: v })}
-              theme={theme}
-            />
+                <SliderControl
+                  label={t('advancedStyle.verticalSpacing')}
+                  icon={<ArrowUpDown size={11} />}
+                  value={styleOptions.rankSpacing ?? 50}
+                  min={10} max={150} step={5} unit="px"
+                  onChange={(v) => update({ rankSpacing: v })}
+                  theme={theme}
+                />
+              </>
+            )}
+
+            {isElkLayout && (
+              <div className="px-3 py-2 rounded-lg border"
+                style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
+                <p className="text-[9px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+                  {t('advancedStyle.elkSpacingNote')}
+                </p>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
                 <LayoutGrid size={11} style={{ color: 'var(--text-tertiary)' }} />
-                <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>Layout Engine</span>
+                <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.layoutEngine')}</span>
               </div>
               <div className="grid grid-cols-3 gap-1">
                 {LAYOUT_OPTIONS.map(opt => (
@@ -310,7 +333,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
                 <Spline size={11} style={{ color: 'var(--text-tertiary)' }} />
-                <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>Edge Style</span>
+                <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.edgeStyle')}</span>
               </div>
               <div className="grid grid-cols-3 gap-1">
                 {CURVE_OPTIONS.map(opt => (
@@ -342,7 +365,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
         {isSequence && (
           <>
             <SliderControl
-              label="Actor Margin"
+              label={t('advancedStyle.actorMargin')}
               icon={<ArrowLeftRight size={11} />}
               value={styleOptions.actorMargin ?? 50}
               min={10} max={200} step={5} unit="px"
@@ -351,7 +374,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
             />
 
             <SliderControl
-              label="Diagram Margin X"
+              label={t('advancedStyle.diagramMarginX')}
               icon={<Maximize2 size={11} />}
               value={styleOptions.diagramMarginX ?? 50}
               min={0} max={200} step={5} unit="px"
@@ -360,7 +383,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
             />
 
             <SliderControl
-              label="Diagram Margin Y"
+              label={t('advancedStyle.diagramMarginY')}
               icon={<ArrowUpDown size={11} />}
               value={styleOptions.diagramMarginY ?? 10}
               min={0} max={100} step={5} unit="px"
@@ -369,7 +392,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
             />
 
             <SliderControl
-              label="Actor Width"
+              label={t('advancedStyle.actorWidth')}
               icon={<Maximize2 size={11} />}
               value={styleOptions.actorWidth ?? 150}
               min={50} max={300} step={5} unit="px"
@@ -378,7 +401,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
             />
 
             <SliderControl
-              label="Actor Height"
+              label={t('advancedStyle.actorHeight')}
               icon={<Maximize2 size={11} />}
               value={styleOptions.actorHeight ?? 65}
               min={30} max={150} step={5} unit="px"
@@ -388,7 +411,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
 
             <div className="flex items-center justify-between px-3 py-2 rounded-lg border"
               style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
-              <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>Mirror Actors</span>
+              <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.mirrorActors')}</span>
               <button
                 onClick={() => update({ mirrorActors: !(styleOptions.mirrorActors ?? false) })}
                 className={`w-8 h-4 rounded-full transition-colors relative`}
@@ -411,7 +434,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
         {isGantt && (
           <>
             <SliderControl
-              label="Bar Height"
+              label={t('advancedStyle.barHeight')}
               icon={<Maximize2 size={11} />}
               value={styleOptions.barHeight ?? 20}
               min={10} max={50} step={1} unit="px"
@@ -420,7 +443,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
             />
 
             <SliderControl
-              label="Bar Gap"
+              label={t('advancedStyle.barGap')}
               icon={<ArrowLeftRight size={11} />}
               value={styleOptions.barGap ?? 4}
               min={0} max={20} step={1} unit="px"
@@ -429,7 +452,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
             />
 
             <SliderControl
-              label="Top Padding"
+              label={t('advancedStyle.topPadding')}
               icon={<ArrowUpDown size={11} />}
               value={styleOptions.topPadding ?? 50}
               min={0} max={100} step={5} unit="px"
@@ -438,7 +461,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
             />
 
             <SliderControl
-              label="Left Padding"
+              label={t('advancedStyle.leftPadding')}
               icon={<ArrowLeftRight size={11} />}
               value={styleOptions.leftPadding ?? 75}
               min={0} max={200} step={5} unit="px"
@@ -449,7 +472,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
                 <Type size={11} style={{ color: 'var(--text-tertiary)' }} />
-                <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>Axis Format</span>
+                <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.axisFormat')}</span>
               </div>
               <select
                 value={styleOptions.axisFormat ?? '%Y-%m-%d'}
@@ -488,7 +511,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
             }}
           >
             <RotateCcw size={10} />
-            Reset to Defaults
+            {t('advancedStyle.resetToDefaults')}
           </button>
         )}
       </div>
