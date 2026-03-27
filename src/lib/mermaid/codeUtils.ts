@@ -92,13 +92,76 @@ const SHAPE_PATTERNS: Array<{ shape: NodeShape; open: string; close: string; reg
   { shape: 'asymmetric',     open: '>"', close: '"]',  regex: /^>"(.+?)"\]$/ },
 ];
 
-function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted: boolean } {
+const V11_SHAPES: NodeShape[] = [
+  'doc', 'docs', 'dbl-circ', 'cross-circ', 'bow-rect',
+  'flip-tri', 'curv-trap', 'manual-file', 'manual-input', 'procs', 'paper-tape',
+];
+
+function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted: boolean; icon?: IconConfig } {
   const trimmed = raw.trim();
+
+  // Check for v11 @{ shape: "...", label: "..." } syntax first
+  const v11Match = trimmed.match(/^@\{\s*shape:\s*["']?(\w[\w-]*)["']?\s*(?:,\s*label:\s*["']([^"']*)["'])?/);
+  if (v11Match) {
+    const shapeName = v11Match[1];
+    const label = v11Match[2] ?? shapeName;
+    if (V11_SHAPES.includes(shapeName as NodeShape)) {
+      return { label, shape: shapeName as NodeShape, quoted: true };
+    }
+  }
+
+  // Check for v11 @{ icon: "fa:user", form: "square", label: "User", pos: "t", h: 60 } syntax
+  const iconMatch = trimmed.match(/^@\{\s*icon:\s*["']([^"']+)["']\s*(?:,\s*form:\s*["']?(\w+)["']?)?\s*(?:,\s*label:\s*["']([^"']*)["'])?\s*(?:,\s*pos:\s*["']?([tblrc])["']?)?\s*(?:,\s*h:\s*(\d+))?\s*\}/);
+  if (iconMatch) {
+    return {
+      label: iconMatch[3] ?? iconMatch[1],
+      shape: 'rect',
+      quoted: false,
+      icon: {
+        icon: iconMatch[1],
+        ...(iconMatch[2] ? { form: iconMatch[2] as IconConfig['form'] } : {}),
+        ...(iconMatch[3] ? { label: iconMatch[3] } : {}),
+        ...(iconMatch[4] ? { pos: iconMatch[4] as IconConfig['pos'] } : {}),
+        ...(iconMatch[5] ? { h: parseInt(iconMatch[5], 10) } : {}),
+      },
+    };
+  }
+
   for (const pat of SHAPE_PATTERNS) {
     const m = trimmed.match(pat.regex);
     if (m) {
+      let label = m[1];
       const quoted = pat.open.startsWith('"') || pat.open.endsWith('"');
-      return { label: m[1], shape: pat.shape, quoted };
+      // Strip markdown backticks from label
+      const mdMatch = label.match(/^`(.+)`$/);
+      if (mdMatch) {
+        label = mdMatch[1];
+      }
+      // Check if label contains @{ icon: ... } or @{ shape: ... } syntax
+      const innerV11 = label.match(/^@\{\s*shape:\s*["']?(\w[\w-]*)["']?\s*(?:,\s*label:\s*["']([^"']*)["'])?/);
+      if (innerV11) {
+        const shapeName = innerV11[1];
+        const v11Label = innerV11[2] ?? shapeName;
+        if (V11_SHAPES.includes(shapeName as NodeShape)) {
+          return { label: v11Label, shape: shapeName as NodeShape, quoted: true };
+        }
+      }
+      const innerIcon = label.match(/^@\{\s*icon:\s*["']([^"']+)["']\s*(?:,\s*form:\s*["']?(\w+)["']?)?\s*(?:,\s*label:\s*["']([^"']*)["'])?\s*(?:,\s*pos:\s*["']?([tblrc])["']?)?\s*(?:,\s*h:\s*(\d+))?\s*\}/);
+      if (innerIcon) {
+        return {
+          label: innerIcon[3] ?? innerIcon[1],
+          shape: pat.shape,
+          quoted,
+          icon: {
+            icon: innerIcon[1],
+            ...(innerIcon[2] ? { form: innerIcon[2] as IconConfig['form'] } : {}),
+            ...(innerIcon[3] ? { label: innerIcon[3] } : {}),
+            ...(innerIcon[4] ? { pos: innerIcon[4] as IconConfig['pos'] } : {}),
+            ...(innerIcon[5] ? { h: parseInt(innerIcon[5], 10) } : {}),
+          },
+        };
+      }
+      return { label, shape: pat.shape, quoted };
     }
   }
   return { label: trimmed, shape: 'rect', quoted: false };
@@ -138,7 +201,7 @@ function shapeWrap(label: string, shape: NodeShape, quoted = false): string {
 }
 
 const STANDALONE_NODE_RE = /^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)$/;
-const ARROW_RE = /-->|---|-.->|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|--\|>|\|>|~~~/;
+const ARROW_RE = /-->|---|--\|>|\|>|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|~~~/;
 
 export function parseStyleValue(val: string): NodeStyle {
   const style: NodeStyle = {};
@@ -402,10 +465,16 @@ export function parseDiagram(source: string): ParsedDiagram {
     const linkStyleMatch = trimmed.match(/^linkStyle\s+(\d+)\s+(.+)$/);
     if (linkStyleMatch) {continue;}
 
+    // Skip click events
+    if (trimmed.startsWith('click ')) {continue;}
+
+    // Skip subgraph direction
+    if (trimmed.startsWith('direction ')) {continue;}
+
     const parentId = currentParent();
 
     if (ARROW_RE.test(trimmed)) {
-      const arrowMatch = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*)([^\n]*?)\s*(-->|---|-.->|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|--\|>|\|>|~~~)\s*(?:\|([^|]*)\|)?\s*([A-Za-z_][A-Za-z0-9_-]*)([^\n]*)$/);
+      const arrowMatch = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*?)([^\n]*?)\s*(-->|---|--\|>|\|>|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|~~~)\s*(?:\|([^|]*)\|)?\s*([A-Za-z_][A-Za-z0-9_-]*)([^\n]*)$/);
       if (arrowMatch) {
         const sourceId = arrowMatch[1];
         const sourceShapeRaw = arrowMatch[2]?.trim();
@@ -448,10 +517,10 @@ export function parseDiagram(source: string): ParsedDiagram {
     if (nodeMatch && !ARROW_RE.test(trimmed)) {
       const id = nodeMatch[2];
       const rest = nodeMatch[4].trim();
-      const { label, shape } = parseNodeLabel(rest);
+      const { label, shape, icon } = parseNodeLabel(rest);
       if (!seenIds.has(id)) {
         seenIds.add(id);
-        nodes.push({ id, label, shape, raw: rest, parentSubgraphId: parentId });
+        nodes.push({ id, label, shape, raw: rest, parentSubgraphId: parentId, ...(icon ? { icon } : {}) });
       }
       continue;
     }
@@ -666,7 +735,7 @@ export function generateNodeId(existingIds: string[]): string {
 
 function generateSubgraphId(source: string): string {
   const existingIds = new Set<string>();
-  const re = /^\s*subgraph\s+(\S+)/gm;
+  const re = /^\s*subgraph\s+(\w+)/gm;
   let m;
   while ((m = re.exec(source)) !== null) {
     existingIds.add(m[1]);
