@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveThemeVariables, applyThemeToFrontmatter, applyC4FromTheme } from '../themeDerivation';
+import { deriveThemeVariables, applyThemeToFrontmatter, applyC4FromTheme, DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '../themeDerivation';
 import type { ThemeCoreColors } from '@/types';
 
 describe('themeDerivation', () => {
@@ -277,6 +277,36 @@ flowchart TD
       expect(result).toContain('UpdateElementStyle(person,');
       expect(result).toContain('UpdateElementStyle(system,');
       expect(result).toContain(theme.coreColors.primaryColor);
+    });
+  });
+
+  describe('default themes', () => {
+    it('DEFAULT_LIGHT_THEME is a valid MermaidTheme', () => {
+      expect(DEFAULT_LIGHT_THEME).toBeDefined();
+      expect(DEFAULT_LIGHT_THEME.id).toBeDefined();
+      expect(DEFAULT_LIGHT_THEME.name).toBeDefined();
+      expect(DEFAULT_LIGHT_THEME.coreColors).toBeDefined();
+      expect(DEFAULT_LIGHT_THEME.coreColors.primaryColor).toBeDefined();
+      expect(DEFAULT_LIGHT_THEME.coreColors.background).toBeDefined();
+    });
+
+    it('DEFAULT_DARK_THEME is a valid MermaidTheme', () => {
+      expect(DEFAULT_DARK_THEME).toBeDefined();
+      expect(DEFAULT_DARK_THEME.id).toBeDefined();
+      expect(DEFAULT_DARK_THEME.name).toBeDefined();
+      expect(DEFAULT_DARK_THEME.coreColors).toBeDefined();
+      expect(DEFAULT_DARK_THEME.coreColors.primaryColor).toBeDefined();
+      expect(DEFAULT_DARK_THEME.coreColors.background).toBeDefined();
+    });
+
+    it('deriveThemeVariables with DEFAULT_LIGHT_THEME produces all variables', () => {
+      const result = deriveThemeVariables(DEFAULT_LIGHT_THEME.coreColors, false);
+      expect(Object.keys(result).length).toBeGreaterThanOrEqual(150);
+    });
+
+    it('deriveThemeVariables with DEFAULT_DARK_THEME produces all variables', () => {
+      const result = deriveThemeVariables(DEFAULT_DARK_THEME.coreColors, true);
+      expect(Object.keys(result).length).toBeGreaterThanOrEqual(150);
     });
   });
 });

@@ -4,8 +4,15 @@
 
 import { adjust, darken, invert, isDark, lighten } from 'khroma';
 import type { ThemeCoreColors, MermaidTheme } from '@/types';
+import { builtinThemes } from '@/constants/themes';
 
 const THEME_COLOR_LIMIT = 12;
+
+/** Default light theme for app-level fallback */
+export const DEFAULT_LIGHT_THEME = builtinThemes.find(t => t.id === 'corporate-blue') ?? builtinThemes[0];
+
+/** Default dark theme for app-level fallback */
+export const DEFAULT_DARK_THEME = builtinThemes.find(t => t.id === 'dark-github') ?? builtinThemes[0];
 
 /** Border color generation - matches Mermaid's mkBorder exactly */
 export function mkBorder(col: string, darkMode: boolean): string {

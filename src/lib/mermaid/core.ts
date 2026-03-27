@@ -3,6 +3,9 @@ import elkLayouts from '@mermaid-js/layout-elk';
 import DOMPurify from 'dompurify';
 import type { DiagramType } from '@/types';
 import { validateDiagramContent } from '@/utils/validation';
+import { deriveThemeVariables } from '@/constants/themeDerivation';
+import { getThemeById } from '@/constants/themes';
+import type { MermaidTheme } from '@/types';
 
 /**
  * DOMPurify configuration for sanitizing Mermaid SVG output.
@@ -65,74 +68,59 @@ const SANITIZATION_CONFIG = {
   ALLOW_UNKNOWN_ATTRS: false,
 } satisfies { ALLOWED_TAGS: string[]; ALLOWED_ATTR: string[]; ALLOW_DATA_URI: boolean; ALLOW_UNKNOWN_ATTRS: boolean };
 
-export type MermaidTheme = 'default' | 'dark' | 'forest' | 'neutral' | 'base';
+export type MermaidBuiltinTheme = 'default' | 'dark' | 'forest' | 'neutral' | 'base';
 
 let currentTheme: 'dark' | 'light' = 'dark';
-let currentMermaidTheme: MermaidTheme = 'base';
-
-const darkVars = {
-  primaryColor: '#161b22',
-  primaryTextColor: '#f0f6fc',
-  primaryBorderColor: '#30363d',
-  lineColor: '#8b949e',
-  secondaryColor: '#21262d',
-  tertiaryColor: '#0d1117',
-  background: '#0d1117',
-  mainBkg: '#161b22',
-  nodeBorder: '#30363d',
-  nodeTextColor: '#f0f6fc',
-  clusterBkg: '#21262d',
-  clusterBorder: '#30363d',
-  titleColor: '#f0f6fc',
-  edgeLabelBackground: '#21262d',
-  actorBkg: '#161b22',
-  actorBorder: '#30363d',
-  actorTextColor: '#f0f6fc',
-  actorLineColor: '#8b949e',
-  signalColor: '#8b949e',
-  signalTextColor: '#f0f6fc',
-  noteBkgColor: '#21262d',
-  noteBorderColor: '#30363d',
-  noteTextColor: '#f0f6fc',
-};
-
-const lightVars = {
-  primaryColor: '#ffffff',
-  primaryTextColor: '#111827',
-  primaryBorderColor: '#d1d5db',
-  lineColor: '#6b7280',
-  background: '#fafaf9',
-  mainBkg: '#ffffff',
-  nodeBorder: '#d1d5db',
-  nodeTextColor: '#111827',
-  noteBkgColor: '#f3f4f6',
-  noteBorderColor: '#d1d5db',
-  noteTextColor: '#111827',
-};
+let currentMermaidTheme: MermaidBuiltinTheme = 'base';
+let defaultTheme: MermaidTheme | null = null;
 
 // Register ELK layout loaders once
 mermaid.registerLayoutLoaders(elkLayouts);
 
-function doInit(theme: 'dark' | 'light', useBase: boolean, mermaidTheme?: MermaidTheme) {
+function doInit(theme: 'dark' | 'light', useBase: boolean, mermaidTheme?: MermaidBuiltinTheme) {
   const resolvedMermaidTheme = mermaidTheme ?? (useBase ? 'base' : (theme === 'dark' ? 'dark' : 'default'));
+  const isDark = theme === 'dark';
+
+  let themeVars: Record<string, string> | undefined;
+  if (!useBase && defaultTheme) {
+    // Use the user's default theme for app-level theming
+    themeVars = deriveThemeVariables(defaultTheme.coreColors, isDark);
+  } else if (!useBase) {
+    // Fallback: use Mermaid's built-in theme (no custom themeVariables)
+    themeVars = undefined;
+  }
+  // When useBase is true, don't pass themeVariables (frontmatter controls theming)
+
   mermaid.initialize({
     startOnLoad: false,
     theme: resolvedMermaidTheme,
-    darkMode: theme === 'dark',
+    darkMode: isDark,
     fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
     fontSize: 14,
-    flowchart: { curve: 'basis', padding: 20, htmlLabels: true, useMaxWidth: false },
+    flowchart: { curve: 'basis', padding: 20, htmlLabels: false, useMaxWidth: false },
     sequence: { useMaxWidth: true, actorMargin: 50 },
-    // When useBase is true, the YAML frontmatter controls theming entirely.
-    // Don't pass app-level themeVariables so they don't override the frontmatter's theme choice.
-    ...(!useBase && { themeVariables: theme === 'dark' ? darkVars : lightVars }),
+    ...(themeVars && { themeVariables: themeVars }),
   });
 }
 
-export function initMermaid(theme: 'dark' | 'light', mermaidTheme?: MermaidTheme) {
+export function initMermaid(
+  theme: 'dark' | 'light',
+  mermaidTheme?: MermaidBuiltinTheme,
+  appDefaultTheme?: MermaidTheme | null
+) {
   currentTheme = theme;
-  if (mermaidTheme) {currentMermaidTheme = mermaidTheme;}
-  doInit(theme, false, mermaidTheme);
+  if (mermaidTheme) { currentMermaidTheme = mermaidTheme; }
+  if (appDefaultTheme !== undefined) { defaultTheme = appDefaultTheme; }
+  doInit(theme, false, currentMermaidTheme);
+}
+
+export function setDefaultTheme(theme: MermaidTheme | null) {
+  defaultTheme = theme;
+  doInit(currentTheme, false, currentMermaidTheme);
+}
+
+export function getDefaultTheme(): MermaidTheme | null {
+  return defaultTheme;
 }
 
 function extractEdgeLabelTextColor(content: string): string | null {
