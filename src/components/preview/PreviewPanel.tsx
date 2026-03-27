@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle, Copy, Check, Download, Move, Group } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { renderDiagram, detectDiagramType } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
-import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, addNode, addEdge, generateNodeId, removeNode, updateNodeLabel, updateSubgraphLabel, addSubgraph } from '@/lib/mermaid/codeUtils';
+import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, addNode, addEdge, generateNodeId, removeNode, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
 import { EdgeStylePanel } from './EdgeStylePanel';
+import { SubgraphStylePanel } from './SubgraphStylePanel';
 import { ShapeToolbar } from '../visual/ShapeToolbar';
 import { getStylingCapabilities } from '@/types';
 
@@ -30,6 +32,10 @@ interface SubgraphOverlay {
   y: number;
   width: number;
   height: number;
+  clusterX: number;
+  clusterY: number;
+  clusterWidth: number;
+  clusterHeight: number;
 }
 
 function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElement): NodeOverlay[] {
@@ -69,25 +75,60 @@ function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElem
   return overlays;
 }
 
-function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTMLDivElement): SubgraphOverlay[] {
+function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTMLDivElement, knownSubgraphIds: string[]): SubgraphOverlay[] {
   const shadowRoot = shadowHost.shadowRoot;
   if (!shadowRoot) return [];
 
   const svg = shadowRoot.querySelector('svg');
   if (!svg) return [];
 
-  const clusterElements = svg.querySelectorAll('g.cluster');
   const overlays: SubgraphOverlay[] = [];
+  const knownSet = new Set(knownSubgraphIds);
 
+  // Collect candidate subgraph elements from the SVG.
+  // Mermaid v11: subgraphs are g elements with the subgraph ID directly (class "node").
+  // Older Mermaid: subgraphs are g.cluster with ID like "flowchart-SG-N".
+  const candidates: Map<string, SVGElement> = new Map();
+
+  // Strategy 1: Look up by known IDs (handles v11 g#subgraphId)
+  for (const sgId of knownSet) {
+    const el = svg.getElementById(sgId);
+    if (el && el.tagName === 'g') {
+      candidates.set(sgId, el);
+    }
+  }
+
+  // Strategy 2: Scan g.cluster elements (older Mermaid) and match by suffix
+  const clusterElements = svg.querySelectorAll('g.cluster');
   clusterElements.forEach(el => {
     const idAttr = el.id ?? '';
     const match = idAttr.match(/flowchart-([^-]+)-\d+/);
-    const subgraphId = match ? match[1] : null;
-    if (!subgraphId) return;
+    if (match && knownSet.has(match[1])) {
+      candidates.set(match[1], el);
+    }
+    // Also handle bare cluster IDs
+    if (idAttr && knownSet.has(idAttr)) {
+      candidates.set(idAttr, el);
+    }
+  });
 
-    const labelRect = el.querySelector('.cluster-label rect');
-    const labelText = el.querySelector('.cluster-label text, .nodeLabel text');
-    const label = labelText?.textContent ?? subgraphId;
+  // Strategy 3: Scan ALL g[id] elements that are NOT flowchart nodes
+  // (covers edge cases where Mermaid uses unexpected ID formats)
+  svg.querySelectorAll('g[id]').forEach(el => {
+    const id = el.id;
+    if (!id || id.match(/^flowchart-/) || candidates.has(id)) return;
+    // A subgraph element typically has a .label-container rect and no .nodeLabel
+    if (el.querySelector('.basic.label-container') || el.querySelector('.cluster-label')) {
+      if (knownSet.has(id)) {
+        candidates.set(id, el);
+      }
+    }
+  });
+
+  for (const [sgId, el] of candidates) {
+    const labelRect = el.querySelector('.cluster-label rect, .basic.label-container rect');
+    const labelText = el.querySelector('.cluster-label text, .nodeLabel text, .label text');
+    const label = labelText?.textContent ?? sgId;
 
     try {
       const containerRect = outerContainer.getBoundingClientRect();
@@ -107,11 +148,17 @@ function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTM
         height = 24;
       }
 
-      overlays.push({ id: subgraphId, label, x, y, width, height });
+      const clusterRect = el.getBoundingClientRect();
+      const clusterX = clusterRect.left - containerRect.left;
+      const clusterY = clusterRect.top - containerRect.top;
+      const clusterWidth = clusterRect.width;
+      const clusterHeight = clusterRect.height;
+
+      overlays.push({ id: sgId, label, x, y, width, height, clusterX, clusterY, clusterWidth, clusterHeight });
     } catch {
       // skip
     }
-  });
+  }
 
   return overlays;
 }
@@ -201,9 +248,14 @@ interface Props {
   onRenderTime?: (ms: number) => void;
   onFullscreen?: () => void;
   onNodeSelect?: (nodeId: string) => void;
+  /** Called when a style panel opens (node/edge/subgraph selected) */
+  onSelectionOpen?: () => void;
+  /** When true, clears any local selection (e.g. diagram colors panel opened) */
+  externalPanelOpen?: boolean;
 }
 
-export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime, onFullscreen, onNodeSelect }: Props) {
+export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime, onFullscreen, onNodeSelect, onSelectionOpen, externalPanelOpen }: Props) {
+  const { t } = useTranslation();
   const [svg, setSvg] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -219,22 +271,29 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
   const [toolMode, setToolMode] = useState<'select' | 'connect'>('select');
   const [connectFirst, setConnectFirst] = useState<string | null>(null);
   const [dragShape, setDragShape] = useState<NodeShape | null>(null);
+  const [dragNodeId, setDragNodeId] = useState<string | null>(null);
+  const [dragOverSubgraphId, setDragOverSubgraphId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const shadowHostRef = useRef<HTMLDivElement>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
   const svgNaturalSizeRef = useRef({ width: 0, height: 0 });
   const zoomRef = useRef(1);
   const renderIdRef = useRef(0);
+  const contentRef = useRef(content);
   const debounceRef = useRef<number>(0);
   const skipResyncRef = useRef(false);
   const edgeCleanupRef = useRef<(() => void) | null>(null);
   const relativeContainerRef = useRef<HTMLDivElement>(null);
   const [subgraphOverlays, setSubgraphOverlays] = useState<SubgraphOverlay[]>([]);
-  const [editingSubgraphId, setEditingSubgraphId] = useState<string | null>(null);
-  const [subgraphLabelValue, setSubgraphLabelValue] = useState('');
-  const subgraphEditRef = useRef<HTMLInputElement>(null);
+  const [nodeSubgraphIds, setNodeSubgraphIds] = useState<Map<string, string | null>>(new Map());
+  const [subgraphList, setSubgraphList] = useState<Array<{ id: string; label: string }>>([]);
+  const [selectedSubgraphId, setSelectedSubgraphId] = useState<string | null>(null);
+  const [parsedStyles, setParsedStyles] = useState<Map<string, NodeStyle>>(new Map());
   const toolModeRef = useRef(toolMode);
-  toolModeRef.current = toolMode;
+
+  // Keep refs in sync without accessing them during render
+  useEffect(() => { contentRef.current = content; }, [content]);
+  useEffect(() => { toolModeRef.current = toolMode; }, [toolMode]);
 
   const type = detectDiagramType(content);
   const stylingCapabilities = getStylingCapabilities(type);
@@ -244,6 +303,17 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
   useEffect(() => {
     zoomRef.current = zoom;
   }, [zoom]);
+
+  // Clear local selections when an external panel (diagram colors / advanced style) opens
+  const prevExternalOpenRef = useRef(false);
+  useEffect(() => {
+    if (externalPanelOpen && !prevExternalOpenRef.current) {
+      setSelectedNodeIds(new Set());
+      setSelectedEdgeIndex(null);
+      setSelectedSubgraphId(null);
+    }
+    prevExternalOpenRef.current = !!externalPanelOpen;
+  }, [externalPanelOpen]);
 
   const render = useCallback(async () => {
     const id = ++renderIdRef.current;
@@ -374,7 +444,12 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
       edgeCleanupRef.current = addEdgeClickTargets(shadowHostRef.current, relativeContainerRef.current, (index) => {
         if (toolModeRef.current === 'connect') return;
         setSelectedNodeIds(new Set());
-        setSelectedEdgeIndex(prev => prev === index ? null : index);
+        setSelectedSubgraphId(null);
+        setSelectedEdgeIndex(prev => {
+          const willSelect = prev !== index;
+          if (willSelect) onSelectionOpen?.();
+          return willSelect ? index : null;
+        });
       });
     }
 
@@ -402,11 +477,12 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     const timer = setTimeout(() => {
       const nodes = extractSvgNodes(containerRef.current!, shadowHostRef.current!);
       setNodeOverlays(nodes);
-      const subgraphs = extractSubgraphOverlays(containerRef.current!, shadowHostRef.current!);
+      const knownIds = subgraphList.map(sg => sg.id);
+      const subgraphs = extractSubgraphOverlays(containerRef.current!, shadowHostRef.current!, knownIds);
       setSubgraphOverlays(subgraphs);
     }, 100);
     return () => clearTimeout(timer);
-  }, [svg, zoom]);
+  }, [svg, zoom, subgraphList]);
 
   // Highlight selected edge when selection changes
   useEffect(() => {
@@ -420,14 +496,19 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     const parsed = parseDiagram(content);
     const labels = new Map<string, string>();
     const styles = new Map<string, NodeStyle>();
+    const subgraphIds = new Map<string, string | null>();
     for (const node of parsed.nodes) {
       labels.set(node.id, node.label);
       styles.set(node.id, getNodeStyle(parsed.styles, parsed.classDefs, parsed.nodeClasses, node.id));
+      subgraphIds.set(node.id, node.parentSubgraphId ?? null);
     }
     setPanelLabels(labels);
     setPanelStyles(styles);
     setParsedEdges(parsed.edges);
     setParsedLinkStyles(parsed.linkStyles);
+    setNodeSubgraphIds(subgraphIds);
+    setSubgraphList(parsed.subgraphs.map(sg => ({ id: sg.id, label: sg.label })));
+    setParsedStyles(parsed.styles);
   }, [content, supportsClassDef]);
 
   // Auto-resync: update panel styles when content changes from code editor
@@ -449,6 +530,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     e.stopPropagation();
     if (!supportsClassDef) return;
     setSelectedEdgeIndex(null);
+    setSelectedSubgraphId(null);
     if (toolMode === 'connect') {
       if (!connectFirst) {
         setConnectFirst(nodeId);
@@ -468,43 +550,54 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
         else next.add(nodeId);
         return next;
       });
+      onSelectionOpen?.();
     } else {
+      const willSelect = !(selectedNodeIds.size === 1 && selectedNodeIds.has(nodeId));
       setSelectedNodeIds(prev =>
         prev.size === 1 && prev.has(nodeId) ? new Set() : new Set([nodeId])
       );
+      if (willSelect) onSelectionOpen?.();
       onNodeSelect?.(nodeId);
     }
-  }, [supportsClassDef, onNodeSelect, toolMode, connectFirst, onChange, content]);
+  }, [supportsClassDef, onNodeSelect, onSelectionOpen, toolMode, connectFirst, onChange, content, selectedNodeIds]);
 
   const handleAddSubgraph = useCallback(() => {
     if (!onChange) return;
     onChange(addSubgraph(content));
   }, [onChange, content]);
 
-  const startSubgraphEdit = useCallback((e: React.MouseEvent, subgraphId: string, currentLabel: string) => {
+  const handleSubgraphClick = useCallback((e: React.MouseEvent, subgraphId: string) => {
     e.stopPropagation();
     if (!supportsClassDef) return;
-    setEditingSubgraphId(subgraphId);
-    setSubgraphLabelValue(currentLabel);
     setSelectedNodeIds(new Set());
     setSelectedEdgeIndex(null);
-  }, [supportsClassDef]);
+    setSelectedSubgraphId(prev => {
+      const willSelect = prev !== subgraphId;
+      if (willSelect) onSelectionOpen?.();
+      return willSelect ? subgraphId : null;
+    });
+  }, [supportsClassDef, onSelectionOpen]);
 
-  const applySubgraphEdit = useCallback(() => {
-    if (!editingSubgraphId || !onChange) return;
-    const label = subgraphLabelValue.trim();
-    if (label) {
-      const newContent = updateSubgraphLabel(content, editingSubgraphId, label);
-      if (newContent !== content) {
-        onChange(newContent);
-      }
-    }
-    setEditingSubgraphId(null);
-  }, [editingSubgraphId, subgraphLabelValue, content, onChange]);
+  const handleSubgraphStyleChange = useCallback((subgraphId: string, styleUpdate: Partial<NodeStyle>) => {
+    if (!onChange) return;
+    const existingStyle = parsedStyles.get(subgraphId) ?? {};
+    const mergedStyle = { ...existingStyle, ...styleUpdate };
+    const result = updateNodeStyle(content, subgraphId, mergedStyle);
+    onChange(result);
+  }, [onChange, content, parsedStyles]);
 
-  const cancelSubgraphEdit = useCallback(() => {
-    setEditingSubgraphId(null);
-  }, []);
+  const handleSubgraphLabelChange = useCallback((subgraphId: string, newLabel: string) => {
+    if (!onChange) return;
+    const result = updateSubgraphLabel(content, subgraphId, newLabel);
+    onChange(result);
+  }, [onChange, content]);
+
+  const handleSubgraphReset = useCallback((subgraphId: string) => {
+    if (!onChange) return;
+    const result = removeNodeStyles(content, [subgraphId]);
+    onChange(result);
+    setSelectedSubgraphId(null);
+  }, [onChange, content]);
 
   const handleCanvasClick = useCallback(() => {
     if (toolMode === 'connect') {
@@ -517,7 +610,10 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     if (selectedEdgeIndex !== null) {
       setSelectedEdgeIndex(null);
     }
-  }, [selectedNodeIds, selectedEdgeIndex, toolMode]);
+    if (selectedSubgraphId !== null) {
+      setSelectedSubgraphId(null);
+    }
+  }, [selectedNodeIds, selectedEdgeIndex, selectedSubgraphId, toolMode]);
 
   // Style change handler: writes classDef/class lines to code via onChange
   const handleStyleChange = useCallback((nodeIds: string[], styleUpdate: Partial<NodeStyle>) => {
@@ -549,6 +645,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
         if (mergedStyle.fontSize) styleParts.push(`font-size:${mergedStyle.fontSize}`);
         if (mergedStyle.rx) styleParts.push(`rx:${mergedStyle.rx}`);
         if (mergedStyle.ry) styleParts.push(`ry:${mergedStyle.ry}`);
+        if (mergedStyle.opacity) styleParts.push(`opacity:${mergedStyle.opacity}`);
         newLines.push(`    classDef ${className} ${styleParts.join(',')}`);
         newLines.push(`    class ${nodeId} ${className}`);
       }
@@ -570,6 +667,13 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     setSelectedNodeIds(new Set());
   }, [onChange, content]);
 
+  // Subgraph change handler: moves a node to a different subgraph
+  const handleSubgraphChange = useCallback((nodeId: string, subgraphId: string | null) => {
+    if (!onChange) return;
+    const result = moveNodeToSubgraph(content, nodeId, subgraphId);
+    onChange(result);
+  }, [onChange, content]);
+
   // Edge style change handler
   const handleEdgeStyleChange = useCallback((edgeIndex: number, styleUpdate: Partial<EdgeStyle>) => {
     if (!onChange) return;
@@ -585,6 +689,13 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     const result = updateEdgeArrowType(content, source, target, arrowType);
     onChange(result);
   }, [onChange, content]);
+
+  // Node label change handler — uses contentRef to avoid stale closure on rapid typing
+  const handleNodeLabelChange = useCallback((nodeId: string, newLabel: string) => {
+    if (!onChange) return;
+    const result = updateNodeLabel(contentRef.current, nodeId, newLabel);
+    onChange(result);
+  }, [onChange]);
 
   // Edge label change handler
   const handleEdgeLabelChange = useCallback((source: string, target: string, label: string) => {
@@ -623,13 +734,20 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     onChange(updated);
   }, [onChange, content, selectedNodeIds]);
 
-  // Drop handler: adds a shape when dragged onto the canvas
+  // Drop handler: adds a shape when dragged onto the canvas, or moves node to root
   const handleDropOnCanvas = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    // If dragging a node over the canvas (not a shape from toolbar), move to root
+    if (dragNodeId && onChange) {
+      onChange(moveNodeToSubgraph(content, dragNodeId, null));
+      setDragNodeId(null);
+      setDragOverSubgraphId(null);
+      return;
+    }
     if (!dragShape) return;
     handleAddShape(dragShape);
     setDragShape(null);
-  }, [dragShape, handleAddShape]);
+  }, [dragShape, dragNodeId, handleAddShape, onChange, content]);
 
   async function copySvg() {
     if (!svg) {return;}
@@ -678,7 +796,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
       <div className="flex items-center justify-between px-3 h-9 shrink-0 border-b"
         style={{ borderColor: 'var(--border-subtle)' }}>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>Preview</span>
+          <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{t('preview.title')}</span>
           <span className="px-1.5 py-0.5 rounded-sm text-[10px] font-semibold border"
             style={{ background: 'var(--accent-dim)', color: 'var(--accent)', borderColor: 'rgba(var(--accent-rgb),0.2)' }}>
             {TYPE_LABELS[type] ?? 'Diagram'}
@@ -686,32 +804,32 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
           {loading && <RefreshCw size={11} style={{ color: 'var(--text-tertiary)' }} className="animate-spin" />}
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} title="Zoom out"
+          <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} title={t('preview.zoomOut')}
             className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
             <ZoomOut size={13} />
           </button>
           <span className="text-xs w-8 text-center" style={{ color: 'var(--text-secondary)' }}>
             {Math.round(zoom * 100)}%
           </span>
-          <button onClick={() => setZoom(z => Math.min(10, z + 0.25))} title="Zoom in"
+          <button onClick={() => setZoom(z => Math.min(10, z + 0.25))} title={t('preview.zoomIn')}
             className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
             <ZoomIn size={13} />
           </button>
-          <button onClick={() => setZoom(1)} title="Reset zoom"
+          <button onClick={() => setZoom(1)} title={t('preview.resetZoom')}
             className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
             <RefreshCw size={13} />
           </button>
           <button
             data-testid="fit-button"
             onClick={handleFitToScreen}
-            title="Fit to screen" className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
+            title={t('preview.fitToScreen')} className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
             <Move size={13} />
           </button>
           {onFullscreen && (
             <button
               data-testid="fullscreen-button"
               onClick={onFullscreen}
-              title="Fullscreen preview" className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
+              title={t('preview.fullscreenPreview')} className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
               <Maximize2 size={13} />
             </button>
           )}
@@ -719,20 +837,20 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
             <button
               data-testid="add-subgraph-button"
               onClick={handleAddSubgraph}
-              title="Add subgraph"
+              title={t('preview.addSubgraph')}
               className="flex items-center gap-1.5 px-2 py-1 rounded-sm text-xs font-medium transition-colors hover:bg-white/8"
               style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
               <Group size={13} />
-              <span>Subgraph</span>
+              <span>{t('preview.subgraph')}</span>
             </button>
           )}
           <div className="w-px h-4 mx-1" style={{ background: 'var(--border-subtle)' }} />
-          <button onClick={copySvg} title="Copy SVG"
+          <button onClick={copySvg} title={t('preview.copySvg')}
             className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
             {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
           </button>
           {onExport && (
-            <button onClick={onExport} title="Export"
+            <button onClick={onExport} title={t('preview.export')}
               className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
               <Download size={13} />
             </button>
@@ -758,7 +876,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
               style={{ background: 'rgba(239,68,68,0.1)' }}>
               <AlertTriangle size={18} className="text-red-400" />
             </div>
-            <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>Parse Error</p>
+            <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>{t('preview.parseError')}</p>
             <p className="text-xs font-mono max-w-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
               {error.split('\n')[0]}
             </p>
@@ -774,12 +892,13 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
                 <path d="M7 10v4M7 14h10M17 14v-4" />
               </svg>
             </div>
-            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Start typing to see a live preview</p>
+            <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{t('preview.startTyping')}</p>
           </div>
         ) : (
           <div ref={relativeContainerRef} className="relative min-h-full flex items-center justify-center p-8">
             <div
               ref={shadowHostRef}
+              data-shadow-host=""
               className="transition-transform duration-150"
               style={{
                 transform: `scale(${zoom})`,
@@ -796,10 +915,11 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
                 nodeLabels={panelLabels}
                 onClose={() => setSelectedNodeIds(new Set())}
                 onStyleChange={handleStyleChange}
-                onLabelChange={(nodeId, newLabel) => {
-                  if (onChange) onChange(updateNodeLabel(content, nodeId, newLabel));
-                }}
+                onLabelChange={handleNodeLabelChange}
                 onReset={handleResetStyles}
+                nodeSubgraphIds={nodeSubgraphIds}
+                subgraphs={subgraphList}
+                onSubgraphChange={handleSubgraphChange}
               />
             )}
 
@@ -816,13 +936,37 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
               />
             )}
 
+            {selectedSubgraphId !== null && supportsClassDef && (
+              <SubgraphStylePanel
+                subgraphId={selectedSubgraphId}
+                subgraphLabel={subgraphList.find(sg => sg.id === selectedSubgraphId)?.label ?? ''}
+                subgraphStyle={parsedStyles.get(selectedSubgraphId) ?? {}}
+                onClose={() => setSelectedSubgraphId(null)}
+                onStyleChange={handleSubgraphStyleChange}
+                onLabelChange={handleSubgraphLabelChange}
+                onReset={handleSubgraphReset}
+              />
+            )}
+
             {nodeOverlays.map(overlay => {
               const isSelected = selectedNodeIds.has(overlay.id);
               const isConnectSource = connectFirst === overlay.id;
+              const isDragging = dragNodeId === overlay.id;
               return (
                 <div
                   key={overlay.id}
                   onClick={e => handleNodeClick(e, overlay.id)}
+                  draggable={toolMode === 'select' && supportsClassDef ? true : undefined}
+                  onDragStart={e => {
+                    if (!supportsClassDef) return;
+                    setDragNodeId(overlay.id);
+                    e.dataTransfer.setData('text/plain', overlay.id);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragEnd={() => {
+                    setDragNodeId(null);
+                    setDragOverSubgraphId(null);
+                  }}
                   className={`node-overlay ${isSelected ? 'selected' : ''} ${isConnectSource ? 'connect-source' : ''}`}
                   style={{
                     position: 'absolute',
@@ -836,59 +980,51 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
                     borderRadius: '4px',
                     transition: 'border-color 0.15s',
                     background: isConnectSource ? 'rgba(var(--accent-rgb), 0.1)' : undefined,
+                    opacity: isDragging ? 0.5 : undefined,
                   }}
-                  title={supportsClassDef ? `Click to edit ${overlay.id}` : overlay.id}
+                  title={supportsClassDef ? t('preview.clickToEdit', { id: overlay.id }) : overlay.id}
                 />
               );
             })}
 
             {subgraphOverlays.map(sg => {
-              const isEditing = editingSubgraphId === sg.id;
+              const isSelected = selectedSubgraphId === sg.id;
+              const isDropTarget = dragOverSubgraphId === sg.id;
               return (
                 <div
                   key={`sg-${sg.id}`}
-                  onClick={e => startSubgraphEdit(e, sg.id, sg.label)}
+                  onClick={e => handleSubgraphClick(e, sg.id)}
+                  onDragOver={e => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    setDragOverSubgraphId(sg.id);
+                  }}
+                  onDragLeave={() => setDragOverSubgraphId(null)}
+                  onDrop={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (dragNodeId && onChange) {
+                      onChange(moveNodeToSubgraph(content, dragNodeId, sg.id));
+                    }
+                    setDragNodeId(null);
+                    setDragOverSubgraphId(null);
+                  }}
                   className="subgraph-overlay"
                   style={{
                     position: 'absolute',
-                    left: sg.x,
-                    top: sg.y,
-                    width: sg.width,
-                    height: sg.height,
+                    left: sg.clusterX,
+                    top: sg.clusterY,
+                    width: sg.clusterWidth,
+                    height: sg.clusterHeight,
                     cursor: supportsClassDef ? 'pointer' : 'default',
-                    zIndex: 6,
-                    border: isEditing ? '2px solid var(--accent)' : '2px solid transparent',
+                    zIndex: 4,
+                    border: isSelected ? '2px solid var(--accent)' : isDropTarget ? '2px dashed var(--accent)' : '2px solid transparent',
                     borderRadius: '4px',
-                    transition: 'border-color 0.15s',
+                    background: isDropTarget ? 'rgba(var(--accent-rgb), 0.08)' : undefined,
+                    transition: 'border-color 0.15s, background 0.15s',
                   }}
-                  title={supportsClassDef ? 'Click to edit subgraph label' : sg.label}
-                >
-                  {isEditing && (
-                    <input
-                      ref={subgraphEditRef}
-                      value={subgraphLabelValue}
-                      onChange={e => setSubgraphLabelValue(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') applySubgraphEdit();
-                        if (e.key === 'Escape') cancelSubgraphEdit();
-                      }}
-                      onBlur={applySubgraphEdit}
-                      className="absolute z-10 text-center outline-none"
-                      style={{
-                        left: 0, top: 0,
-                        width: '100%', height: '100%',
-                        background: 'var(--surface-base)',
-                        border: '2px solid var(--accent)',
-                        borderRadius: '4px',
-                        color: 'var(--text-primary)',
-                        fontSize: '12px',
-                        padding: '0 4px',
-                        boxSizing: 'border-box',
-                      }}
-                      autoFocus
-                    />
-                  )}
-                </div>
+                  title={supportsClassDef ? t('preview.clickToEditSubgraph') : sg.label}
+                />
               );
             })}
           </div>
