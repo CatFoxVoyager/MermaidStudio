@@ -33,7 +33,20 @@ export interface NodeStyle {
   fill?: string;
   stroke?: string;
   strokeWidth?: string;
+  strokeDasharray?: string;
   color?: string;
+  fontWeight?: string;
+  fontSize?: string;
+  rx?: string;
+  ry?: string;
+  opacity?: string;
+}
+
+export interface EdgeStyle {
+  stroke?: string;
+  strokeWidth?: string;
+  strokeDasharray?: string;
+  opacity?: string;
 }
 
 export interface ParsedDiagram {
@@ -106,19 +119,21 @@ function parseNodeLabel(raw: string): { label: string; shape: NodeShape; icon?: 
 }
 
 function shapeWrap(label: string, shape: NodeShape): string {
+  // Always use quotes to avoid parse issues with special characters, \n, etc.
+  const q = '"';
   switch (shape) {
-    case 'rect':            return `[${label}]`;
-    case 'round':           return `(${label})`;
-    case 'stadium':         return `([${label}])`;
-    case 'subroutine':      return `[[${label}]]`;
-    case 'cylinder':        return `[(${label})]`;
-    case 'circle':          return `((${label}))`;
-    case 'rhombus':         return `{${label}}`;
-    case 'hexagon':         return `{{${label}}}`;
-    case 'asymmetric':      return `>${label}]`;
-    case 'parallelogram':   return `[/${label}/]`;
+    case 'rect':            return `["${label}"]`;
+    case 'round':           return `("${label}")`;
+    case 'stadium':         return `(["${label}"])`;
+    case 'subroutine':      return `[["${label}"]]`;
+    case 'cylinder':        return `[("${label}")]`;
+    case 'circle':          return `(("${label}"))`;
+    case 'rhombus':         return `{"${label}"}`;
+    case 'hexagon':         return `{{"${label}"}}`;
+    case 'asymmetric':      return `>"${label}"]`;
+    case 'parallelogram':   return `[/"${label}"/]`;
     case 'parallelogram-alt': return `[\\${label}\\]`;
-    case 'trapezoid':       return `[/${label}\\]`;
+    case 'trapezoid':       return `[/"${label}"\\]`;
     case 'trapezoid-alt':   return `[\\${label}/]`;
     // v11 new shapes - use @{ shape: "name" } syntax
     case 'doc':             return `@{ shape: "doc", label: "${label}" }`;
@@ -132,7 +147,7 @@ function shapeWrap(label: string, shape: NodeShape): string {
     case 'manual-input':    return `@{ shape: "manual-input", label: "${label}" }`;
     case 'procs':           return `@{ shape: "procs", label: "${label}" }`;
     case 'paper-tape':      return `@{ shape: "paper-tape", label: "${label}" }`;
-    default:                return `[${label}]`;
+    default:                return `["${label}"]`;
   }
 }
 
@@ -140,13 +155,21 @@ const STANDALONE_NODE_RE = /^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)$/;
 
 function parseStyleValue(val: string): NodeStyle {
   const style: NodeStyle = {};
-  val.split(';').forEach(part => {
+  // Try comma split first (classDef format), fall back to semicolon (style format)
+  const separator = val.includes(',') && !val.includes(';') ? ',' : ';';
+  val.split(separator).forEach(part => {
     const [k, v] = part.trim().split(':').map(s => s.trim());
     if (!k || !v) {return;}
     if (k === 'fill') {style.fill = v;}
     else if (k === 'stroke') {style.stroke = v;}
     else if (k === 'stroke-width') {style.strokeWidth = v;}
+    else if (k === 'stroke-dasharray') {style.strokeDasharray = v;}
     else if (k === 'color') {style.color = v;}
+    else if (k === 'font-weight') {style.fontWeight = v;}
+    else if (k === 'font-size') {style.fontSize = v;}
+    else if (k === 'rx') {style.rx = v;}
+    else if (k === 'ry') {style.ry = v;}
+    else if (k === 'opacity') {style.opacity = v;}
   });
   return style;
 }
@@ -156,8 +179,159 @@ function styleToString(style: NodeStyle): string {
   if (style.fill !== undefined) {parts.push(`fill:${style.fill}`);}
   if (style.stroke !== undefined) {parts.push(`stroke:${style.stroke}`);}
   if (style.strokeWidth !== undefined) {parts.push(`stroke-width:${style.strokeWidth}`);}
+  if (style.strokeDasharray !== undefined) {parts.push(`stroke-dasharray:${style.strokeDasharray}`);}
   if (style.color !== undefined) {parts.push(`color:${style.color}`);}
+  if (style.fontWeight !== undefined) {parts.push(`font-weight:${style.fontWeight}`);}
+  if (style.fontSize !== undefined) {parts.push(`font-size:${style.fontSize}`);}
+  if (style.rx !== undefined) {parts.push(`rx:${style.rx}`);}
+  if (style.ry !== undefined) {parts.push(`ry:${style.ry}`);}
+  if (style.opacity !== undefined) {parts.push(`opacity:${style.opacity}`);}
   return parts.join(',');
+}
+
+export function parseLinkStyles(source: string): Map<number, EdgeStyle> {
+  const linkStyles = new Map<number, EdgeStyle>();
+  const lines = source.split('\n');
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const match = trimmed.match(/^linkStyle\s+(\d+)\s+(.+)$/);
+    if (match) {
+      const index = parseInt(match[1], 10);
+      const styleStr = match[2];
+      linkStyles.set(index, parseEdgeStyleValue(styleStr));
+    }
+  }
+
+  return linkStyles;
+}
+
+function parseEdgeStyleValue(val: string): EdgeStyle {
+  const style: EdgeStyle = {};
+  const separator = val.includes(',') && !val.includes(';') ? ',' : ';';
+  val.split(separator).forEach(part => {
+    const [k, v] = part.trim().split(':').map(s => s.trim());
+    if (!k || !v) {return;}
+    if (k === 'stroke') {style.stroke = v;}
+    else if (k === 'stroke-width') {style.strokeWidth = v;}
+    else if (k === 'stroke-dasharray') {style.strokeDasharray = v;}
+    else if (k === 'opacity') {style.opacity = v;}
+  });
+  return style;
+}
+
+export function edgeStyleToString(style: EdgeStyle): string {
+  const parts: string[] = [];
+  if (style.stroke !== undefined) {parts.push(`stroke:${style.stroke}`);}
+  if (style.strokeWidth !== undefined) {parts.push(`stroke-width:${style.strokeWidth}`);}
+  if (style.strokeDasharray !== undefined) {parts.push(`stroke-dasharray:${style.strokeDasharray}`);}
+  if (style.opacity !== undefined) {parts.push(`opacity:${style.opacity}`);}
+  return parts.join(',');
+}
+
+export function updateLinkStyle(source: string, edgeIndex: number, style: EdgeStyle): string {
+  const lines = source.split('\n');
+  const styleStr = edgeStyleToString(style);
+
+  // Handle linkStyle line
+  const existingIdx = lines.findIndex(l => {
+    const t = l.trim();
+    return t.match(new RegExp(`^linkStyle\\s+${edgeIndex}\\s+`));
+  });
+
+  const styleLine = `linkStyle ${edgeIndex} ${styleStr}`;
+
+  if (existingIdx !== -1) {
+    if (styleStr) {
+      lines[existingIdx] = styleLine;
+    } else {
+      lines.splice(existingIdx, 1);
+    }
+  } else if (styleStr) {
+    // Append after the last linkStyle line or at the end
+    let insertIdx = lines.length;
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].trim().startsWith('linkStyle')) {
+        insertIdx = i + 1;
+        break;
+      }
+    }
+    lines.splice(insertIdx, 0, styleLine);
+  }
+
+  // Handle label background as a separate comment (fill in linkStyle colors the edge path, not the label)
+  return lines.join('\n');
+}
+
+export function removeLinkStyles(source: string, indices: number[]): string {
+  const indicesToRemove = new Set(indices);
+  const lines = source.split('\n');
+  const filtered = lines.filter(line => {
+    const trimmed = line.trim();
+    const match = trimmed.match(/^linkStyle\s+(\d+)/);
+    if (match) {
+      const idx = parseInt(match[1], 10);
+      return !indicesToRemove.has(idx);
+    }
+    return true;
+  });
+  const result = filtered.join('\n').replace(/\n{3,}/g, '\n\n');
+  if (source.endsWith('\n')) {
+    return result.trimEnd() + '\n';
+  }
+  return result.trimEnd();
+}
+
+/** Split an edge line into: [beforeArrow, arrowType, edgeLabel, afterArrow] */
+function splitEdgeLine(line: string): [string, string, string, string] | null {
+  const arrowMatch = line.match(/(-->|---|-.->|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|--\|>|\|>|~~~)/);
+  if (!arrowMatch) return null;
+  const beforeArrow = line.substring(0, arrowMatch.index);
+  const arrow = arrowMatch[0];
+  const rest = line.substring(arrowMatch.index + arrow.length);
+  // Extract edge label if present: |label|
+  const labelMatch = rest.match(/^\|([^|]*)\|\s*(.*)/);
+  if (labelMatch) {
+    return [beforeArrow, arrow, labelMatch[1], labelMatch[2]];
+  }
+  return [beforeArrow, arrow, '', rest];
+}
+
+export function updateEdgeArrowType(source: string, srcId: string, tgtId: string, newType: string): string {
+  const lines = source.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (!trimmed.startsWith(srcId)) continue;
+    const parts = splitEdgeLine(trimmed);
+    if (!parts) continue;
+    const [, , label, after] = parts;
+    // Verify target ID appears after the arrow+label
+    const tgtRe = new RegExp(`\\b${escapeRegex(tgtId)}\\b`);
+    if (!tgtRe.test(after)) continue;
+    lines[i] = lines[i].replace(trimmed, `${parts[0].trimEnd()} ${newType}${label ? `|${label}|` : ''} ${after.trimStart()}`);
+    return lines.join('\n');
+  }
+  return source;
+}
+
+export function updateEdgeLabel(source: string, srcId: string, tgtId: string, newLabel: string): string {
+  const lines = source.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (!trimmed.startsWith(srcId)) continue;
+    const parts = splitEdgeLine(trimmed);
+    if (!parts) continue;
+    const [before, arrow, , after] = parts;
+    const tgtRe = new RegExp(`\\b${escapeRegex(tgtId)}\\b`);
+    if (!tgtRe.test(after)) continue;
+    lines[i] = lines[i].replace(trimmed, `${before.trimEnd()} ${arrow}${newLabel ? `|${newLabel}|` : ''} ${after.trimStart()}`);
+    return lines.join('\n');
+  }
+  return source;
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export function parseDiagram(source: string): ParsedDiagram {
