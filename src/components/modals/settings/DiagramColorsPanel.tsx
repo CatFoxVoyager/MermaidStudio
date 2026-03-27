@@ -1,11 +1,11 @@
 import { RotateCcw, X, Palette, Check, Plus, Pencil, Star } from 'lucide-react';
 import { builtinThemes, getThemeById } from '@/constants/themes';
-import { applyThemeToFrontmatter, applyC4FromTheme, stripThemeDirective } from '@/constants/themeDerivation';
+import { applyC4FromTheme, stripThemeDirective, getSwatchColors } from '@/constants/themeDerivation';
 import type { MermaidTheme, DiagramType } from '@/types';
 import { getStylingCapabilities } from '@/types';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { renderDiagram, detectDiagramType } from '@/lib/mermaid/core';
+import { renderDiagram, detectDiagramType, setDiagramTheme } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
 import { ThemeEditorPanel } from './ThemeEditorPanel';
 
@@ -15,6 +15,8 @@ interface DiagramColorsPanelProps {
   currentContent: string;
   onContentChange: (content: string) => void;
   theme: 'dark' | 'light';
+  currentThemeId?: string;
+  onThemeIdChange?: (themeId: string | null) => void;
   defaultThemeId?: string;
   onSetDefaultTheme?: (theme: MermaidTheme) => void;
 }
@@ -26,18 +28,6 @@ function isC4DiagramType(content: string): boolean {
   return getStylingCapabilities(type).supportsC4Style;
 }
 
-function extractCurrentTheme(content: string, allThemes: MermaidTheme[]): MermaidTheme | null {
-  // Check for themeVariables in YAML frontmatter
-  let match = content.match(/primaryColor:\s*['"]?([^'"\n\s]+)['"]?/);
-  if (!match) {
-    match = content.match(/'primaryColor'\s*:\s*'([^']+)'/);
-  }
-  if (!match) return null;
-
-  const primaryColor = match[1].toUpperCase();
-  return allThemes.find(t => t.coreColors.primaryColor.toUpperCase() === primaryColor) ?? null;
-}
-
 const SAMPLE_DIAGRAM = `flowchart TD
     A[Start] --> B{Decision}
     B -->|Yes| C[Process A]
@@ -45,7 +35,7 @@ const SAMPLE_DIAGRAM = `flowchart TD
     C --> E[End]
     D --> E`;
 
-export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentChange, theme, defaultThemeId, onSetDefaultTheme }: DiagramColorsPanelProps) {
+export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentChange, theme, currentThemeId, onThemeIdChange, defaultThemeId, onSetDefaultTheme }: DiagramColorsPanelProps) {
   const { t } = useTranslation();
   const isDark = theme === 'dark';
 
@@ -62,9 +52,6 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
   // Combine builtin and custom themes
   const allThemes = useMemo(() => [...builtinThemes, ...customThemes], [customThemes]);
 
-  // Active theme detection
-  const activeTheme = extractCurrentTheme(currentContent, allThemes);
-
   // Preview state
   const [previewSvg, setPreviewSvg] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<MermaidTheme | null>(null);
@@ -75,9 +62,9 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
     const theme = selectedTheme;
     if (theme) {
       const id = ++previewIdRef.current;
-      const contentWithTheme = applyThemeToFrontmatter(SAMPLE_DIAGRAM, theme, isDark);
-
-      renderDiagram(contentWithTheme, `theme_preview_${id}_${Date.now()}`).then(({ svg }) => {
+      // Use render-time theming for preview
+      setDiagramTheme(theme.id);
+      renderDiagram(SAMPLE_DIAGRAM, `theme_preview_${id}_${Date.now()}`, theme.id).then(({ svg }) => {
         if (svg && id === previewIdRef.current) {
           setPreviewSvg(svg);
         }
@@ -94,13 +81,13 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
     const cleanContent = stripThemeDirective(currentContent);
 
     if (isC4DiagramType(cleanContent)) {
-      // C4 diagrams use UpdateElementStyle/UpdateRelStyle
+      // C4 diagrams use UpdateElementStyle/UpdateRelStyle AND store themeId
       const contentWithC4Styles = applyC4FromTheme(cleanContent, theme);
       onContentChange(contentWithC4Styles);
+      onThemeIdChange?.(theme.id);
     } else {
-      // Use themeVariables frontmatter approach for all other diagram types
-      const contentWithTheme = applyThemeToFrontmatter(cleanContent, theme, isDark);
-      onContentChange(contentWithTheme);
+      // Non-C4 diagrams: just store themeId, no content modification
+      onThemeIdChange?.(theme.id);
     }
 
     setSelectedTheme(null);
@@ -109,7 +96,12 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
   // Reset to default
   const handleResetToDefault = () => {
     if (currentContent) {
-      onContentChange(stripThemeDirective(currentContent));
+      if (isC4DiagramType(currentContent)) {
+        // For C4 diagrams, strip directives AND clear themeId
+        onContentChange(stripThemeDirective(currentContent));
+      }
+      // Clear themeId for all diagram types
+      onThemeIdChange?.(null);
       setSelectedTheme(null);
       setShowThemeEditor(false);
     }
@@ -171,7 +163,7 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {/* Reset Button */}
-        {activeTheme && (
+        {currentThemeId && (
           <button
             onClick={handleResetToDefault}
             className="w-full p-3 rounded-lg border text-left transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2.5"
@@ -197,9 +189,10 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
 
         {/* Themes List */}
         {allThemes.map((themeItem) => {
-          const isActive = activeTheme?.id === themeItem.id;
+          const isActive = currentThemeId === themeItem.id;
           const isSelected = selectedTheme?.id === themeItem.id;
           const showPreview = isSelected && previewSvg;
+          const swatchColors = getSwatchColors(themeItem.coreColors, isDark);
 
           return (
             <div
@@ -275,9 +268,14 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-1">
-                  <div className="h-5 rounded-sm border" style={{ backgroundColor: themeItem.coreColors.primaryColor, borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }} title="Primary Color" />
-                  <div className="h-5 rounded-sm border" style={{ backgroundColor: themeItem.coreColors.background, borderColor: isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)' }} title="Background" />
+                <div className="grid grid-cols-8 gap-0.5">
+                  {swatchColors.map((color, i) => (
+                    <div
+                      key={i}
+                      className="h-5 rounded-sm border"
+                      style={{ backgroundColor: color, borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }}
+                    />
+                  ))}
                 </div>
               </div>
 

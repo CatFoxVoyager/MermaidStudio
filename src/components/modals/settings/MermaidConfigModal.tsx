@@ -6,14 +6,6 @@ import { builtinThemes } from '@/constants/themes';
 import { applyThemeToFrontmatter, stripThemeDirective } from '@/constants/themeDerivation';
 import type { MermaidTheme } from '@/types';
 
-interface MermaidConfigModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onApply: (config: MermaidConfig) => void;
-  currentContent?: string;
-  onContentChange?: (content: string) => void;
-}
-
 export interface MermaidConfig {
   theme: 'light' | 'dark' | 'forest' | 'neutral' | 'base';
   layout: 'dagre' | 'elk' | 'elk.stress';
@@ -25,6 +17,15 @@ export interface MermaidConfig {
   htmlLabels: boolean;
   darkMode: boolean;
   securityLevel: 'strict' | 'loose' | 'antiscript' | 'sandbox';
+}
+
+interface MermaidConfigModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onApply: (config: MermaidConfig) => void;
+  currentContent?: string;
+  onContentChange?: (content: string) => void;
+  onThemeIdChange?: (themeId: string | null) => void;
 }
 
 const DEFAULT_CONFIG: MermaidConfig = {
@@ -39,13 +40,17 @@ const DEFAULT_CONFIG: MermaidConfig = {
   securityLevel: 'loose',
 };
 
-export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = '', onContentChange }: MermaidConfigModalProps) {
+export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = '', onContentChange, onThemeIdChange }: MermaidConfigModalProps) {
   const { t } = useTranslation();
   const [config, setConfig] = useState<MermaidConfig>(DEFAULT_CONFIG);
   const hasCustomTheme = currentContent.trimStart().startsWith('%%{init:');
 
   const handleThemeSelect = (theme: MermaidTheme) => {
-    if (currentContent && onContentChange) {
+    if (currentContent && onThemeIdChange) {
+      // New behavior: use render-time theming via themeId
+      onThemeIdChange(theme.id);
+    } else if (currentContent && onContentChange) {
+      // Backward compat: inject YAML frontmatter
       const cleanContent = stripThemeDirective(currentContent);
       const updatedContent = applyThemeToFrontmatter(cleanContent, theme, config.darkMode);
       onContentChange(updatedContent);
@@ -53,7 +58,11 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
   };
 
   const handleResetToDefault = () => {
-    if (currentContent && onContentChange) {
+    if (onThemeIdChange) {
+      // New behavior: clear themeId
+      onThemeIdChange(null);
+    } else if (currentContent && onContentChange) {
+      // Backward compat: strip init directives from content
       onContentChange(currentContent.replace(/^\s*%%\{init:[\s\S]*?\}%%\s*/i, '').trim());
     }
   };
