@@ -1,4 +1,4 @@
-import { RotateCcw, X, Palette, Check, Plus, Pencil } from 'lucide-react';
+import { RotateCcw, X, Palette, Check, Plus, Pencil, Star } from 'lucide-react';
 import { builtinThemes, getThemeById } from '@/constants/themes';
 import { applyThemeToFrontmatter, applyC4FromTheme, stripThemeDirective } from '@/constants/themeDerivation';
 import type { MermaidTheme, DiagramType } from '@/types';
@@ -15,6 +15,8 @@ interface DiagramColorsPanelProps {
   currentContent: string;
   onContentChange: (content: string) => void;
   theme: 'dark' | 'light';
+  defaultThemeId?: string;
+  onSetDefaultTheme?: (theme: MermaidTheme) => void;
 }
 
 // Check if a diagram type uses C4-specific styling (UpdateElementStyle/UpdateRelStyle)
@@ -43,7 +45,7 @@ const SAMPLE_DIAGRAM = `flowchart TD
     C --> E[End]
     D --> E`;
 
-export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentChange, theme }: DiagramColorsPanelProps) {
+export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentChange, theme, defaultThemeId, onSetDefaultTheme }: DiagramColorsPanelProps) {
   const { t } = useTranslation();
   const isDark = theme === 'dark';
 
@@ -239,17 +241,37 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
                       </button>
                     )}
                     {isSelected && !isActive && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleApplyTheme(themeItem);
-                        }}
-                        className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-medium text-white transition-colors hover:opacity-90"
-                        style={{ background: 'var(--accent)' }}
-                      >
-                        <Check size={10} />
-                        Apply
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleApplyTheme(themeItem);
+                          }}
+                          className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-medium text-white transition-colors hover:opacity-90"
+                          style={{ background: 'var(--accent)' }}
+                        >
+                          <Check size={10} />
+                          Apply
+                        </button>
+                        {onSetDefaultTheme && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSetDefaultTheme(themeItem);
+                            }}
+                            className={`flex items-center gap-1 px-2 py-1 rounded text-[9px] font-medium transition-colors ${
+                              defaultThemeId === themeItem.id
+                                ? 'text-green-400 bg-green-500/10'
+                                : 'hover:bg-white/5'
+                            }`}
+                            style={{ color: defaultThemeId === themeItem.id ? '#4ade80' : 'var(--text-secondary)' }}
+                            title={defaultThemeId === themeItem.id ? 'Current default theme' : 'Set as app default'}
+                          >
+                            <Star size={10} />
+                            {defaultThemeId === themeItem.id ? 'Default' : 'Set Default'}
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

@@ -4,12 +4,14 @@ import { WorkspacePanel } from '@/editor/WorkspacePanel';
 import { AIPanel } from '@/ai/AIPanel';
 import { DiagramColorsPanel } from '@/components/modals/settings/DiagramColorsPanel';
 import { AdvancedStylePanel } from '@/components/modals/settings/AdvancedStylePanel';
-import type { Tab } from '@/types';
+import type { Tab, MermaidTheme } from '@/types';
 
 interface AppLayoutProps {
   // Theme
   theme: 'light' | 'dark';
   toggleTheme: () => void;
+  defaultTheme?: MermaidTheme | null;
+  setDefaultTheme?: (theme: MermaidTheme | null) => void;
   // Language
   language: string;
   onChangeLanguage: (lang: string) => void;
@@ -61,6 +63,8 @@ interface AppLayoutProps {
 export function AppLayout({
   theme,
   toggleTheme,
+  defaultTheme,
+  setDefaultTheme,
   language,
   onChangeLanguage,
   sidebarOpen,
@@ -172,6 +176,8 @@ export function AppLayout({
                 currentContent={activeTab.content}
                 onContentChange={(content) => onContentChange(activeTab.id, content)}
                 theme={theme}
+                defaultThemeId={defaultTheme?.id}
+                onSetDefaultTheme={setDefaultTheme}
               />
             )}
           </div>
