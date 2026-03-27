@@ -8,22 +8,6 @@ export type DiagramType =
   | 'sankey' | 'xyChart' | 'packetDiagram' | 'kanban'
   | 'architectureDiagram' | 'zenuml' | 'blockDiagram' | 'c4' | 'unknown';
 
-export interface ColorPalette {
-  id: string;
-  name: string;
-  description: string;
-  colors: {
-    primary: string;
-    secondary: string;
-    accent: string;
-    success: string;
-    warning: string;
-    error: string;
-    neutral_light: string;
-    neutral_dark: string;
-  };
-}
-
 export interface Template {
   id: string;
   title: string;

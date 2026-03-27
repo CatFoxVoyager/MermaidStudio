@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Type, Maximize2, ArrowLeftRight, ArrowUpDown, Spline, Square, RotateCcw, LayoutGrid, X, SlidersHorizontal, Compass } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_STYLE_OPTIONS, type DiagramStyleOptions, type DiagramDirection, type LayoutEngine, getStylingCapabilities } from '@/types';
-import { applyStyleToContent, extractStyleOptionsFromContent } from '@/constants/colorPalettes';
+import { applyStyleToContent, extractStyleOptionsFromContent } from '@/constants/themeDerivation';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 import { detectDiagramType } from '@/lib/mermaid/core';
 
