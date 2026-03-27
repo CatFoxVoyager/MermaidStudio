@@ -1,4 +1,5 @@
 import mermaid from 'mermaid';
+import elkLayouts from '@mermaid-js/layout-elk';
 import DOMPurify from 'dompurify';
 import type { DiagramType } from '@/types';
 import { validateDiagramContent } from '@/utils/validation';
@@ -64,7 +65,10 @@ const SANITIZATION_CONFIG = {
   ALLOW_UNKNOWN_ATTRS: false,
 } satisfies { ALLOWED_TAGS: string[]; ALLOWED_ATTR: string[]; ALLOW_DATA_URI: boolean; ALLOW_UNKNOWN_ATTRS: boolean };
 
+export type MermaidTheme = 'default' | 'dark' | 'forest' | 'neutral' | 'base';
+
 let currentTheme: 'dark' | 'light' = 'dark';
+let currentMermaidTheme: MermaidTheme = 'base';
 
 const darkVars = {
   primaryColor: '#161b22',
@@ -106,24 +110,29 @@ const lightVars = {
   noteTextColor: '#111827',
 };
 
-function doInit(theme: 'dark' | 'light', useBase: boolean) {
+// Register ELK layout loaders once
+mermaid.registerLayoutLoaders(elkLayouts);
+
+function doInit(theme: 'dark' | 'light', useBase: boolean, mermaidTheme?: MermaidTheme) {
+  const resolvedMermaidTheme = mermaidTheme ?? (useBase ? 'base' : (theme === 'dark' ? 'dark' : 'default'));
   mermaid.initialize({
     startOnLoad: false,
-    theme: useBase ? 'base' : (theme === 'dark' ? 'dark' : 'default'),
+    theme: resolvedMermaidTheme,
     darkMode: theme === 'dark',
     fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
     fontSize: 14,
     flowchart: { curve: 'basis', padding: 20, htmlLabels: false },
     sequence: { useMaxWidth: true, actorMargin: 50 },
-    // Always provide base themeVariables, even with useBase
-    // The YAML frontmatter in the content will merge/override these
-    themeVariables: theme === 'dark' ? darkVars : lightVars,
+    // When useBase is true, the YAML frontmatter controls theming entirely.
+    // Don't pass app-level themeVariables so they don't override the frontmatter's theme choice.
+    ...(!useBase && { themeVariables: theme === 'dark' ? darkVars : lightVars }),
   });
 }
 
-export function initMermaid(theme: 'dark' | 'light') {
+export function initMermaid(theme: 'dark' | 'light', mermaidTheme?: MermaidTheme) {
   currentTheme = theme;
-  doInit(theme, false);
+  if (mermaidTheme) {currentMermaidTheme = mermaidTheme;}
+  doInit(theme, false, mermaidTheme);
 }
 
 function extractEdgeLabelTextColor(content: string): string | null {
@@ -169,7 +178,7 @@ export async function renderDiagram(content: string, id: string): Promise<{ svg:
 
   const trimmed = content.trimStart();
   const hasCustomTheme = trimmed.startsWith('---') || trimmed.startsWith('%%{init:');
-  doInit(currentTheme, hasCustomTheme);
+  doInit(currentTheme, hasCustomTheme, currentMermaidTheme);
 
   const safeId = id.replace(/[^a-zA-Z0-9_]/g, '_');
   try {
