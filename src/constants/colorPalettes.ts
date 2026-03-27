@@ -162,6 +162,55 @@ export function getPaletteByName(name: string): ColorPalette | undefined {
   return colorPalettes.find((p) => p.name === name);
 }
 
+/**
+ * Strip UpdateElementStyle and UpdateRelStyle directives from C4 diagram content.
+ */
+export function stripC4Directives(content: string): string {
+  return content
+    .replace(/^[ \t]*UpdateElementStyle\s*\([^)]*\)\s*$/gm, '')
+    .replace(/^[ \t]*UpdateRelStyle\s*\([^)]*\)\s*$/gm, '')
+    .replace(/\n\s*\n\s*\n/g, '\n\n')
+    .trim();
+}
+
+/**
+ * Apply C4-specific color palette using UpdateElementStyle/UpdateRelStyle directives.
+ * This is the correct styling mechanism for C4 diagrams (classDef/class is NOT supported).
+ */
+export function applyC4Palette(content: string, palette: ColorPalette): string {
+  // Strip any existing C4 directives
+  const cleaned = stripC4Directives(content);
+
+  // Also strip any YAML frontmatter
+  const body = cleaned.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
+
+  const { primary, secondary, accent, neutral_light } = palette.colors;
+
+  // Use primary color for contrast calculation (most common bg)
+  const contrast = getContrastColorForC4(primary);
+
+  const directives = [
+    `    UpdateElementStyle(person, $bgColor="${primary}", $fontColor="${contrast}", $borderColor="${secondary}")`,
+    `    UpdateElementStyle(system, $bgColor="${accent}", $fontColor="${contrast}", $borderColor="${primary}")`,
+    `    UpdateElementStyle(system_db, $bgColor="${secondary}", $fontColor="${contrast}", $borderColor="${primary}")`,
+    `    UpdateElementStyle(container, $bgColor="${secondary}", $fontColor="${contrast}", $borderColor="${primary}")`,
+    `    UpdateElementStyle(component, $bgColor="${neutral_light}", $fontColor="${contrast}", $borderColor="${secondary}")`,
+    `    UpdateElementStyle(component_db, $bgColor="${neutral_light}", $fontColor="${contrast}", $borderColor="${secondary}")`,
+    `    UpdateRelStyle(line, $lineColor="${secondary}", $textColor="${contrast}")`,
+  ].join('\n');
+
+  return body + '\n' + directives;
+}
+
+/** Contrast color helper for C4 palette - uses primary color luminance */
+function getContrastColorForC4(hexColor: string): string {
+  const r = parseInt(hexColor.substr(1, 2), 16);
+  const g = parseInt(hexColor.substr(3, 2), 16);
+  const b = parseInt(hexColor.substr(5, 2), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#000000' : '#ffffff';
+}
+
 function getContrastColor(hexColor: string): string {
   const r = parseInt(hexColor.substr(1, 2), 16);
   const g = parseInt(hexColor.substr(3, 2), 16);
@@ -702,13 +751,12 @@ export function applyStyleToContent(content: string, styleOptions: DiagramStyleO
       if (styleOptions.maxNodeHeight !== undefined) minimalConfig.maxNodeHeight = styleOptions.maxNodeHeight;
       if (styleOptions.maxTextWidth !== undefined) minimalConfig.maxTextWidth = styleOptions.maxTextWidth;
       if (styleOptions.padding !== undefined) minimalConfig.padding = styleOptions.padding;
+      if (styleOptions.layoutEngine && styleOptions.layoutEngine !== 'dagre') {
+        minimalConfig.layout = styleOptions.layoutEngine;
+      }
       if (Object.keys(minimalConfig).length > 0) {
         minimalConfig.useMaxWidth = true;
         hasNonFontConfig = true;
-      }
-      // Add layout engine if specified
-      if (styleOptions.layoutEngine && styleOptions.layoutEngine !== 'dagre') {
-        minimalConfig.layout = styleOptions.layoutEngine;
       }
       break;
 
@@ -725,21 +773,26 @@ export function applyStyleToContent(content: string, styleOptions: DiagramStyleO
     case 'classDiagram':
     case 'class':
     case 'erDiagram':
-    case 'er':
-      // For flowchart-based diagrams, include flowchart config without theme
-      if (styleOptions.curveStyle !== undefined) minimalConfig.curve = styleOptions.curveStyle;
-      if (styleOptions.nodePadding !== undefined) minimalConfig.padding = styleOptions.nodePadding;
-      if (styleOptions.nodeSpacing !== undefined) minimalConfig.nodeSpacing = styleOptions.nodeSpacing;
-      if (styleOptions.rankSpacing !== undefined) minimalConfig.rankSpacing = styleOptions.rankSpacing;
-      if (styleOptions.useMaxWidth !== undefined) minimalConfig.useMaxWidth = styleOptions.useMaxWidth;
-      if (Object.keys(minimalConfig).length > 0) {
-        minimalConfig.htmlLabels = true;
+    case 'er': {
+      // For flowchart-based diagrams, nest under flowchart: subkey
+      // (required for ELK/ELK Stress layout support)
+      const flowchartCfg: Record<string, unknown> = {};
+      if (styleOptions.curveStyle !== undefined) flowchartCfg.curve = styleOptions.curveStyle;
+      if (styleOptions.nodePadding !== undefined) flowchartCfg.padding = styleOptions.nodePadding;
+      if (styleOptions.nodeSpacing !== undefined) flowchartCfg.nodeSpacing = styleOptions.nodeSpacing;
+      if (styleOptions.rankSpacing !== undefined) flowchartCfg.rankSpacing = styleOptions.rankSpacing;
+      if (styleOptions.useMaxWidth !== undefined) flowchartCfg.useMaxWidth = styleOptions.useMaxWidth;
+      flowchartCfg.htmlLabels = true;
+      if (Object.keys(flowchartCfg).length > 0) {
+        minimalConfig.flowchart = flowchartCfg;
         hasNonFontConfig = true;
       }
       if (styleOptions.layoutEngine && styleOptions.layoutEngine !== 'dagre') {
         minimalConfig.layout = styleOptions.layoutEngine;
+        hasNonFontConfig = true;
       }
       break;
+    }
 
     case 'pie':
     case 'pieChart':
