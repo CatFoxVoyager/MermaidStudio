@@ -179,6 +179,7 @@ export interface StylingCapabilities {
   supportsFlowchartConfig: boolean;  // Can use flowchart config (curve, spacing, etc.)
   supportsSequenceConfig: boolean;  // Can use sequence config
   supportsGanttConfig: boolean;  // Can use gantt config
+  supportsC4Style: boolean;  // Can use UpdateElementStyle/UpdateRelStyle (C4 diagrams)
   availableConfigOptions: string[];  // List of available config option names
 }
 
@@ -186,7 +187,6 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
   switch (diagramType) {
     case 'flowchart':
     case 'journey':
-    case 'c4':
     case 'blockDiagram':
     case 'architectureDiagram':
       return {
@@ -194,7 +194,18 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsFlowchartConfig: true,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsC4Style: false,
         availableConfigOptions: ['curve', 'padding', 'nodeSpacing', 'rankSpacing', 'useMaxWidth', 'htmlLabels', 'layoutEngine'],
+      };
+
+    case 'c4':
+      return {
+        supportsClassDef: false,
+        supportsFlowchartConfig: false,
+        supportsSequenceConfig: false,
+        supportsGanttConfig: false,
+        supportsC4Style: true,
+        availableConfigOptions: ['personBgColor', 'personFontColor', 'systemBgColor', 'systemFontColor', 'containerBgColor', 'containerFontColor'],
       };
 
     case 'stateDiagram':
@@ -203,6 +214,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsFlowchartConfig: true,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsC4Style: false,
         availableConfigOptions: ['curve', 'padding', 'nodeSpacing', 'rankSpacing', 'useMaxWidth', 'layoutEngine'],
       };
 
@@ -212,6 +224,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsFlowchartConfig: true,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsC4Style: false,
         availableConfigOptions: ['curve', 'padding', 'nodeSpacing', 'rankSpacing', 'useMaxWidth', 'layoutEngine'],
       };
 
@@ -221,6 +234,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsFlowchartConfig: false,
         supportsSequenceConfig: true,
         supportsGanttConfig: false,
+        supportsC4Style: false,
         availableConfigOptions: ['diagramMarginX', 'diagramMarginY', 'actorMargin', 'width', 'height', 'boxMargin', 'mirrorActors', 'useMaxWidth', 'messageAlign', 'rightAngles', 'showSequenceNumbers', 'wrap'],
       };
 
@@ -230,6 +244,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: true,
+        supportsC4Style: false,
         availableConfigOptions: ['titleTopMargin', 'barHeight', 'barGap', 'topPadding', 'leftPadding', 'axisFormat', 'sectionMargin', 'useMaxWidth'],
       };
 
@@ -239,6 +254,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsFlowchartConfig: true,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsC4Style: false,
         availableConfigOptions: ['curve', 'padding', 'nodeSpacing', 'rankSpacing', 'useMaxWidth', 'minEntityWidth', 'minEntityHeight', 'layoutEngine'],
       };
 
@@ -248,6 +264,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsC4Style: false,
         availableConfigOptions: ['maxNodeWidth', 'maxNodeHeight', 'maxTextWidth', 'padding', 'useMaxWidth', 'layoutEngine'],
       };
 
@@ -257,6 +274,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsC4Style: false,
         availableConfigOptions: ['useMaxWidth'],
       };
 
@@ -266,6 +284,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsC4Style: false,
         availableConfigOptions: ['disableMulticolor', 'htmlLabels', 'useMaxWidth'],
       };
 
@@ -275,6 +294,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsC4Style: false,
         availableConfigOptions: ['chartWidth', 'chartHeight', 'useMaxWidth'],
       };
 
@@ -284,11 +304,21 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsC4Style: false,
         availableConfigOptions: ['showDataLabel', 'xAxisTitle', 'yAxisTitle', 'useMaxWidth'],
       };
 
-    case 'gitGraph':
     case 'requirementDiagram':
+      return {
+        supportsClassDef: true,
+        supportsFlowchartConfig: false,
+        supportsSequenceConfig: false,
+        supportsGanttConfig: false,
+        supportsC4Style: false,
+        availableConfigOptions: [],
+      };
+
+    case 'gitGraph':
     case 'sankey':
     case 'packetDiagram':
     case 'kanban':
@@ -300,6 +330,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsC4Style: false,
         availableConfigOptions: [],
       };
   }
