@@ -239,19 +239,17 @@ describe('Database API Key Encryption', () => {
   });
 
   describe('Async operations', () => {
-    it('should create diagrams asynchronously with base theme config', async () => {
+    it('should create diagrams asynchronously with clean content', async () => {
       const diagram = await createDiagram('Test Diagram', 'flowchart TD\n  A --> B');
 
       expect(diagram.id).toBeDefined();
       expect(diagram.title).toBe('Test Diagram');
-      // Should include base theme config
-      // Note: Mermaid expects quoted values for themeVariables
-      expect(diagram.content).toContain('---');
-      expect(diagram.content).toContain('config:');
-      expect(diagram.content).toContain("theme: 'base'");
-      expect(diagram.content).toContain('themeVariables:');
-      expect(diagram.content).toContain("primaryColor: '#daeaf2'");
-      expect(diagram.content).toContain('flowchart TD\n  A --> B');
+      // Content should be clean (no YAML frontmatter) - theming is now render-time via themeId
+      expect(diagram.content).not.toContain('---');
+      expect(diagram.content).not.toContain('config:');
+      expect(diagram.content).toBe('flowchart TD\n  A --> B');
+      // themeId should be undefined (no default theme)
+      expect(diagram.themeId).toBeUndefined();
     });
 
     it('should create folders asynchronously', async () => {
@@ -283,19 +281,14 @@ describe('Database API Key Encryption', () => {
   });
 
   describe('Diagram CRUD operations', () => {
-    it('should create diagram with unique ID and base theme config', async () => {
+    it('should create diagram with unique ID and clean content', async () => {
       const diagram = await createDiagram('Test Diagram', 'flowchart TD\n  A --> B');
 
       expect(diagram.id).toBeDefined();
       expect(diagram.title).toBe('Test Diagram');
-      // Should include base theme config to prevent unwanted default colors
-      // Note: Mermaid expects quoted values for themeVariables
-      expect(diagram.content).toContain('---');
-      expect(diagram.content).toContain('config:');
-      expect(diagram.content).toContain("theme: 'base'");
-      expect(diagram.content).toContain('themeVariables:');
-      expect(diagram.content).toContain("primaryColor: '#daeaf2'");
-      expect(diagram.content).toContain('flowchart TD\n  A --> B');
+      // Content should be clean (no YAML frontmatter) - theming is now render-time via themeId
+      expect(diagram.content).not.toContain('---');
+      expect(diagram.content).toBe('flowchart TD\n  A --> B');
       expect(diagram.created_at).toBeDefined();
       expect(diagram.updated_at).toBeDefined();
     });

@@ -389,6 +389,8 @@ export function deriveThemeVariables(
 /**
  * Apply a theme to diagram content via YAML frontmatter.
  * Wraps content in YAML config with themeVariables.
+ * @deprecated This function is kept for backward compatibility with existing tests.
+ * For new code, use render-time theming via `setDiagramTheme()` and `renderDiagram(content, id, themeId)`.
  */
 export function applyThemeToFrontmatter(
   content: string,
@@ -406,6 +408,44 @@ ${objectToYaml(themeVariables, 4)}---
 `;
 
   return yamlConfig + '\n\n' + stripped;
+}
+
+/**
+ * Get 8 swatch colors for theme card display.
+ * Derives colors from ThemeCoreColors using the same logic as deriveThemeVariables.
+ *
+ * @param coreColors - The core colors from a MermaidTheme
+ * @param darkMode - Whether dark mode is active
+ * @returns Array of 8 color strings for swatch display
+ */
+export function getSwatchColors(coreColors: ThemeCoreColors, darkMode: boolean): string[] {
+  const result: string[] = [];
+
+  // 1. Primary color
+  result[0] = coreColors.primaryColor;
+
+  // 2. Secondary color (derived if not set)
+  result[1] = coreColors.secondaryColor || adjust(coreColors.primaryColor, { h: -120 });
+
+  // 3. Background
+  result[2] = coreColors.background;
+
+  // 4. Line color (derived via invert)
+  result[3] = coreColors.lineColor || invert(coreColors.background);
+
+  // 5. Success color (derive if not set)
+  result[4] = coreColors.successColor || adjust(coreColors.primaryColor, { h: 120 });
+
+  // 6. Warning color (derive if not set)
+  result[5] = coreColors.warningColor || adjust(coreColors.primaryColor, { h: 45 });
+
+  // 7. Error color (derive if not set)
+  result[6] = coreColors.errorColor || adjust(coreColors.primaryColor, { h: 0, s: 80 });
+
+  // 8. Info color (derive if not set)
+  result[7] = coreColors.infoColor || adjust(coreColors.primaryColor, { h: 200 });
+
+  return result;
 }
 
 /**
