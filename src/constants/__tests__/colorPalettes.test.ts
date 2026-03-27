@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { applyStyleToContent } from '../colorPalettes';
+import { getStylingCapabilities } from '@/types';
+import type { DiagramType } from '@/types';
 
 describe('applyStyleToContent', () => {
   describe('Pie diagrams', () => {
@@ -216,5 +218,31 @@ describe('applyStyleToContent', () => {
       expect(result).toContain('themeVariables');
       expect(result).toContain('primaryColor');
     });
+  });
+});
+
+describe('getStylingCapabilities', () => {
+  it('C4 diagram returns supportsClassDef: false, supportsC4Style: true', () => {
+    const caps = getStylingCapabilities('c4' as DiagramType);
+    expect(caps.supportsClassDef).toBe(false);
+    expect(caps.supportsC4Style).toBe(true);
+  });
+
+  it('requirementDiagram returns supportsClassDef: true, supportsC4Style: false', () => {
+    const caps = getStylingCapabilities('requirementDiagram' as DiagramType);
+    expect(caps.supportsClassDef).toBe(true);
+    expect(caps.supportsC4Style).toBe(false);
+  });
+
+  it('flowchart returns supportsClassDef: true, supportsC4Style: false (no regression)', () => {
+    const caps = getStylingCapabilities('flowchart' as DiagramType);
+    expect(caps.supportsClassDef).toBe(true);
+    expect(caps.supportsC4Style).toBe(false);
+  });
+
+  it('erDiagram returns supportsClassDef: false, supportsC4Style: false (no regression)', () => {
+    const caps = getStylingCapabilities('erDiagram' as DiagramType);
+    expect(caps.supportsClassDef).toBe(false);
+    expect(caps.supportsC4Style).toBe(false);
   });
 });
