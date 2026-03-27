@@ -5,3 +5,4 @@ export * from './ai';
 export * from './storage';
 export * from './mermaid';
 export * from './ui';
+export * from './theme';
