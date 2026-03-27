@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { X, RotateCcw, ChevronDown, Settings2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 import type { NodeStyle } from '@/lib/mermaid/codeUtils';
 
@@ -13,6 +14,14 @@ interface NodeStylePanelProps {
   onReset: (nodeIds: string[]) => void;
   /** If true, hide rx/ry properties (for circle/diamond shapes where border radius has no visual effect) */
   hideBorderRadius?: boolean;
+  /** Map of node ID to parent subgraph ID (null = root) */
+  nodeSubgraphIds?: Map<string, string | null>;
+  /** Available subgraphs */
+  subgraphs?: Array<{ id: string; label: string }>;
+  /** Callback when subgraph assignment changes */
+  onSubgraphChange?: (nodeId: string, subgraphId: string | null) => void;
+  /** Callback when node label changes */
+  onLabelChange?: (nodeId: string, newLabel: string) => void;
 }
 
 function getSharedValue(styles: NodeStyle[], field: keyof NodeStyle): string | 'mixed' | undefined {
@@ -23,29 +32,6 @@ function getSharedValue(styles: NodeStyle[], field: keyof NodeStyle): string | '
   return allSame ? first : 'mixed';
 }
 
-const BORDER_STYLE_OPTIONS = [
-  { value: '', label: 'Solid', dasharray: '' },
-  { value: '5 5', label: 'Dashed', dasharray: '5 5' },
-  { value: '2 2', label: 'Dotted', dasharray: '2 2' },
-] as const;
-
-const FONT_WEIGHT_OPTIONS = [
-  { value: '', label: 'Default' },
-  { value: 'normal', label: 'Normal' },
-  { value: 'bold', label: 'Bold' },
-  { value: 'lighter', label: 'Lighter' },
-  { value: 'bolder', label: 'Bolder' },
-  { value: '100', label: '100' },
-  { value: '200', label: '200' },
-  { value: '300', label: '300' },
-  { value: '400', label: '400' },
-  { value: '500', label: '500' },
-  { value: '600', label: '600' },
-  { value: '700', label: '700' },
-  { value: '800', label: '800' },
-  { value: '900', label: '900' },
-] as const;
-
 export function NodeStylePanel({
   selectedNodeIds,
   nodeStyles,
@@ -54,8 +40,45 @@ export function NodeStylePanel({
   onStyleChange,
   onReset,
   hideBorderRadius = false,
+  nodeSubgraphIds,
+  subgraphs,
+  onSubgraphChange,
+  onLabelChange,
 }: NodeStylePanelProps) {
+  const { t } = useTranslation();
   const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  const BORDER_STYLE_OPTIONS = [
+    { value: '', label: t('nodeStyle.solid'), dasharray: '' },
+    { value: '5 5', label: t('nodeStyle.dashed'), dasharray: '5 5' },
+    { value: '2 2', label: t('nodeStyle.dotted'), dasharray: '2 2' },
+  ] as const;
+
+  const FONT_WEIGHT_OPTIONS = [
+    { value: '', label: t('nodeStyle.fontDefault') },
+    { value: 'normal', label: t('nodeStyle.fontNormal') },
+    { value: 'bold', label: t('nodeStyle.fontBold') },
+    { value: 'lighter', label: t('nodeStyle.fontLighter') },
+    { value: 'bolder', label: t('nodeStyle.fontBolder') },
+    { value: '100', label: '100' },
+    { value: '200', label: '200' },
+    { value: '300', label: '300' },
+    { value: '400', label: '400' },
+    { value: '500', label: '500' },
+    { value: '600', label: '600' },
+    { value: '700', label: '700' },
+    { value: '800', label: '800' },
+    { value: '900', label: '900' },
+  ] as const;
+  const singleNodeId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null;
+  const [label, setLabel] = useState(singleNodeId ? (nodeLabels.get(singleNodeId) ?? '') : '');
+
+  // Sync label when selection changes
+  useEffect(() => {
+    if (singleNodeId) {
+      setLabel(nodeLabels.get(singleNodeId) ?? '');
+    }
+  }, [singleNodeId, nodeLabels]);
 
   const handleStyleChange = useCallback(
     (field: keyof NodeStyle, value: string | undefined) => {
@@ -67,7 +90,7 @@ export function NodeStylePanel({
   const headerTitle =
     selectedNodeIds.length === 1
       ? (nodeLabels.get(selectedNodeIds[0]) ?? selectedNodeIds[0])
-      : `${selectedNodeIds.length} Nodes`;
+      : t('nodeStyle.nodes', { count: selectedNodeIds.length });
 
   // Compute shared values for multi-node editing
   const fillColor = getSharedValue(nodeStyles, 'fill');
@@ -84,7 +107,7 @@ export function NodeStylePanel({
   const colorValue = (v: string | 'mixed' | undefined): string =>
     v === 'mixed' || v === undefined ? '' : v;
   const colorLabel = (label: string, v: string | 'mixed' | undefined): string =>
-    v === 'mixed' ? `${label} (Mixed)` : label;
+    v === 'mixed' ? `${label} (${t('nodeStyle.mixed')})` : label;
 
   // Helper for range/select inputs with mixed state
   const numericValue = (v: string | 'mixed' | undefined, fallback: string): string =>
@@ -95,6 +118,7 @@ export function NodeStylePanel({
     <div
       className="absolute top-0 right-0 h-full w-[280px] z-30 animate-slide-in-right rounded-l-xl border-l shadow-xl overflow-y-auto"
       style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}
+      onClick={e => e.stopPropagation()}
     >
       {/* Header */}
       <div
@@ -122,14 +146,39 @@ export function NodeStylePanel({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-4">
+        {/* Label (single node only) */}
+        {singleNodeId && onLabelChange && (
+          <div className="flex flex-col gap-1">
+            <span
+              className="text-[10px] font-medium uppercase tracking-wider"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              {t('nodeStyle.label')}
+            </span>
+            <input
+              type="text"
+              value={label}
+              placeholder={t('nodeStyle.labelPlaceholder')}
+              onChange={e => { setLabel(e.target.value); onLabelChange(singleNodeId, e.target.value); }}
+              className="w-full px-2.5 py-1.5 rounded-md border text-xs"
+              style={{
+                background: 'var(--surface-base)',
+                borderColor: 'var(--border-subtle)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+              }}
+            />
+          </div>
+        )}
+
         {/* Recommended Section */}
         <ColorPicker
-          label={colorLabel('Fill Color', fillColor)}
+          label={colorLabel(t('nodeStyle.fillColor'), fillColor)}
           value={colorValue(fillColor)}
           onChange={v => handleStyleChange('fill', v || undefined)}
         />
         <ColorPicker
-          label={colorLabel('Border Color', borderColor)}
+          label={colorLabel(t('nodeStyle.borderColor'), borderColor)}
           value={colorValue(borderColor)}
           onChange={v => handleStyleChange('stroke', v || undefined)}
         />
@@ -140,7 +189,7 @@ export function NodeStylePanel({
             className="text-[10px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            Border Width
+            {t('nodeStyle.borderWidth')}
           </span>
           <div className="flex items-center gap-2">
             <input
@@ -156,7 +205,7 @@ export function NodeStylePanel({
               className="text-xs w-8 text-right font-mono"
               style={{ color: 'var(--text-secondary)' }}
             >
-              {borderWidth === 'mixed' ? 'Mixed' : borderWidth ?? '1px'}
+              {borderWidth === 'mixed' ? t('nodeStyle.mixed') : borderWidth ?? '1px'}
             </span>
           </div>
         </div>
@@ -167,7 +216,7 @@ export function NodeStylePanel({
             className="text-[10px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            Border Style
+            {t('nodeStyle.borderStyle')}
           </span>
           <div className="flex gap-1">
             {BORDER_STYLE_OPTIONS.map(opt => {
@@ -202,10 +251,50 @@ export function NodeStylePanel({
         </div>
 
         <ColorPicker
-          label={colorLabel('Text Color', textColor)}
+          label={colorLabel(t('nodeStyle.textColor'), textColor)}
           value={colorValue(textColor)}
           onChange={v => handleStyleChange('color', v || undefined)}
         />
+
+        {/* Subgraph Dropdown */}
+        {selectedNodeIds.length === 1 && nodeSubgraphIds && subgraphs && onSubgraphChange && (
+          <div className="flex flex-col gap-1">
+            <span
+              className="text-[10px] font-medium uppercase tracking-wider"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              {t('nodeStyle.subgraph')}
+            </span>
+            <div className="relative">
+              <select
+                value={nodeSubgraphIds.get(selectedNodeIds[0]) ?? ''}
+                onChange={e => {
+                  const val = e.target.value || null;
+                  onSubgraphChange(selectedNodeIds[0], val);
+                }}
+                className="w-full px-2.5 py-1.5 rounded-md border text-xs appearance-none pr-8"
+                style={{
+                  background: 'var(--surface-base)',
+                  borderColor: 'var(--border-subtle)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              >
+                <option value="">{t('nodeStyle.noneRoot')}</option>
+                {subgraphs.map(sg => (
+                  <option key={sg.id} value={sg.id}>
+                    {sg.label || sg.id}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={11}
+                className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ color: 'var(--text-tertiary)' }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Advanced Toggle */}
         <button
@@ -220,7 +309,7 @@ export function NodeStylePanel({
               transition: 'transform 0.2s ease',
             }}
           />
-          Advanced
+          {t('nodeStyle.advanced')}
         </button>
 
         {/* Advanced Section */}
@@ -232,7 +321,7 @@ export function NodeStylePanel({
                 className="text-[10px] font-medium uppercase tracking-wider"
                 style={{ color: 'var(--text-tertiary)' }}
               >
-                Font Weight
+                {t('nodeStyle.fontWeight')}
               </span>
               <div className="relative">
                 <select
@@ -249,7 +338,7 @@ export function NodeStylePanel({
                   }}
                 >
                   {fontWeight === 'mixed' && (
-                    <option value="">Mixed</option>
+                    <option value="">{t('nodeStyle.mixed')}</option>
                   )}
                   {FONT_WEIGHT_OPTIONS.map(opt => (
                     <option key={opt.value} value={opt.value}>
@@ -271,7 +360,7 @@ export function NodeStylePanel({
                 className="text-[10px] font-medium uppercase tracking-wider"
                 style={{ color: 'var(--text-tertiary)' }}
               >
-                Font Size
+                {t('nodeStyle.fontSize')}
               </span>
               <div className="flex items-center gap-1">
                 <input
@@ -286,7 +375,7 @@ export function NodeStylePanel({
                         ? parsePx(fontSize)
                         : ''
                   }
-                  placeholder={fontSize === 'mixed' ? 'Mixed' : ''}
+                  placeholder={fontSize === 'mixed' ? t('nodeStyle.mixed') : ''}
                   onChange={e => {
                     const v = e.target.value;
                     if (v) {
@@ -317,7 +406,7 @@ export function NodeStylePanel({
                   className="text-[10px] font-medium uppercase tracking-wider"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
-                  Border Radius X
+                  {t('nodeStyle.borderRadiusX')}
                 </span>
                 <div className="flex items-center gap-2">
                   <input
@@ -333,7 +422,7 @@ export function NodeStylePanel({
                     className="text-xs w-8 text-right font-mono"
                     style={{ color: 'var(--text-secondary)' }}
                   >
-                    {rx === 'mixed' ? 'Mix' : rx ?? '0'}
+                    {rx === 'mixed' ? t('nodeStyle.mix') : rx ?? '0'}
                   </span>
                 </div>
               </div>
@@ -346,7 +435,7 @@ export function NodeStylePanel({
                   className="text-[10px] font-medium uppercase tracking-wider"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
-                  Border Radius Y
+                  {t('nodeStyle.borderRadiusY')}
                 </span>
                 <div className="flex items-center gap-2">
                   <input
@@ -362,7 +451,7 @@ export function NodeStylePanel({
                     className="text-xs w-8 text-right font-mono"
                     style={{ color: 'var(--text-secondary)' }}
                   >
-                    {ry === 'mixed' ? 'Mix' : ry ?? '0'}
+                    {ry === 'mixed' ? t('nodeStyle.mix') : ry ?? '0'}
                   </span>
                 </div>
               </div>
@@ -382,7 +471,7 @@ export function NodeStylePanel({
             }}
           >
             <RotateCcw size={12} />
-            Reset Styles
+            {t('nodeStyle.resetStyles')}
           </button>
         </div>
       </div>
