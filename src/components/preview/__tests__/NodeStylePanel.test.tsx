@@ -7,6 +7,49 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { NodeStylePanel } from '../NodeStylePanel';
 import type { NodeStyle } from '@/lib/mermaid/codeUtils';
 
+// Mock i18n
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, string | number>) => {
+      const map: Record<string, string> = {
+        'nodeStyle.nodes': '{{count}} Nodes',
+        'nodeStyle.label': 'Label',
+        'nodeStyle.labelPlaceholder': 'Node label...',
+        'nodeStyle.fillColor': 'Fill Color',
+        'nodeStyle.borderColor': 'Border Color',
+        'nodeStyle.borderWidth': 'Border Width',
+        'nodeStyle.borderStyle': 'Border Style',
+        'nodeStyle.textColor': 'Text Color',
+        'nodeStyle.subgraph': 'Subgraph',
+        'nodeStyle.noneRoot': 'None (Root)',
+        'nodeStyle.advanced': 'Advanced',
+        'nodeStyle.fontWeight': 'Font Weight',
+        'nodeStyle.fontSize': 'Font Size',
+        'nodeStyle.borderRadiusX': 'Border Radius X',
+        'nodeStyle.borderRadiusY': 'Border Radius Y',
+        'nodeStyle.resetStyles': 'Reset Styles',
+        'nodeStyle.mixed': 'Mixed',
+        'nodeStyle.mix': 'Mix',
+        'nodeStyle.solid': 'Solid',
+        'nodeStyle.dashed': 'Dashed',
+        'nodeStyle.dotted': 'Dotted',
+        'nodeStyle.fontDefault': 'Default',
+        'nodeStyle.fontNormal': 'Normal',
+        'nodeStyle.fontBold': 'Bold',
+        'nodeStyle.fontLighter': 'Lighter',
+        'nodeStyle.fontBolder': 'Bolder',
+      };
+      let result = map[key] ?? key;
+      if (opts) {
+        Object.entries(opts).forEach(([k, v]) => {
+          result = result.replace(`{{${k}}}`, String(v));
+        });
+      }
+      return result;
+    },
+  }),
+}));
+
 // Mock ColorPicker to avoid complex picker interactions
 vi.mock('@/components/visual/ColorPicker', () => ({
   ColorPicker: ({ label, value, onChange }: { label: string; value: string; onChange: (c: string) => void }) => (
@@ -180,6 +223,84 @@ describe('NodeStylePanel Component', () => {
       const { container } = render(<NodeStylePanel {...defaultProps} />);
       const panel = container.querySelector('.animate-slide-in-right');
       expect(panel).toBeInTheDocument();
+    });
+  });
+
+  describe('Subgraph Dropdown', () => {
+    it('should show dropdown when 1 node selected and subgraph props provided', () => {
+      render(
+        <NodeStylePanel
+          {...defaultProps}
+          nodeSubgraphIds={new Map([['A', null]])}
+          subgraphs={[{ id: 'S1', label: 'Group 1' }]}
+          onSubgraphChange={vi.fn()}
+        />
+      );
+      expect(screen.getByText('Subgraph')).toBeInTheDocument();
+      expect(screen.getByText('None (Root)')).toBeInTheDocument();
+    });
+
+    it('should hide dropdown when multiple nodes selected', () => {
+      render(
+        <NodeStylePanel
+          {...defaultProps}
+          selectedNodeIds={['A', 'B']}
+          nodeStyles={[{}, {}] as NodeStyle[]}
+          nodeLabels={new Map([['A', 'A'], ['B', 'B']])}
+          nodeSubgraphIds={new Map([['A', null], ['B', 'S1']])}
+          subgraphs={[{ id: 'S1', label: 'Group 1' }]}
+          onSubgraphChange={vi.fn()}
+        />
+      );
+      expect(screen.queryByText('Subgraph')).not.toBeInTheDocument();
+    });
+
+    it('should hide dropdown when subgraphs not provided', () => {
+      render(<NodeStylePanel {...defaultProps} />);
+      expect(screen.queryByText('Subgraph')).not.toBeInTheDocument();
+    });
+
+    it('should show current subgraph value', () => {
+      render(
+        <NodeStylePanel
+          {...defaultProps}
+          nodeSubgraphIds={new Map([['A', 'S1']])}
+          subgraphs={[{ id: 'S1', label: 'Group 1' }]}
+          onSubgraphChange={vi.fn()}
+        />
+      );
+      const select = screen.getByDisplayValue('Group 1');
+      expect(select).toBeInTheDocument();
+    });
+
+    it('should call onSubgraphChange with null when "None (Root)" selected', () => {
+      const onSubgraphChange = vi.fn();
+      render(
+        <NodeStylePanel
+          {...defaultProps}
+          nodeSubgraphIds={new Map([['A', 'S1']])}
+          subgraphs={[{ id: 'S1', label: 'Group 1' }]}
+          onSubgraphChange={onSubgraphChange}
+        />
+      );
+      const select = screen.getByRole('combobox');
+      fireEvent.change(select, { target: { value: '' } });
+      expect(onSubgraphChange).toHaveBeenCalledWith('A', null);
+    });
+
+    it('should call onSubgraphChange with id when subgraph selected', () => {
+      const onSubgraphChange = vi.fn();
+      render(
+        <NodeStylePanel
+          {...defaultProps}
+          nodeSubgraphIds={new Map([['A', null]])}
+          subgraphs={[{ id: 'S1', label: 'Group 1' }]}
+          onSubgraphChange={onSubgraphChange}
+        />
+      );
+      const select = screen.getByRole('combobox');
+      fireEvent.change(select, { target: { value: 'S1' } });
+      expect(onSubgraphChange).toHaveBeenCalledWith('A', 'S1');
     });
   });
 });
