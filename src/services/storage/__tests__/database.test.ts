@@ -250,7 +250,7 @@ describe('Database API Key Encryption', () => {
       expect(diagram.content).toContain('config:');
       expect(diagram.content).toContain("theme: 'base'");
       expect(diagram.content).toContain('themeVariables:');
-      expect(diagram.content).toContain("primaryColor: '#fff4dd'");
+      expect(diagram.content).toContain("primaryColor: '#daeaf2'");
       expect(diagram.content).toContain('flowchart TD\n  A --> B');
     });
 
@@ -294,7 +294,7 @@ describe('Database API Key Encryption', () => {
       expect(diagram.content).toContain('config:');
       expect(diagram.content).toContain("theme: 'base'");
       expect(diagram.content).toContain('themeVariables:');
-      expect(diagram.content).toContain("primaryColor: '#fff4dd'");
+      expect(diagram.content).toContain("primaryColor: '#daeaf2'");
       expect(diagram.content).toContain('flowchart TD\n  A --> B');
       expect(diagram.created_at).toBeDefined();
       expect(diagram.updated_at).toBeDefined();

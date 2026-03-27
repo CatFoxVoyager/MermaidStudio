@@ -1259,7 +1259,7 @@ export function addBaseThemeConfig(content: string): string {
   const baseConfig: Record<string, unknown> = {
     theme: 'base',
     themeVariables: {
-      primaryColor: isValidColor(styleOptions.primaryColor) ? styleOptions.primaryColor : '#daeaf2',
+      primaryColor: '#daeaf2',
     },
   };
 

@@ -38,7 +38,7 @@ describe('applyStyleToContent', () => {
       // Should include base theme variables to prevent default colors
       // Note: Mermaid expects quoted values for themeVariables
       expect(result).toContain("theme: 'base'");
-      expect(result).toContain("primaryColor: '#fff4dd'");
+      expect(result).toContain("primaryColor: '#daeaf2'");
       expect(result).toContain('themeVariables');
     });
 
