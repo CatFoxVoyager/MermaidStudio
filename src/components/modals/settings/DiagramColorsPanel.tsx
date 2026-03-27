@@ -1,9 +1,10 @@
 import { RotateCcw, X, Palette, Check } from 'lucide-react';
-import { colorPalettes } from '@/constants/colorPalettes';
-import type { ColorPalette } from '@/types';
+import { colorPalettes, generateMermaidThemeConfig } from '@/constants/colorPalettes';
+import type { ColorPalette, DiagramType } from '@/types';
+import { getStylingCapabilities } from '@/types';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect, useRef } from 'react';
-import { renderDiagram } from '@/lib/mermaid/core';
+import { renderDiagram, detectDiagramType } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
 
 interface NodeStyle {
@@ -161,6 +162,29 @@ function extractBranchesAndAssignColors(content: string, palette: ColorPalette):
       color: branchColors[colorIndex % branchColors.length]
     };
   });
+}
+
+// Check if a diagram type supports classDef/class-based styling
+function isClassDefDiagramType(content: string): boolean {
+  // Strip YAML frontmatter for type detection
+  const body = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
+  const type = detectDiagramType(body) as DiagramType;
+  return getStylingCapabilities(type).supportsClassDef;
+}
+
+// Apply palette via YAML frontmatter themeVariables (for non-classDef diagram types)
+function applyThemeVariablesPalette(content: string, palette: ColorPalette): string {
+  // Strip any existing YAML frontmatter
+  const body = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
+  // Strip any existing classDef/class lines (preserve backward compat)
+  let cleaned = body.replace(/^[ \t]*classDef\s+\w+\s+[^\n]*$/gm, '');
+  cleaned = cleaned.replace(/^[ \t]*class\s+[^\n]*$/gm, '');
+  cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n');
+  // Detect diagram type from body
+  const type = detectDiagramType(cleaned) as DiagramType;
+  // Generate YAML config with themeVariables
+  const yamlConfig = generateMermaidThemeConfig(palette, undefined, type);
+  return yamlConfig + '\n\n' + cleaned.trim();
 }
 
 // Function to add node styles to Mermaid content
@@ -326,10 +350,19 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
   const handleApplyPalette = (palette: ColorPalette) => {
     if (currentContent) {
       const cleanContent = stripThemeDirective(currentContent);
-      const nodeColors = extractBranchesAndAssignColors(cleanContent, palette);
-      const contentWithNodeColors = applyNodeStyles(cleanContent, nodeColors);
-      onContentChange(contentWithNodeColors);
-      setNodeStyles(nodeColors);
+
+      if (isClassDefDiagramType(cleanContent)) {
+        // Use existing classDef/class approach for flowchart, state, class, ER diagrams
+        const nodeColors = extractBranchesAndAssignColors(cleanContent, palette);
+        const contentWithNodeColors = applyNodeStyles(cleanContent, nodeColors);
+        onContentChange(contentWithNodeColors);
+        setNodeStyles(nodeColors);
+      } else {
+        // Use themeVariables frontmatter approach for non-classDef diagram types
+        const contentWithTheme = applyThemeVariablesPalette(cleanContent, palette);
+        onContentChange(contentWithTheme);
+        setNodeStyles([]);
+      }
     }
   };
 
