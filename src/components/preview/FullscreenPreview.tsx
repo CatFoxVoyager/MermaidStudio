@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { renderDiagram } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
 
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export function FullscreenPreview({ content, onClose }: Props) {
+  const { t } = useTranslation();
   const [svg, setSvg] = useState('');
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -64,7 +66,7 @@ export function FullscreenPreview({ content, onClose }: Props) {
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--surface-base)' }}>
       <div className="flex items-center justify-between px-4 h-12 shrink-0 border-b"
         style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-raised)' }}>
-        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Fullscreen Preview</span>
+        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{t('fullscreen.title')}</span>
         <div className="flex items-center gap-2">
           <button onClick={() => setZoom(z => Math.max(0.1, z - 0.25))}
             className="p-1.5 rounded-lg transition-colors hover:bg-white/8" style={{ color: 'var(--text-secondary)' }}>
@@ -111,10 +113,10 @@ export function FullscreenPreview({ content, onClose }: Props) {
 
       <div className="flex items-center justify-center gap-4 px-4 h-8 shrink-0 border-t text-[10px]"
         style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}>
-        <span>Scroll to zoom</span>
-        <span>Drag to pan</span>
-        <span>0 to reset</span>
-        <span>Esc to close</span>
+        <span>{t('fullscreen.scrollToZoom')}</span>
+        <span>{t('fullscreen.dragToPan')}</span>
+        <span>{t('fullscreen.zeroToReset')}</span>
+        <span>{t('fullscreen.escToClose')}</span>
       </div>
     </div>
   );

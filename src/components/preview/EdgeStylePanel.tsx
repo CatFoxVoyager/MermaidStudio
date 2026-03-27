@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { X, RotateCcw, ChevronDown, Settings2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 import type { EdgeStyle, ParsedEdge } from '@/lib/mermaid/codeUtils';
 
@@ -14,22 +15,6 @@ interface EdgeStylePanelProps {
   onReset: (edgeIndex: number) => void;
 }
 
-const ARROW_OPTIONS = [
-  { value: '-->',   label: 'Arrow (-->)' },
-  { value: '---',   label: 'Line (---)' },
-  { value: '-.->',  label: 'Dotted (-.->)' },
-  { value: '==>',   label: 'Thick (==>)' },
-  { value: 'o--o',  label: 'Circle (o--o)' },
-  { value: 'x--x',  label: 'Cross (x--x)' },
-  { value: '<-->',  label: 'Bidirectional (<-->)' },
-] as const;
-
-const BORDER_STYLE_OPTIONS = [
-  { value: '', label: 'Solid', dasharray: '' },
-  { value: '5 5', label: 'Dashed', dasharray: '5 5' },
-  { value: '2 2', label: 'Dotted', dasharray: '2 2' },
-] as const;
-
 export function EdgeStylePanel({
   edge,
   edgeIndex,
@@ -40,7 +25,24 @@ export function EdgeStylePanel({
   onStyleChange,
   onReset,
 }: EdgeStylePanelProps) {
+  const { t } = useTranslation();
   const [label, setLabel] = useState(edge.label);
+
+  const ARROW_OPTIONS = [
+    { value: '-->',   label: t('edgeStyle.arrowArrow') },
+    { value: '---',   label: t('edgeStyle.arrowLine') },
+    { value: '-.->',  label: t('edgeStyle.arrowDotted') },
+    { value: '==>',   label: t('edgeStyle.arrowThick') },
+    { value: 'o--o',  label: t('edgeStyle.arrowCircle') },
+    { value: 'x--x',  label: t('edgeStyle.arrowCross') },
+    { value: '<-->',  label: t('edgeStyle.arrowBidirectional') },
+  ] as const;
+
+  const BORDER_STYLE_OPTIONS = [
+    { value: '', label: t('edgeStyle.solid'), dasharray: '' },
+    { value: '5 5', label: t('edgeStyle.dashed'), dasharray: '5 5' },
+    { value: '2 2', label: t('edgeStyle.dotted'), dasharray: '2 2' },
+  ] as const;
 
   const handleArrowChange = useCallback(
     (newType: string) => {
@@ -88,7 +90,7 @@ export function EdgeStylePanel({
             className="text-xs font-semibold truncate"
             style={{ color: 'var(--text-primary)' }}
           >
-            Edge {edgeIndex}
+            {t('edgeStyle.edgeN', { index: edgeIndex })}
           </span>
         </div>
         <button
@@ -109,7 +111,7 @@ export function EdgeStylePanel({
             className="text-[10px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            Connection
+            {t('edgeStyle.connection')}
           </span>
           <div
             className="text-xs px-2.5 py-2 rounded-md border font-mono"
@@ -129,7 +131,7 @@ export function EdgeStylePanel({
             className="text-[10px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            Arrow Type
+            {t('edgeStyle.arrowType')}
           </span>
           <div className="relative">
             <select
@@ -163,12 +165,12 @@ export function EdgeStylePanel({
             className="text-[10px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            Label
+            {t('edgeStyle.label')}
           </span>
           <input
             type="text"
             value={label}
-            placeholder="Edge label..."
+            placeholder={t('edgeStyle.labelPlaceholder')}
             onChange={e => setLabel(e.target.value)}
             onBlur={handleLabelBlur}
             onKeyDown={handleLabelKeyDown}
@@ -184,7 +186,7 @@ export function EdgeStylePanel({
 
         {/* Stroke Color */}
         <ColorPicker
-          label="Stroke Color"
+          label={t('edgeStyle.strokeColor')}
           value={edgeStyle.stroke ?? ''}
           onChange={v => handleStyleChange('stroke', v || undefined)}
         />
@@ -195,7 +197,7 @@ export function EdgeStylePanel({
             className="text-[10px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            Stroke Width
+            {t('edgeStyle.strokeWidth')}
           </span>
           <div className="flex items-center gap-2">
             <input
@@ -222,7 +224,7 @@ export function EdgeStylePanel({
             className="text-[10px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            Stroke Style
+            {t('edgeStyle.strokeStyle')}
           </span>
           <div className="flex gap-1">
             {BORDER_STYLE_OPTIONS.map(opt => {
@@ -261,7 +263,7 @@ export function EdgeStylePanel({
             className="text-[10px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            Opacity
+            {t('edgeStyle.opacity')}
           </span>
           <div className="flex items-center gap-2">
             <input
@@ -294,7 +296,7 @@ export function EdgeStylePanel({
             }}
           >
             <RotateCcw size={12} />
-            Reset Style
+            {t('edgeStyle.resetStyle')}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   original: string;
@@ -66,13 +67,14 @@ const lineStyles: Record<string, { bg: string; color: string; gutter: string }> 
 };
 
 export function DiffView({ original, modified }: Props) {
+  const { t } = useTranslation();
   const diff = useMemo(() => computeDiff(original, modified), [original, modified]);
   const hasChanges = diff.some(d => d.type !== 'same');
 
   if (!hasChanges) {
     return (
       <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-tertiary)' }}>
-        <span className="text-xs">No changes from last save</span>
+        <span className="text-xs">{t('diff.noChanges')}</span>
       </div>
     );
   }

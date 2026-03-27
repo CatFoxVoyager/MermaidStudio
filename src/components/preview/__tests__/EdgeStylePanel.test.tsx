@@ -6,6 +6,43 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { EdgeStylePanel } from '../EdgeStylePanel';
 
+// Mock i18n
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, opts?: Record<string, string | number>) => {
+      const map: Record<string, string> = {
+        'edgeStyle.edgeN': 'Edge {{index}}',
+        'edgeStyle.connection': 'Connection',
+        'edgeStyle.arrowType': 'Arrow Type',
+        'edgeStyle.label': 'Label',
+        'edgeStyle.labelPlaceholder': 'Edge label...',
+        'edgeStyle.strokeColor': 'Stroke Color',
+        'edgeStyle.strokeWidth': 'Stroke Width',
+        'edgeStyle.strokeStyle': 'Stroke Style',
+        'edgeStyle.opacity': 'Opacity',
+        'edgeStyle.resetStyle': 'Reset Style',
+        'edgeStyle.arrowArrow': 'Arrow (-->)',
+        'edgeStyle.arrowLine': 'Line (---)',
+        'edgeStyle.arrowDotted': 'Dotted (-.->)',
+        'edgeStyle.arrowThick': 'Thick (==>)',
+        'edgeStyle.arrowCircle': 'Circle (o--o)',
+        'edgeStyle.arrowCross': 'Cross (x--x)',
+        'edgeStyle.arrowBidirectional': 'Bidirectional (<-->)',
+        'edgeStyle.solid': 'Solid',
+        'edgeStyle.dashed': 'Dashed',
+        'edgeStyle.dotted': 'Dotted',
+      };
+      let result = map[key] ?? key;
+      if (opts) {
+        Object.entries(opts).forEach(([k, v]) => {
+          result = result.replace(`{{${k}}}`, String(v));
+        });
+      }
+      return result;
+    },
+  }),
+}));
+
 const mockEdge = {
   source: 'A',
   target: 'B',

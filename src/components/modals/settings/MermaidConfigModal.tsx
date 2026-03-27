@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { RotateCcw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/shared/Modal';
 import { colorPalettes, applyPaletteToContent } from '@/constants/colorPalettes';
 import type { ColorPalette } from '@/types';
@@ -38,6 +39,7 @@ const DEFAULT_CONFIG: MermaidConfig = {
 };
 
 export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = '', onContentChange }: MermaidConfigModalProps) {
+  const { t } = useTranslation();
   const [config, setConfig] = useState<MermaidConfig>(DEFAULT_CONFIG);
   const hasCustomTheme = currentContent.trimStart().startsWith('%%{init:');
 
@@ -63,7 +65,7 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Mermaid Diagram Configuration"
+      title={t('mermaidConfig.title')}
       size="full"
       footer={
         <div className="flex gap-3 justify-end px-5 py-4">
@@ -71,13 +73,13 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
             onClick={onClose}
             className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleApply}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
           >
-            Apply Configuration
+            {t('mermaidConfig.applyConfiguration')}
           </button>
         </div>
       }
@@ -86,7 +88,7 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Theme
+                {t('mermaidConfig.theme')}
               </label>
               <select
                 value={config.theme}
@@ -103,7 +105,7 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Layout Algorithm
+                {t('mermaidConfig.layoutAlgorithm')}
               </label>
               <select
                 value={config.layout}
@@ -118,7 +120,7 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Font Family
+                {t('mermaidConfig.fontFamily')}
               </label>
               <input
                 type="text"
@@ -131,7 +133,7 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Security Level
+                {t('mermaidConfig.securityLevel')}
               </label>
               <select
                 value={config.securityLevel}
@@ -147,7 +149,7 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Max Text Size
+                {t('mermaidConfig.maxTextSize')}
               </label>
               <input
                 type="number"
@@ -161,7 +163,7 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Max Edges
+                {t('mermaidConfig.maxEdges')}
               </label>
               <input
                 type="number"
@@ -182,13 +184,13 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
                 onChange={(e) => setConfig({ ...config, handDrawn: e.target.checked })}
                 className="w-4 h-4 text-blue-600 rounded-sm"
               />
-              <span className="ml-3 text-gray-700 dark:text-gray-300">Hand-drawn Style</span>
+              <span className="ml-3 text-gray-700 dark:text-gray-300">{t('mermaidConfig.handDrawn')}</span>
             </label>
 
             {config.handDrawn && (
               <div className="ml-7">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Random Seed
+                  {t('mermaidConfig.randomSeed')}
                 </label>
                 <input
                   type="number"
@@ -206,7 +208,7 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
                 onChange={(e) => setConfig({ ...config, htmlLabels: e.target.checked })}
                 className="w-4 h-4 text-blue-600 rounded-sm"
               />
-              <span className="ml-3 text-gray-700 dark:text-gray-300">HTML Labels</span>
+              <span className="ml-3 text-gray-700 dark:text-gray-300">{t('mermaidConfig.htmlLabels')}</span>
             </label>
 
             <label className="flex items-center">
@@ -216,13 +218,13 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
                 onChange={(e) => setConfig({ ...config, darkMode: e.target.checked })}
                 className="w-4 h-4 text-blue-600 rounded-sm"
               />
-              <span className="ml-3 text-gray-700 dark:text-gray-300">Dark Mode</span>
+              <span className="ml-3 text-gray-700 dark:text-gray-300">{t('mermaidConfig.darkMode')}</span>
             </label>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Diagram Color Palettes
+              {t('mermaidConfig.colorPalettes')}
             </label>
             {hasCustomTheme && (
               <button
@@ -231,8 +233,8 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
               >
                 <RotateCcw size={14} className="text-red-500 dark:text-red-400 shrink-0" />
                 <div>
-                  <p className="text-xs font-semibold text-red-600 dark:text-red-400">Reset to Default</p>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">Remove custom palette</p>
+                  <p className="text-xs font-semibold text-red-600 dark:text-red-400">{t('mermaidConfig.resetToDefault')}</p>
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{t('mermaidConfig.removeCustomPalette')}</p>
                 </div>
               </button>
             )}
