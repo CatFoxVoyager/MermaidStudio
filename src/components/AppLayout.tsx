@@ -18,6 +18,7 @@ interface AppLayoutProps {
   onToggleSidebar: () => void;
   onOpenDiagram: (id: string) => void;
   onRefreshSidebar: () => void;
+  onDiagramDeleted: (diagramIds: string[]) => void;
   // Tabs
   tabs: Tab[];
   activeTabId: string | null;
@@ -66,6 +67,7 @@ export function AppLayout({
   onToggleSidebar,
   onOpenDiagram,
   onRefreshSidebar,
+  onDiagramDeleted,
   tabs,
   activeTabId,
   activeTab,
@@ -126,6 +128,7 @@ export function AppLayout({
               onOpenDiagram={onOpenDiagram}
               activeDiagramId={activeTab?.diagram_id ?? null}
               onRefresh={onRefreshSidebar}
+              onDiagramDeleted={onDiagramDeleted}
               key={refreshKey}
             />
           )}
@@ -152,6 +155,10 @@ export function AppLayout({
             onShowPalette={onShowPalette}
             onShowDiagramColors={onShowDiagramColors}
             onShowAdvancedStyle={onShowAdvancedStyle}
+            onDiagramColorsClose={onDiagramColorsClose}
+            onAdvancedStyleClose={onAdvancedStyleClose}
+            showDiagramColors={showDiagramColors}
+            showAdvancedStyle={showAdvancedStyle}
             renderTimeMs={renderTimeMs}
             onRenderTime={onRenderTime}
           />

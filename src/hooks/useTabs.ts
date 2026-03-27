@@ -78,6 +78,21 @@ export function useTabs() {
     });
   }, []);
 
+  const closeTabsByDiagramIds = useCallback((diagramIds: string[]) => {
+    const idSet = new Set(diagramIds);
+    setTabs(prev => {
+      const removed = prev.some(t => idSet.has(t.diagram_id));
+      if (!removed) return prev;
+      const updated = prev.filter(t => !idSet.has(t.diagram_id));
+      setActiveTabId(cur => {
+        if (cur && !idSet.has(prev.find(t => t.id === cur)?.diagram_id ?? '')) {return cur;}
+        if (updated.length > 0) return updated[0].id;
+        return null;
+      });
+      return updated;
+    });
+  }, []);
+
   const updateTabContent = useCallback((tabId: string, content: string) => {
     setTabs(prev => prev.map(t =>
       t.id === tabId ? { ...t, content, is_dirty: content !== t.saved_content } : t
@@ -97,5 +112,5 @@ export function useTabs() {
 
   const activeTab = tabs.find(t => t.id === activeTabId) ?? null;
 
-  return { tabs, activeTabId, activeTab, setActiveTabId, openDiagram, closeTab, updateTabContent, saveTab };
+  return { tabs, activeTabId, activeTab, setActiveTabId, openDiagram, closeTab, closeTabsByDiagramIds, updateTabContent, saveTab };
 }

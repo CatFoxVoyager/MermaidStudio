@@ -12,6 +12,8 @@ export interface AppSettings {
   lastOpenDiagramId?: string;
   /** Internal encrypted storage key - not exposed to consumers */
   _encryptedKey?: string;
+  /** Auto-save interval in ms; null = off */
+  autoSaveIntervalMs?: number | null;
 }
 
 export interface UserTemplate {
