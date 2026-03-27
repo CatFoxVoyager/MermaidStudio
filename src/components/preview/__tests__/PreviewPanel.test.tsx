@@ -7,6 +7,31 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { fireEvent } from '@testing-library/react';
 import { PreviewPanel } from '../PreviewPanel';
 
+// Mock i18n
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => {
+      const map: Record<string, string> = {
+        'preview.title': 'Preview',
+        'preview.parseError': 'Parse Error',
+        'preview.startTyping': 'Start typing to see a live preview',
+        'preview.subgraph': 'Subgraph',
+        'preview.clickToEdit': 'Click to edit {{id}}',
+        'preview.clickToEditSubgraph': 'Click to edit subgraph',
+        'preview.zoomOut': 'Zoom out',
+        'preview.zoomIn': 'Zoom in',
+        'preview.resetZoom': 'Reset zoom',
+        'preview.fitToScreen': 'Fit to screen',
+        'preview.fullscreenPreview': 'Fullscreen preview',
+        'preview.addSubgraph': 'Add subgraph',
+        'preview.copySvg': 'Copy SVG',
+        'preview.export': 'Export',
+      };
+      return map[key] ?? key;
+    },
+  }),
+}));
+
 // Mock mermaid functions
 vi.mock('@/lib/mermaid/core', () => ({
   renderDiagram: vi.fn(() => Promise.resolve({ svg: '<svg>test</svg>', error: null })),
@@ -27,6 +52,7 @@ vi.mock('@/lib/mermaid/codeUtils', () => ({
     classDefs: new Map(),
     nodeClasses: new Map(),
     linkStyles: new Map(),
+    subgraphs: [],
   })),
   getNodeStyle: vi.fn(() => ({})),
   removeNodeStyles: vi.fn((s: string) => s),
@@ -40,6 +66,11 @@ vi.mock('@/lib/mermaid/codeUtils', () => ({
   updateEdgeLabel: vi.fn((s: string) => s),
   parseLinkStyles: vi.fn(() => new Map()),
   edgeStyleToString: vi.fn(() => ''),
+  updateNodeStyle: vi.fn((s: string) => s),
+  updateNodeLabel: vi.fn((s: string) => s),
+  updateSubgraphLabel: vi.fn((s: string) => s),
+  addSubgraph: vi.fn((s: string) => s),
+  moveNodeToSubgraph: vi.fn((s: string) => s),
 }));
 
 // Mock NodeStylePanel (has ColorPicker dependency that may have DOM requirements)
@@ -50,6 +81,11 @@ vi.mock('@/components/preview/NodeStylePanel', () => ({
 // Mock EdgeStylePanel
 vi.mock('@/components/preview/EdgeStylePanel', () => ({
   EdgeStylePanel: () => <div data-testid="edge-style-panel">EdgeStylePanel</div>,
+}));
+
+// Mock SubgraphStylePanel
+vi.mock('@/components/preview/SubgraphStylePanel', () => ({
+  SubgraphStylePanel: () => <div data-testid="subgraph-style-panel">SubgraphStylePanel</div>,
 }));
 
 vi.mock('@/components/visual/ColorPicker', () => ({
