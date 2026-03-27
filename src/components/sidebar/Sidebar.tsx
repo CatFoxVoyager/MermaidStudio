@@ -14,13 +14,14 @@ interface Props {
   onOpenDiagram: (id: string) => void;
   activeDiagramId?: string;
   onRefresh: () => void;
+  onDiagramDeleted?: (diagramIds: string[]) => void;
 }
 
 interface CtxState { x: number; y: number; items: ContextMenuItem[] }
 
 const TAG_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#8b5cf6', '#f97316'];
 
-export function Sidebar({ onOpenDiagram, activeDiagramId, onRefresh }: Props) {
+export function Sidebar({ onOpenDiagram, activeDiagramId, onRefresh, onDiagramDeleted }: Props) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
@@ -147,6 +148,7 @@ export function Sidebar({ onOpenDiagram, activeDiagramId, onRefresh }: Props) {
     } else {
       await deleteDiagrams(deleteConfirm.ids);
     }
+    onDiagramDeleted?.(deleteConfirm.ids);
     setDeleteConfirm(null);
     setSelectedIds(new Set());
     setIsSelectMode(false);

@@ -18,7 +18,7 @@ export default function App() {
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage } = useLanguage();
   const { toasts, show: showToast, dismiss } = useToast();
-  const { tabs, activeTabId, activeTab, setActiveTabId, openDiagram, closeTab, updateTabContent, saveTab } = useTabs();
+  const { tabs, activeTabId, activeTab, setActiveTabId, openDiagram, closeTab, closeTabsByDiagramIds, updateTabContent, saveTab } = useTabs();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
@@ -56,6 +56,17 @@ export default function App() {
 
   useKeyboardShortcuts(shortcuts);
 
+  // Make diagram colors and advanced styling mutually exclusive
+  const openDiagramColors = useCallback(() => {
+    openModal('showDiagramColors');
+    closeModal('showAdvancedStyle');
+  }, [openModal, closeModal]);
+
+  const openAdvancedStyle = useCallback(() => {
+    openModal('showAdvancedStyle');
+    closeModal('showDiagramColors');
+  }, [openModal, closeModal]);
+
   // Close diagram-specific panels (colors and advanced styling) when switching tabs
   useEffect(() => {
     if (activeTabId) {
@@ -68,9 +79,9 @@ export default function App() {
     <>
       <AppLayout
         theme={theme} toggleTheme={toggleTheme} language={language} onChangeLanguage={setLanguage}
-        sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen(v => !v)} onOpenDiagram={openDiagram} onRefreshSidebar={refresh}
+        sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen(v => !v)} onOpenDiagram={openDiagram} onRefreshSidebar={refresh} onDiagramDeleted={closeTabsByDiagramIds}
         tabs={tabs} activeTabId={activeTabId} activeTab={activeTab} onSelectTab={setActiveTabId} onCloseTab={closeTab} onContentChange={updateTabContent}
-        onSave={modalProps.handleSave} onShowHistory={modalOpen('showHistory')} onShowExport={modalOpen('showExport')} onToggleAI={modalToggle('showAI')} onFullscreen={modalOpen('showFullscreen')} onSaveTemplate={modalOpen('showSaveTemplate')} onNewDiagram={newDiagram} onShowTemplates={modalOpen('showTemplates')} onShowPalette={modalOpen('showPalette')} onShowDiagramColors={modalOpen('showDiagramColors')} onShowAdvancedStyle={modalOpen('showAdvancedStyle')} onOpenCommandPalette={modalOpen('showPalette')} onOpenBackup={modalOpen('showBackup')} onFocusMode={modalProps.toggleFocusMode}
+        onSave={modalProps.handleSave} onShowHistory={modalOpen('showHistory')} onShowExport={modalOpen('showExport')} onToggleAI={modalToggle('showAI')} onFullscreen={modalOpen('showFullscreen')} onSaveTemplate={modalOpen('showSaveTemplate')} onNewDiagram={newDiagram} onShowTemplates={modalOpen('showTemplates')} onShowPalette={modalOpen('showPalette')} onShowDiagramColors={openDiagramColors} onShowAdvancedStyle={openAdvancedStyle} onOpenCommandPalette={modalOpen('showPalette')} onOpenBackup={modalOpen('showBackup')} onFocusMode={modalProps.toggleFocusMode}
         showAI={modals.showAI} showDiagramColors={modals.showDiagramColors} showAdvancedStyle={modals.showAdvancedStyle}
         onAIApply={modalProps.handleAIApply} onAIClose={modalClose('showAI')} onAIOpenSettings={modalOpen('showAISettings')} onDiagramColorsClose={modalClose('showDiagramColors')} onAdvancedStyleClose={modalClose('showAdvancedStyle')}
         focusMode={focusMode} renderTimeMs={renderTimeMs} onRenderTime={setRenderTimeMs} refreshKey={refreshKey}

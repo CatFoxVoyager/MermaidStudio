@@ -1,14 +1,12 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, Clock, Download, Sparkles, AlignLeft, Maximize, GitCompare, BookmarkPlus, MousePointer2, Code2, FilePlus, LayoutTemplate, Terminal, Palette, SlidersHorizontal, Undo, Copy, Check, RotateCw } from 'lucide-react';
+import { Save, Clock, Download, Sparkles, AlignLeft, Maximize, GitCompare, BookmarkPlus, FilePlus, LayoutTemplate, Terminal, Palette, SlidersHorizontal, Undo, Copy, Check, RotateCw } from 'lucide-react';
 import { CodeEditor } from './CodeEditor';
 import type { CodeEditorRef } from './CodeEditor';
 import { PreviewPanel } from '@/preview/PreviewPanel';
 import { StatusBar } from './StatusBar';
 import { DiffView } from './DiffView';
 import { TabBar } from './TabBar';
-import { VisualEditorCanvas } from '@/visual/VisualEditorCanvas';
-import { detectDiagramType } from '@/lib/mermaid/core';
 import type { Tab } from '@/types';
 
 interface Props {
@@ -30,6 +28,10 @@ interface Props {
   onShowPalette: () => void;
   onShowDiagramColors: () => void;
   onShowAdvancedStyle: () => void;
+  onDiagramColorsClose: () => void;
+  onAdvancedStyleClose: () => void;
+  showDiagramColors: boolean;
+  showAdvancedStyle: boolean;
   showAI: boolean;
   renderTimeMs: number | null;
   onRenderTime: (ms: number) => void;
@@ -40,25 +42,24 @@ export function WorkspacePanel({
   onSelectTab, onCloseTab, onContentChange, onSave,
   onShowHistory, onShowExport, onToggleAI, onFullscreen, onSaveTemplate,
   onNewDiagram, onShowTemplates, onShowPalette, onShowDiagramColors, onShowAdvancedStyle,
+  onDiagramColorsClose, onAdvancedStyleClose, showDiagramColors, showAdvancedStyle,
   showAI, renderTimeMs, onRenderTime,
 }: Props) {
   const { t } = useTranslation();
   const [splitPos, setSplitPos] = useState(50);
   const [dragging, setDragging] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
-  const [visualMode, setVisualMode] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
   const [copiedCode, setCopiedCode] = useState(false);
-  const [autoSave, setAutoSave] = useState(false);
+  const [autoSaveInterval, setAutoSaveInterval] = useState<number | null>(null);
+  const [showAutoSaveMenu, setShowAutoSaveMenu] = useState(false);
+  const autoSaveMenuRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const codeEditorRef = useRef<CodeEditorRef>(null);
 
   function escapeRegExp(str: string) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
-
-  const diagramType = activeTab ? detectDiagramType(activeTab.content) : 'unknown';
-  const canUseVisual = diagramType === 'flowchart';
 
   async function handleCopyCode() {
     if (!activeTab?.content) return;
@@ -87,18 +88,30 @@ export function WorkspacePanel({
     }
   }, [activeTab]);
 
-  // Auto-save every 30 seconds when enabled
+  // Auto-save at the selected interval when enabled
   useEffect(() => {
-    if (!autoSave || !activeTab?.is_dirty) return;
+    if (!autoSaveInterval || !activeTab?.is_dirty) return;
 
     const interval = setInterval(() => {
       if (activeTab?.is_dirty) {
         onSave(activeTab.id);
       }
-    }, 30000); // 30 seconds
+    }, autoSaveInterval);
 
     return () => clearInterval(interval);
-  }, [autoSave, activeTab?.id, activeTab?.is_dirty, onSave]);
+  }, [autoSaveInterval, activeTab?.id, activeTab?.is_dirty, onSave]);
+
+  // Close auto-save dropdown when clicking outside
+  useEffect(() => {
+    if (!showAutoSaveMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (autoSaveMenuRef.current && !autoSaveMenuRef.current.contains(e.target as Node)) {
+        setShowAutoSaveMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showAutoSaveMenu]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => { e.preventDefault(); setDragging(true); }, []);
 
@@ -149,26 +162,35 @@ export function WorkspacePanel({
             style={{ color: 'var(--text-tertiary)' }}>
             {copiedCode ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
           </button>
-          <button onClick={() => setAutoSave(v => !v)} title={autoSave ? 'Disable auto-save' : 'Enable auto-save (every 30s)'}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-all hover:bg-white/8"
-            style={{ color: autoSave ? 'var(--accent)' : 'var(--text-tertiary)', background: autoSave ? 'var(--accent-dim)' : undefined }}>
-            <RotateCw size={11} className={autoSave ? 'animate-spin' : ''} />
-            {showLabels && <span>Auto-save</span>}
-          </button>
+          <div className="relative" ref={autoSaveMenuRef}>
+            <button onClick={() => setShowAutoSaveMenu(v => !v)}
+              title={autoSaveInterval ? `Auto-save every ${autoSaveInterval === 60000 ? '1 min' : '5 min'}` : 'Auto-save: Off'}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-all hover:bg-white/8"
+              style={{ color: autoSaveInterval ? 'var(--accent)' : 'var(--text-tertiary)', background: autoSaveInterval ? 'var(--accent-dim)' : undefined }}>
+              <RotateCw size={11} className={autoSaveInterval ? 'animate-spin' : ''} />
+              {showLabels && <span>Auto-save{autoSaveInterval ? ` ${autoSaveInterval === 60000 ? '1m' : '5m'}` : ''}</span>}
+            </button>
+            {showAutoSaveMenu && (
+              <div className="absolute top-full left-0 mt-1 z-50 rounded-md border py-1 min-w-[100px]"
+                style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}>
+                {([
+                  { value: null, label: 'Off' },
+                  { value: 60000, label: '1 min' },
+                  { value: 300000, label: '5 min' },
+                ] as const).map(opt => (
+                  <button key={opt.label}
+                    onClick={() => { setAutoSaveInterval(opt.value); setShowAutoSaveMenu(false); }}
+                    className="w-full text-left px-3 py-1.5 text-xs font-medium transition-colors hover:bg-white/8"
+                    style={{ color: autoSaveInterval === opt.value ? 'var(--accent)' : 'var(--text-secondary)' }}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="w-px h-4 mx-1.5" style={{ background: 'var(--border-subtle)' }} />
           <ToolbarButton icon={<BookmarkPlus size={13} />} label={t('editor.saveAsTemplate')} showLabel={showLabels}
             onClick={onSaveTemplate} title={t('editor.saveAsTemplate')} />
-          <ToolbarButton
-            icon={<MousePointer2 size={13} />} label={t('editor.visualEditor')} showLabel={showLabels}
-            onClick={() => { if (canUseVisual) {setVisualMode(v => !v);} }}
-            title={canUseVisual ? t('editor.toggleVisual') : t('editor.visualFlowchartOnly')}
-            disabled={!canUseVisual}
-            active={visualMode}
-          />
-          {visualMode && (
-            <ToolbarButton icon={<Code2 size={13} />} label={t('editor.codeEditor')} showLabel={showLabels}
-              onClick={() => setVisualMode(false)} title={t('editor.backToCode')} />
-          )}
           <ToolbarButton icon={<GitCompare size={13} />} label="Diff" showLabel={showLabels}
             onClick={() => setShowDiff(v => !v)} title={t('editor.compareWithSaved')} active={showDiff} />
           <ToolbarButton icon={<Clock size={13} />} label={t('editor.versionHistory')} showLabel={showLabels}
@@ -207,16 +229,7 @@ export function WorkspacePanel({
         </div>
       </div>
 
-      {visualMode && canUseVisual ? (
-        <div className="flex-1 overflow-hidden">
-          <VisualEditorCanvas
-            content={activeTab.content}
-            theme={theme}
-            onChange={v => onContentChange(activeTab.id, v)}
-          />
-        </div>
-      ) : (
-        <div ref={containerRef} className="flex-1 flex overflow-hidden"
+      <div ref={containerRef} className="flex-1 flex overflow-hidden"
           style={{ userSelect: dragging ? 'none' : undefined }}>
           <div style={{ width: `${splitPos}%` }} className="flex flex-col overflow-hidden">
             {showDiff ? (
@@ -237,10 +250,11 @@ export function WorkspacePanel({
               onRenderTime={onRenderTime}
               onFullscreen={onFullscreen}
               onNodeSelect={handleNodeSelect}
+              onSelectionOpen={() => { onDiagramColorsClose(); onAdvancedStyleClose(); }}
+              externalPanelOpen={showDiagramColors || showAdvancedStyle}
             />
           </div>
         </div>
-      )}
 
       <StatusBar content={activeTab.content} lastSaved={activeTab.is_dirty ? null : lastSaved} renderTimeMs={renderTimeMs} />
     </div>
