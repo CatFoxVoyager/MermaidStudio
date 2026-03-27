@@ -1,5 +1,5 @@
 import { RotateCcw, X, Palette, Check } from 'lucide-react';
-import { colorPalettes, generateMermaidThemeConfig } from '@/constants/colorPalettes';
+import { colorPalettes, generateMermaidThemeConfig, applyC4Palette } from '@/constants/colorPalettes';
 import type { ColorPalette, DiagramType } from '@/types';
 import { getStylingCapabilities } from '@/types';
 import { useTranslation } from 'react-i18next';
@@ -172,6 +172,13 @@ function isClassDefDiagramType(content: string): boolean {
   return getStylingCapabilities(type).supportsClassDef;
 }
 
+// Check if a diagram type uses C4-specific styling (UpdateElementStyle/UpdateRelStyle)
+function isC4DiagramType(content: string): boolean {
+  const body = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
+  const type = detectDiagramType(body) as DiagramType;
+  return getStylingCapabilities(type).supportsC4Style;
+}
+
 // Apply palette via YAML frontmatter themeVariables (for non-classDef diagram types)
 function applyThemeVariablesPalette(content: string, palette: ColorPalette): string {
   // Strip any existing YAML frontmatter
@@ -262,6 +269,8 @@ function stripThemeDirective(content: string): string {
     .replace(/^\s*%%\{init:[\s\S]*?\}%%\s*/i, '')
     .replace(/^[ \t]*classDef\s+\w+\s+[^\n]*$/gm, '')
     .replace(/^[ \t]*class\s+[^\n]*$/gm, '')
+    .replace(/^[ \t]*UpdateElementStyle\s*\([^)]*\)\s*$/gm, '')
+    .replace(/^[ \t]*UpdateRelStyle\s*\([^)]*\)\s*$/gm, '')
     .replace(/\n\s*\n\s*\n/g, '\n\n')
     .trim();
 }
@@ -351,8 +360,13 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
     if (currentContent) {
       const cleanContent = stripThemeDirective(currentContent);
 
-      if (isClassDefDiagramType(cleanContent)) {
-        // Use existing classDef/class approach for flowchart, state, class, ER diagrams
+      if (isC4DiagramType(cleanContent)) {
+        // C4 diagrams use UpdateElementStyle/UpdateRelStyle (not classDef/class)
+        const contentWithC4Styles = applyC4Palette(cleanContent, palette);
+        onContentChange(contentWithC4Styles);
+        setNodeStyles([]);
+      } else if (isClassDefDiagramType(cleanContent)) {
+        // Use existing classDef/class approach for flowchart, state, class diagrams
         const nodeColors = extractBranchesAndAssignColors(cleanContent, palette);
         const contentWithNodeColors = applyNodeStyles(cleanContent, nodeColors);
         onContentChange(contentWithNodeColors);
