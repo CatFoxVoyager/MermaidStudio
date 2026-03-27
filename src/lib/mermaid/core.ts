@@ -121,7 +121,7 @@ function doInit(theme: 'dark' | 'light', useBase: boolean, mermaidTheme?: Mermai
     darkMode: theme === 'dark',
     fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
     fontSize: 14,
-    flowchart: { curve: 'basis', padding: 20, htmlLabels: false },
+    flowchart: { curve: 'basis', padding: 20, htmlLabels: true, useMaxWidth: false },
     sequence: { useMaxWidth: true, actorMargin: 50 },
     // When useBase is true, the YAML frontmatter controls theming entirely.
     // Don't pass app-level themeVariables so they don't override the frontmatter's theme choice.
@@ -200,8 +200,13 @@ export async function renderDiagram(content: string, id: string): Promise<{ svg:
         svg = fixEdgeLabelTextColor(svg, textColor);
       }
     }
+
     return { svg, error: null };
   } catch (e) {
+    // Clean up the temporary rendering element that mermaid leaves behind on failure.
+    // Without this, subsequent renders may fail silently after a parse error.
+    const el = document.getElementById(safeId);
+    if (el) el.remove();
     return { svg: '', error: e instanceof Error ? e.message : String(e) };
   }
 }

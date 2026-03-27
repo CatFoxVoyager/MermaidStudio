@@ -1,5 +1,10 @@
-import type { ColorPalette, DiagramStyleOptions, LayoutEngine } from '@/types';
+import type { ColorPalette, DiagramStyleOptions, DiagramDirection, LayoutEngine } from '@/types';
 import { DEFAULT_STYLE_OPTIONS } from '@/types';
+
+function isValidColor(value: string | undefined): boolean {
+  if (!value) return false;
+  return /^#[0-9a-fA-F]{3,8}$/.test(value);
+}
 
 export const colorPalettes: ColorPalette[] = [
   {
@@ -692,8 +697,16 @@ export function generateStyleOnlyConfig(styleOptions: DiagramStyleOptions, diagr
 }
 
 export function applyStyleToContent(content: string, styleOptions: DiagramStyleOptions): string {
-  const stripped = stripYamlFrontmatter(content);
+  let stripped = stripYamlFrontmatter(content);
   const diagramType = detectDiagramTypeFromContent(stripped);
+
+  // Apply direction change to the first line (e.g. "flowchart TD" -> "flowchart LR")
+  if (styleOptions.direction) {
+    stripped = stripped.replace(
+      /^(flowchart|graph)\s+(TD|TB|BT|LR|RL)/i,
+      `$1 ${styleOptions.direction}`
+    );
+  }
 
   // Parse existing YAML config to preserve color settings
   const existingConfig = extractExistingConfig(content);
@@ -847,17 +860,20 @@ export function applyStyleToContent(content: string, styleOptions: DiagramStyleO
       break;
   }
 
+  // Check if primaryColor was customized (different from default)
+  const hasCustomPrimary = styleOptions.primaryColor !== undefined && isValidColor(styleOptions.primaryColor);
+
   // Add font settings to themeVariables for all diagram types
-  // NOTE: When we have diagram config (hasNonFontConfig), we also include
-  // base theme variables to prevent Mermaid from applying its default colors.
-  if (hasNonFontConfig) {
+  // NOTE: When we have diagram config (hasNonFontConfig) or custom primaryColor,
+  // we also include base theme variables to prevent Mermaid from applying its default colors.
+  if (hasNonFontConfig || hasCustomPrimary) {
     // Set theme to 'base' so that themeVariables are properly applied
     minimalConfig.theme = 'base';
 
     // Minimal base theme variables - just primaryColor to avoid beige default
     minimalConfig.themeVariables = {
       ...(minimalConfig.themeVariables as Record<string, unknown> | {}),
-      primaryColor: '#fff4dd',
+      primaryColor: isValidColor(styleOptions.primaryColor) ? styleOptions.primaryColor : '#daeaf2',
     };
 
     // Add font settings on top of base theme
@@ -990,6 +1006,9 @@ function mergeConfigWithStyles(existingConfig: Record<string, unknown>, styleOpt
   };
 
   // Apply style options - don't override existing color variables
+  if (styleOptions.primaryColor && isValidColor(styleOptions.primaryColor)) {
+    (result.themeVariables as Record<string, string>).primaryColor = styleOptions.primaryColor;
+  }
   if (styleOptions.fontFamily) {
     (result.themeVariables as Record<string, string>).fontFamily = styleOptions.fontFamily;
   }
@@ -1240,7 +1259,7 @@ export function addBaseThemeConfig(content: string): string {
   const baseConfig: Record<string, unknown> = {
     theme: 'base',
     themeVariables: {
-      primaryColor: '#fff4dd',
+      primaryColor: isValidColor(styleOptions.primaryColor) ? styleOptions.primaryColor : '#daeaf2',
     },
   };
 
@@ -1258,13 +1277,24 @@ export function addBaseThemeConfig(content: string): string {
 // Extract style options from existing YAML config
 export function extractStyleOptionsFromContent(content: string): Partial<DiagramStyleOptions> {
   const existingConfig = extractExistingConfig(content);
-  if (!existingConfig) return {};
-
   const options: Partial<DiagramStyleOptions> = {};
+
+  // Extract direction from the first line of diagram code (e.g. "flowchart TD")
+  const stripped = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
+  const firstLine = stripped.split('\n')[0]?.trim() ?? '';
+  const dirMatch = firstLine.match(/^(?:flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i);
+  if (dirMatch) {
+    options.direction = dirMatch[1].toUpperCase() as DiagramDirection;
+  }
+
+  if (!existingConfig) return options;
 
   // Extract from themeVariables
   const themeVars = existingConfig.themeVariables as Record<string, unknown>;
   if (themeVars) {
+    if (themeVars.primaryColor && typeof themeVars.primaryColor === 'string') {
+      options.primaryColor = themeVars.primaryColor;
+    }
     if (themeVars.fontFamily && typeof themeVars.fontFamily === 'string') {
       options.fontFamily = themeVars.fontFamily;
     }

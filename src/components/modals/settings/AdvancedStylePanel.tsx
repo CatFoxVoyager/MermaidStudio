@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Type, Maximize2, ArrowLeftRight, ArrowUpDown, Spline, Square, RotateCcw, LayoutGrid, X, SlidersHorizontal } from 'lucide-react';
+import { Type, Maximize2, ArrowLeftRight, ArrowUpDown, Spline, Square, RotateCcw, LayoutGrid, X, SlidersHorizontal, Compass } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { DEFAULT_STYLE_OPTIONS, type DiagramStyleOptions, type LayoutEngine, getStylingCapabilities } from '@/types';
+import { DEFAULT_STYLE_OPTIONS, type DiagramStyleOptions, type DiagramDirection, type LayoutEngine, getStylingCapabilities } from '@/types';
 import { applyStyleToContent, extractStyleOptionsFromContent } from '@/constants/colorPalettes';
+import { ColorPicker } from '@/components/visual/ColorPicker';
 import { detectDiagramType } from '@/lib/mermaid/core';
 
 interface AdvancedStylePanelProps {
@@ -102,6 +103,13 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
     { value: 'elk.stress', label: t('advancedStyle.layoutElkStress'), description: t('advancedStyle.layoutElkStressDesc') },
   ];
 
+  const DIRECTION_OPTIONS: { value: DiagramDirection; label: string }[] = [
+    { value: 'TB', label: t('advancedStyle.dirTopDown') },
+    { value: 'BT', label: t('advancedStyle.dirBottomUp') },
+    { value: 'LR', label: t('advancedStyle.dirLeftRight') },
+    { value: 'RL', label: t('advancedStyle.dirRightLeft') },
+  ];
+
   // Sequence diagram specific options
   const SEQUENCE_CURVE_OPTIONS: { value: 'basis' | 'linear' | 'natural'; label: string }[] = [
     { value: 'natural', label: t('advancedStyle.seqCurveNatural') },
@@ -196,6 +204,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   const isGantt = stylingCapabilities.supportsGanttConfig;
   const hasConfigOptions = isFlowchart || isSequence || isGantt;
   const isElkLayout = styleOptions.layoutEngine === 'elk' || styleOptions.layoutEngine === 'elk.stress';
+  const supportsDirection = diagramType === 'flowchart' || diagramType === 'graph';
 
   return (
     <div className="flex flex-col h-full border-l" style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}>
@@ -249,6 +258,12 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
           theme={theme}
         />
 
+        <ColorPicker
+          label={t('advancedStyle.primaryColor')}
+          value={styleOptions.primaryColor ?? '#daeaf2'}
+          onChange={v => update({ primaryColor: v })}
+        />
+
         {!hasConfigOptions && (
           <div className="text-center py-6 px-3 rounded-lg border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-floating)' }}>
             <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
@@ -260,6 +275,37 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
         {/* Flowchart/State/Class/ER/C4 controls */}
         {isFlowchart && (
           <>
+            {supportsDirection && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5">
+                  <Compass size={11} style={{ color: 'var(--text-tertiary)' }} />
+                  <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.direction')}</span>
+                </div>
+                <div className="grid grid-cols-4 gap-1">
+                  {DIRECTION_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => update({ direction: opt.value })}
+                      className="py-1.5 rounded-sm border transition-all text-center"
+                      style={{
+                        background: styleOptions.direction === opt.value
+                          ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
+                          : 'transparent',
+                        borderColor: styleOptions.direction === opt.value
+                          ? 'var(--accent)'
+                          : 'var(--border-subtle)',
+                        color: styleOptions.direction === opt.value
+                          ? 'var(--accent)'
+                          : 'var(--text-secondary)',
+                      }}
+                    >
+                      <span className="text-[9px] font-medium">{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <SliderControl
               label={t('advancedStyle.nodePadding')}
               icon={<Maximize2 size={11} />}

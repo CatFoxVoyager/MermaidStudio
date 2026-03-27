@@ -35,6 +35,7 @@ export interface Template {
 }
 
 export type LayoutEngine = 'dagre' | 'elk' | 'elk.stress';
+export type DiagramDirection = 'TD' | 'TB' | 'BT' | 'LR' | 'RL';
 
 // Base style options that apply to all diagram types
 export interface BaseStyleOptions {
@@ -44,6 +45,7 @@ export interface BaseStyleOptions {
 
 // Flowchart-specific options
 export interface FlowchartStyleOptions {
+  direction: DiagramDirection;
   nodePadding: number;
   nodeSpacing: number;
   rankSpacing: number;
@@ -77,7 +79,11 @@ export interface GanttStyleOptions {
 
 // Combined style options for all types
 export interface DiagramStyleOptions extends BaseStyleOptions {
+  // Theme variables (apply to all diagram types)
+  primaryColor?: string;
+
   // Flowchart options (apply to flowcharts, journey, c4, block, architecture)
+  direction?: DiagramDirection;
   nodePadding?: number;
   nodeSpacing?: number;
   rankSpacing?: number;

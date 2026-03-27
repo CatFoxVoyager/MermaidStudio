@@ -331,6 +331,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
 
       if (e) {
         setError(e);
+        setSvg('');
       } else {
         // Add data-rendered attribute to SVG for E2E tests
         // Simply replace the first <svg occurrence
@@ -354,11 +355,19 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
 
   // Setup Shadow DOM for SVG isolation
   useEffect(() => {
-    if (!shadowHostRef.current || !svg) return;
+    if (!shadowHostRef.current) return;
+
+    // Clean up shadow root when svg is cleared (e.g. after a parse error)
+    if (!svg) {
+      if (shadowHostRef.current.shadowRoot) {
+        shadowHostRef.current.shadowRoot.textContent = '';
+      }
+      return;
+    }
 
     // Clean up previous shadow root
     if (shadowHostRef.current.shadowRoot) {
-      shadowHostRef.current.shadowRoot.innerHTML = '';
+      shadowHostRef.current.shadowRoot.textContent = '';
     }
 
     // Create shadow root only if it doesn't exist
