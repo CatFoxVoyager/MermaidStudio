@@ -413,5 +413,66 @@
   },
   "diff": {
     "noChanges": "No changes from last save"
+  },
+  "themeEditor": {
+    "title": "Theme Editor",
+    "themeName": "Theme Name",
+    "themeNamePlaceholder": "Enter theme name...",
+    "untitledTheme": "Untitled Theme",
+    "customThemeDescription": "Custom theme",
+    "resetToDefault": "Reset to Default",
+    "resetDescription": "Restore all color slots to default values",
+    "cancel": "Cancel",
+    "saveTheme": "Save Theme",
+    "preview": "Preview",
+    "loadingPreview": "Loading preview...",
+    "createTheme": "Create Custom Theme",
+    "editTheme": "Edit Theme"
+  },
+  "theme": {
+    "groups": {
+      "nodes": "Node Colors",
+      "edges": "Edge Colors",
+      "backgrounds": "Background Colors",
+      "text": "Text Colors",
+      "semantic": "Semantic Colors",
+      "typography": "Typography"
+    },
+    "slots": {
+      "primaryColor": "Primary Fill",
+      "primaryColor.description": "Main node and element fill color",
+      "secondaryColor": "Secondary Fill",
+      "secondaryColor.description": "Auto-derived from primary if empty",
+      "tertiaryColor": "Tertiary Fill",
+      "tertiaryColor.description": "Auto-derived from primary if empty",
+      "lineColor": "Line Color",
+      "lineColor.description": "Edge and connection line color",
+      "arrowheadColor": "Arrow Color",
+      "arrowheadColor.description": "Arrowhead color on edges",
+      "background": "Background",
+      "background.description": "Diagram background color",
+      "noteBkgColor": "Note Background",
+      "noteBkgColor.description": "Background color for notes",
+      "clusterBkg": "Cluster Background",
+      "clusterBkg.description": "Cluster/subgraph background color",
+      "primaryTextColor": "Primary Text",
+      "primaryTextColor.description": "Auto-derived from dark mode if empty",
+      "secondaryTextColor": "Secondary Text",
+      "secondaryTextColor.description": "Secondary text color",
+      "tertiaryTextColor": "Tertiary Text",
+      "tertiaryTextColor.description": "Tertiary text color",
+      "successColor": "Success",
+      "successColor.description": "Color for success states",
+      "warningColor": "Warning",
+      "warningColor.description": "Color for warning states",
+      "errorColor": "Error",
+      "errorColor.description": "Color for error states",
+      "infoColor": "Info",
+      "infoColor.description": "Color for informational states",
+      "fontFamily": "Font Family",
+      "fontFamily.description": "Font family for text",
+      "fontSize": "Font Size",
+      "fontSize.description": "Base font size"
+    }
   }
 }

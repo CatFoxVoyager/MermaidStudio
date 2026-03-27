@@ -413,5 +413,66 @@
   },
   "diff": {
     "noChanges": "Aucune modification depuis le dernier enregistrement"
+  },
+  "themeEditor": {
+    "title": "Éditeur de Thème",
+    "themeName": "Nom du Thème",
+    "themeNamePlaceholder": "Nom du thème...",
+    "untitledTheme": "Thème Sans Titre",
+    "customThemeDescription": "Thème personnalisé",
+    "resetToDefault": "Réinitialiser",
+    "resetDescription": "Restaurer toutes les couleurs par défaut",
+    "cancel": "Annuler",
+    "saveTheme": "Sauvegarder",
+    "preview": "Aperçu",
+    "loadingPreview": "Chargement de l'aperçu...",
+    "createTheme": "Créer un Thème Personnalisé",
+    "editTheme": "Modifier le Thème"
+  },
+  "theme": {
+    "groups": {
+      "nodes": "Couleurs des Noeuds",
+      "edges": "Couleurs des Liens",
+      "backgrounds": "Arrière-plan",
+      "text": "Couleurs du Texte",
+      "semantic": "Couleurs Sémantiques",
+      "typography": "Typographie"
+    },
+    "slots": {
+      "primaryColor": "Remplissage Principal",
+      "primaryColor.description": "Couleur de remplissage des noeuds",
+      "secondaryColor": "Remplissage Secondaire",
+      "secondaryColor.description": "Dériver automatiquement du primaire si vide",
+      "tertiaryColor": "Remplissage Tertiaire",
+      "tertiaryColor.description": "Dériver automatiquement du primaire si vide",
+      "lineColor": "Couleur des Lignes",
+      "lineColor.description": "Couleur des connexions",
+      "arrowheadColor": "Couleur des Flèches",
+      "arrowheadColor.description": "Couleur des pointes de flèche",
+      "background": "Arrière-plan",
+      "background.description": "Couleur de fond du diagramme",
+      "noteBkgColor": "Fond des Notes",
+      "noteBkgColor.description": "Couleur de fond des notes",
+      "clusterBkg": "Arrière-plan des Groupes",
+      "clusterBkg.description": "Couleur de fond des clusters/sous-graphes",
+      "primaryTextColor": "Texte Principal",
+      "primaryTextColor.description": "Dériver automatiquement du mode sombre si vide",
+      "secondaryTextColor": "Texte Secondaire",
+      "secondaryTextColor.description": "Couleur du texte secondaire",
+      "tertiaryTextColor": "Texte Tertiaire",
+      "tertiaryTextColor.description": "Couleur du texte tertiaire",
+      "successColor": "Succès",
+      "successColor.description": "Couleur pour les états de succès",
+      "warningColor": "Avertissement",
+      "warningColor.description": "Couleur pour les états d'avertissement",
+      "errorColor": "Erreur",
+      "errorColor.description": "Couleur pour les états d'erreur",
+      "infoColor": "Information",
+      "infoColor.description": "Couleur pour les états d'information",
+      "fontFamily": "Famille de Police",
+      "fontFamily.description": "Famille de police pour le texte",
+      "fontSize": "Taille de Police",
+      "fontSize.description": "Taille de police de base"
+    }
   }
 }
