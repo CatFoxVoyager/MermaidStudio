@@ -1,11 +1,14 @@
-import { RotateCcw, X, Palette, Check } from 'lucide-react';
+import { RotateCcw, X, Palette, Check, Plus, Pencil } from 'lucide-react';
 import { colorPalettes, generateMermaidThemeConfig, applyC4Palette } from '@/constants/colorPalettes';
+import { builtinThemes } from '@/constants/themes';
 import type { ColorPalette, DiagramType } from '@/types';
+import type { MermaidTheme } from '@/types';
 import { getStylingCapabilities } from '@/types';
 import { useTranslation } from 'react-i18next';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { renderDiagram, detectDiagramType } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
+import { ThemeEditorPanel } from './ThemeEditorPanel';
 
 interface NodeStyle {
   id: string;
@@ -313,6 +316,16 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
   // Node Styles state
   const [nodeStyles, setNodeStyles] = useState<NodeStyle[]>([]);
 
+  // Theme editor state
+  const [showThemeEditor, setShowThemeEditor] = useState(false);
+  const [editingTheme, setEditingTheme] = useState<MermaidTheme | null>(null);
+  const [customThemes, setCustomThemes] = useState<MermaidTheme[]>(() => {
+    try {
+      const stored = localStorage.getItem('mermaid-studio-custom-themes');
+      return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+  });
+
   // Initialize node styles from current content
   useEffect(() => {
     const nodes = extractNodes(currentContent);
@@ -389,6 +402,20 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
     }
   };
 
+  // Handle saving a custom theme
+  const handleSaveTheme = (theme: MermaidTheme) => {
+    const updated = [...customThemes];
+    const idx = updated.findIndex(t => t.id === theme.id);
+    if (idx >= 0) {
+      updated[idx] = theme;
+    } else {
+      updated.push({ ...theme, id: `custom-${Date.now()}`, isBuiltin: false });
+    }
+    setCustomThemes(updated);
+    localStorage.setItem('mermaid-studio-custom-themes', JSON.stringify(updated));
+    setShowThemeEditor(false);
+  };
+
   if (!isOpen) {return null;}
 
   return (
@@ -401,13 +428,24 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
           </div>
           <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }} data-testid="settings-title">{t('editor.diagramColors')}</span>
         </div>
-        <button
-          data-testid="close-palette close-settings"
-          onClick={onClose}
-          className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
-          style={{ color: 'var(--text-secondary)' }}>
-          <X size={14} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setEditingTheme(null); setShowThemeEditor(true); }}
+            className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-medium transition-colors hover:bg-white/5"
+            style={{ color: 'var(--text-secondary)' }}
+            title={t('themeEditor.createTheme')}
+          >
+            <Plus size={12} />
+            {t('themeEditor.createTheme')}
+          </button>
+          <button
+            data-testid="close-palette close-settings"
+            onClick={onClose}
+            className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
+            style={{ color: 'var(--text-secondary)' }}>
+            <X size={14} />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -525,6 +563,17 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
           );
         })}
       </div>
+
+      {/* Theme Editor Panel */}
+      {showThemeEditor && (
+        <ThemeEditorPanel
+          isOpen={showThemeEditor}
+          onClose={() => setShowThemeEditor(false)}
+          theme={theme}
+          initialTheme={editingTheme}
+          onSave={handleSaveTheme}
+        />
+      )}
     </div>
   );
 }
