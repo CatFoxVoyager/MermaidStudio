@@ -40,3 +40,9 @@
 - [ ] [11-03-PLAN.md](./phases/11-node-style-editing-in-preview/11-03-PLAN.md) — Integrate NodeStylePanel into PreviewPanel (replace old popup, multi-select, auto-resync)
 - [ ] [11-04-PLAN.md](./phases/11-node-style-editing-in-preview/11-04-PLAN.md) — CodeEditor forwardRef API for line highlighting, WorkspacePanel wiring
 - [ ] [11-05-PLAN.md](./phases/11-node-style-editing-in-preview/11-05-PLAN.md) — Manual verification checkpoint
+
+## Phase 12 — Refonte du systeme de palettes et themes Mermaid - migration vers des fichiers theme natifs
+**Goal:** [To be planned]
+**Status:** Ready
+**Depends on:** Phase 11
+**Plans:** 0 plans

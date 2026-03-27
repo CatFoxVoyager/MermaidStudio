@@ -74,6 +74,7 @@ Plan: Not started
 - Phase 6 added: please do the refactoring like explained in chat history
 - Phase 7 added: Fix all security issues identified in code analysis
 - Phase 11 added: Node style editing in preview (couleur, border, taille du border, couleur du border, etc.) — mêmes fonctionnalités que Mermaid Live Editor
+- Phase 12 added: Refonte du systeme de palettes et themes Mermaid - migration vers des fichiers theme natifs
 
 ### Key Decisions Made
 
