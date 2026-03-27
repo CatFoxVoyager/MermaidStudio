@@ -1,4 +1,4 @@
-import { MousePointer2, Link, Trash2, Group } from 'lucide-react';
+import { MousePointer2, Link, Trash2 } from 'lucide-react';
 import type { NodeShape, ToolMode } from './types';
 
 interface ShapeButtonProps {
@@ -21,6 +21,9 @@ function ShapePreview({ shape }: { shape: NodeShape }) {
     case 'hexagon':       return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="8,3 20,3 26,10 20,17 8,17 2,10" {...props} /></svg>;
     case 'asymmetric':    return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="2,3 22,3 26,10 22,17 2,17" {...props} /></svg>;
     case 'parallelogram': return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="6,3 26,3 22,17 2,17" {...props} /></svg>;
+    case 'parallelogram-alt': return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="2,3 22,3 26,17 6,17" {...props} /></svg>;
+    case 'trapezoid':     return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="6,3 22,3 26,17 2,17" {...props} /></svg>;
+    case 'trapezoid-alt': return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="2,3 26,3 22,17 6,17" {...props} /></svg>;
     default:              return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="2" {...props} /></svg>;
   }
 }
@@ -49,6 +52,9 @@ const SHAPES: { shape: NodeShape; label: string }[] = [
   { shape: 'hexagon',       label: 'Hexagon' },
   { shape: 'cylinder',      label: 'Cylinder' },
   { shape: 'parallelogram', label: 'Slant' },
+  { shape: 'parallelogram-alt', label: 'Slant Alt' },
+  { shape: 'trapezoid',     label: 'Trapezoid' },
+  { shape: 'trapezoid-alt', label: 'Trapezoid Alt' },
   { shape: 'subroutine',    label: 'Subroutine' },
   { shape: 'asymmetric',    label: 'Flag' },
 ];
@@ -60,10 +66,9 @@ interface Props {
   onDragStart: (shape: NodeShape) => void;
   onDeleteSelected: () => void;
   hasSelection: boolean;
-  onAddSubgraph?: () => void;
 }
 
-export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, onDeleteSelected, hasSelection, onAddSubgraph }: Props) {
+export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, onDeleteSelected, hasSelection }: Props) {
   return (
     <div className="flex items-center gap-1 px-3 py-2 shrink-0 border-b overflow-x-auto"
       style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
@@ -103,24 +108,6 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
           <ShapeButton key={shape} shape={shape} label={label} onDragStart={onDragStart} onClick={onAddShape} />
         ))}
       </div>
-
-      {onAddSubgraph && (
-        <>
-          <div className="w-px h-8 shrink-0 mx-1" style={{ background: 'var(--border-subtle)' }} />
-          <button
-            onClick={onAddSubgraph}
-            title="Add subgraph"
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0"
-            style={{
-              background: 'transparent',
-              color: 'var(--text-secondary)',
-              border: '1px solid var(--border-subtle)',
-            }}>
-            <Group size={12} />
-            <span>Subgraph</span>
-          </button>
-        </>
-      )}
 
       {hasSelection && (
         <>
