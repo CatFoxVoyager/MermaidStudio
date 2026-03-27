@@ -8,7 +8,6 @@
 import type { Diagram, DiagramVersion, Folder, Tag, AppSettings, UserTemplate, BackupData } from '@/types';
 import { encrypt, decrypt } from '@/utils/encryption';
 import { generateSecureId } from '@/utils/crypto';
-import { addBaseThemeConfig } from '@/constants/themeDerivation';
 
 const DB_NAME = 'MermaidStudio';
 const DB_VERSION = 1;
@@ -249,9 +248,7 @@ export async function getDiagram(id: string): Promise<Diagram | undefined> {
 
 export async function createDiagram(title: string, content = 'flowchart TD\n    A --> B', folder_id: string | null = null): Promise<Diagram> {
   const data = await load();
-  // Add base theme config to ensure consistent appearance and prevent unwanted default colors
-  const contentWithTheme = addBaseThemeConfig(content);
-  const d: Diagram = { id: uid(), title, content: contentWithTheme, folder_id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  const d: Diagram = { id: uid(), title, content, folder_id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
   data.diagrams.push(d);
   await save(data);
   return d;

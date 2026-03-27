@@ -73,6 +73,7 @@ export type MermaidBuiltinTheme = 'default' | 'dark' | 'forest' | 'neutral' | 'b
 let currentTheme: 'dark' | 'light' = 'dark';
 let currentMermaidTheme: MermaidBuiltinTheme = 'base';
 let defaultTheme: MermaidTheme | null = null;
+let diagramTheme: MermaidTheme | null = null;
 
 // Register ELK layout loaders once
 mermaid.registerLayoutLoaders(elkLayouts);
@@ -82,7 +83,10 @@ function doInit(theme: 'dark' | 'light', useBase: boolean, mermaidTheme?: Mermai
   const isDark = theme === 'dark';
 
   let themeVars: Record<string, string> | undefined;
-  if (!useBase && defaultTheme) {
+  if (!useBase && diagramTheme) {
+    // Use the diagram-specific theme (render-time theming)
+    themeVars = deriveThemeVariables(diagramTheme.coreColors, isDark);
+  } else if (!useBase && defaultTheme) {
     // Use the user's default theme for app-level theming
     themeVars = deriveThemeVariables(defaultTheme.coreColors, isDark);
   } else if (!useBase) {
@@ -123,6 +127,22 @@ export function getDefaultTheme(): MermaidTheme | null {
   return defaultTheme;
 }
 
+/**
+ * Set a diagram-specific theme for render-time theming.
+ * This allows diagrams to have their own theme preference without
+ * injecting YAML frontmatter into content.
+ */
+export function setDiagramTheme(themeId: string | null): void {
+  diagramTheme = themeId ? getThemeById(themeId) : null;
+}
+
+/**
+ * Get the current diagram-specific theme.
+ */
+export function getDiagramTheme(): MermaidTheme | null {
+  return diagramTheme;
+}
+
 function extractEdgeLabelTextColor(content: string): string | null {
   // Try YAML frontmatter format first
   const yamlMatch = content.match(/edgeLabelBackground:\s*['"]?([^'"\n]+)/);
@@ -157,7 +177,7 @@ function fixEdgeLabelTextColor(svgStr: string, textColor: string): string {
   return svgEl ? svgEl.outerHTML : svgStr;
 }
 
-export async function renderDiagram(content: string, id: string): Promise<{ svg: string; error: string | null }> {
+export async function renderDiagram(content: string, id: string, themeId?: string): Promise<{ svg: string; error: string | null }> {
   // Validate input before processing
   const validation = validateDiagramContent(content);
   if (!validation.valid) {
@@ -166,6 +186,12 @@ export async function renderDiagram(content: string, id: string): Promise<{ svg:
 
   const trimmed = content.trimStart();
   const hasCustomTheme = trimmed.startsWith('---') || trimmed.startsWith('%%{init:');
+
+  // Set diagram theme if provided (render-time theming)
+  if (themeId !== undefined) {
+    setDiagramTheme(themeId);
+  }
+
   doInit(currentTheme, hasCustomTheme, currentMermaidTheme);
 
   const safeId = id.replace(/[^a-zA-Z0-9_]/g, '_');
