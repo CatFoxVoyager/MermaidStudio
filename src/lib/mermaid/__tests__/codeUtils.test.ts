@@ -26,6 +26,7 @@ import {
   updateEdgeLabel,
   addSubgraph,
   updateSubgraphLabel,
+  moveNodeToSubgraph,
 } from '../codeUtils';
 
 describe('Mermaid Code Utilities', () => {
@@ -427,8 +428,8 @@ A-->B`;
 
   describe('Extended NodeStyle', () => {
     describe('parseStyleValue', () => {
-      it('should parse comma-separated classDef string with all 9 properties', () => {
-        const result = parseStyleValue('fill:red,stroke:blue,stroke-width:2px,stroke-dasharray:5 5,color:white,font-weight:bold,font-size:16px,rx:10,ry:10');
+      it('should parse comma-separated classDef string with all 10 properties', () => {
+        const result = parseStyleValue('fill:red,stroke:blue,stroke-width:2px,stroke-dasharray:5 5,color:white,font-weight:bold,font-size:16px,rx:10,ry:10,opacity:0.5');
         expect(result).toEqual({
           fill: 'red',
           stroke: 'blue',
@@ -439,11 +440,12 @@ A-->B`;
           fontSize: '16px',
           rx: '10',
           ry: '10',
+          opacity: '0.5',
         });
       });
 
-      it('should parse semicolon-separated style string with all 9 properties', () => {
-        const result = parseStyleValue('fill:red;stroke:blue;stroke-width:2px;stroke-dasharray:5 5;color:white;font-weight:bold;font-size:16px;rx:10;ry:10');
+      it('should parse semicolon-separated style string with all 10 properties', () => {
+        const result = parseStyleValue('fill:red;stroke:blue;stroke-width:2px;stroke-dasharray:5 5;color:white;font-weight:bold;font-size:16px;rx:10;ry:10;opacity:0.5');
         expect(result).toEqual({
           fill: 'red',
           stroke: 'blue',
@@ -454,6 +456,7 @@ A-->B`;
           fontSize: '16px',
           rx: '10',
           ry: '10',
+          opacity: '0.5',
         });
       });
 
@@ -482,7 +485,7 @@ A-->B`;
     });
 
     describe('styleToString extended', () => {
-      it('should output all 9 properties as comma-separated CSS', () => {
+      it('should output all 10 properties as comma-separated CSS', () => {
         const style = {
           fill: 'red',
           stroke: 'blue',
@@ -493,9 +496,10 @@ A-->B`;
           fontSize: '16px',
           rx: '10',
           ry: '10',
+          opacity: '0.5',
         };
         const result = styleToString(style);
-        expect(result).toBe('fill:red,stroke:blue,stroke-width:2px,stroke-dasharray:5 5,color:white,font-weight:bold,font-size:16px,rx:10,ry:10');
+        expect(result).toBe('fill:red,stroke:blue,stroke-width:2px,stroke-dasharray:5 5,color:white,font-weight:bold,font-size:16px,rx:10,ry:10,opacity:0.5');
       });
 
       it('should return empty string for empty style', () => {
@@ -945,6 +949,140 @@ describe('updateSubgraphLabel', () => {
   it('should return unchanged source when subgraph not found', () => {
     const source = 'flowchart TD\nA-->B';
     const result = updateSubgraphLabel(source, 'nonexistent', 'Label');
+
+    expect(result).toBe(source);
+  });
+});
+
+describe('parseDiagram subgraph tracking', () => {
+  it('should assign parentSubgraphId to nodes inside a subgraph', () => {
+    const source = 'flowchart TD\nsubgraph S1["Group 1"]\n  A[Start]\n  B[End]\nend';
+    const result = parseDiagram(source);
+
+    expect(result.subgraphs).toHaveLength(1);
+    expect(result.subgraphs[0].id).toBe('S1');
+    expect(result.subgraphs[0].label).toBe('Group 1');
+
+    const nodeA = result.nodes.find(n => n.id === 'A');
+    const nodeB = result.nodes.find(n => n.id === 'B');
+    expect(nodeA?.parentSubgraphId).toBe('S1');
+    expect(nodeB?.parentSubgraphId).toBe('S1');
+  });
+
+  it('should return subgraphs list with id, label, and parent', () => {
+    const source = 'flowchart TD\nsubgraph S1["Outer"]\n  subgraph S2["Inner"]\n    A\n  end\nend';
+    const result = parseDiagram(source);
+
+    expect(result.subgraphs).toHaveLength(2);
+    expect(result.subgraphs[0]).toEqual({ id: 'S1', label: 'Outer', parentSubgraphId: null });
+    expect(result.subgraphs[1]).toEqual({ id: 'S2', label: 'Inner', parentSubgraphId: 'S1' });
+  });
+
+  it('should handle nested subgraphs correctly', () => {
+    const source = 'flowchart TD\nsubgraph S1["Outer"]\n  A\n  subgraph S2["Inner"]\n    B\n  end\nend';
+    const result = parseDiagram(source);
+
+    const nodeA = result.nodes.find(n => n.id === 'A');
+    const nodeB = result.nodes.find(n => n.id === 'B');
+    expect(nodeA?.parentSubgraphId).toBe('S1');
+    expect(nodeB?.parentSubgraphId).toBe('S2');
+  });
+
+  it('should assign null parentSubgraphId when no subgraphs exist', () => {
+    const source = 'flowchart TD\nA-->B\nC[Node]';
+    const result = parseDiagram(source);
+
+    expect(result.subgraphs).toHaveLength(0);
+    result.nodes.forEach(n => {
+      expect(n.parentSubgraphId).toBeNull();
+    });
+  });
+
+  it('should track nodes on edge lines inside subgraphs', () => {
+    const source = 'flowchart TD\nsubgraph S1["Group"]\n  A([Start]) --> B{Check}\nend';
+    const result = parseDiagram(source);
+
+    const nodeA = result.nodes.find(n => n.id === 'A');
+    const nodeB = result.nodes.find(n => n.id === 'B');
+    expect(nodeA?.parentSubgraphId).toBe('S1');
+    expect(nodeB?.parentSubgraphId).toBe('S1');
+  });
+});
+
+describe('moveNodeToSubgraph', () => {
+  it('should move a standalone node from root into a subgraph', () => {
+    const source = 'flowchart TD\nA[Start]\nB[End]\nsubgraph S1["Group"]\nend';
+    const result = moveNodeToSubgraph(source, 'A', 'S1');
+
+    expect(result).toContain('subgraph S1["Group"]');
+    expect(result).toContain('A[Start]');
+    // A should be inside the subgraph (between subgraph and end)
+    const subgraphIdx = result.indexOf('subgraph S1');
+    const endIdx = result.indexOf('end');
+    const aIdx = result.indexOf('A[Start]');
+    expect(aIdx).toBeGreaterThan(subgraphIdx);
+    expect(aIdx).toBeLessThan(endIdx);
+  });
+
+  it('should move a node from subgraph to root', () => {
+    const source = 'flowchart TD\nsubgraph S1["Group"]\n  A[Start]\nend\nB[End]';
+    const result = moveNodeToSubgraph(source, 'A', null);
+
+    // A should be before the subgraph line
+    const subgraphIdx = result.indexOf('subgraph S1');
+    const aIdx = result.indexOf('A[Start]');
+    expect(aIdx).toBeLessThan(subgraphIdx);
+  });
+
+  it('should return unchanged source when node is already in target subgraph', () => {
+    const source = 'flowchart TD\nsubgraph S1["Group"]\n  A[Start]\nend';
+    const result = moveNodeToSubgraph(source, 'A', 'S1');
+
+    expect(result).toBe(source);
+  });
+
+  it('should create standalone declaration for node only on edge line', () => {
+    const source = 'flowchart TD\nA --> B\nsubgraph S1["Group"]\nend';
+    const result = moveNodeToSubgraph(source, 'A', 'S1');
+
+    const subgraphIdx = result.indexOf('subgraph S1');
+    const endIdx = result.indexOf('end');
+    const aIdx = result.indexOf('\n  A\n');
+    expect(aIdx).toBeGreaterThan(subgraphIdx);
+    expect(aIdx).toBeLessThan(endIdx);
+    // Original edge line should still exist
+    expect(result).toContain('A --> B');
+  });
+
+  it('should handle node between two subgraphs', () => {
+    const source = 'flowchart TD\nsubgraph S1["Group 1"]\n  B[Node B]\nend\nA[Node A]\nsubgraph S2["Group 2"]\nend';
+    const result = moveNodeToSubgraph(source, 'A', 'S2');
+
+    const s2Idx = result.indexOf('subgraph S2');
+    const endIdx = result.lastIndexOf('end');
+    const aIdx = result.indexOf('A[Node A]');
+    expect(aIdx).toBeGreaterThan(s2Idx);
+    expect(aIdx).toBeLessThan(endIdx);
+  });
+
+  it('should preserve indentation when moving into subgraph', () => {
+    const source = 'flowchart TD\n  subgraph S1["Group"]\n    B[Node B]\n  end\n  A[Start]';
+    const result = moveNodeToSubgraph(source, 'A', 'S1');
+
+    // The moved node should be indented with subgraph indent + 2 (4 spaces)
+    expect(result).toMatch(/\n {4}A\[Start\]\n/);
+  });
+
+  it('should return unchanged source when node is not found', () => {
+    const source = 'flowchart TD\nA[Start]\nsubgraph S1["Group"]\nend';
+    const result = moveNodeToSubgraph(source, 'NONEXISTENT', 'S1');
+
+    expect(result).toBe(source);
+  });
+
+  it('should return unchanged source when target subgraph is not found', () => {
+    const source = 'flowchart TD\nA[Start]';
+    const result = moveNodeToSubgraph(source, 'A', 'NONEXISTENT');
 
     expect(result).toBe(source);
   });
