@@ -243,6 +243,7 @@ function highlightSelectedEdge(shadowHost: HTMLDivElement, edgeIndex: number | n
 interface Props {
   content: string;
   theme: 'dark' | 'light';
+  themeId?: string;
   onChange?: (content: string) => void;
   onExport?: () => void;
   onRenderTime?: (ms: number) => void;
@@ -254,7 +255,7 @@ interface Props {
   externalPanelOpen?: boolean;
 }
 
-export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime, onFullscreen, onNodeSelect, onSelectionOpen, externalPanelOpen }: Props) {
+export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRenderTime, onFullscreen, onNodeSelect, onSelectionOpen, externalPanelOpen }: Props) {
   const { t } = useTranslation();
   const [svg, setSvg] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -321,7 +322,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     const start = performance.now();
 
     try {
-      const { svg: s, error: e } = await renderDiagram(content, `preview_${id}_${Date.now()}`);
+      const { svg: s, error: e } = await renderDiagram(content, `preview_${id}_${Date.now()}`, themeId);
 
       // Check if this render is still the latest one
       if (id !== renderIdRef.current) {return;}
@@ -345,7 +346,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
         setLoading(false);
       }
     }
-  }, [content, onRenderTime]);
+  }, [content, onRenderTime, themeId]);
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
@@ -416,6 +417,7 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
       if (fontSize) shadowCSS += `  font-size: ${fontSize};\n`;
       shadowCSS += '}\n';
     }
+
 
     // Create style element with theme variables
     const styleEl = document.createElement('style');
@@ -572,8 +574,8 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
 
   const handleAddSubgraph = useCallback(() => {
     if (!onChange) return;
-    onChange(addSubgraph(content));
-  }, [onChange, content]);
+    onChange(addSubgraph(content, undefined, t('preview.subgraph')));
+  }, [onChange, content, t]);
 
   const handleSubgraphClick = useCallback((e: React.MouseEvent, subgraphId: string) => {
     e.stopPropagation();
@@ -699,12 +701,12 @@ export function PreviewPanel({ content, theme, onChange, onExport, onRenderTime,
     onChange(result);
   }, [onChange, content]);
 
-  // Node label change handler — uses contentRef to avoid stale closure on rapid typing
+  // Node label change handler
   const handleNodeLabelChange = useCallback((nodeId: string, newLabel: string) => {
     if (!onChange) return;
-    const result = updateNodeLabel(contentRef.current, nodeId, newLabel);
+    const result = updateNodeLabel(content, nodeId, newLabel);
     onChange(result);
-  }, [onChange]);
+  }, [onChange, content]);
 
   // Edge label change handler
   const handleEdgeLabelChange = useCallback((source: string, target: string, label: string) => {

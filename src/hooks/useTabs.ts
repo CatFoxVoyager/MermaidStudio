@@ -51,6 +51,7 @@ export function useTabs() {
       content: diagram.content,
       saved_content: diagram.content,
       is_dirty: false,
+      themeId: diagram.themeId,
     };
 
     setTabs(prev => {
@@ -99,12 +100,18 @@ export function useTabs() {
     ));
   }, []);
 
+  const updateTabTheme = useCallback((tabId: string, themeId: string | null) => {
+    setTabs(prev => prev.map(t =>
+      t.id === tabId ? { ...t, themeId: themeId ?? undefined } : t
+    ));
+  }, []);
+
   const saveTab = useCallback(async (tabId: string) => {
     setTabs(prev => {
       const tab = prev.find(t => t.id === tabId);
       if (!tab) {return prev;}
       // Fire and forget - update will happen in background
-      updateDiagram(tab.diagram_id, { content: tab.content, title: tab.title });
+      updateDiagram(tab.diagram_id, { content: tab.content, title: tab.title, themeId: tab.themeId });
       saveVersion(tab.diagram_id, tab.content);
       return prev.map(t => t.id === tabId ? { ...t, saved_content: t.content, is_dirty: false } : t);
     });
@@ -112,5 +119,5 @@ export function useTabs() {
 
   const activeTab = tabs.find(t => t.id === activeTabId) ?? null;
 
-  return { tabs, activeTabId, activeTab, setActiveTabId, openDiagram, closeTab, closeTabsByDiagramIds, updateTabContent, saveTab };
+  return { tabs, activeTabId, activeTab, setActiveTabId, openDiagram, closeTab, closeTabsByDiagramIds, updateTabContent, updateTabTheme, saveTab };
 }

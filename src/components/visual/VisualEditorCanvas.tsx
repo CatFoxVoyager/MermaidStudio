@@ -54,10 +54,11 @@ function extractSvgNodes(container: HTMLDivElement): NodeOverlay[] {
 interface Props {
   content: string;
   theme: 'dark' | 'light';
+  themeId?: string;
   onChange: (content: string) => void;
 }
 
-export function VisualEditorCanvas({ content, theme, onChange }: Props) {
+export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props) {
   const [svg, setSvg] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -76,7 +77,7 @@ export function VisualEditorCanvas({ content, theme, onChange }: Props) {
   const render = useCallback(async () => {
     const id = ++renderIdRef.current;
     setLoading(true);
-    const { svg: s, error: e } = await renderDiagram(content, `visual_${id}_${Date.now()}`);
+    const { svg: s, error: e } = await renderDiagram(content, `visual_${id}_${Date.now()}`, themeId);
     if (id !== renderIdRef.current) {return;}
     setLoading(false);
     if (e) { setError(e); return; }

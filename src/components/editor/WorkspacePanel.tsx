@@ -35,6 +35,8 @@ interface Props {
   showAI: boolean;
   renderTimeMs: number | null;
   onRenderTime: (ms: number) => void;
+  /** Diagram-specific theme ID from the active tab */
+  themeId?: string;
 }
 
 export function WorkspacePanel({
@@ -43,7 +45,7 @@ export function WorkspacePanel({
   onShowHistory, onShowExport, onToggleAI, onFullscreen, onSaveTemplate,
   onNewDiagram, onShowTemplates, onShowPalette, onShowDiagramColors, onShowAdvancedStyle,
   onDiagramColorsClose, onAdvancedStyleClose, showDiagramColors, showAdvancedStyle,
-  showAI, renderTimeMs, onRenderTime,
+  showAI, renderTimeMs, onRenderTime, themeId,
 }: Props) {
   const { t } = useTranslation();
   const [splitPos, setSplitPos] = useState(50);
@@ -245,6 +247,7 @@ export function WorkspacePanel({
             <PreviewPanel
               content={activeTab.content}
               theme={theme}
+              themeId={themeId}
               onChange={v => onContentChange(activeTab.id, v)}
               onExport={onShowExport}
               onRenderTime={onRenderTime}

@@ -32,7 +32,7 @@ interface ModalProviderProps {
   onCloseHelp: () => void;
   onCloseFullscreen: () => void;
   // Modal-specific props
-  activeTab?: { id: string; title: string; content: string; diagram_id: string } | null;
+  activeTab?: { id: string; title: string; content: string; diagram_id: string; themeId?: string } | null;
   handleTemplateSelect?: (template: Template) => void;
   handleRestore?: (content: string) => void;
   handleCopyLink?: () => void;
@@ -154,6 +154,7 @@ export function ModalProvider({
       {showFullscreen && activeTab && (
         <FullscreenPreview
           content={activeTab.content}
+          themeId={activeTab.themeId}
           onClose={onCloseFullscreen}
         />
       )}

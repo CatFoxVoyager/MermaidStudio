@@ -53,6 +53,8 @@ interface AppLayoutProps {
   onAIOpenSettings: () => void;
   onDiagramColorsClose: () => void;
   onAdvancedStyleClose: () => void;
+  /** Called when diagram-level theme changes (from DiagramColorsPanel) */
+  onThemeIdChange?: (themeId: string | null) => void;
   // Other
   focusMode: boolean;
   renderTimeMs: number | null;
@@ -100,6 +102,7 @@ export function AppLayout({
   onAIOpenSettings,
   onDiagramColorsClose,
   onAdvancedStyleClose,
+  onThemeIdChange,
   focusMode,
   renderTimeMs,
   onRenderTime,
@@ -144,6 +147,7 @@ export function AppLayout({
             activeTabId={activeTabId}
             activeTab={activeTab}
             theme={theme}
+            themeId={activeTab?.themeId}
             onSelectTab={onSelectTab}
             onCloseTab={onCloseTab}
             onContentChange={onContentChange}
@@ -176,6 +180,8 @@ export function AppLayout({
                 currentContent={activeTab.content}
                 onContentChange={(content) => onContentChange(activeTab.id, content)}
                 theme={theme}
+                currentThemeId={activeTab.themeId}
+                onThemeIdChange={onThemeIdChange}
                 defaultThemeId={defaultTheme?.id}
                 onSetDefaultTheme={setDefaultTheme}
               />
