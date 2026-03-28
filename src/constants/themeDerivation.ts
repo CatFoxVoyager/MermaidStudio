@@ -389,11 +389,66 @@ export function deriveThemeVariables(
 
 /**
  * Apply a theme to diagram content via YAML frontmatter.
+ * Only writes the coreColors (~10 values) as themeVariables — Mermaid derives the rest.
+ * Preserves existing layout config (flowchart.curve, spacing, etc.) from Advanced Style.
+ * Adds %% @theme comment for MermaidStudio detection.
+ */
+export function applyThemeToFrontmatter(
+  content: string,
+  theme: MermaidTheme,
+  _darkMode: boolean,
+): string {
+  // Strip existing YAML frontmatter
+  const stripped = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
+  // Remove existing %% @theme comment
+  const cleanBody = stripped.replace(THEME_COMMENT_RE, '');
+
+  // Parse existing layout config (from Advanced Style) to preserve it
+  const frontmatterMatch = content.match(/^\s*---([\s\S]*?)---\s*/i);
+  let layoutConfig: Record<string, unknown> = {};
+  if (frontmatterMatch) {
+    try {
+      const yamlContent = frontmatterMatch[1];
+      const configMatch = yamlContent.match(/config:\s*\n([\s\S]*?)(?=\n---|\n\s*\n|\s*$)/);
+      if (configMatch) {
+        const parsed = parseYamlConfig(configMatch[1]);
+        for (const [key, value] of Object.entries(parsed)) {
+          if (key === 'theme' || key === 'themeVariables' || key === '__line') continue;
+          layoutConfig[key] = value;
+        }
+      }
+    } catch { /* ignore parse errors */ }
+  }
+
+  // Only include coreColors — Mermaid derives the rest automatically
+  const themeVariables: Record<string, string> = {};
+  for (const [key, value] of Object.entries(theme.coreColors)) {
+    if (value !== undefined && value !== null) {
+      themeVariables[key] = value;
+    }
+  }
+
+  const mergedConfig: Record<string, unknown> = {
+    theme: 'base',
+    themeVariables,
+    ...layoutConfig,
+  };
+
+  const yamlConfig = `---
+config:
+${configToYaml(mergedConfig)}---
+`;
+
+  return `${yamlConfig}\n%% @theme ${theme.id}\n${cleanBody}`;
+}
+
+/**
+ * Apply a theme to diagram content via YAML frontmatter.
  * Wraps content in YAML config with themeVariables.
  * @deprecated This function is kept for backward compatibility with existing tests.
  * For new code, use render-time theming via `setDiagramTheme()` and `renderDiagram(content, id, themeId)`.
  */
-export function applyThemeToFrontmatter(
+export function applyThemeToFrontmatterLegacy(
   content: string,
   theme: MermaidTheme,
   darkMode: boolean
@@ -502,6 +557,9 @@ export function stripThemeDirective(content: string): string {
 
   // Strip %%{init}%% blocks
   cleaned = cleaned.replace(/%%{init[\s\S]*?}%%/gi, '');
+
+  // Strip %% @theme comments (MermaidStudio theme metadata)
+  cleaned = cleaned.replace(/^%% @theme \S+\n?/gm, '');
 
   // Strip classDef and class directives
   cleaned = cleaned.replace(/^[ \t]*classDef\s+.*$/gm, '');
@@ -622,18 +680,28 @@ export function extractStyleOptionsFromContent(content: string): any {
 /**
  * Apply style options to diagram content via YAML frontmatter.
  * Updates existing config or creates new one as needed.
+ * @param content - The diagram content
+ * @param styleOptions - Style options to apply (fontFamily, fontSize, primaryColor, etc.)
+ * @param darkMode - Whether dark mode is active (defaults to false). Used to determine default theme colors.
  */
-export function applyStyleToContent(content: string, styleOptions: any): string {
+export function applyStyleToContent(content: string, styleOptions: any, darkMode: boolean = false): string {
 
   let stripped = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
-  const diagramType = detectDiagramType(stripped);
 
-  // Apply direction change to the first line (e.g. "flowchart TD" -> "flowchart LR")
+  const diagramType = detectDiagramType(stripped);
+  let hasChanges = false;
+
+  // Apply direction change — only if actually different
+  // Use multiline match since %% @theme comment may precede the diagram keyword
   if (styleOptions.direction) {
-    stripped = stripped.replace(
-      /^(flowchart|graph)\s+(TD|TB|BT|LR|RL)/i,
-      `$1 ${styleOptions.direction}`
-    );
+    const dirMatch = stripped.match(/^(flowchart|graph)\s+(TD|TB|BT|LR|RL)/im);
+    if (dirMatch && dirMatch[2].toUpperCase() !== styleOptions.direction.toUpperCase()) {
+      stripped = stripped.replace(
+        /^(flowchart|graph)\s+(TD|TB|BT|LR|RL)/im,
+        `$1 ${styleOptions.direction}`
+      );
+      hasChanges = true;
+    }
   }
 
   // Check if there's existing frontmatter with config
@@ -655,7 +723,6 @@ export function applyStyleToContent(content: string, styleOptions: any): string 
 
   // Build new config
   const newConfig: any = { ...existingConfig };
-  let hasChanges = false;
 
   // Helper to set config value if different
   const setConfig = (path: string[], value: any) => {
@@ -677,19 +744,34 @@ export function applyStyleToContent(content: string, styleOptions: any): string 
   // Apply style options based on diagram type
   const type = diagramType || 'flowchart';
 
-  // Font settings (apply to all types)
-  if (styleOptions.fontFamily) {
-    if (!newConfig.themeVariables) newConfig.themeVariables = {};
+  // Helper to ensure themeVariables object exists and preserves existing values
+  // Only creates minimal themeVariables - does NOT add default colors unless explicitly set
+  const ensureThemeVariables = () => {
+    if (!newConfig.themeVariables) {
+      // Preserve existing themeVariables, or create minimal empty object
+      newConfig.themeVariables = existingConfig.themeVariables ? { ...existingConfig.themeVariables } : {};
+    }
+  };
+
+  // Font/color settings — only apply if value differs from existing config
+  // Preserve existing themeVariables when adding new ones
+  if (styleOptions.fontFamily && existingConfig.themeVariables?.fontFamily !== styleOptions.fontFamily) {
+    ensureThemeVariables();
     newConfig.themeVariables.fontFamily = styleOptions.fontFamily;
     hasChanges = true;
   }
   if (styleOptions.fontSize) {
-    if (!newConfig.themeVariables) newConfig.themeVariables = {};
-    newConfig.themeVariables.fontSize = styleOptions.fontSize + 'px';
-    hasChanges = true;
+    // Normalize: always store as '<number>px'
+    const raw = String(styleOptions.fontSize);
+    const normalized = raw.endsWith('px') ? raw : raw + 'px';
+    if (existingConfig.themeVariables?.fontSize !== normalized) {
+      ensureThemeVariables();
+      newConfig.themeVariables.fontSize = normalized;
+      hasChanges = true;
+    }
   }
-  if (styleOptions.primaryColor) {
-    if (!newConfig.themeVariables) newConfig.themeVariables = {};
+  if (styleOptions.primaryColor && existingConfig.themeVariables?.primaryColor !== styleOptions.primaryColor) {
+    ensureThemeVariables();
     newConfig.themeVariables.primaryColor = styleOptions.primaryColor;
     hasChanges = true;
   }
@@ -825,6 +907,41 @@ function parseYamlConfig(configText: string): any {
   }
 
   return config;
+}
+
+// ── Theme comment helpers ────────────────────────────────────────────────────
+// %% @theme <themeId> is a MermaidStudio-specific comment embedded in diagram
+// content so that copy-pasting a diagram preserves the theme selection.
+
+const THEME_COMMENT_RE = /^%% @theme (\S+)\n?/m;
+
+/** Extract themeId from a `%% @theme <id>` comment in diagram content. */
+export function extractThemeIdFromContent(content: string): string | null {
+  const match = content.match(THEME_COMMENT_RE);
+  return match ? match[1] : null;
+}
+
+/**
+ * Inject or remove a `%% @theme <id>` comment in diagram content.
+ * Placed after any YAML frontmatter so it doesn't break Mermaid parsing.
+ * Pass `null` to remove the comment.
+ */
+export function injectThemeComment(content: string, themeId: string | null): string {
+  // Remove existing theme comment
+  const cleaned = content.replace(THEME_COMMENT_RE, '');
+
+  if (!themeId) return cleaned;
+
+  const comment = `%% @theme ${themeId}\n`;
+
+  // If content starts with YAML frontmatter, place comment after it
+  const yamlMatch = cleaned.match(/^(\s*---[\s\S]*?---\s*\n)/);
+  if (yamlMatch) {
+    return cleaned.replace(yamlMatch[1], `$1${comment}`);
+  }
+
+  // No YAML frontmatter — place at the very beginning
+  return `${comment}${cleaned}`;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { RotateCcw, X, Palette, Check, Plus, Pencil, Star } from 'lucide-react';
 import { builtinThemes, getThemeById } from '@/constants/themes';
-import { applyC4FromTheme, stripThemeDirective, getSwatchColors } from '@/constants/themeDerivation';
+import { applyC4FromTheme, stripThemeDirective, getSwatchColors, applyThemeToFrontmatter } from '@/constants/themeDerivation';
 import type { MermaidTheme, DiagramType } from '@/types';
 import { getStylingCapabilities } from '@/types';
 import { useTranslation } from 'react-i18next';
@@ -80,27 +80,30 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
 
     const cleanContent = stripThemeDirective(currentContent);
 
+    let newContent: string;
     if (isC4DiagramType(cleanContent)) {
       // C4 diagrams use UpdateElementStyle/UpdateRelStyle AND store themeId
-      const contentWithC4Styles = applyC4FromTheme(cleanContent, theme);
-      onContentChange(contentWithC4Styles);
-      onThemeIdChange?.(theme.id);
+      newContent = applyC4FromTheme(cleanContent, theme);
     } else {
-      // Non-C4 diagrams: just store themeId, no content modification
-      onThemeIdChange?.(theme.id);
+      // Other diagrams: generate YAML frontmatter with filtered themeVariables
+      newContent = applyThemeToFrontmatter(cleanContent, theme, isDark);
     }
 
+    onContentChange(newContent);
+    onThemeIdChange?.(theme.id);
     setSelectedTheme(null);
   };
 
   // Reset to default
   const handleResetToDefault = () => {
     if (currentContent) {
+      let cleanContent = currentContent;
       if (isC4DiagramType(currentContent)) {
-        // For C4 diagrams, strip directives AND clear themeId
-        onContentChange(stripThemeDirective(currentContent));
+        cleanContent = stripThemeDirective(currentContent);
       }
-      // Clear themeId for all diagram types
+      // Strip theme YAML frontmatter and %% @theme comment
+      cleanContent = stripThemeDirective(cleanContent);
+      onContentChange(cleanContent);
       onThemeIdChange?.(null);
       setSelectedTheme(null);
       setShowThemeEditor(false);

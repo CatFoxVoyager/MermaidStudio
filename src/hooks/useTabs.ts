@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Tab } from '@/types';
 import { getDiagram, updateDiagram, saveVersion, getSettings, updateSettings } from '@/services/storage/database';
+import { extractThemeIdFromContent } from '@/constants/themeDerivation';
 
 export function useTabs() {
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -14,6 +15,7 @@ export function useTabs() {
       if (settings.lastOpenDiagramId) {
         const diagram = await getDiagram(settings.lastOpenDiagramId);
         if (diagram) {
+          const themeFromContent = extractThemeIdFromContent(diagram.content);
           const tab: Tab = {
             id: `tab_${diagram.id}`,
             diagram_id: diagram.id,
@@ -21,6 +23,7 @@ export function useTabs() {
             content: diagram.content,
             saved_content: diagram.content,
             is_dirty: false,
+            themeId: diagram.themeId ?? themeFromContent ?? undefined,
           };
           setTabs([tab]);
           setActiveTabId(tab.id);
@@ -51,7 +54,7 @@ export function useTabs() {
       content: diagram.content,
       saved_content: diagram.content,
       is_dirty: false,
-      themeId: diagram.themeId,
+      themeId: diagram.themeId ?? extractThemeIdFromContent(diagram.content) ?? undefined,
     };
 
     setTabs(prev => {
@@ -95,9 +98,16 @@ export function useTabs() {
   }, []);
 
   const updateTabContent = useCallback((tabId: string, content: string) => {
-    setTabs(prev => prev.map(t =>
-      t.id === tabId ? { ...t, content, is_dirty: content !== t.saved_content } : t
-    ));
+    const themeFromContent = extractThemeIdFromContent(content);
+    setTabs(prev => prev.map(t => {
+      if (t.id !== tabId) return t;
+      const updates: Partial<Tab> = { content, is_dirty: content !== t.saved_content };
+      // Auto-detect theme from %% @theme comment when content changes (e.g. paste)
+      if (themeFromContent !== null) {
+        updates.themeId = themeFromContent;
+      }
+      return { ...t, ...updates };
+    }));
   }, []);
 
   const updateTabTheme = useCallback((tabId: string, themeId: string | null) => {

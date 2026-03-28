@@ -229,6 +229,8 @@ export function detectDiagramType(content: string): DiagramType {
   // Remove YAML frontmatter if present
   let body = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
   body = body.replace(/^\s*%%\{init:[\s\S]*?\}%%\s*/i, '').trim();
+  // Skip Mermaid comment lines (e.g. %% @theme corporate_blue)
+  body = body.replace(/^(%%[^\n]*\n?)+/i, '').trim();
 
   const first = body.split('\n')[0]?.toLowerCase().trim();
   if (!first) return 'unknown';

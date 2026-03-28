@@ -131,6 +131,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   const isInitialized = useRef(false);
   const previousContentRef = useRef<string>('');
   const applyingRef = useRef(false); // Prevents init effect from re-triggering apply loop
+  const userHasChangedStyles = useRef(false); // Track if user made any changes
 
   const isDefault = JSON.stringify(styleOptions) === JSON.stringify(DEFAULT_STYLE_OPTIONS);
 
@@ -156,7 +157,15 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
 
         const existingStyles = extractStyleOptionsFromContent(currentContent);
         if (Object.keys(existingStyles).length > 0) {
+          // Update style options WITHOUT marking as user change
+          // This prevents auto-applying extracted styles back to content
           setStyleOptions(prev => ({ ...prev, ...existingStyles }));
+          // Reset the flag so we don't re-apply styles that were already in the content
+          userHasChangedStyles.current = false;
+        } else {
+          // No existing styles, start fresh
+          setStyleOptions({ ...DEFAULT_STYLE_OPTIONS });
+          userHasChangedStyles.current = false;
         }
         isInitialized.current = true;
         previousContentRef.current = currentContent;
@@ -165,6 +174,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
       isInitialized.current = false;
       baseContentRef.current = '';
       previousContentRef.current = '';
+      userHasChangedStyles.current = false;
     }
   }, [isOpen, currentContent]);
 
@@ -172,25 +182,32 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   const applyStyles = useCallback((opts: DiagramStyleOptions) => {
     if (!baseContentRef.current) {return;}
     applyingRef.current = true;
-    onContentChange(applyStyleToContent(baseContentRef.current, opts));
-  }, [onContentChange]);
+    const isDark = theme === 'dark';
+    onContentChange(applyStyleToContent(baseContentRef.current, opts, isDark));
+  }, [onContentChange, theme]);
 
-  // Apply styles in real-time when styleOptions change (but only when panel is open)
+  // Apply styles in real-time when styleOptions change (but only when panel is open and user made changes)
+  // Note: applyStyles intentionally omitted from deps to prevent infinite loop
+  // applyingRef prevents re-triggering when our own apply updates content
   useEffect(() => {
-    if (isOpen && isInitialized.current) {
+    if (isOpen && isInitialized.current && userHasChangedStyles.current) {
       applyStyles(styleOptions);
     }
-  }, [isOpen, styleOptions, applyStyles]);
+  }, [isOpen, styleOptions]);
 
   const update = useCallback((partial: Partial<DiagramStyleOptions>) => {
+    userHasChangedStyles.current = true; // Mark that user made changes
     setStyleOptions(prev => ({ ...prev, ...partial }));
   }, []);
 
   const handleReset = useCallback(() => {
     const defaults = { ...DEFAULT_STYLE_OPTIONS };
+    userHasChangedStyles.current = true; // Mark that user made changes
     setStyleOptions(defaults);
-    applyStyles(defaults);
-  }, [applyStyles]);
+    applyingRef.current = true;
+    const isDark = theme === 'dark';
+    onContentChange(applyStyleToContent(baseContentRef.current, defaults, isDark));
+  }, [onContentChange, theme]);
 
   const handleClose = useCallback(() => {
     onClose();

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveThemeVariables, applyThemeToFrontmatter, applyC4FromTheme, DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '../themeDerivation';
+import { deriveThemeVariables, applyThemeToFrontmatter, applyC4FromTheme, applyStyleToContent, DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '../themeDerivation';
 import type { ThemeCoreColors } from '@/types';
 
 describe('themeDerivation', () => {
@@ -277,6 +277,122 @@ flowchart TD
       expect(result).toContain('UpdateElementStyle(person,');
       expect(result).toContain('UpdateElementStyle(system,');
       expect(result).toContain(theme.coreColors.primaryColor);
+    });
+  });
+
+  describe('applyStyleToContent', () => {
+    it('preserves existing themeVariables when adding style options', () => {
+      const contentWithTheme = `---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: '#ff6b6b'
+    primaryTextColor: '#ffffff'
+    lineColor: '#ff6b6b'
+    fontSize: '16px'
+  flowchart:
+    curve: basis
+---
+graph TD
+    A[Start] --> B[End]
+`;
+
+      const result = applyStyleToContent(contentWithTheme, {
+        fontFamily: 'Arial, Helvetica, sans-serif'
+      });
+
+      // Should preserve existing themeVariables
+      expect(result).toContain("primaryColor: '#ff6b6b'");
+      expect(result).toContain("primaryTextColor: '#ffffff'");
+      expect(result).toContain("lineColor: '#ff6b6b'");
+      expect(result).toContain("fontSize: '16px'");
+
+      // Should add the new fontFamily
+      expect(result).toContain("fontFamily: 'Arial, Helvetica, sans-serif'");
+    });
+
+    it('preserves existing themeVariables when changing fontSize', () => {
+      const contentWithTheme = `---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: '#ff6b6b'
+    fontSize: '16px'
+---
+graph TD
+    A[Start] --> B[End]
+`;
+
+      const result = applyStyleToContent(contentWithTheme, {
+        fontSize: 20
+      });
+
+      // Should preserve existing primaryColor
+      expect(result).toContain("primaryColor: '#ff6b6b'");
+
+      // Should update the fontSize
+      expect(result).toContain("fontSize: '20px'");
+
+      // Should NOT contain the old fontSize value
+      expect(result).not.toContain("fontSize: '16px'");
+    });
+
+    it('preserves existing themeVariables when adding primaryColor', () => {
+      const contentWithTheme = `---
+config:
+  theme: base
+  themeVariables:
+    fontSize: '16px'
+    fontFamily: 'Arial, sans-serif'
+---
+graph TD
+    A[Start] --> B[End]
+`;
+
+      const result = applyStyleToContent(contentWithTheme, {
+        primaryColor: '#00ff00'
+      });
+
+      // Should preserve existing themeVariables
+      expect(result).toContain("fontSize: '16px'");
+      expect(result).toContain("fontFamily: 'Arial, sans-serif'");
+
+      // Should add the new primaryColor
+      expect(result).toContain("primaryColor: '#00ff00'");
+    });
+
+    it('adds only the specified option when no themeVariables exist', () => {
+      const contentWithoutTheme = `graph TD
+    A[Start] --> B[End]
+`;
+
+      const result = applyStyleToContent(contentWithoutTheme, {
+        fontFamily: 'Arial, Helvetica, sans-serif'
+      }, false); // light mode
+
+      // Should only include fontFamily, not all default colors
+      expect(result).toContain("themeVariables:");
+      expect(result).toContain("fontFamily: 'Arial, Helvetica, sans-serif'");
+      // Should NOT include default theme colors
+      expect(result).not.toContain("primaryColor:");
+      expect(result).not.toContain("background:");
+    });
+
+    it('adds only the specified option in dark mode', () => {
+      const contentWithoutTheme = `graph TD
+    A[Start] --> B[End]
+`;
+
+      const result = applyStyleToContent(contentWithoutTheme, {
+        fontSize: 18
+      }, true); // dark mode
+
+      // Should only include fontSize, not all default colors
+      expect(result).toContain("themeVariables:");
+      expect(result).toContain("fontSize: '18px'");
+      // Should NOT include default theme colors
+      expect(result).not.toContain("primaryColor:");
+      expect(result).not.toContain("background:");
     });
   });
 
