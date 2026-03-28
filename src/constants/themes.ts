@@ -22,7 +22,7 @@ export const builtinThemes: MermaidTheme[] = [
     coreColors: {
       primaryColor: '#daeaf2',       // Light blue node fill (Mermaid convention)
       secondaryColor: '#b3d4e8',     // Secondary node fill
-      background: '#ffffff',
+      background: '#F5F7FA',
       lineColor: '#0066CC',          // Edges use the bold palette primary
       primaryTextColor: '#1A1F2E',
       successColor: '#00AA44',
@@ -66,7 +66,7 @@ export const builtinThemes: MermaidTheme[] = [
       successColor: '#00E676',
       warningColor: '#FFD600',
       errorColor: '#FF3D00',
-      infoColor: '#00B8D4',
+      infoColor: '#FF006E',          // Changed from #00B8D4 to use original accent color
       fontFamily: 'Inter, system-ui, sans-serif',
       fontSize: '14px',
     },
@@ -136,7 +136,7 @@ export const builtinThemes: MermaidTheme[] = [
     coreColors: {
       primaryColor: '#C6F2C6',
       secondaryColor: '#A7E3A7',
-      background: '#F0FDF4',
+      background: '#DCFCE7',
       lineColor: '#15803D',
       primaryTextColor: '#1B4332',
       successColor: '#16A34A',
@@ -162,6 +162,44 @@ export const builtinThemes: MermaidTheme[] = [
       warningColor: '#F59E0B',
       errorColor: '#EF4444',
       infoColor: '#7C3AED',
+      fontFamily: 'Inter, system-ui, sans-serif',
+      fontSize: '14px',
+    },
+  },
+  {
+    id: 'rainbow',
+    name: 'Rainbow',
+    description: 'Vibrant rainbow color spectrum',
+    isBuiltin: true,
+    coreColors: {
+      primaryColor: '#FCE7F3',
+      secondaryColor: '#EDE9FE',
+      background: '#F9FAFB',
+      lineColor: '#EC4899',
+      primaryTextColor: '#111827',
+      successColor: '#10B981',
+      warningColor: '#F59E0B',
+      errorColor: '#EF4444',
+      infoColor: '#3B82F6',
+      fontFamily: 'Inter, system-ui, sans-serif',
+      fontSize: '14px',
+    },
+  },
+  {
+    id: 'neutral-minimal',
+    name: 'Neutral Minimal',
+    description: 'Clean, minimal neutral grayscale',
+    isBuiltin: true,
+    coreColors: {
+      primaryColor: '#E5E7EB',
+      secondaryColor: '#D1D5DB',
+      background: '#F3F4F6',
+      lineColor: '#374151',
+      primaryTextColor: '#1F2937',
+      successColor: '#4B5563',
+      warningColor: '#6B7280',
+      errorColor: '#111827',
+      infoColor: '#9CA3AF',
       fontFamily: 'Inter, system-ui, sans-serif',
       fontSize: '14px',
     },
@@ -323,22 +361,4 @@ export function getThemeById(id: string): MermaidTheme | undefined {
 export function getThemeByName(name: string): MermaidTheme | undefined {
   const lowerName = name.toLowerCase();
   return builtinThemes.find((t) => t.name.toLowerCase() === lowerName);
-}
-
-/**
- * Get 8 representative swatch colors for a theme card.
- * Uses explicitly defined semantic/line colors from the theme,
- * falling back to derived colors when not set.
- */
-export function getSwatchColors(coreColors: Record<string, string>): string[] {
-  return [
-    coreColors.primaryColor || '#ECECFF',
-    coreColors.secondaryColor || '#CDE0F5',
-    coreColors.background || '#ffffff',
-    coreColors.lineColor || '#333333',
-    coreColors.successColor || '#22C55E',
-    coreColors.warningColor || '#F59E0B',
-    coreColors.errorColor || '#EF4444',
-    coreColors.infoColor || '#3B82F6',
-  ];
 }
