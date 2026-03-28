@@ -18,7 +18,7 @@ export default function App() {
   const { theme, defaultTheme, setDefaultTheme, toggleTheme } = useTheme();
   const { language, setLanguage } = useLanguage();
   const { toasts, show: showToast, dismiss } = useToast();
-  const { tabs, activeTabId, activeTab, setActiveTabId, openDiagram, closeTab, closeTabsByDiagramIds, updateTabContent, saveTab } = useTabs();
+  const { tabs, activeTabId, activeTab, setActiveTabId, openDiagram, closeTab, closeTabsByDiagramIds, updateTabContent, updateTabTheme, saveTab } = useTabs();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
@@ -81,7 +81,7 @@ export default function App() {
         theme={theme} toggleTheme={toggleTheme} defaultTheme={defaultTheme} setDefaultTheme={setDefaultTheme} language={language} onChangeLanguage={setLanguage}
         sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen(v => !v)} onOpenDiagram={openDiagram} onRefreshSidebar={refresh} onDiagramDeleted={closeTabsByDiagramIds}
         tabs={tabs} activeTabId={activeTabId} activeTab={activeTab} onSelectTab={setActiveTabId} onCloseTab={closeTab} onContentChange={updateTabContent}
-        onSave={modalProps.handleSave} onShowHistory={modalOpen('showHistory')} onShowExport={modalOpen('showExport')} onToggleAI={modalToggle('showAI')} onFullscreen={modalOpen('showFullscreen')} onSaveTemplate={modalOpen('showSaveTemplate')} onNewDiagram={newDiagram} onShowTemplates={modalOpen('showTemplates')} onShowPalette={modalOpen('showPalette')} onShowDiagramColors={openDiagramColors} onShowAdvancedStyle={openAdvancedStyle} onOpenCommandPalette={modalOpen('showPalette')} onOpenBackup={modalOpen('showBackup')} onFocusMode={modalProps.toggleFocusMode}
+        onSave={modalProps.handleSave} onShowHistory={modalOpen('showHistory')} onShowExport={modalOpen('showExport')} onToggleAI={modalToggle('showAI')} onFullscreen={modalOpen('showFullscreen')} onSaveTemplate={modalOpen('showSaveTemplate')} onNewDiagram={newDiagram} onShowTemplates={modalOpen('showTemplates')} onShowPalette={modalOpen('showPalette')} onShowDiagramColors={openDiagramColors} onShowAdvancedStyle={openAdvancedStyle} onOpenCommandPalette={modalOpen('showPalette')} onOpenBackup={modalOpen('showBackup')} onFocusMode={modalProps.toggleFocusMode} onThemeIdChange={activeTab ? (themeId: string | null) => updateTabTheme(activeTab.id, themeId) : undefined}
         showAI={modals.showAI} showDiagramColors={modals.showDiagramColors} showAdvancedStyle={modals.showAdvancedStyle}
         onAIApply={modalProps.handleAIApply} onAIClose={modalClose('showAI')} onAIOpenSettings={modalOpen('showAISettings')} onDiagramColorsClose={modalClose('showDiagramColors')} onAdvancedStyleClose={modalClose('showAdvancedStyle')}
         focusMode={focusMode} renderTimeMs={renderTimeMs} onRenderTime={setRenderTimeMs} refreshKey={refreshKey}

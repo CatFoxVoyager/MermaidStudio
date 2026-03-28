@@ -6,10 +6,11 @@ import { sanitizeSVG } from '@/utils/sanitization';
 
 interface Props {
   content: string;
+  themeId?: string;
   onClose: () => void;
 }
 
-export function FullscreenPreview({ content, onClose }: Props) {
+export function FullscreenPreview({ content, themeId, onClose }: Props) {
   const { t } = useTranslation();
   const [svg, setSvg] = useState('');
   const [zoom, setZoom] = useState(1);
@@ -19,10 +20,10 @@ export function FullscreenPreview({ content, onClose }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    renderDiagram(content, `fullscreen_${Date.now()}`).then(({ svg: s }) => {
+    renderDiagram(content, `fullscreen_${Date.now()}`, themeId).then(({ svg: s }) => {
       if (s) {setSvg(s);}
     });
-  }, [content]);
+  }, [content, themeId]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {

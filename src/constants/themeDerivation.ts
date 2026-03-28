@@ -5,6 +5,7 @@
 import { adjust, darken, invert, isDark, lighten } from 'khroma';
 import type { ThemeCoreColors, MermaidTheme } from '@/types';
 import { builtinThemes } from '@/constants/themes';
+import { detectDiagramType } from '@/lib/mermaid/core';
 
 const THEME_COLOR_LIMIT = 12;
 
@@ -64,7 +65,7 @@ export function deriveThemeVariables(
   t.clusterBorder = t.clusterBorder || t.tertiaryBorderColor;
   t.defaultLinkColor = t.defaultLinkColor || t.lineColor;
   t.titleColor = t.titleColor || t.tertiaryTextColor;
-  t.edgeLabelBackground = t.edgeLabelBackground || (darkMode ? darken(t.secondaryColor as string, 30) : t.secondaryColor);
+  t.edgeLabelBackground = t.edgeLabelBackground || t.background;
   t.nodeTextColor = t.nodeTextColor || t.primaryTextColor;
 
   // Step 6: Sequence diagram colors
@@ -421,28 +422,29 @@ ${objectToYaml(themeVariables, 4)}---
 export function getSwatchColors(coreColors: ThemeCoreColors, darkMode: boolean): string[] {
   const result: string[] = [];
 
-  // 1. Primary color
-  result[0] = coreColors.primaryColor;
+  // Put vivid/identity colors first, pale fills last
+  // 1. Line color (the bold identity color — e.g. #0066CC for Corporate Blue)
+  result[0] = coreColors.lineColor || invert(coreColors.background);
 
-  // 2. Secondary color (derived if not set)
-  result[1] = coreColors.secondaryColor || adjust(coreColors.primaryColor, { h: -120 });
+  // 2. Primary fill (lighter, e.g. #daeaf2)
+  result[1] = coreColors.primaryColor;
 
-  // 3. Background
-  result[2] = coreColors.background;
+  // 3. Secondary fill
+  result[2] = coreColors.secondaryColor || adjust(coreColors.primaryColor, { h: -120 });
 
-  // 4. Line color (derived via invert)
-  result[3] = coreColors.lineColor || invert(coreColors.background);
+  // 4. Background
+  result[3] = coreColors.background;
 
-  // 5. Success color (derive if not set)
+  // 5. Success
   result[4] = coreColors.successColor || adjust(coreColors.primaryColor, { h: 120 });
 
-  // 6. Warning color (derive if not set)
+  // 6. Warning
   result[5] = coreColors.warningColor || adjust(coreColors.primaryColor, { h: 45 });
 
-  // 7. Error color (derive if not set)
+  // 7. Error
   result[6] = coreColors.errorColor || adjust(coreColors.primaryColor, { h: 0, s: 80 });
 
-  // 8. Info color (derive if not set)
+  // 8. Info
   result[7] = coreColors.infoColor || adjust(coreColors.primaryColor, { h: 200 });
 
   return result;
@@ -559,23 +561,295 @@ export function addBaseThemeConfig(content: string): string {
 }
 
 /**
- * Extract style options from existing YAML config.
- * Ported from colorPalettes.ts - full implementation needed for AdvancedStylePanel.
+ * Extract style options from existing YAML config in content.
+ * Parses existing config to populate style options in UI.
  */
 export function extractStyleOptionsFromContent(content: string): any {
-  // This is a placeholder - the full implementation from colorPalettes.ts
-  // is about 200 lines. For now, return empty object to avoid breaking imports.
-  // TODO: Port the full implementation from colorPalettes.ts lines 1278-1493
-  return {};
+  const frontmatterMatch = content.match(/^\s*---[\s\S]*?---\s*/i);
+  if (!frontmatterMatch) {
+    return {};
+  }
+
+  try {
+    const yamlContent = frontmatterMatch[0].replace(/---\s*/, '').trim();
+    // Simple YAML parser for the config section
+    const configMatch = yamlContent.match(/config:\s*\n([\s\S]*?)(?=\n---|\n\s*\n|\s*$)/);
+    if (!configMatch) return {};
+
+    const configText = configMatch[1];
+    const options: any = {};
+
+    // Parse common config options
+    const parseKeyValue = (line: string, key: string, targetKey?: string) => {
+      const match = line.match(new RegExp(`^\\s*${key}:\\s*(.+)$`));
+      if (match) {
+        const value = match[1].trim().replace(/^['"]|['"]$/g, '');
+        if (targetKey) {
+          if (!options[targetKey]) options[targetKey] = {};
+          (options[targetKey] as any)[key] = value;
+        } else {
+          options[key] = value;
+        }
+      }
+    };
+
+    const lines = configText.split('\n');
+    for (const line of lines) {
+      if (line.includes('flowchart:')) {
+        const flowchartMatch = line.match(/flowchart:\s*\n([\s\S]*?)(?=\n\s*\w|\n---|\s*$)/);
+        if (flowchartMatch) {
+          const flowchartText = flowchartMatch[1];
+          for (const fc of flowchartText.split('\n')) {
+            parseKeyValue(fc, 'curve', 'flowchart');
+            parseKeyValue(fc, 'padding', 'flowchart'); // nodePadding
+            parseKeyValue(fc, 'nodeSpacing', 'flowchart');
+            parseKeyValue(fc, 'rankSpacing', 'flowchart');
+          }
+        }
+      }
+      parseKeyValue(line, 'theme');
+      parseKeyValue(line, 'fontFamily');
+      parseKeyValue(line, 'fontSize');
+      parseKeyValue(line, 'layout');
+    }
+
+    return options;
+  } catch {
+    return {};
+  }
 }
 
 /**
- * Apply style options to content.
- * Ported from colorPalettes.ts - full implementation needed for AdvancedStylePanel.
+ * Apply style options to diagram content via YAML frontmatter.
+ * Updates existing config or creates new one as needed.
  */
 export function applyStyleToContent(content: string, styleOptions: any): string {
-  // This is a placeholder - the full implementation from colorPalettes.ts
-  // is about 200 lines. For now, return content as-is to avoid breaking imports.
-  // TODO: Port the full implementation from colorPalettes.ts lines 699-901
-  return content;
+
+  let stripped = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
+  const diagramType = detectDiagramType(stripped);
+
+  // Apply direction change to the first line (e.g. "flowchart TD" -> "flowchart LR")
+  if (styleOptions.direction) {
+    stripped = stripped.replace(
+      /^(flowchart|graph)\s+(TD|TB|BT|LR|RL)/i,
+      `$1 ${styleOptions.direction}`
+    );
+  }
+
+  // Check if there's existing frontmatter with config
+  const frontmatterMatch = content.match(/^\s*---([\s\S]*?)---\s*/i);
+  let existingConfig: any = {};
+
+  if (frontmatterMatch) {
+    try {
+      const yamlContent = frontmatterMatch[1];
+      const configMatch = yamlContent.match(/config:\s*\n([\s\S]*?)(?=\n---|\n\s*\n|\s*$)/);
+      if (configMatch) {
+        // Parse existing YAML config (simplified)
+        existingConfig = parseYamlConfig(configMatch[1]);
+      }
+    } catch {
+      // If parsing fails, treat as no existing config
+    }
+  }
+
+  // Build new config
+  const newConfig: any = { ...existingConfig };
+  let hasChanges = false;
+
+  // Helper to set config value if different
+  const setConfig = (path: string[], value: any) => {
+    if (value === undefined || value === null) return;
+
+    let current = newConfig;
+    for (let i = 0; i < path.length - 1; i++) {
+      if (!current[path[i]]) current[path[i]] = {};
+      current = current[path[i]];
+    }
+
+    const key = path[path.length - 1];
+    if (current[key] !== value) {
+      current[key] = value;
+      hasChanges = true;
+    }
+  };
+
+  // Apply style options based on diagram type
+  const type = diagramType || 'flowchart';
+
+  // Font settings (apply to all types)
+  if (styleOptions.fontFamily) {
+    if (!newConfig.themeVariables) newConfig.themeVariables = {};
+    newConfig.themeVariables.fontFamily = styleOptions.fontFamily;
+    hasChanges = true;
+  }
+  if (styleOptions.fontSize) {
+    if (!newConfig.themeVariables) newConfig.themeVariables = {};
+    newConfig.themeVariables.fontSize = styleOptions.fontSize + 'px';
+    hasChanges = true;
+  }
+  if (styleOptions.primaryColor) {
+    if (!newConfig.themeVariables) newConfig.themeVariables = {};
+    newConfig.themeVariables.primaryColor = styleOptions.primaryColor;
+    hasChanges = true;
+  }
+
+  // Type-specific options
+  switch (type) {
+    case 'sequence':
+    case 'sequencediagram':
+      if (styleOptions.diagramMarginX !== undefined) setConfig(['diagramMarginX'], styleOptions.diagramMarginX);
+      if (styleOptions.diagramMarginY !== undefined) setConfig(['diagramMarginY'], styleOptions.diagramMarginY);
+      if (styleOptions.actorMargin !== undefined) setConfig(['actorMargin'], styleOptions.actorMargin);
+      if (styleOptions.actorWidth !== undefined) setConfig(['width'], styleOptions.actorWidth);
+      if (styleOptions.actorHeight !== undefined) setConfig(['height'], styleOptions.actorHeight);
+      if (styleOptions.mirrorActors !== undefined) setConfig(['mirrorActors'], styleOptions.mirrorActors);
+      break;
+
+    case 'gantt':
+      if (styleOptions.barHeight !== undefined) setConfig(['barHeight'], styleOptions.barHeight);
+      if (styleOptions.barGap !== undefined) setConfig(['barGap'], styleOptions.barGap);
+      if (styleOptions.topPadding !== undefined) setConfig(['topPadding'], styleOptions.topPadding);
+      if (styleOptions.leftPadding !== undefined) setConfig(['leftPadding'], styleOptions.leftPadding);
+      if (styleOptions.axisFormat !== undefined) setConfig(['axisFormat'], styleOptions.axisFormat);
+      break;
+
+    case 'flowchart':
+    case 'graph':
+    case 'stateDiagram':
+    case 'state':
+    case 'classDiagram':
+    case 'class':
+    case 'erDiagram':
+    case 'er':
+    case 'journey':
+    case 'c4':
+    case 'block':
+    case 'blockDiagram':
+    case 'architecture':
+    case 'architectureDiagram': {
+      const flowchartCfg: any = {};
+      if (styleOptions.curveStyle !== undefined) {
+        flowchartCfg.curve = styleOptions.curveStyle;
+        hasChanges = true;
+      }
+      if (styleOptions.nodePadding !== undefined) {
+        flowchartCfg.padding = styleOptions.nodePadding;
+        hasChanges = true;
+      }
+      if (styleOptions.nodeSpacing !== undefined) {
+        flowchartCfg.nodeSpacing = styleOptions.nodeSpacing;
+        hasChanges = true;
+      }
+      if (styleOptions.rankSpacing !== undefined) {
+        flowchartCfg.rankSpacing = styleOptions.rankSpacing;
+        hasChanges = true;
+      }
+      if (Object.keys(flowchartCfg).length > 0) {
+        newConfig.flowchart = { ...(existingConfig.flowchart || {}), ...flowchartCfg };
+        hasChanges = true;
+      }
+      if (styleOptions.layoutEngine && styleOptions.layoutEngine !== 'dagre') {
+        newConfig.layout = styleOptions.layoutEngine;
+        hasChanges = true;
+      }
+      break;
+    }
+
+    case 'mindmap':
+      if (styleOptions.layoutEngine && styleOptions.layoutEngine !== 'dagre') {
+        newConfig.layout = styleOptions.layoutEngine;
+        hasChanges = true;
+      }
+      break;
+  }
+
+  // Only generate YAML if there are actual changes
+  if (!hasChanges) {
+    return content;
+  }
+
+  // Set theme to base if we have themeVariables
+  if (newConfig.themeVariables && Object.keys(newConfig.themeVariables).length > 0) {
+    newConfig.theme = 'base';
+  }
+
+  // Generate YAML frontmatter
+  const yamlConfig = `---
+config:
+${configToYaml(newConfig)}---
+`;
+
+  return yamlConfig + '\n\n' + stripped;
+}
+
+/**
+ * Simple YAML config parser - extracts key-value pairs from config section
+ */
+function parseYamlConfig(configText: string): any {
+  const config: any = {};
+  const lines = configText.split('\n');
+  let currentSection: any;
+  const sectionStack: any[] = [config];
+
+  const getIndent = (line: string): number => {
+    const match = line.match(/^(\s*)/);
+    return match ? match[1].length : 0;
+  };
+
+  for (const line of lines) {
+    const indent = getIndent(line);
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    // Adjust stack based on indentation
+    while (sectionStack.length > 1 && getIndent(sectionStack[sectionStack.length - 1]?.__line || '') >= indent) {
+      sectionStack.pop();
+    }
+    currentSection = sectionStack[sectionStack.length - 1];
+
+    // Check for nested section (ends with :)
+    if (trimmed.endsWith(':') && !trimmed.includes(' ')) {
+      const key = trimmed.slice(0, -1);
+      currentSection[key] = {};
+      currentSection[key].__line = line;
+      sectionStack.push(currentSection[key]);
+    } else {
+      // Key-value pair
+      const match = trimmed.match(/^([\w.-]+):\s*(.+)$/);
+      if (match) {
+        const [, key, value] = match;
+        currentSection[key] = value.replace(/^['"]|['"]$/g, '');
+      }
+    }
+  }
+
+  return config;
+}
+
+/**
+ * Convert config object to YAML string
+ */
+function configToYaml(config: any, indent: number = 2): string {
+  const spaces = ' '.repeat(indent);
+  let result = '';
+
+  for (const [key, value] of Object.entries(config)) {
+    if (key === '__line') continue;
+    if (value === undefined || value === null) continue;
+
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      result += `${spaces}${key}:\n`;
+      result += configToYaml(value, indent + 2);
+    } else if (typeof value === 'boolean') {
+      result += `${spaces}${key}: ${value}\n`;
+    } else if (typeof value === 'string') {
+      // Quote string values
+      result += `${spaces}${key}: '${value}'\n`;
+    } else {
+      result += `${spaces}${key}: ${value}\n`;
+    }
+  }
+
+  return result;
 }
