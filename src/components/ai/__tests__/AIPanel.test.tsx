@@ -46,33 +46,40 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-// Mock dependencies
-vi.mock('@/services/storage/database', () => ({
-  getSettings: vi.fn(() => Promise.resolve({
-    ai_provider: 'openai',
-    ai_api_key: 'test-key',
-    ai_model: 'gpt-4',
-    ai_base_url: '',
-  })),
-}));
+// Mock dependencies with importOriginal to preserve exports
+vi.mock('@/services/storage/database', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/storage/database')>();
+  return {
+    ...actual,
+    getSettings: vi.fn(() => Promise.resolve({
+      ai_provider: 'openai',
+      ai_api_key: 'test-key',
+      ai_model: 'gpt-4',
+      ai_base_url: '',
+      theme: 'base',
+      language: 'en',
+    })),
+  };
+});
 
 const mockCallAI = vi.fn(() => Promise.resolve('flowchart LR\n  A-->B'));
 
-vi.mock('@/services/ai/providers', () => ({
-  callAI: () => mockCallAI(),
-  getPreset: vi.fn((provider: string) => {
-    const presets: Record<string, { label: string; requiresKey: boolean }> = {
-      openai: { label: 'OpenAI', requiresKey: true },
-      ollama: { label: 'Ollama', requiresKey: false },
-      anthropic: { label: 'Anthropic', requiresKey: true },
-    };
-    return presets[provider] || { label: provider, requiresKey: true };
-  }),
-}));
-
-vi.mock('@/components/ai/mermaidSystemPrompt', () => ({
-  buildSystemPrompt: vi.fn(() => 'Mock system prompt'),
-}));
+vi.mock('@/services/ai/providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/ai/providers')>();
+  return {
+    ...actual,
+    callAI: () => mockCallAI(),
+    getPreset: vi.fn((provider: string) => {
+      const presets: Record<string, { label: string; requiresKey: boolean }> = {
+        openai: { label: 'OpenAI', requiresKey: true },
+        ollama: { label: 'Ollama', requiresKey: false },
+        anthropic: { label: 'Anthropic', requiresKey: true },
+      };
+      return presets[provider] || { label: provider, requiresKey: true };
+    }),
+    buildSystemPrompt: vi.fn(() => 'Mock system prompt'),
+  };
+});
 
 // Mock clipboard API
 const mockClipboard = {
