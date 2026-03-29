@@ -131,8 +131,10 @@ export function useTabs() {
       const tab = prev.find(t => t.id === tabId);
       if (!tab) {return prev;}
       // Fire and forget - update will happen in background
-      updateDiagram(tab.diagram_id, { content: tab.content, title: tab.title, themeId: tab.themeId });
-      saveVersion(tab.diagram_id, tab.content);
+      updateDiagram(tab.diagram_id, { content: tab.content, title: tab.title, themeId: tab.themeId })
+        .catch(err => console.error('[useTabs] Failed to update diagram:', err));
+      saveVersion(tab.diagram_id, tab.content)
+        .catch(err => console.error('[useTabs] Failed to save version:', err));
       return prev.map(t => t.id === tabId ? { ...t, saved_content: t.content, is_dirty: false } : t);
     });
   }, []);

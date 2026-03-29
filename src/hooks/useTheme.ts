@@ -21,9 +21,9 @@ export function useTheme() {
           const theme = getThemeById(savedThemeId);
           if (theme) setDefaultThemeState(theme);
         }
-      } catch {
-        // eslint-disable-line no-empty
+      } catch (error) {
         // localStorage may be unavailable in private browsing
+        console.debug('[useTheme] Could not access localStorage:', error);
       }
 
       setInitialized(true);
@@ -51,9 +51,9 @@ export function useTheme() {
       } else {
         localStorage.removeItem('mermaid-studio-default-theme');
       }
-    } catch {
-      // eslint-disable-line no-empty
+    } catch (error) {
       // localStorage may be unavailable in private browsing
+      console.debug('[useTheme] Could not access localStorage:', error);
     }
   };
 

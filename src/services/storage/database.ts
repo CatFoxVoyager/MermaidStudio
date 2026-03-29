@@ -119,11 +119,11 @@ async function migrateFromLocalStorage(): Promise<DBData> {
     const raw = localStorage.getItem(LOCAL_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as DBData;
-      // Apply migrations if needed
+      // Apply migrations if needed - only set defaults if values don't exist
       if (parsed.userTemplates) {parsed.userTemplates = [];}
-      if (parsed.settings.ai_provider) {parsed.settings.ai_provider = 'openai';}
-      if (parsed.settings.ai_base_url) {parsed.settings.ai_base_url = 'https://api.openai.com';}
-      if (parsed.settings.ai_model) {parsed.settings.ai_model = 'gpt-5.3-instant';}
+      if (!parsed.settings.ai_provider) {parsed.settings.ai_provider = 'openai';}
+      if (!parsed.settings.ai_base_url) {parsed.settings.ai_base_url = 'https://api.openai.com';}
+      if (!parsed.settings.ai_model) {parsed.settings.ai_model = 'gpt-5.3-instant';}
       console.log('✅ Migrated data from localStorage to IndexedDB');
       return parsed;
     }
@@ -141,11 +141,11 @@ async function getFromLocalStorageFallback(): Promise<DBData> {
     const raw = localStorage.getItem(LOCAL_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as DBData;
-      // Apply migrations if needed (same as migrateFromLocalStorage)
+      // Apply migrations if needed - only set defaults if values don't exist
       if (parsed.userTemplates) {parsed.userTemplates = [];}
-      if (parsed.settings.ai_provider) {parsed.settings.ai_provider = 'openai';}
-      if (parsed.settings.ai_base_url) {parsed.settings.ai_base_url = 'https://api.openai.com';}
-      if (parsed.settings.ai_model) {parsed.settings.ai_model = 'gpt-5.3-instant';}
+      if (!parsed.settings.ai_provider) {parsed.settings.ai_provider = 'openai';}
+      if (!parsed.settings.ai_base_url) {parsed.settings.ai_base_url = 'https://api.openai.com';}
+      if (!parsed.settings.ai_model) {parsed.settings.ai_model = 'gpt-5.3-instant';}
       return parsed;
     }
   } catch (error) {
