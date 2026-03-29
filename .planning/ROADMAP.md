@@ -62,9 +62,34 @@
 **Goal:** Establish Lighthouse benchmark baseline and implement performance optimizations (code splitting, lazy loading, React memoization) to reduce bundle size and improve app speed
 **Requirements:** N/A (performance optimization phase, no formal requirements)
 **Depends on:** None
-**Plans:** 3 plans
+**Plans:** 3 plans (all complete)
 
 Plans:
-- [ ] [01-01-PLAN.md](./phases/01-with-lighthouse-do-a-benchmark-and-after-we-will-try-to-refactoring-the-code-to-get-better-speed-and-more-optimisation/01-01-PLAN.md) — Lighthouse baseline + bundle visualizer (Wave 1)
-- [ ] [01-02-PLAN.md](./phases/01-with-lighthouse-do-a-benchmark-and-after-we-will-try-to-refactoring-the-code-to-get-better-speed-and-more-optimisation/01-02-PLAN.md) — Vite build optimization with manualChunks (Wave 2)
-- [ ] [01-03-PLAN.md](./phases/01-with-lighthouse-do-a-benchmark-and-after-we-will-try-to-refactoring-the-code-to-get-better-speed-and-more-optimisation/01-03-PLAN.md) — React render optimization with memo + lazy loading (Wave 3)
+- [x] [01-01-PLAN.md](./phases/01-with-lighthouse-do-a-benchmark-and-after-we-will-try-to-refactoring-the-code-to-get-better-speed-and-more-optimisation/01-01-PLAN.md) — Lighthouse baseline + bundle visualizer (Wave 1)
+- [x] [01-02-PLAN.md](./phases/01-with-lighthouse-do-a-benchmark-and-after-we-will-try-to-refactoring-the-code-to-get-better-speed-and-more-optimisation/01-02-PLAN.md) — Vite build optimization with manualChunks (Wave 2)
+- [x] [01-03-PLAN.md](./phases/01-with-lighthouse-do-a-benchmark-and-after-we-will-try-to-refactoring-the-code-to-get-better-speed-and-more-optimisation/01-03-PLAN.md) — React render optimization with memo + lazy loading (Wave 3)
+
+### Phase 2: Fix technical debt - split god classes, fix tests, improve coverage
+
+**Goal:** Refactor App.tsx and AIPanel.tsx god classes into testable, focused modules while fixing broken tests and achieving meaningful test coverage (75% lines/functions, 70% branches)
+**Requirements:** N/A (technical debt phase, no formal requirement mappings)
+**Depends on:** Phase 1
+**Plans:** 7 plans (revised from 4)
+
+**Wave Structure:**
+- Wave 0: Fix test infrastructure (broken mocks, act warnings, missing dependencies)
+- Wave 1a: Characterization tests + useAppState hook extraction
+- Wave 1b: useModalState hook extraction + App.tsx refactor
+- Wave 2a: Characterization tests + useAIChat/useAISend extraction
+- Wave 2b: useAISend tests + useAISettings extraction + AIPanel refactor
+- Wave 3a: Enhanced coverage for providers, database, utils
+- Wave 3b: E2E tests + Lighthouse CI + final coverage verification
+
+Plans:
+- [ ] [02-00-PLAN.md](./phases/02-fix-technical-debt-split-god-classes-fix-tests-improve-coverage/02-00-PLAN.md) — Fix test infrastructure and create shared fixtures (Wave 0)
+- [ ] [02-01a-PLAN.md](./phases/02-fix-technical-debt-split-god-classes-fix-tests-improve-coverage/02-01a-PLAN.md) — Characterization tests + useAppState hook (Wave 1a)
+- [ ] [02-01b-PLAN.md](./phases/02-fix-technical-debt-split-god-classes-fix-tests-improve-coverage/02-01b-PLAN.md) — useModalState hook + App.tsx refactor (Wave 1b)
+- [ ] [02-02a-PLAN.md](./phases/02-fix-technical-debt-split-god-classes-fix-tests-improve-coverage/02-02a-PLAN.md) — Characterization tests + useAIChat/useAISend (Wave 2a)
+- [ ] [02-02b-PLAN.md](./phases/02-fix-technical-debt-split-god-classes-fix-tests-improve-coverage/02-02b-PLAN.md) — useAISend tests + useAISettings + AIPanel refactor (Wave 2b)
+- [ ] [02-03a-PLAN.md](./phases/02-fix-technical-debt-split-god-classes-fix-tests-improve-coverage/02-03a-PLAN.md) — Enhanced coverage for critical paths (Wave 3a)
+- [ ] [02-03b-PLAN.md](./phases/02-fix-technical-debt-split-god-classes-fix-tests-improve-coverage/02-03b-PLAN.md) — E2E tests + Lighthouse CI + coverage verification (Wave 3b)
