@@ -167,7 +167,6 @@ export function AppLayout({
             onAdvancedStyleClose={onAdvancedStyleClose}
             showDiagramColors={showDiagramColors}
             showAdvancedStyle={showAdvancedStyle}
-            renderTimeMs={renderTimeMs}
             onRenderTime={onRenderTime}
           />
 

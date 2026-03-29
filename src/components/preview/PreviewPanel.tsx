@@ -265,7 +265,7 @@ interface Props {
   externalPanelOpen?: boolean;
 }
 
-export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRenderTime, onFullscreen, onNodeSelect, onSelectionOpen, externalPanelOpen }: Props) {
+function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRenderTime, onFullscreen, onNodeSelect, onSelectionOpen, externalPanelOpen }: Props) {
   const { t } = useTranslation();
   const [svg, setSvg] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -1219,3 +1219,7 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
     </div>
   );
 }
+
+// Memoize PreviewPanel to prevent unnecessary re-renders from parent state changes
+// Only re-renders when content, theme, themeId, onChange, onExport, onRenderTime, etc. actually change
+export const PreviewPanel = React.memo(PreviewPanelInner);
