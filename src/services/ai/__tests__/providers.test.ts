@@ -345,7 +345,7 @@ describe('AI Providers Rate Limiting', () => {
       const result = await testConnection(config);
 
       expect(result.ok).toBe(false);
-      expect(result.message).toBe('Empty response from model.');
+      expect(result.message).toBe('Empty response received from AI provider.');
     });
 
     it('should handle network errors', async () => {

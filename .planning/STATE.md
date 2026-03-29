@@ -2,31 +2,31 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 01
-status: Milestone complete
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-03-29T22:04:53.409Z"
+current_phase: 02
+status: Ready to execute
+stopped_at: Completed 02-01a-PLAN.md
+last_updated: "2026-03-29T23:43:06.768Z"
 progress:
-  total_phases: 1
+  total_phases: 2
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
-  percent: 33
+  total_plans: 10
+  completed_plans: 4
+  percent: 40
 ---
 
 # STATE: MermaidStudio
 
 **Last Updated:** 2026-03-28T06:20:00Z
-**Last Session:** 2026-03-29T21:56:54.943Z
-**Stopped At:** Completed 01-01-PLAN.md
-**Current Phase:** 01
-**Progress:** [███░░░░░░░] 33%
+**Last Session:** 2026-03-29T23:43:06.765Z
+**Stopped At:** Completed 02-01a-PLAN.md
+**Current Phase:** 02
+**Progress:** [████░░░░░░] 40%
 
 ## Project Reference
 
 **Core Value:** Users prefer MermaidStudio over Mermaid Live Editor because of its polished interface, AI assistance, and better editing experience.
 
-**Current Focus:** Phase 01 — with-lighthouse-do-a-benchmark-and-after-we-will-try-to-refactoring-the-code-to-get-better-speed-and-more-optimisation
+**Current Focus:** Phase 02 — Fix technical debt - split god classes, fix tests, improve coverage
 
 **Key Constraints:**
 
@@ -38,8 +38,8 @@ progress:
 
 ## Current Position
 
-Phase: 01 (with-lighthouse-do-a-benchmark-and-after-we-will-try-to-refactoring-the-code-to-get-better-speed-and-more-optimisation) — EXECUTING
-Plan: Not started
+Phase: 02 (Fix technical debt - split god classes, fix tests, improve coverage) — EXECUTING
+Plan: 2 of 7
 
 ### Quick Tasks Completed
 
@@ -80,6 +80,7 @@ Plan: Not started
 - Phase 11 added: Node style editing in preview (couleur, border, taille du border, couleur du border, etc.) — mêmes fonctionnalités que Mermaid Live Editor
 - Phase 12 added: Refonte du systeme de palettes et themes Mermaid - migration vers des fichiers theme natifs
 - Phase 13 added: Custom Mermaid themes from color palettes — créer des thèmes custom à partir des palettes de couleurs pour éviter la prolifération de variables CSS, en vérifiant le fonctionnement des thèmes Mermaid natifs et en prenant en compte les différents types de diagrammes
+- Phase 2 added: Fix technical debt - split god classes, fix tests, improve coverage
 
 ### Key Decisions Made
 
