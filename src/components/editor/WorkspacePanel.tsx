@@ -48,7 +48,7 @@ export function WorkspacePanel({
   showAI, renderTimeMs, onRenderTime, themeId,
 }: Props) {
   const { t } = useTranslation();
-  const [splitPos, setSplitPos] = useState(50);
+  const [splitPos, setSplitPos] = useState(40);
   const [dragging, setDragging] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
   const [showLabels, setShowLabels] = useState(true);
@@ -210,7 +210,7 @@ export function WorkspacePanel({
           <ToolbarButton icon={<Maximize size={13} />} label={t('editor.fullscreenPreview')} showLabel={showLabels}
             onClick={onFullscreen} title={t('editor.fullscreenPreview')} />
           <ToolbarButton icon={<AlignLeft size={13} />} label={t('editor.resetSplit')} showLabel={showLabels}
-            onClick={() => setSplitPos(50)} title={t('editor.resetSplit')} />
+            onClick={() => setSplitPos(40)} title={t('editor.resetSplit')} />
           <div className="w-px h-4 mx-1.5" style={{ background: 'var(--border-subtle)' }} />
           <button
             onClick={() => setShowLabels(v => !v)}

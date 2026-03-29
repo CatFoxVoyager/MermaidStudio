@@ -127,6 +127,28 @@ function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted:
     };
   }
 
+  // Check for empty brackets (e.g. [], (), {}, [[]], (()), etc.)
+  const EMPTY_SHAPES: Array<{ shape: NodeShape; open: string; close: string }> = [
+    { shape: 'stadium',        open: '([', close: '])' },
+    { shape: 'subroutine',     open: '[[', close: ']]' },
+    { shape: 'cylinder',       open: '[(', close: ')]' },
+    { shape: 'circle',         open: '((', close: '))' },
+    { shape: 'hexagon',        open: '{{', close: '}}' },
+    { shape: 'rhombus',        open: '{',  close: '}' },
+    { shape: 'round',          open: '(',  close: ')' },
+    { shape: 'asymmetric',     open: '>',  close: ']' },
+    { shape: 'parallelogram',  open: '[/', close: '/]' },
+    { shape: 'parallelogram-alt', open: '[\\', close: '\\]' },
+    { shape: 'trapezoid',      open: '[/', close: '\\]' },
+    { shape: 'trapezoid-alt',  open: '[\\', close: '/]' },
+    { shape: 'rect',           open: '[',  close: ']' },
+  ];
+  for (const es of EMPTY_SHAPES) {
+    if (trimmed === `${es.open}${es.close}`) {
+      return { label: '', shape: es.shape, quoted: false };
+    }
+  }
+
   for (const pat of SHAPE_PATTERNS) {
     const m = trimmed.match(pat.regex);
     if (m) {
@@ -168,35 +190,39 @@ function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted:
 }
 
 function shapeWrap(label: string, shape: NodeShape, quoted = false): string {
-  // Always use quotes to avoid parse issues with special characters, \n, etc.
+  // Only add quotes when explicitly requested (quoted=true) OR when label contains special characters AND quoted is not explicitly false
+  // If quoted is explicitly false, never add quotes regardless of content
+  const needsQuotes = quoted === false ? false : (quoted || /[^a-zA-Z0-9_-]/.test(label));
   const q = '"';
+  const l = needsQuotes ? `${q}${label}${q}` : label;
+
   switch (shape) {
-    case 'rect':            return `["${label}"]`;
-    case 'round':           return `("${label}")`;
-    case 'stadium':         return `(["${label}"])`;
-    case 'subroutine':      return `[["${label}"]]`;
-    case 'cylinder':        return `[("${label}")]`;
-    case 'circle':          return `(("${label}"))`;
-    case 'rhombus':         return `{"${label}"}`;
-    case 'hexagon':         return `{{"${label}"}}`;
-    case 'asymmetric':      return `>"${label}"]`;
-    case 'parallelogram':   return `[/"${label}"/]`;
-    case 'parallelogram-alt': return `[\\${label}\\]`;
-    case 'trapezoid':       return `[/"${label}"\\]`;
-    case 'trapezoid-alt':   return `[\\${label}/]`;
+    case 'rect':            return `[${l}]`;
+    case 'round':           return `(${l})`;
+    case 'stadium':         return `([${l}])`;
+    case 'subroutine':      return `[[${l}]]`;
+    case 'cylinder':        return `[(${l})]`;
+    case 'circle':          return `((${l}))`;
+    case 'rhombus':         return `{${l}}`;
+    case 'hexagon':         return `{{${l}}}`;
+    case 'asymmetric':      return `>${l}]`;
+    case 'parallelogram':   return `[/${l}/]`;
+    case 'parallelogram-alt': return `[\\${l}\\]`;
+    case 'trapezoid':       return `[/${l}\\]`;
+    case 'trapezoid-alt':   return `[\\${l}/]`;
     // v11 new shapes - use @{ shape: "name" } syntax
-    case 'doc':             return `@{ shape: "doc", label: "${label}" }`;
-    case 'docs':            return `@{ shape: "docs", label: "${label}" }`;
-    case 'dbl-circ':        return `@{ shape: "dbl-circ", label: "${label}" }`;
-    case 'cross-circ':      return `@{ shape: "cross-circ", label: "${label}" }`;
-    case 'bow-rect':        return `@{ shape: "bow-rect", label: "${label}" }`;
-    case 'flip-tri':        return `@{ shape: "flip-tri", label: "${label}" }`;
-    case 'curv-trap':       return `@{ shape: "curv-trap", label: "${label}" }`;
-    case 'manual-file':     return `@{ shape: "manual-file", label: "${label}" }`;
-    case 'manual-input':    return `@{ shape: "manual-input", label: "${label}" }`;
-    case 'procs':           return `@{ shape: "procs", label: "${label}" }`;
-    case 'paper-tape':      return `@{ shape: "paper-tape", label: "${label}" }`;
-    default:                return `["${label}"]`;
+    case 'doc':             return `@{ shape: "doc", label: ${q}${label}${q} }`;
+    case 'docs':            return `@{ shape: "docs", label: ${q}${label}${q} }`;
+    case 'dbl-circ':        return `@{ shape: "dbl-circ", label: ${q}${label}${q} }`;
+    case 'cross-circ':      return `@{ shape: "cross-circ", label: ${q}${label}${q} }`;
+    case 'bow-rect':        return `@{ shape: "bow-rect", label: ${q}${label}${q} }`;
+    case 'flip-tri':        return `@{ shape: "flip-tri", label: ${q}${label}${q} }`;
+    case 'curv-trap':       return `@{ shape: "curv-trap", label: ${q}${label}${q} }`;
+    case 'manual-file':     return `@{ shape: "manual-file", label: ${q}${label}${q} }`;
+    case 'manual-input':    return `@{ shape: "manual-input", label: ${q}${label}${q} }`;
+    case 'procs':           return `@{ shape: "procs", label: ${q}${label}${q} }`;
+    case 'paper-tape':      return `@{ shape: "paper-tape", label: ${q}${label}${q} }`;
+    default:                return `[${l}]`;
   }
 }
 
@@ -564,32 +590,59 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
   const lines = source.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    // First try: standalone node definition (nodeId at start of line)
+    // First try: standalone node definition (nodeId at start of line, no arrow on the line)
     // Matches both A[label] and A["label"] style definitions
-    const nodeMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[|\(\[")["']?[^\n]+)/);
-    if (nodeMatch && nodeMatch[2] === nodeId) {
-      const { shape, quoted } = parseNodeLabel(nodeMatch[4].trim());
-      lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${shapeWrap(newLabel, shape, quoted)}`;
-      return lines.join('\n');
+    if (!ARROW_RE.test(line)) {
+      const nodeMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[|\(\[")["']?[^\n]+)/);
+      if (nodeMatch && nodeMatch[2] === nodeId) {
+        const { shape } = parseNodeLabel(nodeMatch[4].trim());
+        lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${shapeWrap(newLabel, shape, false)}`;
+        return lines.join('\n');
+      }
     }
     // Second try: node defined on an edge line (e.g. A([Start]) --> B{Label})
     if (ARROW_RE.test(line)) {
       const arrowMatch = line.match(/^\s*([A-Za-z_][A-Za-z0-9_-]*)([^\n]*?)\s*(-->|---|-.->|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|--\|>|\|>|~~~)\s*(?:\|([^|]*)\|)?\s*([A-Za-z_][A-Za-z0-9_-]*)([^\n]*)$/);
       if (arrowMatch) {
-        // Check source
-        if (arrowMatch[1] === nodeId && arrowMatch[2]?.trim()) {
-          const { shape, quoted } = parseNodeLabel(arrowMatch[2].trim());
-          lines[i] = `${nodeId}${shapeWrap(newLabel, shape, quoted)}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''} ${arrowMatch[5]}${arrowMatch[6] ?? ''}`;
+        // Check source (with or without explicit shape)
+        if (arrowMatch[1] === nodeId) {
+          if (arrowMatch[2]?.trim()) {
+            // Node has explicit shape
+            const { shape } = parseNodeLabel(arrowMatch[2].trim());
+            lines[i] = `${nodeId}${shapeWrap(newLabel, shape, false)}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${arrowMatch[6] ?? ''}`;
+          } else {
+            // Node has no explicit shape, add one with the new label
+            lines[i] = `${nodeId}${shapeWrap(newLabel, 'rect', false)}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${arrowMatch[6] ?? ''}`;
+          }
           return lines.join('\n');
         }
-        // Check target
-        if (arrowMatch[5] === nodeId && arrowMatch[6]?.trim()) {
-          const { shape, quoted } = parseNodeLabel(arrowMatch[6].trim());
-          // Compute position before target using match groups
-          const fullMatchEnd = arrowMatch.index + arrowMatch[0].length;
-          const targetLen = arrowMatch[5].length + (arrowMatch[6]?.length ?? 0);
-          const beforeTarget = line.substring(0, fullMatchEnd - targetLen);
-          lines[i] = `${beforeTarget}${nodeId}${shapeWrap(newLabel, shape, quoted)}`;
+        // Check target (with or without explicit shape)
+        if (arrowMatch[5] === nodeId) {
+          // Find target ID position in the line, after the arrow and optional edge label
+          // (avoids matching the ID inside edge labels or node shapes)
+          const arrowEndPos = arrowMatch[0].indexOf(arrowMatch[3]) + arrowMatch[3].length;
+          let searchFrom = arrowEndPos;
+          if (arrowMatch[4] !== undefined) {
+            // Skip past |edgeLabel|
+            const pipeOpen = arrowMatch[0].indexOf('|', searchFrom);
+            if (pipeOpen !== -1) {
+              const pipeClose = arrowMatch[0].indexOf('|', pipeOpen + 1);
+              if (pipeClose !== -1) {
+                searchFrom = pipeClose + 1;
+              }
+            }
+          }
+          const targetInMatch = arrowMatch[0].indexOf(arrowMatch[5], searchFrom);
+          const beforeTarget = line.substring(0, (arrowMatch.index ?? 0) + targetInMatch);
+
+          if (arrowMatch[6]?.trim()) {
+            // Node has explicit shape
+            const { shape } = parseNodeLabel(arrowMatch[6].trim());
+            lines[i] = `${beforeTarget}${nodeId}${shapeWrap(newLabel, shape, false)}`;
+          } else {
+            // Node has no explicit shape, add one with the new label
+            lines[i] = `${beforeTarget}${nodeId}${shapeWrap(newLabel, 'rect', false)}`;
+          }
           return lines.join('\n');
         }
       }
@@ -756,7 +809,7 @@ function isMetaLine(trimmed: string): boolean {
 
 export function addSubgraph(source: string, id?: string, label?: string): string {
   const subgraphId = id ?? generateSubgraphId(source);
-  const subgraphLabel = label ?? 'New Subgraph';
+  const subgraphLabel = label ?? 'Subgraph';
   const lines = source.split('\n');
 
   let insertIdx = lines.length;
@@ -771,7 +824,9 @@ export function addSubgraph(source: string, id?: string, label?: string): string
   }
 
   const prefix = insertIdx > 0 && lines[insertIdx - 1].trim() !== '' ? '\n' : '';
-  const block = `${prefix}  subgraph ${subgraphId}["${subgraphLabel}"]\n  end`;
+  const needsQuotes = /[^a-zA-Z0-9_-]/.test(subgraphLabel);
+  const labelFormat = needsQuotes ? `["${subgraphLabel}"]` : `[${subgraphLabel}]`;
+  const block = `${prefix}  subgraph ${subgraphId}${labelFormat}\n  end`;
 
   lines.splice(insertIdx, 0, block);
   return lines.join('\n');
@@ -780,6 +835,12 @@ export function addSubgraph(source: string, id?: string, label?: string): string
 export function updateSubgraphLabel(source: string, subgraphId: string, newLabel: string): string {
   const lines = source.split('\n');
   const idPattern = escapeRegex(subgraphId);
+
+  // Helper to format subgraph label with or without quotes
+  const formatSubgraphLabel = (label: string): string => {
+    const needsQuotes = /[^a-zA-Z0-9_-]/.test(label);
+    return needsQuotes ? `["${label}"]` : `[${label}]`;
+  };
 
   // Match bracket format: subgraph id["label"] or subgraph id[label]
   const bracketRe = new RegExp(`^(\\s*subgraph\\s+${idPattern})\\[["']?[^"\\]]*["']?\\]`, '');
@@ -792,14 +853,14 @@ export function updateSubgraphLabel(source: string, subgraphId: string, newLabel
     const bracketMatch = lines[i].match(bracketRe);
     if (bracketMatch) {
       const indent = lines[i].match(/^(\s*)/)?.[1] ?? '';
-      lines[i] = `${indent}subgraph ${subgraphId}["${newLabel}"]`;
+      lines[i] = `${indent}subgraph ${subgraphId}${formatSubgraphLabel(newLabel)}`;
       return lines.join('\n');
     }
 
     const inlineMatch = lines[i].match(inlineRe);
     if (inlineMatch) {
       const indent = lines[i].match(/^(\s*)/)?.[1] ?? '';
-      lines[i] = `${indent}subgraph ${subgraphId}["${newLabel}"]`;
+      lines[i] = `${indent}subgraph ${subgraphId}${formatSubgraphLabel(newLabel)}`;
       return lines.join('\n');
     }
 
@@ -812,13 +873,13 @@ export function updateSubgraphLabel(source: string, subgraphId: string, newLabel
         }
         // Remove the old label line and convert to bracket format
         const indent = lines[i].match(/^(\s*)/)?.[1] ?? '';
-        lines[i] = `${indent}subgraph ${subgraphId}["${newLabel}"]`;
+        lines[i] = `${indent}subgraph ${subgraphId}${formatSubgraphLabel(newLabel)}`;
         lines.splice(j, 1);
         return lines.join('\n');
       }
       // No label line found — just add bracket label
       const indent = lines[i].match(/^(\s*)/)?.[1] ?? '';
-      lines[i] = `${indent}subgraph ${subgraphId}["${newLabel}"]`;
+      lines[i] = `${indent}subgraph ${subgraphId}${formatSubgraphLabel(newLabel)}`;
       return lines.join('\n');
     }
   }
@@ -1154,4 +1215,158 @@ export function moveNodeToSubgraph(source: string, nodeId: string, targetSubgrap
   }
 
   return lines.join('\n');
+}
+
+// ===== Preset Management =====
+
+export type PresetType = 'primary' | 'success' | 'warning' | 'danger' | 'info';
+
+export interface PresetColors {
+  primaryColor: string;
+  successColor: string;
+  warningColor: string;
+  errorColor: string;
+  infoColor: string;
+}
+
+/**
+ * Apply a preset to nodes using classDef
+ * Creates/updates a classDef for the preset and assigns nodes to it
+ */
+export function applyNodePreset(source: string, nodeIds: string[], presetType: PresetType, colors: PresetColors): string {
+  if (nodeIds.length === 0) return source;
+
+  const lines = source.split('\n');
+  const className = `preset${presetType.charAt(0).toUpperCase() + presetType.slice(1)}`;
+
+  // Get the color for this preset - use the actual theme colors passed in
+  const colorMap: Record<PresetType, keyof PresetColors> = {
+    primary: 'primaryColor',
+    success: 'successColor',
+    warning: 'warningColor',
+    danger: 'errorColor',
+    info: 'infoColor',
+  };
+
+  const color = colors[colorMap[presetType]];
+
+  // Create or update the classDef
+  const classDefLine = `classDef ${className} fill:${color},stroke:${color},color:#000000`;
+  const classDefIdx = lines.findIndex(l => l.trim().startsWith(`classDef ${className}`));
+
+  if (classDefIdx !== -1) {
+    lines[classDefIdx] = classDefLine;
+  } else {
+    // Find a good place to insert the classDef (after existing classDefs or near the end)
+    let insertIdx = lines.length;
+    const lastClassDefIdx = lines.map(l => l.trim()).map((t, i) => ({ t, i }))
+      .filter(x => x.t.startsWith('classDef '))
+      .pop();
+
+    if (lastClassDefIdx) {
+      insertIdx = lastClassDefIdx.i + 1;
+    } else {
+      // Find last style/class line
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const t = lines[i].trim();
+        if (t.startsWith('style ') || t.startsWith('class ') || t.startsWith('linkStyle ')) {
+          insertIdx = i + 1;
+          break;
+        }
+      }
+    }
+
+    lines.splice(insertIdx, 0, classDefLine);
+  }
+
+  // Assign nodes to the class
+  for (const nodeId of nodeIds) {
+    const classLine = `class ${nodeId} ${className}`;
+    const existingClassIdx = lines.findIndex(l => {
+      const trimmed = l.trim();
+      return trimmed.startsWith(`class ${nodeId} `) || trimmed.startsWith(`class ${nodeId}\t`);
+    });
+
+    if (existingClassIdx !== -1) {
+      // Append to existing class assignment
+      const existingLine = lines[existingClassIdx];
+      if (!existingLine.includes(className)) {
+        lines[existingClassIdx] = existingLine.trim() + ',' + className;
+      }
+    } else {
+      // Find the line after the node definition to insert the class line
+      const nodeIdx = lines.findIndex(l => {
+        const trimmed = l.trim();
+        // Check if line contains the node (as standalone or in edge)
+        return new RegExp(`(^|\\s)${nodeId}(\\s|\\[|\\(|\\{|$)`).test(l);
+      });
+
+      if (nodeIdx !== -1) {
+        // Insert after the node line
+        let insertAfter = nodeIdx;
+        // Find the end of multi-line node definition if any
+        while (insertAfter + 1 < lines.length && /^[\x5B\x5D{}]|\s|,/.test(lines[insertAfter + 1].trim())) {
+          insertAfter++;
+        }
+        lines.splice(insertAfter + 1, 0, `  ${classLine}`);
+      } else {
+        // Node not found, add at end
+        lines.push(`  ${classLine}`);
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Update all preset classDef colors when theme changes
+ * Finds all preset classDef lines and updates their colors
+ */
+export function updatePresetColors(source: string, colors: PresetColors): string {
+  const lines = source.split('\n');
+
+  const colorMap: Record<string, string> = {
+    presetPrimary: colors.primaryColor,
+    presetSuccess: colors.successColor,
+    presetWarning: colors.warningColor,
+    presetDanger: colors.errorColor,
+    presetInfo: colors.infoColor,
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    for (const [className, color] of Object.entries(colorMap)) {
+      if (trimmed.startsWith(`classDef ${className}`)) {
+        // Update the classDef with new colors
+        lines[i] = `classDef ${className} fill:${color},stroke:${color},color:#ffffff`;
+        break;
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Check if a node uses a preset class
+ */
+export function getNodePreset(source: string, nodeId: string): PresetType | null {
+  const lines = source.split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith(`class ${nodeId} `) || trimmed.startsWith(`class ${nodeId}\t`)) {
+      const rest = trimmed.slice(6).trim();
+      const classNames = rest.split(',').map(c => c.trim());
+      for (const cn of classNames) {
+        if (cn.startsWith('preset')) {
+          const preset = cn.replace('preset', '').toLowerCase();
+          if (['primary', 'success', 'warning', 'danger', 'info'].includes(preset)) {
+            return preset as PresetType;
+          }
+        }
+      }
+    }
+  }
+  return null;
 }

@@ -186,7 +186,7 @@ describe('Mermaid Code Utilities', () => {
       const source = 'flowchart TD\nA[OldLabel]-->B';
       const result = updateNodeLabel(source, 'A', 'NewLabel');
 
-      expect(result).toContain('A["NewLabel"]');
+      expect(result).toContain('A[NewLabel]');
       expect(result).not.toContain('OldLabel');
     });
 
@@ -194,15 +194,28 @@ describe('Mermaid Code Utilities', () => {
       const source = 'flowchart TD\nA(Label1)';
       const result = updateNodeLabel(source, 'A', 'Label2');
 
-      expect(result).toContain('A("Label2")');
+      expect(result).toContain('A(Label2)');
     });
 
-    it('should handle node without shape', () => {
+    it('should handle node without shape (implicit node definition)', () => {
       const source = 'flowchart TD\nA-->B';
       const result = updateNodeLabel(source, 'A', 'NewLabel');
 
-      // Should not crash
-      expect(result).toBeDefined();
+      // Should add shape with new label for source node (no quotes)
+      expect(result).toContain('A[NewLabel]');
+      expect(result).toContain('-->');
+      expect(result).toContain('B');
+      expect(result).toBe('flowchart TD\nA[NewLabel]-->B');
+    });
+
+    it('should handle target node without shape', () => {
+      const source = 'flowchart TD\nA-->B';
+      const result = updateNodeLabel(source, 'B', 'NewLabel');
+
+      // Should add shape with new label for target node (no quotes)
+      expect(result).toContain('A-->');
+      expect(result).toContain('B[NewLabel]');
+      expect(result).toBe('flowchart TD\nA-->B[NewLabel]');
     });
   });
 
@@ -211,30 +224,30 @@ describe('Mermaid Code Utilities', () => {
       const source = 'flowchart TD\nA[Label]';
       const result = updateNodeShape(source, 'A', 'round');
 
-      expect(result).toContain('A("Label")');
+      expect(result).toContain('A(Label)');
     });
 
     it('should preserve label', () => {
       const source = 'flowchart TD\nA[MyLabel]';
       const result = updateNodeShape(source, 'A', 'stadium');
 
-      expect(result).toContain('A(["MyLabel"])');
+      expect(result).toContain('A([MyLabel])');
     });
   });
 
   describe('addNode', () => {
-    it('should add node to diagram with quotes', () => {
+    it('should add node to diagram without auto-quoting', () => {
       const source = 'flowchart TD\nA-->B';
       const result = addNode(source, 'C', 'Node C', 'rect');
 
-      expect(result).toContain('C["Node C"]');
+      expect(result).toContain('C[Node C]');
     });
 
     it('should add node with custom shape', () => {
       const source = 'flowchart TD\nA-->B';
       const result = addNode(source, 'C', 'Node C', 'round');
 
-      expect(result).toContain('C("Node C")');
+      expect(result).toContain('C(Node C)');
     });
 
     it('should insert node after first line', () => {

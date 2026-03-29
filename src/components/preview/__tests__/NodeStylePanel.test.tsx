@@ -15,6 +15,7 @@ vi.mock('react-i18next', () => ({
         'nodeStyle.nodes': '{{count}} Nodes',
         'nodeStyle.label': 'Label',
         'nodeStyle.labelPlaceholder': 'Node label...',
+        'nodeStyle.presets': 'Presets',
         'nodeStyle.fillColor': 'Fill Color',
         'nodeStyle.borderColor': 'Border Color',
         'nodeStyle.borderWidth': 'Border Width',
@@ -62,6 +63,34 @@ vi.mock('@/components/visual/ColorPicker', () => ({
   ),
 }));
 
+const defaultPresets = [
+  {
+    label: 'Primary',
+    style: { fill: '#3b82f6', stroke: '#3b82f6', color: '#ffffff' } as NodeStyle,
+    color: '#3b82f6',
+  },
+  {
+    label: 'Success',
+    style: { fill: '#22c55e', stroke: '#22c55e', color: '#ffffff' } as NodeStyle,
+    color: '#22c55e',
+  },
+  {
+    label: 'Warning',
+    style: { fill: '#f59e0b', stroke: '#f59e0b', color: '#ffffff' } as NodeStyle,
+    color: '#f59e0b',
+  },
+  {
+    label: 'Danger',
+    style: { fill: '#ef4444', stroke: '#ef4444', color: '#ffffff' } as NodeStyle,
+    color: '#ef4444',
+  },
+  {
+    label: 'Info',
+    style: { fill: '#06b6d4', stroke: '#06b6d4', color: '#ffffff' } as NodeStyle,
+    color: '#06b6d4',
+  },
+];
+
 const defaultProps = {
   selectedNodeIds: ['A'],
   nodeStyles: [{ fill: '#dbeafe', stroke: '#3b82f6', color: '#1d4ed8' }] as NodeStyle[],
@@ -69,6 +98,7 @@ const defaultProps = {
   onClose: vi.fn(),
   onStyleChange: vi.fn(),
   onReset: vi.fn(),
+  presets: defaultPresets,
 };
 
 describe('NodeStylePanel Component', () => {

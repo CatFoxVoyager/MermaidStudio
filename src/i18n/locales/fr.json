@@ -79,6 +79,8 @@
     "exportSvgDesc": "Graphique vectoriel évolutif",
     "exportPng": "Exporter en PNG",
     "exportPngDesc": "Image raster haute résolution",
+    "transparentBackground": "Arrière-plan transparent",
+    "transparentBackgroundDesc": "Exporter en PNG sans couleur d'arrière-plan",
     "copyMarkdown": "Copier en Markdown",
     "copyMarkdownDesc": "Bloc de code Mermaid pour la documentation",
     "copyEmbedCode": "Copier le code d'intégration",
@@ -280,6 +282,7 @@
     "nodes": "{{count}} Nœuds",
     "label": "Étiquette",
     "labelPlaceholder": "Étiquette du nœud...",
+    "presets": "Presets",
     "fillColor": "Couleur de remplissage",
     "borderColor": "Couleur de bordure",
     "borderWidth": "Largeur de bordure",
@@ -428,6 +431,13 @@
     "loadingPreview": "Chargement de l'aperçu...",
     "createTheme": "Créer un Thème Personnalisé",
     "editTheme": "Modifier le Thème"
+  },
+  "preview": {
+    "subgraph": "Sous-graphe",
+    "addSubgraph": "Ajouter un sous-graphe",
+    "selectSubgraph": "Sélectionner le sous-graphe",
+    "editSubgraph": "Modifier le sous-graphe",
+    "deleteSubgraph": "Supprimer le sous-graphe"
   },
   "theme": {
     "groups": {

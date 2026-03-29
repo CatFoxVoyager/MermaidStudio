@@ -414,18 +414,6 @@ MermaidStudio is an active open-source project. Whether you're a developer, desi
 
 ---
 
-## 🌟 Contributing!
-
-This project thrives on community contributions. Don't hesitate to:
-- ⭐ **Fork** the repository
-- 🔧 **Propose** improvements
-- 🐛 **Report** bugs
-- 💬 **Share** your ideas
-
-Every contribution counts! 🙌
-
----
-
 ## 🧪 Tests
 
 ```bash
@@ -502,28 +490,6 @@ lsof -i :3000                 # macOS/Linux
 - **Node.js version**: Ensure you have Node.js ≥24.0
 - **Clean**: `rm -rf node_modules && npm install`
 - **Check**: `npm run type-check`
-
----
-
-## 📈 Roadmap
-
-### v0.2.0 (Current)
-- ✅ Basic Mermaid editing
-- ✅ Modern interface with React 19
-- ✅ Local storage
-- ✅ Export (PNG, JPEG, SVG)
-- ✅ Auto-fit zoom
-- ⚠️ Experimental AI
-
-### v0.3.0 (In Progress)
-- 🔄 Improved and stabilized AI
-- 🔄 Drag-and-drop visual editor
-- 🔄 More diagram templates
-
-### v1.0.0 (Future)
-- 🔄 Collaborative editing
-- 🔄 Cloud synchronization
-- 🔄 Mobile apps
 
 ---
 

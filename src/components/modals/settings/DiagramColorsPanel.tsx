@@ -8,6 +8,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { renderDiagram, detectDiagramType, setDiagramTheme } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
 import { ThemeEditorPanel } from './ThemeEditorPanel';
+import { updatePresetColors } from '@/lib/mermaid/codeUtils';
 
 interface DiagramColorsPanelProps {
   isOpen: boolean;
@@ -87,6 +88,13 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
     } else {
       // Other diagrams: generate YAML frontmatter with filtered themeVariables
       newContent = applyThemeToFrontmatter(cleanContent, theme, isDark);
+    }
+
+    // Update preset colors if there are any preset classDef lines
+    const hasPresets = /\bclassDef\s+preset(?:Primary|Success|Warning|Danger|Info)\b/.test(newContent);
+    if (hasPresets) {
+      // Update preset colors to match the new theme
+      newContent = updatePresetColors(newContent, theme.coreColors);
     }
 
     onContentChange(newContent);

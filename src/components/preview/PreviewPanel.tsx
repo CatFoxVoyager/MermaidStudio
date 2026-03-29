@@ -1,10 +1,12 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle, Copy, Check, Download, Move, Group } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle, Copy, Check, Download, Move, Group, Hand } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { renderDiagram, detectDiagramType } from '@/lib/mermaid/core';
+import { extractThemeIdFromContent } from '@/constants/themeDerivation';
+import { getThemeById } from '@/constants/themes';
 import { sanitizeSVG } from '@/utils/sanitization';
-import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, addNode, addEdge, generateNodeId, removeNode, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph } from '@/lib/mermaid/codeUtils';
-import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape } from '@/lib/mermaid/codeUtils';
+import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, addNode, addEdge, generateNodeId, removeNode, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors } from '@/lib/mermaid/codeUtils';
+import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape, PresetType, PresetColors } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
 import { EdgeStylePanel } from './EdgeStylePanel';
 import { SubgraphStylePanel } from './SubgraphStylePanel';
@@ -50,6 +52,10 @@ function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElem
   const overlays: NodeOverlay[] = [];
   const seen = new Set<string>();
 
+  // Account for scroll offset
+  const scrollLeft = outerContainer.scrollLeft;
+  const scrollTop = outerContainer.scrollTop;
+
   nodeElements.forEach(el => {
     const idAttr = el.id ?? '';
     const flowchartMatch = idAttr.match(/flowchart-([^-]+)-\d+/);
@@ -62,8 +68,8 @@ function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElem
       const containerRect = outerContainer.getBoundingClientRect();
       overlays.push({
         id: nodeId,
-        x: rect.left - containerRect.left,
-        y: rect.top - containerRect.top,
+        x: rect.left - containerRect.left + scrollLeft,
+        y: rect.top - containerRect.top + scrollTop,
         width: rect.width,
         height: rect.height,
       });
@@ -130,27 +136,31 @@ function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTM
     const labelText = el.querySelector('.cluster-label text, .nodeLabel text, .label text');
     const label = labelText?.textContent ?? sgId;
 
+    // Account for scroll offset
+    const scrollLeft = outerContainer.scrollLeft;
+    const scrollTop = outerContainer.scrollTop;
+
     try {
       const containerRect = outerContainer.getBoundingClientRect();
       let x: number, y: number, width: number, height: number;
 
       if (labelRect) {
         const rect = labelRect.getBoundingClientRect();
-        x = rect.left - containerRect.left;
-        y = rect.top - containerRect.top;
+        x = rect.left - containerRect.left + scrollLeft;
+        y = rect.top - containerRect.top + scrollTop;
         width = rect.width;
         height = rect.height;
       } else {
         const rect = el.getBoundingClientRect();
-        x = rect.left - containerRect.left;
-        y = rect.top - containerRect.top;
+        x = rect.left - containerRect.left + scrollLeft;
+        y = rect.top - containerRect.top + scrollTop;
         width = Math.min(rect.width, 200);
         height = 24;
       }
 
       const clusterRect = el.getBoundingClientRect();
-      const clusterX = clusterRect.left - containerRect.left;
-      const clusterY = clusterRect.top - containerRect.top;
+      const clusterX = clusterRect.left - containerRect.left + scrollLeft;
+      const clusterY = clusterRect.top - containerRect.top + scrollTop;
       const clusterWidth = clusterRect.width;
       const clusterHeight = clusterRect.height;
 
@@ -270,6 +280,8 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
   const [parsedEdges, setParsedEdges] = useState<ParsedEdge[]>([]);
   const [parsedLinkStyles, setParsedLinkStyles] = useState<Map<number, EdgeStyle>>(new Map());
   const [toolMode, setToolMode] = useState<'select' | 'connect'>('select');
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [connectFirst, setConnectFirst] = useState<string | null>(null);
   const [dragShape, setDragShape] = useState<NodeShape | null>(null);
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
@@ -295,6 +307,87 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
   // Keep refs in sync without accessing them during render
   useEffect(() => { contentRef.current = content; }, [content]);
   useEffect(() => { toolModeRef.current = toolMode; }, [toolMode]);
+
+  // Generate node presets based on current theme (syncs with theme changes)
+  const nodePresets = useMemo(() => {
+    // Try themeId prop first, then extract from content
+    const effectiveThemeId = themeId ?? extractThemeIdFromContent(content);
+    const currentTheme = effectiveThemeId ? getThemeById(effectiveThemeId) : null;
+    const colors = currentTheme?.coreColors;
+
+    return [
+      {
+        label: 'Primary',
+        presetType: 'primary' as PresetType,
+        color: colors?.primaryColor ?? '#94a3b8', // Shows theme base color in button
+      },
+      {
+        label: 'Success',
+        presetType: 'success' as PresetType,
+        color: colors?.successColor ?? '#22c55e',
+      },
+      {
+        label: 'Warning',
+        presetType: 'warning' as PresetType,
+        color: colors?.warningColor ?? '#f59e0b',
+      },
+      {
+        label: 'Danger',
+        presetType: 'danger' as PresetType,
+        color: colors?.errorColor ?? '#ef4444',
+      },
+      {
+        label: 'Info',
+        presetType: 'info' as PresetType,
+        color: colors?.infoColor ?? '#06b6d4',
+      },
+    ];
+  }, [content, themeId, theme]);
+
+  // Get current theme colors and theme ID for preset operations
+  const { currentThemeColors, effectiveThemeId } = useMemo(() => {
+    const effectiveThemeId = themeId ?? extractThemeIdFromContent(content);
+    const currentTheme = effectiveThemeId ? getThemeById(effectiveThemeId) : null;
+    const colors = currentTheme?.coreColors;
+    return {
+      effectiveThemeId,
+      currentThemeColors: {
+        primaryColor: colors?.primaryColor ?? '#3b82f6',
+        successColor: colors?.successColor ?? '#22c55e',
+        warningColor: colors?.warningColor ?? '#f59e0b',
+        errorColor: colors?.errorColor ?? '#ef4444',
+        infoColor: colors?.infoColor ?? '#06b6d4',
+      },
+    };
+  }, [content, themeId]);
+
+  // Track previous theme ID to detect when user switches themes
+  const prevThemeIdRef = useRef<string | null>(null);
+
+  // Update preset colors when theme changes
+  useEffect(() => {
+    // Skip if no change
+    if (prevThemeIdRef.current === effectiveThemeId) return;
+
+    const prevThemeId = prevThemeIdRef.current;
+
+    // Update ref AFTER checking
+    prevThemeIdRef.current = effectiveThemeId;
+
+    // Only update if we had a previous theme and there are presets in the content
+    if (!prevThemeId) return;
+
+    // Check if any preset classDef exists
+    const hasPresets = /\bclassDef\s+preset(?:Primary|Success|Warning|Danger|Info)\b/.test(content);
+    if (!hasPresets) return;
+
+    // Update all preset classDef colors in the diagram
+    const updated = updatePresetColors(content, currentThemeColors);
+    if (updated !== content) {
+      skipResyncRef.current = true;
+      onContentChange(updated);
+    }
+  }, [effectiveThemeId, content, currentThemeColors]);
 
   const type = detectDiagramType(content);
   const stylingCapabilities = getStylingCapabilities(type);
@@ -495,6 +588,25 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
     return () => clearTimeout(timer);
   }, [svg, zoom, subgraphList]);
 
+  // Update overlay positions on scroll (immediate, not debounced)
+  useEffect(() => {
+    if (!svg || !containerRef.current || !shadowHostRef.current) return;
+    const scrollableContainer = containerRef.current;
+
+    const handleScroll = () => {
+      const nodes = extractSvgNodes(scrollableContainer, shadowHostRef.current!);
+      setNodeOverlays(nodes);
+      const knownIds = subgraphList.map(sg => sg.id);
+      const subgraphs = extractSubgraphOverlays(scrollableContainer, shadowHostRef.current!, knownIds);
+      setSubgraphOverlays(subgraphs);
+    };
+
+    scrollableContainer.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      scrollableContainer.removeEventListener('scroll', handleScroll);
+    };
+  }, [svg, zoom, subgraphList]);
+
   // Highlight selected edge when selection changes
   useEffect(() => {
     if (!shadowHostRef.current) return;
@@ -685,6 +797,20 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
     onChange(result);
   }, [onChange, content]);
 
+  // Preset handler: applies a preset using classDef
+  const handlePresetApply = useCallback((nodeIds: string[], presetType: PresetType) => {
+    if (!onChange) return;
+    skipResyncRef.current = true;
+
+    // Remove old styles for these nodes first
+    let result = removeNodeStyles(content, nodeIds);
+
+    // Apply the preset
+    result = applyNodePreset(result, nodeIds, presetType, currentThemeColors);
+
+    onChange(result);
+  }, [onChange, content, currentThemeColors]);
+
   // Edge style change handler
   const handleEdgeStyleChange = useCallback((edgeIndex: number, styleUpdate: Partial<EdgeStyle>) => {
     if (!onChange) return;
@@ -760,6 +886,38 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
     setDragShape(null);
   }, [dragShape, dragNodeId, handleAddShape, onChange, content]);
 
+  // Pan handlers for drag navigation
+  const handlePanMouseDown = useCallback((e: React.MouseEvent) => {
+    // Only enable drag on left click when clicking on canvas background
+    if (e.button !== 0 || !containerRef.current) return;
+    setIsPanning(true);
+    setPanStart({ x: e.clientX, y: e.clientY });
+    e.preventDefault();
+  }, []);
+
+  // Add global mousemove/mouseup listeners for panning
+  useEffect(() => {
+    if (!isPanning) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      const dx = e.clientX - panStart.x;
+      const dy = e.clientY - panStart.y;
+      containerRef.current.scrollLeft -= dx;
+      containerRef.current.scrollTop -= dy;
+      setPanStart({ x: e.clientX, y: e.clientY });
+    };
+
+    const handleMouseUp = () => setIsPanning(false);
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isPanning, panStart]);
+
   async function copySvg() {
     if (!svg) {return;}
     await navigator.clipboard.writeText(svg);
@@ -803,7 +961,7 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
   }, []);
 
   return (
-    <div data-testid="preview-panel" className="flex flex-col h-full" style={{ background: 'var(--surface-raised)' }}>
+    <div data-testid="preview-panel" className="flex flex-col h-full relative" style={{ background: 'var(--surface-raised)' }}>
       <div className="flex items-center justify-between px-3 h-9 shrink-0 border-b"
         style={{ borderColor: 'var(--border-subtle)' }}>
         <div className="flex items-center gap-2">
@@ -880,7 +1038,14 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
         />
       )}
 
-      <div ref={containerRef} className="flex-1 overflow-auto preview-grid" onClick={handleCanvasClick} onDragOver={e => e.preventDefault()} onDrop={handleDropOnCanvas}>
+      <div
+        ref={containerRef}
+        className={`flex-1 overflow-auto preview-grid ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+        onClick={handleCanvasClick}
+        onMouseDown={handlePanMouseDown}
+        onDragOver={e => e.preventDefault()}
+        onDrop={handleDropOnCanvas}
+      >
         {error ? (
           <div className="flex flex-col items-center justify-center h-full p-8 text-center" data-testid="error-message">
             <div className="w-10 h-10 rounded-full flex items-center justify-center mb-3"
@@ -919,21 +1084,6 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
               }}
             />
 
-            {selectedNodeIds.size > 0 && supportsClassDef && (
-              <NodeStylePanel
-                selectedNodeIds={Array.from(selectedNodeIds)}
-                nodeStyles={Array.from(selectedNodeIds).map(id => panelStyles.get(id) ?? {})}
-                nodeLabels={panelLabels}
-                onClose={() => setSelectedNodeIds(new Set())}
-                onStyleChange={handleStyleChange}
-                onLabelChange={handleNodeLabelChange}
-                onReset={handleResetStyles}
-                nodeSubgraphIds={nodeSubgraphIds}
-                subgraphs={subgraphList}
-                onSubgraphChange={handleSubgraphChange}
-              />
-            )}
-
             {selectedEdgeIndex !== null && parsedEdges[selectedEdgeIndex] && supportsClassDef && (
               <EdgeStylePanel
                 edge={parsedEdges[selectedEdgeIndex]}
@@ -967,6 +1117,10 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
                 <div
                   key={overlay.id}
                   onClick={e => handleNodeClick(e, overlay.id)}
+                  onMouseDown={e => {
+                    // Prevent canvas drag when clicking on nodes
+                    e.stopPropagation();
+                  }}
                   draggable={toolMode === 'select' && supportsClassDef ? true : undefined}
                   onDragStart={e => {
                     if (!supportsClassDef) return;
@@ -1005,6 +1159,10 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
                 <div
                   key={`sg-${sg.id}`}
                   onClick={e => handleSubgraphClick(e, sg.id)}
+                  onMouseDown={e => {
+                    // Prevent canvas drag when clicking on subgraphs
+                    e.stopPropagation();
+                  }}
                   onDragOver={e => {
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'move';
@@ -1041,6 +1199,23 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
           </div>
         )}
       </div>
+
+      {selectedNodeIds.size > 0 && (
+        <NodeStylePanel
+          selectedNodeIds={Array.from(selectedNodeIds)}
+          nodeStyles={Array.from(selectedNodeIds).map(id => panelStyles.get(id) ?? {})}
+          nodeLabels={panelLabels}
+          onClose={() => setSelectedNodeIds(new Set())}
+          onStyleChange={handleStyleChange}
+          onLabelChange={handleNodeLabelChange}
+          onReset={handleResetStyles}
+          nodeSubgraphIds={nodeSubgraphIds}
+          subgraphs={subgraphList}
+          onSubgraphChange={handleSubgraphChange}
+          presets={nodePresets}
+          onPresetApply={handlePresetApply}
+        />
+      )}
     </div>
   );
 }

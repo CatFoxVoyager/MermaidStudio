@@ -77,7 +77,13 @@ export function Sidebar({ onOpenDiagram, activeDiagramId, onRefresh, onDiagramDe
   }, []);
 
   async function newDiagram(folderId: string | null = null) {
-    const d = await createDiagram(t('sidebar.untitled'), 'flowchart TD\n    A --> B', folderId);
+    const defaultContent = `---
+config:
+  theme: base
+---
+flowchart TD
+    A --> B`;
+    const d = await createDiagram(t('sidebar.untitled'), defaultContent, folderId);
     refresh(); onOpenDiagram(d.id);
   }
 

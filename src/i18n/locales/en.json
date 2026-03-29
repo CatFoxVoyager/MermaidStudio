@@ -79,6 +79,8 @@
     "exportSvgDesc": "Scalable vector graphic",
     "exportPng": "Export PNG",
     "exportPngDesc": "High-resolution raster image",
+    "transparentBackground": "Transparent background",
+    "transparentBackgroundDesc": "Export PNG without background color",
     "copyMarkdown": "Copy as Markdown",
     "copyMarkdownDesc": "Mermaid code block for docs",
     "copyEmbedCode": "Copy Embed Code",
@@ -280,6 +282,7 @@
     "nodes": "{{count}} Nodes",
     "label": "Label",
     "labelPlaceholder": "Node label...",
+    "presets": "Presets",
     "fillColor": "Fill Color",
     "borderColor": "Border Color",
     "borderWidth": "Border Width",
@@ -428,6 +431,13 @@
     "loadingPreview": "Loading preview...",
     "createTheme": "Create Custom Theme",
     "editTheme": "Edit Theme"
+  },
+  "preview": {
+    "subgraph": "Subgraph",
+    "addSubgraph": "Add subgraph",
+    "selectSubgraph": "Select subgraph",
+    "editSubgraph": "Edit subgraph",
+    "deleteSubgraph": "Delete subgraph"
   },
   "theme": {
     "groups": {

@@ -6,7 +6,7 @@ import { DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '@/constants/themeDeriva
 import type { MermaidTheme } from '@/types';
 
 export function useTheme() {
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [defaultTheme, setDefaultThemeState] = useState<MermaidTheme | null>(null);
   const [initialized, setInitialized] = useState(false);
 

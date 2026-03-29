@@ -4,7 +4,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'flowchart-basic', title: 'Basic Flowchart', description: 'A simple decision-based flow',
     category: 'Flowchart', complexity: 'simple', type: 'flowchart',
-    content: `flowchart TD
+    content: `---
+config:
+  theme: 'base'
+---
+flowchart TD
     A([Start]) --> B[Process]
     B --> C{Decision}
     C -->|Yes| D[Action A]
@@ -15,7 +19,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'flowchart-cicd', title: 'CI/CD Pipeline', description: 'Software delivery pipeline with stages',
     category: 'Flowchart', complexity: 'advanced', type: 'flowchart',
-    content: `flowchart LR
+    content: `---
+config:
+  theme: 'base'
+---
+flowchart LR
     subgraph Source
         A[Code Push] --> B[Lint & Test]
     end
@@ -34,7 +42,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'sequence-api', title: 'API Request Flow', description: 'REST API sequence with auth',
     category: 'Sequence', complexity: 'moderate', type: 'sequence',
-    content: `sequenceDiagram
+    content: `---
+config:
+  theme: 'base'
+---
+sequenceDiagram
     participant C as Client
     participant G as API Gateway
     participant A as Auth Service
@@ -52,7 +64,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'sequence-oauth', title: 'OAuth2 Flow', description: 'OAuth2 authorization code flow',
     category: 'Sequence', complexity: 'advanced', type: 'sequence',
-    content: `sequenceDiagram
+    content: `---
+config:
+  theme: 'base'
+---
+sequenceDiagram
     participant U as User
     participant App
     participant AS as Auth Server
@@ -70,7 +86,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'class-ecommerce', title: 'E-Commerce Domain', description: 'Core e-commerce class relationships',
     category: 'Class Diagram', complexity: 'moderate', type: 'erDiagram',
-    content: `erDiagram
+    content: `---
+config:
+  theme: 'base'
+---
+erDiagram
     USER ||--o{ ORDER : places
     ORDER ||--o{ ORDER_ITEM : contains
     ORDER_ITEM }o--|| PRODUCT : references`,
@@ -78,7 +98,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'er-blog', title: 'Blog Database Schema', description: 'Entity relationships for a blog',
     category: 'ER Diagram', complexity: 'moderate', type: 'erDiagram',
-    content: `erDiagram
+    content: `---
+config:
+  theme: 'base'
+---
+erDiagram
     USER ||--o{ POST : writes
     POST ||--o{ COMMENT : has
     USER ||--o{ COMMENT : makes
@@ -87,7 +111,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'state-order', title: 'Order State Machine', description: 'E-commerce order lifecycle',
     category: 'State Diagram', complexity: 'moderate', type: 'stateDiagram',
-    content: `stateDiagram-v2
+    content: `---
+config:
+  theme: 'base'
+---
+stateDiagram-v2
     [*] --> Pending
     Pending --> Processing : Payment Confirmed
     Pending --> Cancelled : Timeout
@@ -104,7 +132,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'gantt-sprint', title: 'Sprint Planning', description: 'Two-week sprint task timeline',
     category: 'Gantt', complexity: 'moderate', type: 'gantt',
-    content: `gantt
+    content: `---
+config:
+  theme: 'base'
+---
+gantt
     title Sprint 24 — Feb 3–14
     dateFormat  YYYY-MM-DD
     section Design
@@ -120,7 +152,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'pie-market', title: 'Market Share', description: 'Simple pie chart visualization',
     category: 'Pie Chart', complexity: 'simple', type: 'pie',
-    content: `pie title Browser Market Share 2024
+    content: `---
+config:
+  theme: 'base'
+---
+pie title Browser Market Share 2024
     "Chrome" : 65.4
     "Safari" : 18.9
     "Firefox" : 4.1
@@ -130,7 +166,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'mindmap-product', title: 'Product Roadmap', description: 'Feature planning mindmap',
     category: 'Mindmap', complexity: 'moderate', type: 'mindmap',
-    content: `mindmap
+    content: `---
+config:
+  theme: 'base'
+---
+mindmap
   root((Product 2024))
     Q1 Launch
       Auth System
@@ -148,7 +188,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'git-feature', title: 'Git Feature Branch', description: 'Git branching strategy',
     category: 'Git Graph', complexity: 'moderate', type: 'gitGraph',
-    content: `gitGraph
+    content: `---
+config:
+  theme: 'base'
+---
+gitGraph
     commit id: "Initial commit"
     commit id: "Setup project"
     branch feature/auth
@@ -169,7 +213,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'journey-onboarding', title: 'User Onboarding', description: 'Customer onboarding journey',
     category: 'User Journey', complexity: 'moderate', type: 'journey',
-    content: `journey
+    content: `---
+config:
+  theme: 'base'
+---
+journey
     title User Onboarding Journey
     section Sign Up
       Sign up page: 5: User
@@ -187,7 +235,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'quadrant-priorities', title: 'Priority Matrix', description: 'Importance vs Urgency matrix',
     category: 'Quadrant Chart', complexity: 'simple', type: 'quadrantChart',
-    content: `quadrantChart
+    content: `---
+config:
+  theme: 'base'
+---
+quadrantChart
     title Prioritize Work Items
     x-axis Low --> High Importance
     y-axis Low --> High Urgency
@@ -199,7 +251,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'requirement-system', title: 'System Requirements', description: 'System requirements specification',
     category: 'Requirement Diagram', complexity: 'moderate', type: 'flowchart',
-    content: `flowchart TD
+    content: `---
+config:
+  theme: 'base'
+---
+flowchart TD
     A[Authentication System]
     B[API Rate Limiting]
     C[Data Encryption]
@@ -216,7 +272,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'timeline-product', title: 'Product Evolution', description: 'Timeline of product milestones',
     category: 'Timeline', complexity: 'moderate', type: 'timeline',
-    content: `timeline
+    content: `---
+config:
+  theme: 'base'
+---
+timeline
     title Product Roadmap Timeline
     2024-Q1 : MVP Release
         : Core features launch
@@ -234,7 +294,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'sankey-traffic', title: 'Traffic Flow', description: 'Website traffic flow analysis',
     category: 'Sankey', complexity: 'moderate', type: 'sankey',
-    content: `sankey
+    content: `---
+config:
+  theme: 'base'
+---
+sankey
     Source,Target,Value
     Google,Landing,450
     Facebook,Landing,200
@@ -249,7 +313,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'xy-scatter', title: 'Performance Analysis', description: 'XY scatter plot for data analysis',
     category: 'XY Chart', complexity: 'moderate', type: 'xyChart',
-    content: `xychart-beta
+    content: `---
+config:
+  theme: 'base'
+---
+xychart-beta
     title Performance vs Load
     x-axis [Low, Medium, High]
     y-axis "Response Time (ms)" 0 --> 500
@@ -258,7 +326,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'kanban-sprint', title: 'Sprint Board', description: 'Kanban board for sprint tracking',
     category: 'Kanban', complexity: 'simple', type: 'kanban',
-    content: `kanban
+    content: `---
+config:
+  theme: 'base'
+---
+kanban
     ## Kanban Board
     ### To Do
     - Implement login
@@ -273,7 +345,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'architecture-system', title: 'System Architecture', description: 'High-level system architecture',
     category: 'Architecture Diagram', complexity: 'advanced', type: 'architectureDiagram',
-    content: `graph TB
+    content: `---
+config:
+  theme: 'base'
+---
+graph TB
     subgraph Client
         Web[Web App]
         Mobile[Mobile App]
@@ -303,7 +379,11 @@ export const TEMPLATES: Template[] = [
   {
     id: 'block-network', title: 'Network Design', description: 'Block diagram for network topology',
     category: 'Block Diagram', complexity: 'moderate', type: 'blockDiagram',
-    content: `block-beta
+    content: `---
+config:
+  theme: 'base'
+---
+block-beta
     columns 3
     block:group1
         columns 2

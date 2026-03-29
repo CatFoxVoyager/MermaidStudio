@@ -40,6 +40,8 @@ export interface MermaidTheme {
   description: string;
   isBuiltin: boolean;
   coreColors: ThemeCoreColors;
+  /** Mermaid base theme to use (e.g., 'base', 'default', 'forest', 'neutral', 'dark') */
+  baseTheme?: 'base' | 'default' | 'forest' | 'neutral' | 'dark';
 }
 
 /** Group definition for the theme editor UI */

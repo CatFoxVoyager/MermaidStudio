@@ -429,7 +429,7 @@ export function applyThemeToFrontmatter(
   }
 
   const mergedConfig: Record<string, unknown> = {
-    theme: 'base',
+    theme: theme.baseTheme ?? 'base',
     themeVariables,
     ...layoutConfig,
   };
@@ -458,7 +458,7 @@ export function applyThemeToFrontmatterLegacy(
 
   const yamlConfig = `---
 config:
-  theme: 'base'
+  theme: '${theme.baseTheme ?? 'base'}'
   themeVariables:
 ${objectToYaml(themeVariables, 4)}---
 `;
@@ -561,9 +561,19 @@ export function stripThemeDirective(content: string): string {
   // Strip %% @theme comments (MermaidStudio theme metadata)
   cleaned = cleaned.replace(/^%% @theme \S+\n?/gm, '');
 
-  // Strip classDef and class directives
-  cleaned = cleaned.replace(/^[ \t]*classDef\s+.*$/gm, '');
-  cleaned = cleaned.replace(/^[ \t]*class\s+.*$/gm, '');
+  // Strip classDef and class directives EXCEPT for preset classes
+  // Presets use classDef presetPrimary, presetSuccess, presetWarning, presetDanger, presetInfo
+  // and class assignments like "class A presetWarning"
+  const presetClasses = /\b(presetPrimary|presetSuccess|presetWarning|presetDanger|presetInfo)\b/;
+  cleaned = cleaned.replace(/^[ \t]*classDef\s+(?!.*\bpreset(?:Primary|Success|Warning|Danger|Info)\b).*$/gm, '');
+  // Strip class lines EXCEPT those that assign nodes to preset classes
+  cleaned = cleaned.replace(/^[ \t]*class\s+.*$/gm, (match) => {
+    // Keep if line contains a preset class reference
+    if (presetClasses.test(match)) {
+      return match; // Keep the line
+    }
+    return ''; // Remove the line
+  });
 
   // Strip C4 directives
   cleaned = stripC4Directives(cleaned);

@@ -1,8 +1,14 @@
 import { useState, useCallback, useEffect } from 'react';
-import { X, RotateCcw, ChevronDown, Settings2 } from 'lucide-react';
+import { X, RotateCcw, ChevronDown, Settings2, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
-import type { NodeStyle } from '@/lib/mermaid/codeUtils';
+import type { NodeStyle, PresetType } from '@/lib/mermaid/codeUtils';
+
+interface NodeStylePreset {
+  label: string;
+  presetType: PresetType;
+  color: string;
+}
 
 interface NodeStylePanelProps {
   selectedNodeIds: string[];
@@ -22,6 +28,10 @@ interface NodeStylePanelProps {
   onSubgraphChange?: (nodeId: string, subgraphId: string | null) => void;
   /** Callback when node label changes */
   onLabelChange?: (nodeId: string, newLabel: string) => void;
+  /** Presets generated from current theme colors */
+  presets?: NodeStylePreset[];
+  /** Callback when a preset is applied */
+  onPresetApply?: (nodeIds: string[], presetType: PresetType) => void;
 }
 
 function getSharedValue(styles: NodeStyle[], field: keyof NodeStyle): string | 'mixed' | undefined {
@@ -44,6 +54,8 @@ export function NodeStylePanel({
   subgraphs,
   onSubgraphChange,
   onLabelChange,
+  presets,
+  onPresetApply,
 }: NodeStylePanelProps) {
   const { t } = useTranslation();
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -115,11 +127,30 @@ export function NodeStylePanel({
   const parsePx = (v: string): number => parseInt(v.replace('px', '')) || 0;
 
   return (
-    <div
-      className="absolute top-0 right-0 h-full w-[280px] z-30 animate-slide-in-right rounded-l-xl border-l shadow-xl overflow-y-auto"
-      style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}
-      onClick={e => e.stopPropagation()}
-    >
+    <>
+      <style>{`
+        .node-panel-scroll::-webkit-scrollbar {
+          width: 12px;
+        }
+        .node-panel-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .node-panel-scroll::-webkit-scrollbar-thumb {
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 6px;
+        }
+        .node-panel-scroll::-webkit-scrollbar-thumb:hover {
+          background: rgba(0, 0, 0, 0.4);
+        }
+      `}</style>
+      <div
+        className="absolute right-0 top-[110px] bottom-0 w-[280px] z-30 flex flex-col animate-slide-in-right rounded-l-xl border-l shadow-xl"
+        style={{
+          background: 'var(--surface-raised)',
+          borderColor: 'var(--border-subtle)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
       {/* Header */}
       <div
         className="flex items-center justify-between px-3 h-9 shrink-0 border-b"
@@ -145,7 +176,13 @@ export function NodeStylePanel({
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-4">
+      <div
+        className="flex-1 overflow-y-auto p-3 flex flex-col gap-4 node-panel-scroll"
+        style={{
+          scrollbarWidth: '12px',
+          scrollbarColor: 'rgba(0,0,0,0.3) transparent',
+        }}
+      >
         {/* Label (single node only) */}
         {singleNodeId && onLabelChange && (
           <div className="flex flex-col gap-1">
@@ -169,6 +206,36 @@ export function NodeStylePanel({
               }}
             />
           </div>
+        )}
+
+        {/* Presets */}
+        {presets && presets.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-1">
+              <Zap size={11} style={{ color: 'var(--text-tertiary)' }} />
+              <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                {t('nodeStyle.presets') || 'Presets'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {presets.map(preset => (
+              <button
+                key={preset.label}
+                onClick={() => onPresetApply?.(selectedNodeIds, preset.presetType)}
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg border text-[10px] font-medium transition-all hover:scale-105 active:scale-95 min-w-0"
+                title={preset.label}
+                style={{
+                  borderColor: preset.color,
+                  color: '#ffffff',
+                  background: preset.color,
+                }}
+              >
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: preset.color }} />
+                <span className="truncate">{preset.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         )}
 
         {/* Recommended Section */}
@@ -476,5 +543,6 @@ export function NodeStylePanel({
         </div>
       </div>
     </div>
+    </>
   );
 }

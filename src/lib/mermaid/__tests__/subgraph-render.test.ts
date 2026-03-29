@@ -6,7 +6,7 @@ describe('addSubgraph mermaid rendering', () => {
   it('renders simple diagram + empty subgraph (bracket syntax)', async () => {
     const source = 'flowchart TD\nA-->B';
     const withSubgraph = addSubgraph(source);
-    expect(withSubgraph).toContain('subgraph subgraph1["New Subgraph"]');
+    expect(withSubgraph).toContain('subgraph subgraph1[Subgraph]');
     const { svg, error } = await renderDiagram(withSubgraph, 'test_empty_sub');
     // getBBox error is a jsdom limitation, not a syntax error
     if (error && !error.includes('getBBox')) {
@@ -22,7 +22,7 @@ describe('addSubgraph mermaid rendering', () => {
     D --> B
     C --> E([End])`;
     const withSubgraph = addSubgraph(source);
-    expect(withSubgraph).toContain('subgraph subgraph1["New Subgraph"]');
+    expect(withSubgraph).toContain('subgraph subgraph1[Subgraph]');
     const { svg, error } = await renderDiagram(withSubgraph, 'test_complex_empty');
     if (error && !error.includes('getBBox')) {
       throw new Error(`Unexpected render error: ${error}`);

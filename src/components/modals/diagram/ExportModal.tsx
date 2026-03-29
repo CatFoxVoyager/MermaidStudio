@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image as ImageIcon, FileText, Code, Share2, Check, Braces, X, Download } from 'lucide-react';
+import { Image as ImageIcon, FileText, Code, Share2, Check, Braces, X, Download, Circle } from 'lucide-react';
 
 interface Props {
   isOpen?: boolean;
@@ -13,6 +13,7 @@ interface Props {
 export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClose, onCopyLink }: Props) {
   const { t } = useTranslation();
   const [done, setDone] = useState<string | null>(null);
+  const [transparentBg, setTransparentBg] = useState(false);
 
   function markDone(id: string) {
     setDone(id);
@@ -67,13 +68,15 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
     const svg = cloneSvgForExport();
     if (!svg) return;
     try {
-      // Inject background
-      const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--surface-base').trim() || '#0d1117';
-      const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      bgRect.setAttribute('width', svg.getAttribute('width')!);
-      bgRect.setAttribute('height', svg.getAttribute('height')!);
-      bgRect.setAttribute('fill', bgColor);
-      svg.insertBefore(bgRect, svg.firstChild);
+      // Inject background unless transparent background is selected
+      if (!transparentBg) {
+        const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--surface-base').trim() || '#0d1117';
+        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('width', svg.getAttribute('width')!);
+        bgRect.setAttribute('height', svg.getAttribute('height')!);
+        bgRect.setAttribute('fill', bgColor);
+        svg.insertBefore(bgRect, svg.firstChild);
+      }
 
       const width = parseFloat(svg.getAttribute('width') ?? '0');
       const height = parseFloat(svg.getAttribute('height') ?? '0');
@@ -166,7 +169,33 @@ ${diagramContent}
             <X size={14} />
           </button>
         </div>
-        <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
+        <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+          {/* Transparent Background Toggle */}
+          <label className="flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition-all"
+            style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={transparentBg}
+                onChange={e => setTransparentBg(e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`w-9 h-5 rounded-full transition-colors ${transparentBg ? 'bg-teal-500' : 'bg-gray-600'}`}>
+                <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${transparentBg ? 'translate-x-4' : 'translate-x-0.5'} mt-0.5`} />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-1">
+              <Circle size={14} style={{ color: transparentBg ? 'var(--accent)' : 'var(--text-tertiary)' }} />
+              <div>
+                <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {t('export.transparentBackground')}
+                </p>
+                <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                  {t('export.transparentBackgroundDesc')}
+                </p>
+              </div>
+            </div>
+          </label>
           {options.map(opt => (
             <button key={opt.id} onClick={opt.action}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left border transition-all duration-150"

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Tab } from '@/types';
-import { getDiagram, updateDiagram, saveVersion, getSettings, updateSettings } from '@/services/storage/database';
+import { getDiagram, getDiagrams, updateDiagram, saveVersion, getSettings, updateSettings } from '@/services/storage/database';
 import { extractThemeIdFromContent } from '@/constants/themeDerivation';
 
 export function useTabs() {
@@ -12,8 +12,18 @@ export function useTabs() {
   useEffect(() => {
     async function restoreLastDiagram() {
       const settings = await getSettings();
-      if (settings.lastOpenDiagramId) {
-        const diagram = await getDiagram(settings.lastOpenDiagramId);
+      let diagramId = settings.lastOpenDiagramId;
+
+      // If no last open diagram, fall back to the first available diagram
+      if (!diagramId) {
+        const diagrams = await getDiagrams();
+        if (diagrams.length > 0) {
+          diagramId = diagrams[0].id;
+        }
+      }
+
+      if (diagramId) {
+        const diagram = await getDiagram(diagramId);
         if (diagram) {
           const themeFromContent = extractThemeIdFromContent(diagram.content);
           const tab: Tab = {

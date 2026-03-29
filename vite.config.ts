@@ -10,10 +10,16 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   optimizeDeps: {
-    exclude: ['lucide-react'],
+    exclude: ['lucide-react', 'mermaid'],
+    include: ['dayjs', '@braintree/sanitize-url'],
   },
   server: {
     port: 5173,
     strictPort: false,
+  },
+  build: {
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
   },
 });

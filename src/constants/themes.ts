@@ -19,6 +19,7 @@ export const builtinThemes: MermaidTheme[] = [
     name: 'Corporate Blue',
     description: 'Professional blue tones for business diagrams',
     isBuiltin: true,
+    baseTheme: 'base',
     coreColors: {
       primaryColor: '#daeaf2',       // Light blue node fill (Mermaid convention)
       secondaryColor: '#b3d4e8',     // Secondary node fill
@@ -38,6 +39,7 @@ export const builtinThemes: MermaidTheme[] = [
     name: 'Warm Earth',
     description: 'Warm, earthy tones for organic designs',
     isBuiltin: true,
+    baseTheme: 'base',
     coreColors: {
       primaryColor: '#FDE8CD',
       secondaryColor: '#F5CBA7',
@@ -57,6 +59,7 @@ export const builtinThemes: MermaidTheme[] = [
     name: 'Dark Tech',
     description: 'Modern dark theme for tech products',
     isBuiltin: true,
+    baseTheme: 'base',
     coreColors: {
       primaryColor: '#1a2332',
       secondaryColor: '#162030',
@@ -76,6 +79,7 @@ export const builtinThemes: MermaidTheme[] = [
     name: 'Pastel Modern',
     description: 'Soft pastel colors for contemporary designs',
     isBuiltin: true,
+    baseTheme: 'base',
     coreColors: {
       primaryColor: '#E0D7F5',
       secondaryColor: '#F5D0E3',
@@ -95,6 +99,7 @@ export const builtinThemes: MermaidTheme[] = [
     name: 'Ocean',
     description: 'Cool ocean blues and teals',
     isBuiltin: true,
+    baseTheme: 'base',
     coreColors: {
       primaryColor: '#CCEDF8',
       secondaryColor: '#A8DBED',
@@ -114,6 +119,7 @@ export const builtinThemes: MermaidTheme[] = [
     name: 'Sunset',
     description: 'Vibrant sunset gradient colors',
     isBuiltin: true,
+    baseTheme: 'base',
     coreColors: {
       primaryColor: '#FED7AA',
       secondaryColor: '#FECACA',
@@ -133,6 +139,7 @@ export const builtinThemes: MermaidTheme[] = [
     name: 'Forest',
     description: 'Deep forest greens and browns',
     isBuiltin: true,
+    baseTheme: 'base',
     coreColors: {
       primaryColor: '#C6F2C6',
       secondaryColor: '#A7E3A7',
@@ -152,6 +159,7 @@ export const builtinThemes: MermaidTheme[] = [
     name: 'Midnight',
     description: 'Deep midnight blues with purple accents',
     isBuiltin: true,
+    baseTheme: 'base',
     coreColors: {
       primaryColor: '#C7D2FE',
       secondaryColor: '#A5B4FC',
@@ -171,6 +179,7 @@ export const builtinThemes: MermaidTheme[] = [
     name: 'Rainbow',
     description: 'Vibrant rainbow color spectrum',
     isBuiltin: true,
+    baseTheme: 'base',
     coreColors: {
       primaryColor: '#FCE7F3',
       secondaryColor: '#EDE9FE',
@@ -190,6 +199,7 @@ export const builtinThemes: MermaidTheme[] = [
     name: 'Neutral Minimal',
     description: 'Clean, minimal neutral grayscale',
     isBuiltin: true,
+    baseTheme: 'base',
     coreColors: {
       primaryColor: '#E5E7EB',
       secondaryColor: '#D1D5DB',
