@@ -56,3 +56,15 @@
 - [ ] [13-02-PLAN.md](./phases/13-custom-mermaid-themes-from-color-palettes/13-02-PLAN.md) — Theme editor sidebar panel with live preview (Wave 2)
 - [ ] [13-03-PLAN.md](./phases/13-custom-mermaid-themes-from-color-palettes/13-03-PLAN.md) — DiagramColorsPanel refactor + full migration from palettes to themes (Wave 3)
 - [ ] [13-04-PLAN.md](./phases/13-custom-mermaid-themes-from-color-palettes/13-04-PLAN.md) — App-level default theme persistence + dual apply wiring (Wave 4)
+
+### Phase 1: With lighthouse, do a benchmark, and after we will try to refactoring the code to get better speed and more optimisation
+
+**Goal:** Establish Lighthouse benchmark baseline and implement performance optimizations (code splitting, lazy loading, React memoization) to reduce bundle size and improve app speed
+**Requirements:** N/A (performance optimization phase, no formal requirements)
+**Depends on:** None
+**Plans:** 3 plans
+
+Plans:
+- [ ] [01-01-PLAN.md](./phases/01-with-lighthouse-do-a-benchmark-and-after-we-will-try-to-refactoring-the-code-to-get-better-speed-and-more-optimisation/01-01-PLAN.md) — Lighthouse baseline + bundle visualizer (Wave 1)
+- [ ] [01-02-PLAN.md](./phases/01-with-lighthouse-do-a-benchmark-and-after-we-will-try-to-refactoring-the-code-to-get-better-speed-and-more-optimisation/01-02-PLAN.md) — Vite build optimization with manualChunks (Wave 2)
+- [ ] [01-03-PLAN.md](./phases/01-with-lighthouse-do-a-benchmark-and-after-we-will-try-to-refactoring-the-code-to-get-better-speed-and-more-optimisation/01-03-PLAN.md) — React render optimization with memo + lazy loading (Wave 3)
