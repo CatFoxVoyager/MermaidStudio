@@ -2,31 +2,31 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 13
-status: Milestone complete
-stopped_at: Completed 13-04-PLAN.md
-last_updated: "2026-03-27T22:16:22.977Z"
+current_phase: 01
+status: Ready to execute
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-03-29T21:56:54.947Z"
 progress:
-  total_phases: 8
-  completed_phases: 5
-  total_plans: 47
-  completed_plans: 41
-  percent: 87
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 3
+  completed_plans: 1
+  percent: 33
 ---
 
 # STATE: MermaidStudio
 
 **Last Updated:** 2026-03-28T06:20:00Z
-**Last Session:** 2026-03-28T06:15:32.507Z
-**Stopped At:** Completed 13-04-PLAN.md
-**Current Phase:** 13
-**Progress:** [█████████░] 87%
+**Last Session:** 2026-03-29T21:56:54.943Z
+**Stopped At:** Completed 01-01-PLAN.md
+**Current Phase:** 01
+**Progress:** [███░░░░░░░] 33%
 
 ## Project Reference
 
 **Core Value:** Users prefer MermaidStudio over Mermaid Live Editor because of its polished interface, AI assistance, and better editing experience.
 
-**Current Focus:** Phase 13 — custom-mermaid-themes-from-color-palettes
+**Current Focus:** Phase 01 — with-lighthouse-do-a-benchmark-and-after-we-will-try-to-refactoring-the-code-to-get-better-speed-and-more-optimisation
 
 **Key Constraints:**
 
@@ -38,8 +38,8 @@ progress:
 
 ## Current Position
 
-Phase: 13 (custom-mermaid-themes-from-color-palettes) — EXECUTING
-Plan: Not started
+Phase: 01 (with-lighthouse-do-a-benchmark-and-after-we-will-try-to-refactoring-the-code-to-get-better-speed-and-more-optimisation) — EXECUTING
+Plan: 2 of 3
 
 ### Quick Tasks Completed
 
@@ -74,6 +74,7 @@ Plan: Not started
 
 ### Roadmap Evolution
 
+- Phase 1 added: With lighthouse, do a benchmark, and after we will try to refactoring the code to get better speed and more optimisation
 - Phase 6 added: please do the refactoring like explained in chat history
 - Phase 7 added: Fix all security issues identified in code analysis
 - Phase 11 added: Node style editing in preview (couleur, border, taille du border, couleur du border, etc.) — mêmes fonctionnalités que Mermaid Live Editor
