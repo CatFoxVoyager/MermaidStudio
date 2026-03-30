@@ -4,6 +4,11 @@ import { initMermaid, setDefaultTheme as setCoreDefaultTheme } from '@/lib/merma
 import { getThemeById } from '@/constants/themes';
 import { DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '@/constants/themeDerivation';
 import type { MermaidTheme } from '@/types';
+import { logger, storage } from '@/utils/logger';
+
+const log = logger.scope('useTheme');
+
+const DEFAULT_THEME_KEY = 'mermaid-studio-default-theme';
 
 export function useTheme() {
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
@@ -14,16 +19,11 @@ export function useTheme() {
     getSettings().then(settings => {
       setTheme(settings.theme);
 
-      // Load saved default theme preference
-      try {
-        const savedThemeId = localStorage.getItem('mermaid-studio-default-theme');
-        if (savedThemeId) {
-          const theme = getThemeById(savedThemeId);
-          if (theme) setDefaultThemeState(theme);
-        }
-      } catch (error) {
-        // localStorage may be unavailable in private browsing
-        console.debug('[useTheme] Could not access localStorage:', error);
+      // Load saved default theme preference using storage abstraction
+      const savedThemeId = storage.getItem(DEFAULT_THEME_KEY);
+      if (savedThemeId) {
+        const theme = getThemeById(savedThemeId);
+        if (theme) setDefaultThemeState(theme);
       }
 
       setInitialized(true);
@@ -45,15 +45,11 @@ export function useTheme() {
   const setDefaultTheme = (theme: MermaidTheme | null) => {
     setDefaultThemeState(theme);
     setCoreDefaultTheme(theme);
-    try {
-      if (theme) {
-        localStorage.setItem('mermaid-studio-default-theme', theme.id);
-      } else {
-        localStorage.removeItem('mermaid-studio-default-theme');
-      }
-    } catch (error) {
-      // localStorage may be unavailable in private browsing
-      console.debug('[useTheme] Could not access localStorage:', error);
+    // Use storage abstraction - handles errors automatically
+    if (theme) {
+      storage.setItem(DEFAULT_THEME_KEY, theme.id);
+    } else {
+      storage.removeItem(DEFAULT_THEME_KEY);
     }
   };
 
