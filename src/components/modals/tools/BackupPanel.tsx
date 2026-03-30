@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, Upload, X, HardDrive } from 'lucide-react';
 import { exportBackup, importBackup } from '@/services/storage/database';
+import { validateBackupData } from '@/utils/sanitization';
 import type { BackupData } from '@/types';
 
 interface Props {
@@ -28,19 +29,28 @@ export function BackupPanel({ isOpen = true, onClose, onImported }: Props) {
   function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) {return;}
+    // Pre-check file size before reading
+    if (file.size > 10 * 1024 * 1024) {
+      onImported(t('backup.invalidFile'));
+      if (fileRef.current) {fileRef.current.value = '';}
+      return;
+    }
     const reader = new FileReader();
     reader.onload = async () => {
       try {
-        const data = JSON.parse(reader.result as string) as BackupData;
-        if (!data.diagrams || !Array.isArray(data.diagrams)) {
-          onImported(t('backup.invalidFile'));
+        const raw = JSON.parse(reader.result as string);
+        let validated: BackupData;
+        try {
+          validated = validateBackupData(raw);
+        } catch (validationErr) {
+          onImported(validationErr instanceof Error ? validationErr.message : t('backup.invalidFile'));
           return;
         }
-        const result = await importBackup(data);
+        const result = await importBackup(validated);
         const parts = [];
         if (result.diagrams > 0) {parts.push(`${result.diagrams} diagram${result.diagrams > 1 ? 's' : ''}`);}
         if (result.folders > 0) {parts.push(`${result.folders} folder${result.folders > 1 ? 's' : ''}`);}
-        if (data.settings) {parts.push('settings');}
+        if (validated.settings) {parts.push('settings');}
         onImported(`Imported ${parts.join(', ')}`);
         onClose();
       } catch {

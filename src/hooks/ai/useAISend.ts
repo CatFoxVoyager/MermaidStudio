@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { getSettings } from '@/services/storage/database';
-import { callAI, buildSystemPrompt } from '@/services/ai/providers';
+import { callAI } from '@/services/ai/providers';
+import { buildSystemPrompt } from '@/components/ai/mermaidSystemPrompt';
 import { logger } from '@/utils/logger';
 import type { AIMessage } from '@/types';
 
@@ -88,7 +89,7 @@ export function useAISend({ currentContent, messages, addMessage, isConfigured }
           hasDiagram,
           diagramType,
           contentLength: currentContent.length,
-          userMessage: text,
+          userMessageLength: text.length,
           messageCount: allMessages.length,
         });
 
@@ -132,7 +133,11 @@ export function useAISend({ currentContent, messages, addMessage, isConfigured }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unknown error';
       log.error('Error:', e);
-      addMessage('assistant', t('ai.errorPrefix', { msg }));
+      // F05: Sanitize error messages before displaying to users
+      const safeMsg = msg.replace(/api[_-]?key[^=]*=\s*\S+/gi, '[REDACTED]')
+        .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
+        .replace(/sk-[a-zA-Z0-9]{20,}/g, '[REDACTED_KEY]');
+      addMessage('assistant', t('ai.errorPrefix', { msg: safeMsg }));
     } finally {
       setLoading(false);
     }

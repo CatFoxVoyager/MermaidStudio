@@ -1,76 +1,15 @@
 import mermaid from 'mermaid';
 import elkLayouts from '@mermaid-js/layout-elk';
-import DOMPurify from 'dompurify';
 import type { DiagramType } from '@/types';
 import { validateDiagramContent } from '@/utils/validation';
 import { deriveThemeVariables } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
+import { sanitizeMermaidSVG } from '@/utils/sanitization';
 import type { MermaidTheme } from '@/types';
-
-/**
- * DOMPurify configuration for sanitizing Mermaid SVG output.
- *
- * SECURITY NOTE: We trust Mermaid's output to be safe (it generates diagrams from structured text),
- * but we sanitize to prevent any potential XSS if Mermaid has vulnerabilities or if user input
- * somehow influences the SVG generation in unexpected ways.
- *
- * The 'foreignObject' element allows HTML content inside SVG. While this increases attack surface,
- * Mermaid uses it legitimately for rendering node labels. We trust Mermaid's output but monitor
- * for any security advisories.
- */
-const SANITIZATION_CONFIG = {
-  ALLOWED_TAGS: [
-    // Basic SVG structure
-    'svg', 'g',
-    // Shapes
-    'path', 'rect', 'circle', 'ellipse', 'polygon', 'polyline', 'line',
-    // Text elements (critical for Mermaid labels)
-    'text', 'tspan',
-    // foreignObject allows HTML content inside SVG - Mermaid uses this for rich labels
-    // SECURITY: Trust Mermaid's output, but monitor for security advisories
-    'foreignObject',
-    // HTML elements inside foreignObject (used by Mermaid for labels)
-    'span', 'div', 'p',
-    // Markers and definitions (arrowheads, gradients, etc.)
-    'marker', 'defs', 'use', 'style',
-    // Other SVG features
-    'clipPath', 'pattern', 'mask', 'symbol',
-    // HTML body for foreignObject content
-    'body', 'main',
-  ],
-  ALLOWED_ATTR: [
-    // Core SVG attributes
-    'xmlns', 'viewBox', 'preserveAspectRatio',
-    // Positioning and sizing
-    'x', 'y', 'width', 'height', 'cx', 'cy', 'r', 'rx', 'ry',
-    // Sizing for foreignObject
-    'requiredFeatures', 'overflow',
-    // Styling
-    'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'opacity',
-    // Text attributes
-    'text-anchor', 'font-family', 'font-size', 'font-weight', 'dominant-baseline', 'alignment-baseline',
-    // Inline styles for dynamic content
-    'style',
-    // Path and shape data
-    'd', 'points', 'transform', 'pathLength', 'transform-origin',
-    // References
-    'id', 'class', 'href', 'xlink:href', 'marker-start', 'marker-end', 'marker-mid',
-    // Accessibility
-    'role', 'aria-label',
-    // HTML attributes for foreignObject content
-    'xmlns:xlink', 'xmlns:xhtml',
-    // ForeignObject specific
-    'xlink:type',
-  ],
-  // Allow data URIs for images
-  ALLOW_DATA_URI: true,
-  // Allow unknown attributes for Mermaid compatibility
-  ALLOW_UNKNOWN_ATTRS: false,
-} satisfies { ALLOWED_TAGS: string[]; ALLOWED_ATTR: string[]; ALLOW_DATA_URI: boolean; ALLOW_UNKNOWN_ATTRS: boolean };
 
 export type MermaidBuiltinTheme = 'default' | 'dark' | 'forest' | 'neutral' | 'base';
 
-let currentTheme: 'dark' | 'light' = 'dark';
+let currentTheme: 'dark' | 'light' = 'light';
 let currentMermaidTheme: MermaidBuiltinTheme = 'base';
 let defaultTheme: MermaidTheme | null = null;
 let diagramTheme: MermaidTheme | null = null;
@@ -198,15 +137,8 @@ export async function renderDiagram(content: string, id: string, themeId?: strin
   try {
     let { svg } = await mermaid.render(safeId, content);
 
-    // Skip sanitization for Mermaid output - Mermaid is a trusted library
-    // and sanitization with foreignObject has issues that remove text labels
-    // We only sanitize if there are script tags or other dangerous content
-    const hasScripts = svg.includes('<script') || svg.includes('javascript:');
-    const hasDataUris = svg.includes('data:image') || svg.includes('data:video');
-
-    if (hasScripts || hasDataUris) {
-      svg = DOMPurify.sanitize(svg, SANITIZATION_CONFIG);
-    }
+    // Always sanitize SVG output for defense-in-depth
+    svg = sanitizeMermaidSVG(svg);
 
     if (hasCustomTheme) {
       const textColor = extractEdgeLabelTextColor(content);

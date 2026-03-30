@@ -128,7 +128,7 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
     baseUrl: base,
     messageCount: messages.length,
     hasSystemMessage: messages.some(m => m.role === 'system'),
-    lastUserMessage: messages.filter(m => m.role === 'user').pop()?.content.substring(0, 100),
+    lastUserMessageLength: messages.filter(m => m.role === 'user').pop()?.content.length ?? 0,
   });
 
   // Check rate limit
@@ -140,7 +140,7 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
   }
 
   if (provider === 'gemini') {
-    const url = `${base}${API_ENDPOINTS.GEMINI}/${model}:generateContent?key=${apiKey}`;
+    const url = `${base}${API_ENDPOINTS.GEMINI}/${model}:generateContent`;
     const systemMsg = messages.find(m => m.role === 'system');
     const chatMessages = messages.filter(m => m.role !== 'system');
 
@@ -158,14 +158,14 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
 
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify(body),
     });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({})) as Record<string, unknown>;
       log.error('Gemini error:', err);
-      throw new Error((err.error as { message?: string })?.message ?? `Gemini error ${res.status}`);
+      throw new Error(`API request failed (${res.status}). Please check your API key and model settings.`);
     }
 
     const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };

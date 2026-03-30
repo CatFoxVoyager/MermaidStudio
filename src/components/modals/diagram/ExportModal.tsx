@@ -124,7 +124,7 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
     const embed = `<div class="mermaid">
 ${diagramContent}
 </div>
-<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" integrity="sha384-PLACEHOLDER" crossorigin="anonymous"></script>
 <script>mermaid.initialize({ startOnLoad: true });</script>`;
     await navigator.clipboard.writeText(embed);
     markDone('embed');
