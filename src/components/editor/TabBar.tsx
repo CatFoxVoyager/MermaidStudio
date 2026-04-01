@@ -36,7 +36,8 @@ export function TabBar({ tabs, activeTabId, onSelect, onClose }: Props) {
               data-testid="close-tab"
               onClick={e => { e.stopPropagation(); onClose(tab.id); }}
               className="shrink-0 p-0.5 rounded-sm transition-all duration-100 opacity-0 group-hover:opacity-60 hover:opacity-100!"
-              style={{ color: 'var(--text-tertiary)' }}>
+              style={{ color: 'var(--text-tertiary)' }}
+              aria-label={`Close ${tab.title}`}>
               {tab.is_dirty
                 ? <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                 : <X size={11} />}

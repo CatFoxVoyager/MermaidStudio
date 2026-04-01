@@ -207,3 +207,10 @@ debug-*.spec.ts
 debug-*.test.ts
 *-debug.spec.ts
 *-debug.test.ts
+
+# =============================================================================
+# LIGHTHOUSE REPORTS
+# =============================================================================
+lighthouse-reports/*.json
+lighthouse-reports/*.html
+dist/stats.html

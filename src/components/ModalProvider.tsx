@@ -1,6 +1,4 @@
-import { TemplateLibrary } from '@/components/modals/diagram/TemplateLibrary';
-import { VersionHistory } from '@/components/modals/diagram/VersionHistory';
-import { ExportModal } from '@/components/modals/diagram/ExportModal';
+import { lazy, Suspense } from 'react';
 import { CommandPalette } from '@/components/modals/tools/CommandPalette';
 import { BackupPanel } from '@/components/modals/tools/BackupPanel';
 import { SaveTemplateModal } from '@/components/modals/diagram/SaveTemplateModal';
@@ -9,6 +7,11 @@ import { AISettingsModal } from '@/ai/AISettingsModal';
 import { KeyboardShortcuts } from '@/components/modals/tools/KeyboardShortcuts';
 import { Toast } from '@/components/shared/Toast';
 import type { Diagram, Template } from '@/types';
+
+// Lazy load heavy modal components
+const LazyTemplateLibrary = lazy(() => import('@/components/modals/diagram/TemplateLibrary').then(m => ({ default: m.TemplateLibrary })));
+const LazyVersionHistory = lazy(() => import('@/components/modals/diagram/VersionHistory').then(m => ({ default: m.VersionHistory })));
+const LazyExportModal = lazy(() => import('@/components/modals/diagram/ExportModal').then(m => ({ default: m.ExportModal })));
 
 interface ModalProviderProps {
   // Modal states
@@ -90,19 +93,23 @@ export function ModalProvider({
   return (
     <>
       {showTemplates && handleTemplateSelect && (
-        <TemplateLibrary
-          isOpen
-          onSelect={handleTemplateSelect}
-          onClose={onCloseTemplates}
-        />
+        <Suspense fallback={null}>
+          <LazyTemplateLibrary
+            isOpen
+            onSelect={handleTemplateSelect}
+            onClose={onCloseTemplates}
+          />
+        </Suspense>
       )}
       {showHistory && activeTab && handleRestore && (
-        <VersionHistory
-          diagramId={activeTab.diagram_id}
-          currentContent={activeTab.content}
-          onRestore={handleRestore}
-          onClose={onCloseHistory}
-        />
+        <Suspense fallback={null}>
+          <LazyVersionHistory
+            diagramId={activeTab.diagram_id}
+            currentContent={activeTab.content}
+            onRestore={handleRestore}
+            onClose={onCloseHistory}
+          />
+        </Suspense>
       )}
       {showPalette && newDiagram && handleNewFolder && diagrams && onOpenDiagram && toggleTheme && (
         <CommandPalette
@@ -119,13 +126,15 @@ export function ModalProvider({
         />
       )}
       {showExport && activeTab && handleCopyLink && (
-        <ExportModal
-          isOpen
-          diagramTitle={activeTab.title}
-          diagramContent={activeTab.content}
-          onClose={onCloseExport}
-          onCopyLink={handleCopyLink}
-        />
+        <Suspense fallback={null}>
+          <LazyExportModal
+            isOpen
+            diagramTitle={activeTab.title}
+            diagramContent={activeTab.content}
+            onClose={onCloseExport}
+            onCopyLink={handleCopyLink}
+          />
+        </Suspense>
       )}
       {showAISettings && setAiSettingsKey && (
         <AISettingsModal

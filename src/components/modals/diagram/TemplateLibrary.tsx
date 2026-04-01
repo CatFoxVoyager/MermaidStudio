@@ -177,7 +177,7 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
           <div className="grid grid-cols-2 gap-2">
             {filteredTemplates.map(t => (
               <TemplateCard key={t.id} template={t as Template}
-                onSelect={() => onSelect(t as Template)}
+                onSelect={() => { onSelect(t as Template); onClose(); }}
                 onDelete={'created_at' in t ? () => handleDeleteUserTemplate(t.id) : undefined} />
             ))}
           </div>

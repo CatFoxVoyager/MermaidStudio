@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image as ImageIcon, FileText, Code, Share2, Check, Braces, X, Download, Circle } from 'lucide-react';
+import { renderDiagram } from '@/lib/mermaid/core';
+import { fixEdgeLabelTextPosition } from '@/utils/svgPostProcessing';
 
 interface Props {
   isOpen?: boolean;
@@ -20,43 +22,17 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
     setTimeout(() => setDone(null), 2000);
   }
 
-  function getShadowSvg(): SVGElement | null {
-    const shadowHost = document.querySelector('[data-shadow-host]') as HTMLElement & { shadowRoot: ShadowRoot };
-    if (!shadowHost?.shadowRoot) return null;
-    return shadowHost.shadowRoot.querySelector('svg');
-  }
-
-  /** Clone the shadow SVG into a detached DOM element for reliable rendering */
-  function cloneSvgForExport(): SVGSVGElement | null {
-    const svg = getShadowSvg();
-    if (!svg) return null;
-
-    // Serialize and re-parse to get a clean detached copy
-    const raw = svg.outerHTML;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(raw, 'image/svg+xml');
-    const parseError = doc.querySelector('parsererror');
-    if (parseError) return null;
-
-    const clone = doc.documentElement as unknown as SVGSVGElement;
-    // Force explicit pixel dimensions from viewBox
-    const vb = clone.getAttribute('viewBox');
-    if (vb) {
-      const [, , w, h] = vb.split(/\s+/).map(Number);
-      if (w && h) {
-        clone.setAttribute('width', String(w));
-        clone.setAttribute('height', String(h));
-      }
-    }
-    // Keep foreignObject (contains text labels) — data URLs handle it fine
-
-    return clone;
+  async function getSvgString(): Promise<string | null> {
+    const { svg, error } = await renderDiagram(diagramContent, `export_${Date.now()}`);
+    if (error || !svg) return null;
+    // Fix edge label centering and add missing gradients for Sankey diagrams
+    return fixEdgeLabelTextPosition(svg);
   }
 
   async function exportSvg() {
-    const svg = getShadowSvg();
-    if (!svg) return;
-    const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml;charset=utf-8' });
+    const svgStr = await getSvgString();
+    if (!svgStr) return;
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `${diagramTitle.replace(/\s+/g, '_')}.svg`; a.click();
@@ -64,54 +40,146 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
     markDone('svg');
   }
 
+  // Helper to convert oklch color to hex
+  function oklchToHex(oklchStr: string): string {
+    // Parse oklch string like "oklch(50% 0.1 200)" or "oklch(50% 0.1 200 / 0.5)"
+    const match = oklchStr.match(/oklch\s*\(\s*([\d.]+%?)\s+([\d.]+)\s+([\d.]+)\s*(?:\/\s*([\d.]+))?\s*\)/);
+    if (!match) return '#333333'; // fallback
+
+    const l = parseFloat(match[1].replace('%', '')) / 100;
+    const c = parseFloat(match[2]);
+    const h = parseFloat(match[3]);
+
+    // Simplified oklch to sRGB conversion (approximate)
+    // For better results, use a library like culori
+    const l2 = l + 0.39633777 * c * Math.cos(h * Math.PI / 180) + 0.21580375 * c * Math.sin(h * Math.PI / 180);
+    const m2 = 1.0 + 0.39633777 * c * Math.cos(h * Math.PI / 180) - 0.21580375 * c * Math.sin(h * Math.PI / 180);
+    const m2b = -0.25656905 * c * Math.cos(h * Math.PI / 180) + 0.62204873 * c * Math.sin(h * Math.PI / 180);
+
+    const l3 = l2 + 0.26405402 * m2b;
+    const b = m2 + -0.09511347 * m2b;
+
+    // Simplified gamma correction and RGB conversion
+    const r = Math.min(255, Math.max(0, (l3 + b + 1.0) * 127));
+    const g = Math.min(255, Math.max(0, (l3 - b) * 127 + 64));
+    const b2 = Math.min(255, Math.max(0, (l3 - 2.0 * b) * 127 + 64));
+
+    const toHex = (n: number) => Math.round(n).toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b2)}`;
+  }
+
   async function exportPng() {
-    const svg = cloneSvgForExport();
-    if (!svg) return;
+    const svgStr = await getSvgString();
+    if (!svgStr) return;
+
     try {
-      // Inject background unless transparent background is selected
-      if (!transparentBg) {
-        const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--surface-base').trim() || '#0d1117';
-        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        bgRect.setAttribute('width', svg.getAttribute('width')!);
-        bgRect.setAttribute('height', svg.getAttribute('height')!);
-        bgRect.setAttribute('fill', bgColor);
-        svg.insertBefore(bgRect, svg.firstChild);
+      // Clean the SVG string - only replace oklch colors, keep styles
+      let cleanSvg = svgStr.replace(/oklch\([^)]+\)/gi, 'rgb(51, 51, 51)');
+
+      // Extract dimensions
+      const vbMatch = cleanSvg.match(/viewBox="([^"]+)"/);
+      let width = 800, height = 600;
+      if (vbMatch) {
+        const parts = vbMatch[1].split(/[\s,]+/).map(Number);
+        if (parts.length >= 4 && parts[2] > 0 && parts[3] > 0) {
+          width = parts[2];
+          height = parts[3];
+        }
       }
 
-      const width = parseFloat(svg.getAttribute('width') ?? '0');
-      const height = parseFloat(svg.getAttribute('height') ?? '0');
+      // Fix width/height attributes
+      cleanSvg = cleanSvg
+        .replace(/<svg([^>]*?)width="[^"]*"/, `<svg$1width="${width}"`)
+        .replace(/<svg([^>]*?)height="[^"]*"/, `<svg$1height="${height}"`);
 
-      // Serialize to data URL (blob: URLs are blocked by CSP)
-      const data = new XMLSerializer().serializeToString(svg);
-      const dataUrl = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(data)))}`;
+      // Get the current theme's background color
+      const bgColor = transparentBg ? 'transparent' : 
+        getComputedStyle(document.documentElement).getPropertyValue('--surface-base').trim() || '#ffffff';
 
-      const img = document.createElement('img');
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error('Failed to load SVG data URL'));
-        img.src = dataUrl;
-      });
+      // Create a container in the visible DOM (needed for foreignObject rendering)
+      // Position it off-screen but keep it visible to the renderer
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.left = '0';
+      container.style.top = '0';
+      container.style.width = `${width}px`;
+      container.style.height = `${height}px`;
+      container.style.overflow = 'hidden';
+      container.style.zIndex = '-9999';
+      container.innerHTML = cleanSvg;
+      document.body.appendChild(container);
 
+      const svgElement = container.querySelector('svg');
+      if (!svgElement) {
+        document.body.removeChild(container);
+        return;
+      }
+
+      // Ensure the SVG has explicit dimensions for proper rendering
+      svgElement.setAttribute('width', String(width));
+      svgElement.setAttribute('height', String(height));
+      svgElement.style.width = `${width}px`;
+      svgElement.style.height = `${height}px`;
+
+      // Add background rect BEFORE any content (so text is visible on top)
+      if (!transparentBg) {
+        const backgroundRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        backgroundRect.setAttribute('x', '0');
+        backgroundRect.setAttribute('y', '0');
+        backgroundRect.setAttribute('width', String(width));
+        backgroundRect.setAttribute('height', String(height));
+        backgroundRect.setAttribute('fill', bgColor);
+        backgroundRect.setAttribute('style', 'pointer-events: none;');
+
+        // Insert at the very beginning so it's behind everything
+        svgElement.insertBefore(backgroundRect, svgElement.firstChild);
+      }
+
+      // Wait a bit for the DOM to fully render the foreignObject content
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // Use Canvas API directly with the SVG element from DOM
       const canvas = document.createElement('canvas');
       canvas.width = width * 2;
       canvas.height = height * 2;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        document.body.removeChild(container);
+        return;
+      }
 
-      canvas.toBlob(blob => {
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${diagramTitle.replace(/\s+/g, '_')}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }, 'image/png');
+      // Serialize SVG to string and encode as base64 data URL
+      const svgString = new XMLSerializer().serializeToString(svgElement);
+      const base64Svg = btoa(unescape(encodeURIComponent(svgString)));
+      const url = `data:image/svg+xml;base64,${base64Svg}`;
 
-      markDone('png');
+      const img = new Image();
+      img.onload = () => {
+        if (!transparentBg) {
+          ctx.fillStyle = bgColor;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const pngUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = pngUrl;
+            a.download = `${diagramTitle.replace(/\s+/g, '_')}.png`;
+            a.click();
+            URL.revokeObjectURL(pngUrl);
+            markDone('png');
+          }
+          document.body.removeChild(container);
+        }, 'image/png');
+      };
+      img.onerror = (e) => {
+        console.error('Failed to load SVG image:', e);
+        document.body.removeChild(container);
+      };
+      img.src = url;
     } catch (err) {
       console.error('PNG export failed:', err);
-      markDone('png');
     }
   }
 
@@ -124,7 +192,7 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
     const embed = `<div class="mermaid">
 ${diagramContent}
 </div>
-<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" integrity="sha384-tI0sDqjGJcqrQ8e/XKiQGS+ee11v5knTNWx2goxMBxe4DO9U0uKlfxJtYB9ILZ4j" crossorigin="anonymous"></script>
 <script>mermaid.initialize({ startOnLoad: true });</script>`;
     await navigator.clipboard.writeText(embed);
     markDone('embed');

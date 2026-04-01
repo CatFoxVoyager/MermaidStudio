@@ -405,7 +405,7 @@ export function applyThemeToFrontmatter(
 
   // Parse existing layout config (from Advanced Style) to preserve it
   const frontmatterMatch = content.match(/^\s*---([\s\S]*?)---\s*/i);
-  let layoutConfig: Record<string, unknown> = {};
+  const layoutConfig: Record<string, unknown> = {};
   if (frontmatterMatch) {
     try {
       const yamlContent = frontmatterMatch[1];
@@ -585,10 +585,58 @@ export function stripThemeDirective(content: string): string {
 }
 
 /**
+ * Remove font-size from all node-specific style directives.
+ * This allows global fontSize (from themeVariables) to take precedence.
+ */
+export function removeNodeFontSizeStyles(content: string): string {
+  const lines = content.split('\n');
+  const result: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Check if this is a style directive
+    if (trimmed.startsWith('style ') && !trimmed.startsWith('styleDef ')) {
+      // Match: style NODE fill:#fff,font-size:16px,...
+      const match = trimmed.match(/^style\s+\S+\s+(.+)$/);
+      if (match) {
+        const styleParts = match[1].split(',').filter(part => {
+          const trimmedPart = part.trim();
+          // Keep all parts except font-size
+          return !trimmedPart.startsWith('font-size:');
+        });
+
+        if (styleParts.length > 0) {
+          // Reconstruct the style line without font-size
+          const indent = line.match(/^\s*/)?.[0] || '';
+          result.push(`${indent}style ${trimmed.split(/\s+/)[1]} ${styleParts.join(',')}`);
+        }
+        // If no parts left, skip the line (remove it entirely)
+      } else {
+        // Line doesn't match expected pattern, keep it as-is
+        result.push(line);
+      }
+    } else {
+      // Not a style directive, keep the line
+      result.push(line);
+    }
+  }
+
+  // Clean up excessive blank lines
+  let cleaned = result.join('\n').replace(/\n{3,}/g, '\n\n');
+  // Preserve original trailing newline behavior
+  if (content.endsWith('\n')) {
+    cleaned = cleaned.trimEnd() + '\n';
+  }
+  return cleaned.trimEnd();
+}
+
+/**
  * Convert object to YAML string with proper indentation.
  * Ported from colorPalettes.ts
  */
-export function objectToYaml(obj: Record<string, unknown>, indent: number = 0): string {
+type YamlValue = string | number | boolean | YamlConfig | unknown[];
+
+export function objectToYaml(obj: Record<string, YamlValue>, indent: number = 0): string {
   const spaces = ' '.repeat(indent);
   let result = '';
 
@@ -597,7 +645,7 @@ export function objectToYaml(obj: Record<string, unknown>, indent: number = 0): 
 
     if (typeof value === 'object' && !Array.isArray(value)) {
       // Nested object
-      result += `${spaces}${key}:\n${objectToYaml(value as Record<string, unknown>, indent + 2)}`;
+      result += `${spaces}${key}:\n${objectToYaml(value as Record<string, YamlValue>, indent + 2)}`;
     } else if (Array.isArray(value)) {
       // Array
       result += `${spaces}${key}:\n${spaces}  - ${(value as unknown[]).join('\n' + spaces + '  - ')}\n`;
@@ -632,7 +680,22 @@ export function addBaseThemeConfig(content: string): string {
  * Extract style options from existing YAML config in content.
  * Parses existing config to populate style options in UI.
  */
-export function extractStyleOptionsFromContent(content: string): any {
+interface StyleOptions {
+  theme?: string;
+  fontFamily?: string;
+  fontSize?: string;
+  layout?: string;
+  direction?: string;
+  flowchart?: {
+    curve?: string;
+    padding?: string;
+    nodeSpacing?: string;
+    rankSpacing?: string;
+  };
+  [key: string]: unknown;
+}
+
+export function extractStyleOptionsFromContent(content: string): StyleOptions {
   const frontmatterMatch = content.match(/^\s*---[\s\S]*?---\s*/i);
   if (!frontmatterMatch) {
     return {};
@@ -640,21 +703,21 @@ export function extractStyleOptionsFromContent(content: string): any {
 
   try {
     const yamlContent = frontmatterMatch[0].replace(/---\s*/, '').trim();
-    // Simple YAML parser for the config section
     const configMatch = yamlContent.match(/config:\s*\n([\s\S]*?)(?=\n---|\n\s*\n|\s*$)/);
     if (!configMatch) return {};
 
     const configText = configMatch[1];
-    const options: any = {};
+    const options: StyleOptions = {};
 
-    // Parse common config options
     const parseKeyValue = (line: string, key: string, targetKey?: string) => {
       const match = line.match(new RegExp(`^\\s*${key}:\\s*(.+)$`));
       if (match) {
         const value = match[1].trim().replace(/^['"]|['"]$/g, '');
         if (targetKey) {
-          if (!options[targetKey]) options[targetKey] = {};
-          (options[targetKey] as any)[key] = value;
+          if (!options[targetKey]) {
+            options[targetKey] = {};
+          }
+          (options[targetKey] as Record<string, string>)[key] = value;
         } else {
           options[key] = value;
         }
@@ -669,7 +732,7 @@ export function extractStyleOptionsFromContent(content: string): any {
           const flowchartText = flowchartMatch[1];
           for (const fc of flowchartText.split('\n')) {
             parseKeyValue(fc, 'curve', 'flowchart');
-            parseKeyValue(fc, 'padding', 'flowchart'); // nodePadding
+            parseKeyValue(fc, 'padding', 'flowchart');
             parseKeyValue(fc, 'nodeSpacing', 'flowchart');
             parseKeyValue(fc, 'rankSpacing', 'flowchart');
           }
@@ -690,11 +753,39 @@ export function extractStyleOptionsFromContent(content: string): any {
 /**
  * Apply style options to diagram content via YAML frontmatter.
  * Updates existing config or creates new one as needed.
- * @param content - The diagram content
- * @param styleOptions - Style options to apply (fontFamily, fontSize, primaryColor, etc.)
- * @param darkMode - Whether dark mode is active (defaults to false). Used to determine default theme colors.
  */
-export function applyStyleToContent(content: string, styleOptions: any, darkMode: boolean = false): string {
+interface FlowchartConfig {
+  curve?: string;
+  padding?: number;
+  nodeSpacing?: number;
+  rankSpacing?: number;
+}
+
+export function applyStyleToContent(
+  content: string,
+  styleOptions: StyleOptions & {
+    direction?: string;
+    primaryColor?: string;
+    fontSize?: string | number;
+    diagramMarginX?: number;
+    diagramMarginY?: number;
+    actorMargin?: number;
+    actorWidth?: number;
+    actorHeight?: number;
+    mirrorActors?: boolean;
+    barHeight?: number;
+    barGap?: number;
+    topPadding?: number;
+    leftPadding?: number;
+    axisFormat?: string;
+    curveStyle?: string;
+    nodePadding?: number;
+    nodeSpacing?: number;
+    rankSpacing?: number;
+    layoutEngine?: string;
+  },
+  darkMode: boolean = false
+): string {
 
   let stripped = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
 
@@ -702,7 +793,6 @@ export function applyStyleToContent(content: string, styleOptions: any, darkMode
   let hasChanges = false;
 
   // Apply direction change — only if actually different
-  // Use multiline match since %% @theme comment may precede the diagram keyword
   if (styleOptions.direction) {
     const dirMatch = stripped.match(/^(flowchart|graph)\s+(TD|TB|BT|LR|RL)/im);
     if (dirMatch && dirMatch[2].toUpperCase() !== styleOptions.direction.toUpperCase()) {
@@ -716,14 +806,13 @@ export function applyStyleToContent(content: string, styleOptions: any, darkMode
 
   // Check if there's existing frontmatter with config
   const frontmatterMatch = content.match(/^\s*---([\s\S]*?)---\s*/i);
-  let existingConfig: any = {};
+  let existingConfig: YamlConfig = {};
 
   if (frontmatterMatch) {
     try {
       const yamlContent = frontmatterMatch[1];
       const configMatch = yamlContent.match(/config:\s*\n([\s\S]*?)(?=\n---|\n\s*\n|\s*$)/);
       if (configMatch) {
-        // Parse existing YAML config (simplified)
         existingConfig = parseYamlConfig(configMatch[1]);
       }
     } catch {
@@ -732,16 +821,18 @@ export function applyStyleToContent(content: string, styleOptions: any, darkMode
   }
 
   // Build new config
-  const newConfig: any = { ...existingConfig };
+  const newConfig: YamlConfig = { ...existingConfig };
 
   // Helper to set config value if different
-  const setConfig = (path: string[], value: any) => {
+  const setConfig = (path: string[], value: string | number | boolean) => {
     if (value === undefined || value === null) return;
 
-    let current = newConfig;
+    let current: YamlConfig = newConfig;
     for (let i = 0; i < path.length - 1; i++) {
-      if (!current[path[i]]) current[path[i]] = {};
-      current = current[path[i]];
+      if (!current[path[i]]) {
+        current[path[i]] = {};
+      }
+      current = current[path[i]] as YamlConfig;
     }
 
     const key = path[path.length - 1];
@@ -755,34 +846,37 @@ export function applyStyleToContent(content: string, styleOptions: any, darkMode
   const type = diagramType || 'flowchart';
 
   // Helper to ensure themeVariables object exists and preserves existing values
-  // Only creates minimal themeVariables - does NOT add default colors unless explicitly set
   const ensureThemeVariables = () => {
     if (!newConfig.themeVariables) {
-      // Preserve existing themeVariables, or create minimal empty object
-      newConfig.themeVariables = existingConfig.themeVariables ? { ...existingConfig.themeVariables } : {};
+      newConfig.themeVariables = existingConfig.themeVariables ?
+        { ...existingConfig.themeVariables as YamlConfig } :
+        {};
     }
   };
 
   // Font/color settings — only apply if value differs from existing config
-  // Preserve existing themeVariables when adding new ones
-  if (styleOptions.fontFamily && existingConfig.themeVariables?.fontFamily !== styleOptions.fontFamily) {
+  if (styleOptions.fontFamily &&
+      (existingConfig.themeVariables as YamlConfig)?.fontFamily !== styleOptions.fontFamily) {
     ensureThemeVariables();
-    newConfig.themeVariables.fontFamily = styleOptions.fontFamily;
+    (newConfig.themeVariables as YamlConfig).fontFamily = styleOptions.fontFamily;
     hasChanges = true;
   }
   if (styleOptions.fontSize) {
-    // Normalize: always store as '<number>px'
     const raw = String(styleOptions.fontSize);
     const normalized = raw.endsWith('px') ? raw : raw + 'px';
-    if (existingConfig.themeVariables?.fontSize !== normalized) {
+    if ((existingConfig.themeVariables as YamlConfig)?.fontSize !== normalized) {
       ensureThemeVariables();
-      newConfig.themeVariables.fontSize = normalized;
+      (newConfig.themeVariables as YamlConfig).fontSize = normalized;
       hasChanges = true;
+
+      // Remove node-specific font-size styles so global fontSize takes precedence
+      stripped = removeNodeFontSizeStyles(stripped);
     }
   }
-  if (styleOptions.primaryColor && existingConfig.themeVariables?.primaryColor !== styleOptions.primaryColor) {
+  if (styleOptions.primaryColor &&
+      (existingConfig.themeVariables as YamlConfig)?.primaryColor !== styleOptions.primaryColor) {
     ensureThemeVariables();
-    newConfig.themeVariables.primaryColor = styleOptions.primaryColor;
+    (newConfig.themeVariables as YamlConfig).primaryColor = styleOptions.primaryColor;
     hasChanges = true;
   }
 
@@ -820,7 +914,7 @@ export function applyStyleToContent(content: string, styleOptions: any, darkMode
     case 'blockDiagram':
     case 'architecture':
     case 'architectureDiagram': {
-      const flowchartCfg: any = {};
+      const flowchartCfg: FlowchartConfig = {};
       if (styleOptions.curveStyle !== undefined) {
         flowchartCfg.curve = styleOptions.curveStyle;
         hasChanges = true;
@@ -838,7 +932,7 @@ export function applyStyleToContent(content: string, styleOptions: any, darkMode
         hasChanges = true;
       }
       if (Object.keys(flowchartCfg).length > 0) {
-        newConfig.flowchart = { ...(existingConfig.flowchart || {}), ...flowchartCfg };
+        newConfig.flowchart = { ...(existingConfig.flowchart as YamlConfig || {}), ...flowchartCfg };
         hasChanges = true;
       }
       if (styleOptions.layoutEngine && styleOptions.layoutEngine !== 'dagre') {
@@ -862,14 +956,15 @@ export function applyStyleToContent(content: string, styleOptions: any, darkMode
   }
 
   // Set theme to base if we have themeVariables
-  if (newConfig.themeVariables && Object.keys(newConfig.themeVariables).length > 0) {
+  if (newConfig.themeVariables && typeof newConfig.themeVariables === 'object' &&
+      Object.keys(newConfig.themeVariables).length > 0) {
     newConfig.theme = 'base';
   }
 
   // Generate YAML frontmatter
   const yamlConfig = `---
 config:
-${configToYaml(newConfig)}---
+${configToYaml(newConfig as Record<string, YamlValue>)}---
 `;
 
   return yamlConfig + '\n\n' + stripped;
@@ -878,11 +973,16 @@ ${configToYaml(newConfig)}---
 /**
  * Simple YAML config parser - extracts key-value pairs from config section
  */
-function parseYamlConfig(configText: string): any {
-  const config: any = {};
+interface YamlConfig {
+  [key: string]: string | number | YamlConfig | undefined;
+  __line?: string;
+}
+
+function parseYamlConfig(configText: string): YamlConfig {
+  const config: YamlConfig = {};
   const lines = configText.split('\n');
-  let currentSection: any;
-  const sectionStack: any[] = [config];
+  let currentSection: YamlConfig;
+  const sectionStack: YamlConfig[] = [config];
 
   const getIndent = (line: string): number => {
     const match = line.match(/^(\s*)/);
@@ -903,9 +1003,10 @@ function parseYamlConfig(configText: string): any {
     // Check for nested section (ends with :)
     if (trimmed.endsWith(':') && !trimmed.includes(' ')) {
       const key = trimmed.slice(0, -1);
-      currentSection[key] = {};
-      currentSection[key].__line = line;
-      sectionStack.push(currentSection[key]);
+      const newSection: YamlConfig = {};
+      newSection.__line = line;
+      currentSection[key] = newSection;
+      sectionStack.push(newSection);
     } else {
       // Key-value pair
       const match = trimmed.match(/^([\w.-]+):\s*(.+)$/);
@@ -957,7 +1058,7 @@ export function injectThemeComment(content: string, themeId: string | null): str
 /**
  * Convert config object to YAML string
  */
-function configToYaml(config: any, indent: number = 2): string {
+function configToYaml(config: Record<string, YamlValue>, indent: number = 2): string {
   const spaces = ' '.repeat(indent);
   let result = '';
 
@@ -967,7 +1068,7 @@ function configToYaml(config: any, indent: number = 2): string {
 
     if (typeof value === 'object' && !Array.isArray(value)) {
       result += `${spaces}${key}:\n`;
-      result += configToYaml(value, indent + 2);
+      result += configToYaml(value as Record<string, YamlValue>, indent + 2);
     } else if (typeof value === 'boolean') {
       result += `${spaces}${key}: ${value}\n`;
     } else if (typeof value === 'string') {

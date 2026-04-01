@@ -2,31 +2,31 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 13
+current_phase: 02
 status: Milestone complete
-stopped_at: Completed 13-04-PLAN.md
-last_updated: "2026-03-27T22:16:22.977Z"
+stopped_at: Completed 02-06-PLAN.md
+last_updated: "2026-03-30T10:40:28.307Z"
 progress:
-  total_phases: 8
-  completed_phases: 5
-  total_plans: 47
-  completed_plans: 41
-  percent: 87
+  total_phases: 2
+  completed_phases: 2
+  total_plans: 13
+  completed_plans: 13
+  percent: 100
 ---
 
 # STATE: MermaidStudio
 
 **Last Updated:** 2026-03-28T06:20:00Z
-**Last Session:** 2026-03-28T06:15:32.507Z
-**Stopped At:** Completed 13-04-PLAN.md
-**Current Phase:** 13
-**Progress:** [█████████░] 87%
+**Last Session:** 2026-03-30T10:33:59.825Z
+**Stopped At:** Completed 02-06-PLAN.md
+**Current Phase:** 02
+**Progress:** [██████████] 100%
 
 ## Project Reference
 
 **Core Value:** Users prefer MermaidStudio over Mermaid Live Editor because of its polished interface, AI assistance, and better editing experience.
 
-**Current Focus:** Phase 13 — custom-mermaid-themes-from-color-palettes
+**Current Focus:** Phase 02 — Fix technical debt - split god classes, fix tests, improve coverage
 
 **Key Constraints:**
 
@@ -38,7 +38,7 @@ progress:
 
 ## Current Position
 
-Phase: 13 (custom-mermaid-themes-from-color-palettes) — EXECUTING
+Phase: 02 (Fix technical debt - split god classes, fix tests, improve coverage) — EXECUTING
 Plan: Not started
 
 ### Quick Tasks Completed
@@ -53,6 +53,7 @@ Plan: Not started
 | 260327-iwh | Add all missing Mermaid flowchart features ( v11 shapes, icons, markdown, edges) | 2026-03-27 | a7433bd | Verified | [260327-iwh-add-all-missing-mermaid-flowchart-featur](./quick/260327-iwh-add-all-missing-mermaid-flowchart-featur/) |
 | 260327-qfx | Fix theme system: render-time application + 8 color swatches | 2026-03-27 | 1561439 | Verified | [260327-qfx-fix-theme-system-apply-themes-at-render-](./quick/260327-qfx-fix-theme-system-apply-themes-at-render-/) |
 | 260328-34y | Create real themes with proper color schemes (restore full diagram color palettes) | 2026-03-28 | 71907bd | | [260328-34y-create-real-themes-with-proper-color-sch](./quick/260328-34y-create-real-themes-with-proper-color-sch/) |
+| 260330-iom | Fix security issues from analysis | 2026-03-30 | 2b3c9d6 | Verified | [260330-iom-fix-security-issues-from-analysis](./quick/260330-iom-fix-security-issues-from-analysis/) |
 
 ## Performance Metrics
 
@@ -74,11 +75,13 @@ Plan: Not started
 
 ### Roadmap Evolution
 
+- Phase 1 added: With lighthouse, do a benchmark, and after we will try to refactoring the code to get better speed and more optimisation
 - Phase 6 added: please do the refactoring like explained in chat history
 - Phase 7 added: Fix all security issues identified in code analysis
 - Phase 11 added: Node style editing in preview (couleur, border, taille du border, couleur du border, etc.) — mêmes fonctionnalités que Mermaid Live Editor
 - Phase 12 added: Refonte du systeme de palettes et themes Mermaid - migration vers des fichiers theme natifs
 - Phase 13 added: Custom Mermaid themes from color palettes — créer des thèmes custom à partir des palettes de couleurs pour éviter la prolifération de variables CSS, en vérifiant le fonctionnement des thèmes Mermaid natifs et en prenant en compte les différents types de diagrammes
+- Phase 2 added: Fix technical debt - split god classes, fix tests, improve coverage
 
 ### Key Decisions Made
 

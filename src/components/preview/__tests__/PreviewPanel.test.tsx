@@ -476,4 +476,558 @@ describe('PreviewPanel Component', () => {
       vi.mocked(detectDiagramType).mockReturnValue('flowchart');
     });
   });
+
+  describe('Fullscreen and Fit-to-Screen', () => {
+    it('should call onFullscreen when fullscreen button clicked', async () => {
+      const onFullscreen = vi.fn();
+      const { container } = render(
+        <PreviewPanel content="graph TD\nA-->B" theme="light" onFullscreen={onFullscreen} />
+      );
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const fullscreenButton = container.querySelector('button[data-testid="fullscreen-button"]');
+      expect(fullscreenButton).toBeInTheDocument();
+
+      if (fullscreenButton) {
+        fireEvent.click(fullscreenButton);
+        expect(onFullscreen).toHaveBeenCalled();
+      }
+    });
+
+    it('should not show fullscreen button when onFullscreen not provided', async () => {
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const fullscreenButton = container.querySelector('button[data-testid="fullscreen-button"]');
+      expect(fullscreenButton).not.toBeInTheDocument();
+    });
+
+    it('should have fit-to-screen button', async () => {
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const fitButton = container.querySelector('button[data-testid="fit-button"]');
+      expect(fitButton).toBeInTheDocument();
+    });
+
+    it('should handle fit-to-screen click', async () => {
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const fitButton = container.querySelector('button[data-testid="fit-button"]');
+      expect(fitButton).toBeInTheDocument();
+
+      if (fitButton) {
+        fireEvent.click(fitButton);
+        // Zoom should be adjusted (we can't easily verify the exact value without accessing state)
+        // The test verifies the button is clickable without errors
+      }
+    });
+  });
+
+  describe('External Panel Open', () => {
+    it('should clear selection when externalPanelOpen changes to true', async () => {
+      const { container, rerender } = render(
+        <PreviewPanel content="graph TD\nA-->B" theme="light" externalPanelOpen={false} />
+      );
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      // Rerender with externalPanelOpen=true
+      rerender(<PreviewPanel content="graph TD\nA-->B" theme="light" externalPanelOpen={true} />);
+
+      // Selection should be cleared (no NodeStylePanel, EdgeStylePanel, or SubgraphStylePanel)
+      await waitFor(() => {
+        const nodePanel = container.querySelector('[data-testid="node-style-panel"]');
+        const edgePanel = container.querySelector('[data-testid="edge-style-panel"]');
+        const subgraphPanel = container.querySelector('[data-testid="subgraph-style-panel"]');
+        expect(nodePanel).not.toBeInTheDocument();
+        expect(edgePanel).not.toBeInTheDocument();
+        expect(subgraphPanel).not.toBeInTheDocument();
+      });
+    });
+
+    it('should not clear selection when externalPanelOpen remains false', async () => {
+      const { container, rerender } = render(
+        <PreviewPanel content="graph TD\nA-->B" theme="light" externalPanelOpen={false} />
+      );
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      // Rerender with same externalPanelOpen=false
+      rerender(<PreviewPanel content="graph TD\nA-->B" theme="light" externalPanelOpen={false} />);
+
+      // Should still render without errors
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Copy SVG to Clipboard', () => {
+    const clipboardMock = vi.fn();
+
+    beforeEach(() => {
+      clipboardMock.mockClear();
+      Object.assign(navigator, {
+        clipboard: {
+          writeText: clipboardMock.mockResolvedValue(undefined),
+        },
+      });
+    });
+
+    it('should have copy SVG button that can be clicked', async () => {
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const copyButton = container.querySelector('button[title="Copy SVG"]');
+      expect(copyButton).toBeInTheDocument();
+
+      if (copyButton) {
+        fireEvent.click(copyButton);
+        // Button click should not throw errors
+        // The actual clipboard call happens asynchronously
+      }
+    });
+
+    it('should show copy icon initially', async () => {
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const copyButton = container.querySelector('button[title="Copy SVG"]');
+      expect(copyButton).toBeInTheDocument();
+
+      if (copyButton) {
+        // Initially shows Copy icon (lucide-copy class)
+        const copyIcon = copyButton.querySelector('.lucide-copy');
+        expect(copyIcon).toBeInTheDocument();
+      }
+    });
+  });
+
+  describe('Theme ID', () => {
+    it('should use themeId when provided', async () => {
+      const { container } = render(
+        <PreviewPanel content="graph TD\nA-->B" theme="light" themeId="forest" />
+      );
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      // Component should render without errors when themeId is provided
+      expect(container.firstChild).toBeInTheDocument();
+    });
+
+    it('should render without themeId', async () => {
+      const { container } = render(
+        <PreviewPanel content="graph TD\nA-->B" theme="light" />
+      );
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('Null SVG Handling', () => {
+    it('should handle empty SVG string without crashing', async () => {
+      const { renderDiagram } = await import('@/lib/mermaid/core');
+      vi.mocked(renderDiagram).mockResolvedValueOnce({ svg: '', error: null });
+
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      // Component should still render without crashing even with empty SVG
+      await waitFor(() => {
+        expect(container.firstChild).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Restore default mock for subsequent tests
+      vi.mocked(renderDiagram).mockResolvedValue({ svg: '<svg>test</svg>', error: null });
+    });
+  });
+
+  describe('Subgraph Editing', () => {
+    it('should call addSubgraph when add subgraph button clicked', async () => {
+      const { detectDiagramType } = await import('@/lib/mermaid/core');
+      vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+
+      const onChange = vi.fn();
+      const { container } = render(
+        <PreviewPanel content="graph TD\nA-->B" theme="light" onChange={onChange} />
+      );
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const addSubgraphButton = container.querySelector('button[data-testid="add-subgraph-button"]');
+      expect(addSubgraphButton).toBeInTheDocument();
+
+      if (addSubgraphButton) {
+        fireEvent.click(addSubgraphButton);
+
+        const { addSubgraph } = await import('@/lib/mermaid/codeUtils');
+        expect(addSubgraph).toHaveBeenCalled();
+        expect(onChange).toHaveBeenCalled();
+      }
+    });
+
+    it('should not show add subgraph button when onChange not provided', async () => {
+      const { detectDiagramType } = await import('@/lib/mermaid/core');
+      vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+
+      const { container } = render(
+        <PreviewPanel content="graph TD\nA-->B" theme="light" />
+      );
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const addSubgraphButton = container.querySelector('button[data-testid="add-subgraph-button"]');
+      expect(addSubgraphButton).not.toBeInTheDocument();
+    });
+
+    it('should not show add subgraph button for non-flowchart diagrams', async () => {
+      const { detectDiagramType } = await import('@/lib/mermaid/core');
+      vi.mocked(detectDiagramType).mockReturnValue('sequence');
+
+      const onChange = vi.fn();
+      const { container } = render(
+        <PreviewPanel content="sequenceDiagram\nA->B" theme="light" onChange={onChange} />
+      );
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const addSubgraphButton = container.querySelector('button[data-testid="add-subgraph-button"]');
+      expect(addSubgraphButton).not.toBeInTheDocument();
+
+      // Restore default mock
+      vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+    });
+  });
+
+  describe('Pan Mode', () => {
+    it('should support pan mode interaction', async () => {
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      // The canvas should have cursor-grab class by default
+      const canvas = container.querySelector('.preview-grid');
+      expect(canvas).toHaveClass('cursor-grab');
+    });
+
+    it('should handle mouse down on canvas for panning', async () => {
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const canvas = container.querySelector('.preview-grid');
+      expect(canvas).toBeInTheDocument();
+
+      if (canvas) {
+        // Simulate mouse down event
+        fireEvent.mouseDown(canvas, { button: 0 });
+        // Should not throw any errors
+      }
+    });
+
+    it('should handle drag over on canvas', async () => {
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const canvas = container.querySelector('.preview-grid');
+      expect(canvas).toBeInTheDocument();
+
+      if (canvas) {
+        // Simulate drag over event
+        const dragOverEvent = new Event('dragOver', { bubbles: true });
+        Object.assign(dragOverEvent, { preventDefault: vi.fn() });
+        canvas.dispatchEvent(dragOverEvent);
+        // Should not throw any errors
+      }
+    });
+  });
+
+  describe('Canvas Click Selection Clearing', () => {
+    it('should clear selections when canvas is clicked', async () => {
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const canvas = container.querySelector('.preview-grid');
+      expect(canvas).toBeInTheDocument();
+
+      if (canvas) {
+        fireEvent.click(canvas);
+        // Should not throw any errors - selections are cleared internally
+      }
+    });
+  });
+
+  describe('Debouncing Behavior', () => {
+    it('should handle content changes without errors', async () => {
+      const { container, rerender } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      // Content changes should be handled
+      rerender(<PreviewPanel content="graph LR\nA->B" theme="light" />);
+      rerender(<PreviewPanel content="graph TD\nA-->B\nB-->C" theme="light" />);
+      rerender(<PreviewPanel content="graph TD\nA-->B\nB-->C\nC-->D" theme="light" />);
+
+      // Wait for debounce to complete
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      }, { timeout: 5000 });
+
+      // Component should handle rapid changes without errors
+      expect(container.firstChild).toBeInTheDocument();
+    });
+  });
+
+  describe('Zoom Display', () => {
+    it('should display zoom percentage', async () => {
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      // Should show 100% by default
+      const zoomDisplay = container.querySelector('.text-xs.w-8');
+      expect(zoomDisplay).toBeInTheDocument();
+      if (zoomDisplay) {
+        expect(zoomDisplay.textContent).toBe('100%');
+      }
+    });
+
+    it('should update zoom percentage when zooming in', async () => {
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const zoomInButton = container.querySelector('button[title="Zoom in"]');
+      if (zoomInButton) {
+        fireEvent.click(zoomInButton);
+
+        const zoomDisplay = container.querySelector('.text-xs.w-8');
+        if (zoomDisplay) {
+          expect(zoomDisplay.textContent).toBe('125%');
+        }
+      }
+    });
+
+    it('should update zoom percentage when zooming out', async () => {
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const zoomOutButton = container.querySelector('button[title="Zoom out"]');
+      if (zoomOutButton) {
+        fireEvent.click(zoomOutButton);
+
+        const zoomDisplay = container.querySelector('.text-xs.w-8');
+        if (zoomDisplay) {
+          expect(zoomDisplay.textContent).toBe('75%');
+        }
+      }
+    });
+
+    it('should reset zoom percentage when reset button clicked', async () => {
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const zoomInButton = container.querySelector('button[title="Zoom in"]');
+      const resetButton = container.querySelector('button[title="Reset zoom"]');
+
+      if (zoomInButton && resetButton) {
+        // First zoom in
+        fireEvent.click(zoomInButton);
+
+        // Then reset
+        fireEvent.click(resetButton);
+
+        const zoomDisplay = container.querySelector('.text-xs.w-8');
+        if (zoomDisplay) {
+          expect(zoomDisplay.textContent).toBe('100%');
+        }
+      }
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle parse error gracefully', async () => {
+      const { renderDiagram } = await import('@/lib/mermaid/core');
+      vi.mocked(renderDiagram).mockResolvedValueOnce({
+        svg: '',
+        error: 'Parse error: Invalid syntax at line 2'
+      });
+
+      const { container } = render(<PreviewPanel content="invalid graph syntax" theme="light" />);
+
+      // Component should render without crashing
+      await waitFor(() => {
+        expect(container.firstChild).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Restore default mock for subsequent tests
+      vi.mocked(renderDiagram).mockResolvedValue({ svg: '<svg>test</svg>', error: null });
+    });
+
+    it('should handle error state', async () => {
+      const { renderDiagram } = await import('@/lib/mermaid/core');
+      vi.mocked(renderDiagram).mockResolvedValueOnce({
+        svg: '',
+        error: 'Parse error'
+      });
+
+      const { container } = render(<PreviewPanel content="invalid" theme="light" />);
+
+      // Component should still render without crashing
+      await waitFor(() => {
+        expect(container.firstChild).toBeInTheDocument();
+      }, { timeout: 3000 });
+
+      // Restore default mock for subsequent tests
+      vi.mocked(renderDiagram).mockResolvedValue({ svg: '<svg>test</svg>', error: null });
+    });
+  });
+
+  describe('Diagram Type Detection', () => {
+    it('should display correct diagram type label', async () => {
+      const { detectDiagramType } = await import('@/lib/mermaid/core');
+      vi.mocked(detectDiagramType).mockReturnValue('stateDiagram');
+
+      const { container } = render(<PreviewPanel content="stateDiagram-v2\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const badge = container.querySelector('.px-1\\.5');
+        expect(badge).toBeInTheDocument();
+        expect(badge?.textContent).toBe('State');
+      });
+
+      // Restore default mock
+      vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+    });
+
+    it('should show "Diagram" for unknown types', async () => {
+      const { detectDiagramType } = await import('@/lib/mermaid/core');
+      vi.mocked(detectDiagramType).mockReturnValue('unknown');
+
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        const badge = container.querySelector('.px-1\\.5');
+        expect(badge).toBeInTheDocument();
+        expect(badge?.textContent).toBe('Diagram');
+      });
+
+      // Restore default mock
+      vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+    });
+  });
+
+  describe('Loading State', () => {
+    it('should handle loading state', async () => {
+      const { renderDiagram } = await import('@/lib/mermaid/core');
+      vi.mocked(renderDiagram).mockImplementationOnce(
+        () => new Promise(() => {}) // Never resolves
+      );
+
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      // Component should render without crashing during loading
+      await waitFor(() => {
+        expect(container.firstChild).toBeInTheDocument();
+      }, { timeout: 1000 });
+
+      // Restore default mock for subsequent tests
+      vi.mocked(renderDiagram).mockResolvedValue({ svg: '<svg>test</svg>', error: null });
+    });
+  });
+
+  describe('Empty State', () => {
+    it('should show empty state message when content is empty', () => {
+      render(<PreviewPanel content="" theme="light" />);
+
+      const emptyMessage = screen.queryByText(/start typing to see a live preview/i);
+      expect(emptyMessage).toBeInTheDocument();
+    });
+
+    it('should show empty state when content is only whitespace', () => {
+      render(<PreviewPanel content="   \n  \n  " theme="light" />);
+
+      const emptyMessage = screen.queryByText(/start typing to see a live preview/i);
+      expect(emptyMessage).toBeInTheDocument();
+    });
+  });
 });

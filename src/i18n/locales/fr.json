@@ -433,6 +433,18 @@
     "editTheme": "Modifier le Thème"
   },
   "preview": {
+    "title": "Aperçu",
+    "zoomIn": "Zoomer",
+    "zoomOut": "Dézoomer",
+    "resetZoom": "Réinitialiser le zoom",
+    "fitToScreen": "Ajuster à l'écran",
+    "fullscreenPreview": "Aperçu plein écran",
+    "copySvg": "Copier le SVG",
+    "export": "Exporter",
+    "parseError": "Erreur d'analyse",
+    "startTyping": "Commencez à taper pour voir l'aperçu",
+    "clickToEdit": "Cliquer pour modifier {{id}}",
+    "clickToEditSubgraph": "Cliquer pour modifier le sous-graphe",
     "subgraph": "Sous-graphe",
     "addSubgraph": "Ajouter un sous-graphe",
     "selectSubgraph": "Sélectionner le sous-graphe",
