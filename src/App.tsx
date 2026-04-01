@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppLayout } from '@/components/AppLayout';
 import { ModalProvider } from '@/components/ModalProvider';
 import { useKeyboardShortcuts, useDiagramActions, useAppShortcuts } from '@/hooks';
@@ -61,6 +62,7 @@ export default function App() {
   return (
     <>
       <Analytics />
+      <SpeedInsights />
       <AppLayout
         theme={appState.theme}
         toggleTheme={appState.toggleTheme}
