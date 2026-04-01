@@ -1,10 +1,14 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
+import { inject } from '@vercel/analytics';
 import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import i18n from './i18n/config.ts';
 import './index.css';
+
+// Initialize Vercel Analytics
+inject();
 
 // Register Service Worker for PWA/offline support
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
