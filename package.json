@@ -43,6 +43,7 @@
     "@radix-ui/react-context-menu": "^2.2.16",
     "@radix-ui/react-toast": "^1.2.15",
     "@types/dompurify": "^3.2.0",
+    "@vercel/analytics": "^2.0.1",
     "codemirror": "^6.0.2",
     "dompurify": "^3.3.3",
     "html2canvas": "^1.4.1",
