@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDiagrams } from '@/services/storage/database';
 import { initMermaid } from '@/lib/mermaid/core';
-import { useTheme, useTabs } from '@/hooks';
+import { useTheme, useTabs, useLanguage } from '@/hooks';
 
 interface AppState {
   sidebarOpen: boolean;
@@ -20,9 +20,10 @@ interface AppActions {
   setAiSettingsKey: (key: number | ((prev: number) => number)) => void;
 }
 
-export function useAppState(showPalette: boolean): AppState & AppActions & ReturnType<typeof useTheme> & ReturnType<typeof useTabs> {
+export function useAppState(showPalette: boolean): AppState & AppActions & ReturnType<typeof useTheme> & ReturnType<typeof useTabs> & ReturnType<typeof useLanguage> {
   const themeState = useTheme();
   const tabsState = useTabs();
+  const languageState = useLanguage();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
@@ -50,6 +51,7 @@ export function useAppState(showPalette: boolean): AppState & AppActions & Retur
   return {
     ...themeState,
     ...tabsState,
+    ...languageState,
     sidebarOpen,
     focusMode,
     renderTimeMs,

@@ -456,6 +456,8 @@ export async function updateSettings(updates: Partial<AppSettings>): Promise<voi
 // ===== Backup / Import =====
 export async function exportBackup(): Promise<BackupData> {
   const db = await load();
+  // Strip sensitive encrypted API key from exports for security
+  const { _encryptedKey, ai_api_key, ...safeSettings } = db.settings;
   return {
     version: 1,
     exported_at: new Date().toISOString(),
@@ -465,7 +467,7 @@ export async function exportBackup(): Promise<BackupData> {
     tags: db.tags,
     diagramTags: db.diagramTags,
     userTemplates: db.userTemplates,
-    settings: db.settings, // Include settings (with encrypted API key)
+    settings: safeSettings,
   };
 }
 

@@ -82,7 +82,7 @@ layer(base);
   --border-strong: rgba(0,0,0,0.14);
   --text-primary: #111827;
   --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
+  --text-tertiary: #787f8a;
   --accent: #0d7377;
   --accent-dim: rgba(13,115,119,0.1);
   --accent-rgb: 13,115,119;
@@ -96,7 +96,7 @@ layer(base);
   --border-strong: rgba(255,255,255,0.16);
   --text-primary: #f0f6fc;
   --text-secondary: #8b949e;
-  --text-tertiary: #484f58;
+  --text-tertiary: #6e7681;
   --accent: #2dd4bf;
   --accent-dim: rgba(45,212,191,0.12);
   --accent-rgb: 45,212,191;
@@ -171,6 +171,9 @@ kbd {
 
 .mermaid-container .edgeLabel {
   color: var(--text-secondary) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
 }
 
 .mermaid-container .cluster .label {
@@ -282,6 +285,23 @@ kbd {
 .animate-fade-in { animation: fadeIn 0.15s ease-out; }
 .animate-slide-up { animation: slideUp 0.2s ease-out; }
 .animate-slide-in-right { animation: slideInRight 0.2s ease-out; }
+
+/* ─── Offline State ───────────────────────────────────────────── */
+body.offline::before {
+  content: '📴 Offline Mode - Local AI (Ollama/LM Studio) available';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #f59e0b;
+  color: #fff;
+  text-align: center;
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 9999;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
 
 /* ─── Keyframes ──────────────────────────────────────────────── */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

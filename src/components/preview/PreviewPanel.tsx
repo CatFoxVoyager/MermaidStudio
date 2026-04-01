@@ -5,6 +5,7 @@ import { renderDiagram, detectDiagramType } from '@/lib/mermaid/core';
 import { extractThemeIdFromContent } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
 import { sanitizeSVG } from '@/utils/sanitization';
+import { fixEdgeLabelTextPosition } from '@/utils/svgPostProcessing';
 import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, addNode, addEdge, generateNodeId, removeNode, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape, PresetType, PresetColors } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
@@ -511,6 +512,11 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       shadowCSS += '}\n';
     }
 
+    // Fix edge label: opaque background
+    const labelBg = theme === 'dark' ? '#21262d' : '#ffffff';
+    shadowCSS += '\n/* Edge label styling */\n';
+    shadowCSS += `g.edgeLabel rect.background { fill: ${labelBg}; opacity: 1; rx: 4; }\n`;
+    // Text positioning is handled by fixEdgeLabelTextPosition() SVG post-processing
 
     // Create style element with theme variables
     const styleEl = document.createElement('style');
@@ -520,7 +526,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     // Create container for SVG
     const svgContainer = document.createElement('div');
     svgContainer.className = 'mermaid';
-    svgContainer.innerHTML = sanitizeSVG(svg);
+    svgContainer.innerHTML = fixEdgeLabelTextPosition(sanitizeSVG(svg));
     shadowRoot.appendChild(svgContainer);
 
     // Store reference for size calculations (pointing to SVG container in Shadow DOM)
@@ -746,7 +752,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     // Remove old classDef and class lines for these nodes
     let result = removeNodeStyles(content, nodeIds);
 
-    // Build new classDefs and class assignments
+    // Build new classDefs, class assignments, and direct style lines
     const newLines: string[] = [];
     const classNameBase = `nodeStyle_${Date.now()}`;
     nodeIds.forEach((nodeId, index) => {
@@ -754,23 +760,34 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       const existingStyle = panelStyles.get(nodeId) ?? {};
       const mergedStyle = { ...existingStyle, ...styleUpdate };
 
-      // Only create classDef if there are actual style properties
-      if (Object.keys(mergedStyle).length > 0) {
+      // Separate styles: classDef-compatible vs direct style directive
+      const classDefStyles: string[] = [];
+      const directStyles: string[] = [];
+
+      // Properties that work well in classDef
+      if (mergedStyle.fill) classDefStyles.push(`fill:${mergedStyle.fill}`);
+      if (mergedStyle.stroke) classDefStyles.push(`stroke:${mergedStyle.stroke}`);
+      if (mergedStyle.strokeWidth) classDefStyles.push(`stroke-width:${mergedStyle.strokeWidth}`);
+      if (mergedStyle.strokeDasharray) classDefStyles.push(`stroke-dasharray:${mergedStyle.strokeDasharray}`);
+      if (mergedStyle.color) classDefStyles.push(`color:${mergedStyle.color}`);
+      if (mergedStyle.fontWeight) classDefStyles.push(`font-weight:${mergedStyle.fontWeight}`);
+      if (mergedStyle.rx) classDefStyles.push(`rx:${mergedStyle.rx}`);
+      if (mergedStyle.ry) classDefStyles.push(`ry:${mergedStyle.ry}`);
+      if (mergedStyle.opacity) classDefStyles.push(`opacity:${mergedStyle.opacity}`);
+
+      // Properties that need direct style directive for reliable rendering
+      if (mergedStyle.fontSize) directStyles.push(`font-size:${mergedStyle.fontSize}`);
+
+      // Add classDef line if we have classDef-compatible styles
+      if (classDefStyles.length > 0) {
         const className = `${classNameBase}_${index}`;
-        // Build classDef line
-        const styleParts: string[] = [];
-        if (mergedStyle.fill) styleParts.push(`fill:${mergedStyle.fill}`);
-        if (mergedStyle.stroke) styleParts.push(`stroke:${mergedStyle.stroke}`);
-        if (mergedStyle.strokeWidth) styleParts.push(`stroke-width:${mergedStyle.strokeWidth}`);
-        if (mergedStyle.strokeDasharray) styleParts.push(`stroke-dasharray:${mergedStyle.strokeDasharray}`);
-        if (mergedStyle.color) styleParts.push(`color:${mergedStyle.color}`);
-        if (mergedStyle.fontWeight) styleParts.push(`font-weight:${mergedStyle.fontWeight}`);
-        if (mergedStyle.fontSize) styleParts.push(`font-size:${mergedStyle.fontSize}`);
-        if (mergedStyle.rx) styleParts.push(`rx:${mergedStyle.rx}`);
-        if (mergedStyle.ry) styleParts.push(`ry:${mergedStyle.ry}`);
-        if (mergedStyle.opacity) styleParts.push(`opacity:${mergedStyle.opacity}`);
-        newLines.push(`    classDef ${className} ${styleParts.join(',')}`);
+        newLines.push(`    classDef ${className} ${classDefStyles.join(',')}`);
         newLines.push(`    class ${nodeId} ${className}`);
+      }
+
+      // Add direct style line for font-size (and other properties that need it)
+      if (directStyles.length > 0) {
+        newLines.push(`    style ${nodeId} ${directStyles.join(',')}`);
       }
     });
 

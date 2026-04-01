@@ -19,6 +19,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: ['lucide-react', 'mermaid'],
+    include: ['dayjs', '@braintree/sanitize-url', 'langium'],
   },
   server: {
     port: 5173,

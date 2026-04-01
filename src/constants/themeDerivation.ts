@@ -585,6 +585,52 @@ export function stripThemeDirective(content: string): string {
 }
 
 /**
+ * Remove font-size from all node-specific style directives.
+ * This allows global fontSize (from themeVariables) to take precedence.
+ */
+export function removeNodeFontSizeStyles(content: string): string {
+  const lines = content.split('\n');
+  const result: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Check if this is a style directive
+    if (trimmed.startsWith('style ') && !trimmed.startsWith('styleDef ')) {
+      // Match: style NODE fill:#fff,font-size:16px,...
+      const match = trimmed.match(/^style\s+\S+\s+(.+)$/);
+      if (match) {
+        const styleParts = match[1].split(',').filter(part => {
+          const trimmedPart = part.trim();
+          // Keep all parts except font-size
+          return !trimmedPart.startsWith('font-size:');
+        });
+
+        if (styleParts.length > 0) {
+          // Reconstruct the style line without font-size
+          const indent = line.match(/^\s*/)?.[0] || '';
+          result.push(`${indent}style ${trimmed.split(/\s+/)[1]} ${styleParts.join(',')}`);
+        }
+        // If no parts left, skip the line (remove it entirely)
+      } else {
+        // Line doesn't match expected pattern, keep it as-is
+        result.push(line);
+      }
+    } else {
+      // Not a style directive, keep the line
+      result.push(line);
+    }
+  }
+
+  // Clean up excessive blank lines
+  let cleaned = result.join('\n').replace(/\n{3,}/g, '\n\n');
+  // Preserve original trailing newline behavior
+  if (content.endsWith('\n')) {
+    cleaned = cleaned.trimEnd() + '\n';
+  }
+  return cleaned.trimEnd();
+}
+
+/**
  * Convert object to YAML string with proper indentation.
  * Ported from colorPalettes.ts
  */
@@ -710,9 +756,9 @@ export function extractStyleOptionsFromContent(content: string): StyleOptions {
  */
 interface FlowchartConfig {
   curve?: string;
-  padding?: string;
-  nodeSpacing?: string;
-  rankSpacing?: string;
+  padding?: number;
+  nodeSpacing?: number;
+  rankSpacing?: number;
 }
 
 export function applyStyleToContent(
@@ -822,6 +868,9 @@ export function applyStyleToContent(
       ensureThemeVariables();
       (newConfig.themeVariables as YamlConfig).fontSize = normalized;
       hasChanges = true;
+
+      // Remove node-specific font-size styles so global fontSize takes precedence
+      stripped = removeNodeFontSizeStyles(stripped);
     }
   }
   if (styleOptions.primaryColor &&
@@ -871,15 +920,15 @@ export function applyStyleToContent(
         hasChanges = true;
       }
       if (styleOptions.nodePadding !== undefined) {
-        flowchartCfg.padding = String(styleOptions.nodePadding);
+        flowchartCfg.padding = styleOptions.nodePadding;
         hasChanges = true;
       }
       if (styleOptions.nodeSpacing !== undefined) {
-        flowchartCfg.nodeSpacing = String(styleOptions.nodeSpacing);
+        flowchartCfg.nodeSpacing = styleOptions.nodeSpacing;
         hasChanges = true;
       }
       if (styleOptions.rankSpacing !== undefined) {
-        flowchartCfg.rankSpacing = String(styleOptions.rankSpacing);
+        flowchartCfg.rankSpacing = styleOptions.rankSpacing;
         hasChanges = true;
       }
       if (Object.keys(flowchartCfg).length > 0) {

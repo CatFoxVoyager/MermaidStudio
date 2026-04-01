@@ -132,6 +132,8 @@ export const MERMAID_SVG_CONFIG = {
     'xmlns', 'viewBox', 'preserveAspectRatio',
     // Positioning and sizing
     'x', 'y', 'width', 'height', 'cx', 'cy', 'r', 'rx', 'ry',
+    // Line coordinates
+    'x1', 'y1', 'x2', 'y2',
     // Sizing for foreignObject
     'requiredFeatures', 'overflow',
     // Styling

@@ -566,11 +566,28 @@ export function parseDiagram(source: string): ParsedDiagram {
   return { nodes, edges, styles, classDefs, nodeClasses, linkStyles, subgraphs };
 }
 
-export function updateNodeStyle(source: string, nodeId: string, style: NodeStyle): string {
+export function updateNodeStyle(source: string, nodeId: string, newStyle: NodeStyle): string {
   const lines = source.split('\n');
-  const styleStr = styleToString(style);
 
+  // Find existing direct style line for this node
   const existingIdx = lines.findIndex(l => l.trim().startsWith(`style ${nodeId} `) || l.trim().startsWith(`style ${nodeId}\t`));
+
+  // Get existing style to merge with new style
+  let mergedStyle: NodeStyle = {};
+  if (existingIdx !== -1) {
+    const line = lines[existingIdx];
+    const match = line.match(/^style\s+\S+\s+(.+)$/);
+    if (match) {
+      const existingStyle = parseStyleValue(match[1]);
+      mergedStyle = { ...existingStyle, ...newStyle };
+    } else {
+      mergedStyle = newStyle;
+    }
+  } else {
+    mergedStyle = newStyle;
+  }
+
+  const styleStr = styleToString(mergedStyle);
   const styleLine = `style ${nodeId} ${styleStr}`;
 
   if (existingIdx !== -1) {
@@ -1250,8 +1267,8 @@ export function applyNodePreset(source: string, nodeIds: string[], presetType: P
 
   const color = colors[colorMap[presetType]];
 
-  // Create or update the classDef
-  const classDefLine = `classDef ${className} fill:${color},stroke:${color},color:#000000`;
+  // Create or update the classDef - use black border for all presets
+  const classDefLine = `classDef ${className} fill:${color},stroke:#000000,color:#000000`;
   const classDefIdx = lines.findIndex(l => l.trim().startsWith(`classDef ${className}`));
 
   if (classDefIdx !== -1) {
@@ -1338,8 +1355,8 @@ export function updatePresetColors(source: string, colors: PresetColors): string
     const trimmed = lines[i].trim();
     for (const [className, color] of Object.entries(colorMap)) {
       if (trimmed.startsWith(`classDef ${className}`)) {
-        // Update the classDef with new colors
-        lines[i] = `classDef ${className} fill:${color},stroke:${color},color:#ffffff`;
+        // Update the classDef with new colors - use black border for all presets
+        lines[i] = `classDef ${className} fill:${color},stroke:#000000,color:#000000`;
         break;
       }
     }

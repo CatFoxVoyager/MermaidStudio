@@ -433,6 +433,18 @@
     "editTheme": "Edit Theme"
   },
   "preview": {
+    "title": "Preview",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "resetZoom": "Reset zoom",
+    "fitToScreen": "Fit to screen",
+    "fullscreenPreview": "Fullscreen preview",
+    "copySvg": "Copy SVG",
+    "export": "Export",
+    "parseError": "Parse error",
+    "startTyping": "Start typing to see the preview",
+    "clickToEdit": "Click to edit {{id}}",
+    "clickToEditSubgraph": "Click to edit subgraph",
     "subgraph": "Subgraph",
     "addSubgraph": "Add subgraph",
     "selectSubgraph": "Select subgraph",

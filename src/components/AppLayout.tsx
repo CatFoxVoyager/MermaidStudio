@@ -120,7 +120,6 @@ export function AppLayout({
         onOpenCommandPalette={onOpenCommandPalette}
         onOpenTemplates={onShowTemplates}
         onNewDiagram={onNewDiagram}
-        onOpenSettings={activeTab ? onShowDiagramColors : undefined}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={onToggleSidebar}
         onOpenBackup={onOpenBackup}
@@ -144,7 +143,7 @@ export function AppLayout({
           )}
         </div>
 
-        <div className="flex-1 flex overflow-hidden min-w-0">
+        <main className="flex-1 flex overflow-hidden min-w-0" role="main">
           <WorkspacePanel
             tabs={tabs}
             activeTabId={activeTabId}
@@ -221,7 +220,7 @@ export function AppLayout({
               </Suspense>
             )}
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );
