@@ -1,6 +1,99 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image as ImageIcon, FileText, Code, Share2, Check, Braces, X, Download, Circle } from 'lucide-react';
+import { SUPPORTED_GOOGLE_FONTS, findGoogleFont } from '@/constants/fonts';
+import { fixDiagramLabels } from '@/utils/svgPostProcessing';
+import { renderDiagram } from '@/lib/mermaid/core';
+import { parseFrontmatter } from '@/lib/mermaid/codeUtils';
+
+/** Extract font family from diagram frontmatter config */
+function extractFontFamilyFromContent(content: string): string | null {
+  try {
+    const { frontmatter } = parseFrontmatter(content);
+    const config = frontmatter.config as Record<string, any> | undefined;
+    const themeVars = config?.themeVariables as Record<string, string> | undefined;
+    return themeVars?.fontFamily || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Cache for embedded font CSS to avoid re-fetching on every export. Key is font family name. */
+const embeddedFontCache = new Map<string, string>();
+
+/** Fetch Google Fonts CSS, download woff2 files, and return @font-face rules with embedded base64 data */
+async function fetchEmbeddedFontCss(customFont?: string | null): Promise<string> {
+  // Always include Inter and JetBrains Mono as base fonts
+  const inter = findGoogleFont('Inter') || SUPPORTED_GOOGLE_FONTS[0];
+  const jetbrains = findGoogleFont('JetBrains Mono') || SUPPORTED_GOOGLE_FONTS[SUPPORTED_GOOGLE_FONTS.length - 1];
+  const baseFonts = [inter, jetbrains];
+  const fontsToFetch = [...baseFonts];
+  
+  // If a custom font is requested and supported, add it
+  if (customFont) {
+    const supported = findGoogleFont(customFont);
+    if (supported && !fontsToFetch.find(f => f.name === supported.name)) {
+      fontsToFetch.push(supported);
+    }
+  }
+
+  const cacheKey = fontsToFetch.map(f => f.name).sort().join('|');
+  if (embeddedFontCache.has(cacheKey)) return embeddedFontCache.get(cacheKey)!;
+
+  try {
+    const responses = await Promise.all(fontsToFetch.map(f => fetch(f.url)));
+    
+    for (const resp of responses) {
+      if (!resp.ok) throw new Error(`Failed to fetch font CSS`);
+    }
+
+    const cssTexts = await Promise.all(responses.map(resp => resp.text()));
+
+    // Extract all woff2 font URLs from all CSS responses
+    const urlRegex = /url\((https:\/\/fonts\.gstatic\.com\/s\/[^)]+\.woff2)\)/g;
+    const allFontUrls = [...new Set(
+      cssTexts.flatMap(css => Array.from(css.matchAll(urlRegex), m => m[1]))
+    )];
+
+    if (allFontUrls.length === 0) throw new Error('No font URLs found in CSS');
+
+    // Fetch each font file and convert to base64
+    const fontResults = await Promise.all(
+      allFontUrls.map(async (url) => {
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) return null;
+          const buf = await resp.arrayBuffer();
+          // Use a more robust way to convert array buffer to base64
+          let binary = '';
+          const bytes = new Uint8Array(buf);
+          for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          const base64 = btoa(binary);
+          return { url, base64 };
+        } catch (e) {
+          console.error(`Failed to fetch font file: ${url}`, e);
+          return null;
+        }
+      }),
+    );
+
+    // Replace URLs in combined CSS with base64 data URIs
+    let result = cssTexts.join('\n');
+    for (const font of fontResults) {
+      if (font) {
+        result = result.replaceAll(`url(${font.url})`, `url(data:font/woff2;base64,${font.base64})`);
+      }
+    }
+
+    embeddedFontCache.set(cacheKey, result);
+    return result;
+  } catch (err) {
+    console.warn('Failed to embed fonts for export:', err);
+    return '';
+  }
+}
 
 interface Props {
   isOpen?: boolean;
@@ -20,43 +113,33 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
     setTimeout(() => setDone(null), 2000);
   }
 
-  function getShadowSvg(): SVGElement | null {
-    const shadowHost = document.querySelector('[data-shadow-host]') as HTMLElement & { shadowRoot: ShadowRoot };
-    if (!shadowHost?.shadowRoot) return null;
-    return shadowHost.shadowRoot.querySelector('svg');
-  }
-
-  /** Clone the shadow SVG into a detached DOM element for reliable rendering */
-  function cloneSvgForExport(): SVGSVGElement | null {
-    const svg = getShadowSvg();
-    if (!svg) return null;
-
-    // Serialize and re-parse to get a clean detached copy
-    const raw = svg.outerHTML;
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(raw, 'image/svg+xml');
-    const parseError = doc.querySelector('parsererror');
-    if (parseError) return null;
-
-    const clone = doc.documentElement as unknown as SVGSVGElement;
-    // Force explicit pixel dimensions from viewBox
-    const vb = clone.getAttribute('viewBox');
-    if (vb) {
-      const [, , w, h] = vb.split(/\s+/).map(Number);
-      if (w && h) {
-        clone.setAttribute('width', String(w));
-        clone.setAttribute('height', String(h));
-      }
-    }
-    // Keep foreignObject (contains text labels) — data URLs handle it fine
-
-    return clone;
+  async function getSvgString(): Promise<string | null> {
+    const { svg, error } = await renderDiagram(diagramContent, `export_${Date.now()}`);
+    if (error || !svg) return null;
+    // Fix all label centering and add missing gradients for Sankey diagrams
+    return fixDiagramLabels(svg);
   }
 
   async function exportSvg() {
-    const svg = getShadowSvg();
-    if (!svg) return;
-    const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml;charset=utf-8' });
+    const svgStr = await getSvgString();
+    if (!svgStr) return;
+
+    // Embed fonts into the SVG so they display correctly when opened standalone
+    const fontFamily = extractFontFamilyFromContent(diagramContent);
+    const fontCss = await fetchEmbeddedFontCss(fontFamily);
+    
+    let finalSvg = svgStr;
+    const styleParts = [];
+    if (fontCss) styleParts.push(fontCss);
+    if (fontFamily) styleParts.push(`* { font-family: ${fontFamily} !important; }`);
+
+    if (styleParts.length > 0) {
+      const styleTag = `<style>${styleParts.join('\n')}</style>`;
+      // Insert the style element right after the opening <svg> tag
+      finalSvg = finalSvg.replace(/(<svg[^>]*>)/, `$1\n${styleTag}`);
+    }
+
+    const blob = new Blob([finalSvg], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url; a.download = `${diagramTitle.replace(/\s+/g, '_')}.svg`; a.click();
@@ -64,54 +147,145 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
     markDone('svg');
   }
 
+  // Helper to convert oklch color to hex
+  function oklchToHex(oklchStr: string): string {
+    // Parse oklch string like "oklch(50% 0.1 200)" or "oklch(50% 0.1 200 / 0.5)"
+    const match = oklchStr.match(/oklch\s*\(\s*([\d.]+%?)\s+([\d.]+)\s+([\d.]+)\s*(?:\/\s*([\d.]+))?\s*\)/);
+    if (!match) return '#333333'; // fallback
+
+    const l = parseFloat(match[1].replace('%', '')) / 100;
+    const c = parseFloat(match[2]);
+    const h = parseFloat(match[3]);
+
+    // Simplified oklch to sRGB conversion (approximate)
+    // For better results, use a library like culori
+    const l2 = l + 0.39633777 * c * Math.cos(h * Math.PI / 180) + 0.21580375 * c * Math.sin(h * Math.PI / 180);
+    const m2 = 1.0 + 0.39633777 * c * Math.cos(h * Math.PI / 180) - 0.21580375 * c * Math.sin(h * Math.PI / 180);
+    const m2b = -0.25656905 * c * Math.cos(h * Math.PI / 180) + 0.62204873 * c * Math.sin(h * Math.PI / 180);
+
+    const l3 = l2 + 0.26405402 * m2b;
+    const b = m2 + -0.09511347 * m2b;
+
+    // Simplified gamma correction and RGB conversion
+    const r = Math.min(255, Math.max(0, (l3 + b + 1.0) * 127));
+    const g = Math.min(255, Math.max(0, (l3 - b) * 127 + 64));
+    const b2 = Math.min(255, Math.max(0, (l3 - 2.0 * b) * 127 + 64));
+
+    const toHex = (n: number) => Math.round(n).toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b2)}`;
+  }
+
   async function exportPng() {
-    const svg = cloneSvgForExport();
-    if (!svg) return;
+    const svgStr = await getSvgString();
+    if (!svgStr) return;
+
     try {
-      // Inject background unless transparent background is selected
-      if (!transparentBg) {
-        const bgColor = getComputedStyle(document.documentElement).getPropertyValue('--surface-base').trim() || '#0d1117';
-        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        bgRect.setAttribute('width', svg.getAttribute('width')!);
-        bgRect.setAttribute('height', svg.getAttribute('height')!);
-        bgRect.setAttribute('fill', bgColor);
-        svg.insertBefore(bgRect, svg.firstChild);
-      }
-
-      const width = parseFloat(svg.getAttribute('width') ?? '0');
-      const height = parseFloat(svg.getAttribute('height') ?? '0');
-
-      // Serialize to data URL (blob: URLs are blocked by CSP)
-      const data = new XMLSerializer().serializeToString(svg);
-      const dataUrl = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(data)))}`;
-
-      const img = document.createElement('img');
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error('Failed to load SVG data URL'));
-        img.src = dataUrl;
+      // Clean the SVG string - convert all oklch colors to hex for compatibility
+      let cleanSvg = svgStr.replace(/oklch\([^)]+\)/gi, (match) => {
+        try {
+          return oklchToHex(match);
+        } catch {
+          return '#333333';
+        }
       });
 
+      // Also handle potential style tags or inline styles that might have oklch
+      cleanSvg = cleanSvg.replace(/style="([^"]*)"/gi, (match, p1) => {
+        const fixedStyle = p1.replace(/oklch\([^)]+\)/gi, (m: string) => oklchToHex(m));
+        return `style="${fixedStyle}"`;
+      });
+
+      // Fix edge label backgrounds: white backgrounds (#ffffff) should be transparent in PNG export
+      // This prevents unwanted white boxes on edge labels that are invisible in SVG
+      cleanSvg = cleanSvg.replace(/(<rect class="background")([^>]*fill\s*=\s*")#ffffff(")/gi, (match, prefix, middle, end) => {
+        return `${prefix}${middle}none${end}`;
+      });
+      cleanSvg = cleanSvg.replace(/(<rect class="background")([^>]*fill\s*=\s*")white(")/gi, (match, prefix, middle, end) => {
+        return `${prefix}${middle}none${end}`;
+      });
+
+      // Embed fonts only if we want to risk tainting (not for PNG usually)
+      // For PNG, we prefer success over custom fonts if it taints the canvas.
+      // However, fetchEmbeddedFontCss returns base64 data URIs which SHOULD be safe.
+      const fontFamily = extractFontFamilyFromContent(diagramContent);
+      const fontCss = await fetchEmbeddedFontCss(fontFamily);
+      
+      const styleParts = [];
+      if (fontCss) styleParts.push(fontCss);
+      if (fontFamily) styleParts.push(`* { font-family: ${fontFamily}, sans-serif !important; }`);
+
+      if (styleParts.length > 0) {
+        const styleTag = `<style>${styleParts.join('\n')}</style>`;
+        cleanSvg = cleanSvg.replace(/(<svg[^>]*>)/, `$1\n${styleTag}`);
+      }
+
+      // Extract dimensions
+      const vbMatch = cleanSvg.match(/viewBox="([^"]+)"/);
+      let width = 800, height = 600;
+      if (vbMatch) {
+        const parts = vbMatch[1].split(/[\s,]+/).map(Number);
+        if (parts.length >= 4 && parts[2] > 0 && parts[3] > 0) {
+          width = parts[2];
+          height = parts[3];
+        }
+      }
+
+      // Fix width/height attributes
+      cleanSvg = cleanSvg
+        .replace(/<svg([^>]*?)width="[^"]*"/, `<svg$1width="${width}"`)
+        .replace(/<svg([^>]*?)height="[^"]*"/, `<svg$1height="${height}"`);
+
+      // Get the current theme's background color
+      const bgColor = transparentBg ? 'transparent' : 
+        getComputedStyle(document.documentElement).getPropertyValue('--surface-base').trim() || '#ffffff';
+
+      // Create a canvas element
       const canvas = document.createElement('canvas');
-      canvas.width = width * 2;
-      canvas.height = height * 2;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const scale = 2; // High resolution
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Could not get canvas context');
 
-      canvas.toBlob(blob => {
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${diagramTitle.replace(/\s+/g, '_')}.png`;
-        a.click();
+      // Draw background if not transparent
+      if (!transparentBg) {
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+
+      // Use a data URL for the image to avoid cross-origin issues
+      const img = new Image();
+      // Use btoa for encoding the SVG string to base64 to ensure it's "safe" for canvas
+      const svgBase64 = btoa(unescape(encodeURIComponent(cleanSvg)));
+      const url = `data:image/svg+xml;base64,${svgBase64}`;
+
+      img.onload = () => {
+        try {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const pngUrl = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = pngUrl;
+              a.download = `${diagramTitle.replace(/\s+/g, '_')}.png`;
+              a.click();
+              URL.revokeObjectURL(pngUrl);
+              markDone('png');
+            }
+          }, 'image/png');
+        } catch (e) {
+          console.error('Failed to draw or export canvas:', e);
+        }
+      };
+
+      img.onerror = (err) => {
+        console.error('Failed to load SVG into image for PNG export:', err);
         URL.revokeObjectURL(url);
-      }, 'image/png');
+      };
 
-      markDone('png');
+      img.src = url;
     } catch (err) {
       console.error('PNG export failed:', err);
-      markDone('png');
     }
   }
 
@@ -124,7 +298,7 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
     const embed = `<div class="mermaid">
 ${diagramContent}
 </div>
-<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" integrity="sha384-tI0sDqjGJcqrQ8e/XKiQGS+ee11v5knTNWx2goxMBxe4DO9U0uKlfxJtYB9ILZ4j" crossorigin="anonymous"></script>
 <script>mermaid.initialize({ startOnLoad: true });</script>`;
     await navigator.clipboard.writeText(embed);
     markDone('embed');

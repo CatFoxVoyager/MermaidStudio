@@ -36,7 +36,7 @@ const defaultCoreColors: ThemeCoreColors = {
   errorColor: '',
   infoColor: '',
   fontFamily: 'Inter, system-ui, sans-serif',
-  fontSize: '14px',
+  fontSize: '18px',
 };
 
 const SAMPLE_DIAGRAM = `flowchart TD
@@ -45,6 +45,8 @@ const SAMPLE_DIAGRAM = `flowchart TD
     B -->|No| D[Process B]
     C --> E[End]
     D --> E`;
+
+import { FONT_FAMILY_OPTIONS } from '@/constants/fonts';
 
 export function ThemeEditorPanel({
   isOpen,
@@ -112,7 +114,7 @@ ${SAMPLE_DIAGRAM}`;
   const handleSave = () => {
     const newTheme: MermaidTheme = {
       id: initialTheme?.id || `custom-${Date.now()}`,
-      name: themeName.trim() || t('themeEditor.untitledTheme') || 'Custom Theme',
+      name: themeName.trim() || `Custom ${new Date().toLocaleDateString()}`,
       description: initialTheme?.description || t('themeEditor.customThemeDescription') || 'Custom theme',
       isBuiltin: false,
       coreColors: { ...localColors },
@@ -140,17 +142,36 @@ ${SAMPLE_DIAGRAM}`;
             {t('themeEditor.title')}
           </span>
         </div>
-        <button
-          data-testid="close-theme-editor"
-          onClick={onClose}
-          className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          <X size={14} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSave}
+            className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium text-white transition-colors hover:opacity-90"
+            style={{ background: 'var(--accent)' }}
+            title={t('themeEditor.saveTheme')}
+          >
+            <Check size={10} />
+            Save
+          </button>
+          <button
+            onClick={handleReset}
+            className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
+            style={{ color: 'var(--text-secondary)' }}
+            title={t('themeEditor.resetToDefault')}
+          >
+            <RotateCcw size={12} />
+          </button>
+          <button
+            data-testid="close-theme-editor"
+            onClick={onClose}
+            className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            <X size={14} />
+          </button>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
         <div>
           <label className="text-[10px] font-medium uppercase tracking-wider block mb-1" style={{ color: 'var(--text-tertiary)' }}>
             {t('themeEditor.themeName')}
@@ -174,14 +195,64 @@ ${SAMPLE_DIAGRAM}`;
             <h3 className="text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
               {t(group.labelKey)}
             </h3>
-            {group.slots.map(slot => (
-              <ColorPicker
-                key={slot.key}
-                label={t(slot.labelKey)}
-                value={localColors[slot.key] || ''}
-                onChange={value => handleColorChange(slot.key, value)}
-              />
-            ))}
+            {group.slots.map(slot => {
+              if (slot.key === 'fontFamily') {
+                return (
+                  <div key={slot.key} className="space-y-1">
+                    <label className="text-[10px] font-medium uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>
+                      {t(slot.labelKey)}
+                    </label>
+                    <select
+                      value={localColors.fontFamily}
+                      onChange={e => handleColorChange('fontFamily', e.target.value)}
+                      className="w-full px-2 py-1.5 rounded-md border text-xs"
+                      style={{
+                        background: 'var(--surface-base)',
+                        borderColor: 'var(--border-subtle)',
+                        color: 'var(--text-primary)',
+                      }}
+                    >
+                      {FONT_FAMILY_OPTIONS.map(f => (
+                        <option key={f} value={f} style={{ fontFamily: f }}>
+                          {f.split(',')[0]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              }
+              
+              if (slot.key === 'fontSize') {
+                return (
+                  <div key={slot.key} className="space-y-1">
+                    <label className="text-[10px] font-medium uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>
+                      {t(slot.labelKey)}
+                    </label>
+                    <input
+                      type="text"
+                      value={localColors.fontSize}
+                      onChange={e => handleColorChange('fontSize', e.target.value)}
+                      placeholder="18px"
+                      className="w-full px-2 py-1.5 rounded-md border text-xs"
+                      style={{
+                        background: 'var(--surface-base)',
+                        borderColor: 'var(--border-subtle)',
+                        color: 'var(--text-primary)',
+                      }}
+                    />
+                  </div>
+                );
+              }
+
+              return (
+                <ColorPicker
+                  key={slot.key}
+                  label={t(slot.labelKey)}
+                  value={localColors[slot.key] || ''}
+                  onChange={value => handleColorChange(slot.key, value)}
+                />
+              );
+            })}
           </div>
         ))}
 
@@ -195,7 +266,7 @@ ${SAMPLE_DIAGRAM}`;
             className="flex justify-center items-center overflow-auto p-2"
             style={{
               background: isDark ? '#0d1117' : '#ffffff',
-              maxHeight: '200px',
+              maxHeight: '100px',
             }}
           >
             {previewSvg ? (
@@ -209,53 +280,6 @@ ${SAMPLE_DIAGRAM}`;
               </span>
             )}
           </div>
-        </div>
-      </div>
-
-      <div className="p-3 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-base)' }}>
-        <button
-          onClick={handleReset}
-          className="w-full p-2 rounded-lg border text-left transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center gap-2"
-          style={{
-            background: isDark ? 'rgba(239,68,68,0.06)' : 'rgba(239,68,68,0.04)',
-            borderColor: isDark ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.15)',
-          }}
-        >
-          <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
-            style={{ background: isDark ? 'rgba(239,68,68,0.12)' : 'rgba(239,68,68,0.08)' }}>
-            <RotateCcw size={12} style={{ color: isDark ? '#f87171' : '#dc2626' }} />
-          </div>
-          <div>
-            <p className="text-[10px] font-semibold" style={{ color: isDark ? '#f87171' : '#dc2626' }}>
-              {t('themeEditor.resetToDefault')}
-            </p>
-            <p className="text-[8px] mt-0.5 leading-snug" style={{ color: 'var(--text-tertiary)' }}>
-              {t('themeEditor.resetDescription')}
-            </p>
-          </div>
-        </button>
-
-        <div className="flex gap-2">
-          <button
-            onClick={handleCancel}
-            className="flex-1 px-3 py-2 rounded-lg border text-[10px] font-medium transition-colors"
-            style={{
-              background: 'var(--surface-base)',
-              borderColor: 'var(--border-subtle)',
-              color: 'var(--text-primary)',
-            }}
-          >
-            {t('themeEditor.cancel')}
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!themeName.trim()}
-            className="flex-1 px-3 py-2 rounded-lg text-[10px] font-medium text-white flex items-center justify-center gap-1.5 transition-colors hover:opacity-90 disabled:opacity-50"
-            style={{ background: 'var(--accent)' }}
-          >
-            <Check size={12} />
-            {t('themeEditor.saveTheme')}
-          </button>
         </div>
       </div>
     </div>

@@ -12,6 +12,7 @@ import {
   getDiagram,
   updateDiagram,
   deleteDiagram,
+  deleteDiagrams,
   getDiagrams,
   updateFolder,
   deleteFolder,
@@ -21,8 +22,15 @@ import {
   toggleDiagramTag,
   getDiagramTags,
   getTags,
+  getDiagramsForTag,
   exportBackup,
   importBackup,
+  saveVersion,
+  getVersions,
+  saveUserTemplate,
+  getUserTemplates,
+  deleteUserTemplate,
+  moveDiagramsToFolder,
 } from '../database';
 
 describe('Database API Key Encryption', () => {
@@ -239,16 +247,13 @@ describe('Database API Key Encryption', () => {
   });
 
   describe('Async operations', () => {
-    it('should create diagrams asynchronously with base theme by default', async () => {
+    it('should create diagrams asynchronously without theme frontmatter', async () => {
       const diagram = await createDiagram('Test Diagram', 'flowchart TD\n  A --> B');
 
       expect(diagram.id).toBeDefined();
       expect(diagram.title).toBe('Test Diagram');
-      // Content should include base theme frontmatter
-      expect(diagram.content).toContain('---');
-      expect(diagram.content).toContain('config:');
-      expect(diagram.content).toContain('theme: base');
-      expect(diagram.content).toContain('flowchart TD');
+      // Content is stored as-is (theme frontmatter is no longer added by default)
+      expect(diagram.content).toBe('flowchart TD\n  A --> B');
       // themeId should be undefined (frontmatter provides theming)
       expect(diagram.themeId).toBeUndefined();
     });
@@ -282,15 +287,13 @@ describe('Database API Key Encryption', () => {
   });
 
   describe('Diagram CRUD operations', () => {
-    it('should create diagram with unique ID and base theme by default', async () => {
+    it('should create diagram with unique ID', async () => {
       const diagram = await createDiagram('Test Diagram', 'flowchart TD\n  A --> B');
 
       expect(diagram.id).toBeDefined();
       expect(diagram.title).toBe('Test Diagram');
-      // Default content includes base theme in frontmatter
-      expect(diagram.content).toContain('---');
-      expect(diagram.content).toContain('theme: base');
-      expect(diagram.content).toContain('flowchart TD');
+      // Content is stored as-is (no theme frontmatter added)
+      expect(diagram.content).toBe('flowchart TD\n  A --> B');
       expect(diagram.created_at).toBeDefined();
       expect(diagram.updated_at).toBeDefined();
     });
@@ -574,6 +577,370 @@ describe('Database API Key Encryption', () => {
         expect(backup.settings.theme).toBeDefined();
         expect(backup.settings.language).toBeDefined();
       }
+    });
+  });
+
+  describe('Cache behavior', () => {
+    it('should load from cache on first call', async () => {
+      const settings1 = await getSettings();
+      const settings2 = await getSettings();
+
+      // Should return same settings (from cache)
+      expect(settings1.theme).toBe(settings2.theme);
+    });
+
+    it('should reload from IndexedDB after cache clear', async () => {
+      await updateSettings({ theme: 'dark' });
+      const settings1 = await getSettings();
+      expect(settings1.theme).toBe('dark');
+
+      // Clear cache
+      clearCache();
+
+      // Update settings directly (bypassing cache)
+      await updateSettings({ theme: 'light' });
+
+      // Should load new settings from IndexedDB
+      const settings2 = await getSettings();
+      expect(settings2.theme).toBe('light');
+    });
+
+    it('should cache diagram operations', async () => {
+      const diagram = await createDiagram('Cached Diagram');
+      const retrieved1 = await getDiagram(diagram.id);
+      const retrieved2 = await getDiagram(diagram.id);
+
+      expect(retrieved1?.id).toBe(retrieved2?.id);
+    });
+  });
+
+  describe('Concurrent operations', () => {
+    it('should handle multiple simultaneous diagram creates', async () => {
+      const promises = [
+        createDiagram('Concurrent 1'),
+        createDiagram('Concurrent 2'),
+        createDiagram('Concurrent 3'),
+      ];
+      const results = await Promise.all(promises);
+
+      const ids = new Set(results.map(d => d.id));
+      expect(ids.size).toBe(3);
+    });
+
+    it('should handle multiple simultaneous folder creates', async () => {
+      const promises = [
+        createFolder('Folder 1'),
+        createFolder('Folder 2'),
+        createFolder('Folder 3'),
+      ];
+      const results = await Promise.all(promises);
+
+      const ids = new Set(results.map(f => f.id));
+      expect(ids.size).toBe(3);
+    });
+
+    it('should handle concurrent tag operations', async () => {
+      const promises = [
+        createTag('tag1', '#ff0000'),
+        createTag('tag2', '#00ff00'),
+        createTag('tag3', '#0000ff'),
+      ];
+      const results = await Promise.all(promises);
+
+      const ids = new Set(results.map(t => t.id));
+      expect(ids.size).toBe(3);
+    });
+  });
+
+  describe('Encryption edge cases', () => {
+    it('should handle empty API key', async () => {
+      await updateSettings({ ai_api_key: '' });
+      const settings = await getSettings();
+
+      // Empty string should be preserved
+      expect(settings.ai_api_key || '').toBe('');
+    });
+
+    it('should handle API key with special characters', async () => {
+      const specialKey = 'sk-test-!@#$%^&*()_+-={}[]|\\:";\'<>?,./`~';
+      await updateSettings({ ai_api_key: specialKey });
+
+      const settings = await getSettings();
+      expect(settings.ai_api_key).toBe(specialKey);
+    });
+
+    it('should handle very long API keys', async () => {
+      const longKey = 'sk-' + 'a'.repeat(10000);
+      await updateSettings({ ai_api_key: longKey });
+
+      const settings = await getSettings();
+      expect(settings.ai_api_key).toBe(longKey);
+    });
+
+    it('should handle API key with unicode characters', async () => {
+      const unicodeKey = 'sk-test-你好世界-🔑-🚀';
+      await updateSettings({ ai_api_key: unicodeKey });
+
+      const settings = await getSettings();
+      expect(settings.ai_api_key).toBe(unicodeKey);
+    });
+  });
+
+  describe('Migration edge cases', () => {
+    it('should handle corrupted localStorage data', async () => {
+      clearCache();
+      localStorage.clear();
+
+      // Store invalid JSON
+      localStorage.setItem('mermaid_studio_v1', 'invalid-json{{{');
+
+      // Should fall back to fresh data
+      const settings = await getSettings();
+      expect(settings).toBeDefined();
+      expect(settings.theme).toBeDefined();
+    });
+
+    it('should handle missing settings in localStorage', async () => {
+      clearCache();
+      localStorage.clear();
+
+      // Store data without settings
+      const partialData = JSON.stringify({
+        folders: [],
+        diagrams: [],
+        versions: [],
+        tags: [],
+        diagramTags: [],
+      });
+      localStorage.setItem('mermaid_studio_v1', partialData);
+
+      const settings = await getSettings();
+      expect(settings.theme).toBeDefined();
+      expect(settings.language).toBeDefined();
+    });
+
+    it('should migrate partial settings with defaults', async () => {
+      clearCache();
+      localStorage.clear();
+
+      // Store partial settings
+      const partialData = JSON.stringify({
+        folders: [],
+        diagrams: [],
+        versions: [],
+        tags: [],
+        diagramTags: [],
+        settings: {
+          theme: 'dark',
+          // Missing: language, ai_api_key, etc.
+        },
+      });
+      localStorage.setItem('mermaid_studio_v1', partialData);
+
+      const settings = await getSettings();
+      expect(settings.theme).toBe('dark');
+      expect(settings.language).toBe('en'); // Default
+      expect(settings.ai_provider).toBe('openai'); // Default
+    });
+  });
+
+  describe('Version management', () => {
+    it('should limit versions to 50 per diagram', async () => {
+      const diagram = await createDiagram('Version Test');
+
+      // Create 51 versions
+      for (let i = 0; i < 51; i++) {
+        await saveVersion(diagram.id, `content-${i}`, `Version ${i}`);
+      }
+
+      const versions = await getVersions(diagram.id);
+
+      // Should have 50 versions (oldest removed)
+      expect(versions.length).toBe(50);
+
+      // Oldest version should be Version 1 (not Version 0)
+      const versionLabels = versions.map(v => v.label);
+      expect(versionLabels).not.toContain('Version 0');
+    });
+
+    it('should maintain version order', async () => {
+      const diagram = await createDiagram('Order Test');
+
+      const v1 = await saveVersion(diagram.id, 'v1', 'First');
+      await new Promise(resolve => setTimeout(resolve, 10)); // Small delay
+      const v2 = await saveVersion(diagram.id, 'v2', 'Second');
+      await new Promise(resolve => setTimeout(resolve, 10)); // Small delay
+      const v3 = await saveVersion(diagram.id, 'v3', 'Third');
+
+      const versions = await getVersions(diagram.id);
+
+      // Should be in reverse chronological order (newest first)
+      expect(versions[0].id).toBe(v3.id);
+      expect(versions[1].id).toBe(v2.id);
+      expect(versions[2].id).toBe(v1.id);
+    });
+  });
+
+  describe('User templates', () => {
+    it('should create user template', async () => {
+      const template = await saveUserTemplate({
+        title: 'Custom Template',
+        description: 'My custom template',
+        content: 'graph TD\n  A --> B',
+        category: 'flowchart',
+      });
+
+      expect(template.id).toBeDefined();
+      expect(template.title).toBe('Custom Template');
+      expect(template.created_at).toBeDefined();
+    });
+
+    it('should get user templates', async () => {
+      await saveUserTemplate({
+        title: 'Template 1',
+        description: 'Desc 1',
+        content: 'content1',
+        category: 'flowchart',
+      });
+
+      await saveUserTemplate({
+        title: 'Template 2',
+        description: 'Desc 2',
+        content: 'content2',
+        category: 'sequence',
+      });
+
+      const templates = await getUserTemplates();
+
+      expect(templates.length).toBeGreaterThanOrEqual(2);
+      expect(templates.some(t => t.title === 'Template 1')).toBe(true);
+      expect(templates.some(t => t.title === 'Template 2')).toBe(true);
+    });
+
+    it('should delete user template', async () => {
+      const template = await saveUserTemplate({
+        title: 'To Delete',
+        description: 'Will be deleted',
+        content: 'content',
+        category: 'flowchart',
+      });
+
+      await deleteUserTemplate(template.id);
+
+      const templates = await getUserTemplates();
+      expect(templates.some(t => t.id === template.id)).toBe(false);
+    });
+  });
+
+  describe('Tag query operations', () => {
+    it('should get diagrams for a tag', async () => {
+      const tag = await createTag('test-tag', '#ff0000');
+      const diagram1 = await createDiagram('Diagram 1');
+      const diagram2 = await createDiagram('Diagram 2');
+
+      await toggleDiagramTag(diagram1.id, tag.id);
+      await toggleDiagramTag(diagram2.id, tag.id);
+
+      const diagramIds = await getDiagramsForTag(tag.id);
+
+      expect(diagramIds).toContain(diagram1.id);
+      expect(diagramIds).toContain(diagram2.id);
+      expect(diagramIds.length).toBe(2);
+    });
+
+    it('should return empty array for tag with no diagrams', async () => {
+      const tag = await createTag('unused-tag', '#00ff00');
+
+      const diagramIds = await getDiagramsForTag(tag.id);
+
+      expect(diagramIds).toEqual([]);
+    });
+  });
+
+  describe('Bulk operations', () => {
+    it('should delete multiple diagrams', async () => {
+      const diagram1 = await createDiagram('Bulk 1');
+      const diagram2 = await createDiagram('Bulk 2');
+      const diagram3 = await createDiagram('Bulk 3');
+
+      await deleteDiagrams([diagram1.id, diagram2.id]);
+
+      const diagrams = await getDiagrams();
+
+      expect(diagrams.some(d => d.id === diagram1.id)).toBe(false);
+      expect(diagrams.some(d => d.id === diagram2.id)).toBe(false);
+      expect(diagrams.some(d => d.id === diagram3.id)).toBe(true);
+    });
+
+    it('should move multiple diagrams to folder', async () => {
+      const folder = await createFolder('Target Folder');
+      const diagram1 = await createDiagram('Move 1');
+      const diagram2 = await createDiagram('Move 2');
+      const diagram3 = await createDiagram('Move 3');
+
+      await moveDiagramsToFolder([diagram1.id, diagram2.id], folder.id);
+
+      const d1 = await getDiagram(diagram1.id);
+      const d2 = await getDiagram(diagram2.id);
+      const d3 = await getDiagram(diagram3.id);
+
+      expect(d1?.folder_id).toBe(folder.id);
+      expect(d2?.folder_id).toBe(folder.id);
+      expect(d3?.folder_id).toBeNull();
+    });
+
+    it('should move diagrams out of folder', async () => {
+      const folder = await createFolder('Original Folder');
+      const diagram = await createDiagram('To Move', 'flowchart TD\n  A --> B', folder.id);
+
+      await moveDiagramsToFolder([diagram.id], null);
+
+      const retrieved = await getDiagram(diagram.id);
+      expect(retrieved?.folder_id).toBeNull();
+    });
+  });
+
+  describe('Backup and restore edge cases', () => {
+    it('should handle empty backup', async () => {
+      clearCache();
+      localStorage.clear();
+
+      // Create fresh data
+      const backup = await exportBackup();
+
+      expect(backup.version).toBe(1);
+      expect(backup.exported_at).toBeDefined();
+      expect(backup.diagrams).toBeDefined();
+      expect(backup.folders).toBeDefined();
+    });
+
+    it('should handle backup with no settings', async () => {
+      const backup = await exportBackup();
+      delete backup.settings;
+
+      const result = await importBackup(backup);
+
+      expect(result.diagrams).toBe(0); // No new diagrams
+      expect(result.folders).toBe(0); // No new folders
+    });
+
+    it('should merge user templates from backup', async () => {
+      const backup = await exportBackup();
+
+      // Add a user template to backup
+      backup.userTemplates = [{
+        id: 'template-backup-1',
+        title: 'Backup Template',
+        description: 'From backup',
+        content: 'flowchart TD\n  A --> B',
+        category: 'flowchart',
+        created_at: new Date().toISOString(),
+      }];
+
+      await importBackup(backup);
+
+      const templates = await getUserTemplates();
+      expect(templates.some(t => t.id === 'template-backup-1')).toBe(true);
     });
   });
 });

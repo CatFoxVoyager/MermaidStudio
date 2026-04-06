@@ -315,6 +315,7 @@
     "labelPlaceholder": "Étiquette de l'arête...",
     "strokeColor": "Couleur du trait",
     "labelBackground": "Fond de l'étiquette",
+    "labelTextColor": "Couleur du texte",
     "strokeWidth": "Largeur du trait",
     "strokeStyle": "Style du trait",
     "opacity": "Opacité",
@@ -328,7 +329,9 @@
     "arrowBidirectional": "Bidirectionnel (<-->)",
     "solid": "Plein",
     "dashed": "Tirets",
-    "dotted": "Pointillés"
+    "dotted": "Pointillés",
+    "labelFontSize": "Taille police du label",
+    "labelFontWeight": "Graisse police du label"
   },
   "subgraphStyle": {
     "subgraphId": "ID du sous-graphe",
@@ -339,10 +342,15 @@
     "strokeWidth": "Largeur du trait",
     "borderStyle": "Style de bordure",
     "opacity": "Opacité",
+    "textColor": "Couleur du texte",
+    "fontSize": "Taille de police",
+    "fontFamily": "Police",
+    "fontWeight": "Graisse",
     "resetStyle": "Réinitialiser le style",
-    "solid": "Plein",
+    "solid": "Continu",
     "dashed": "Tirets",
     "dotted": "Pointillés"
+
   },
   "fullscreen": {
     "title": "Aperçu en plein écran",
@@ -433,6 +441,18 @@
     "editTheme": "Modifier le Thème"
   },
   "preview": {
+    "title": "Aperçu",
+    "zoomIn": "Zoomer",
+    "zoomOut": "Dézoomer",
+    "resetZoom": "Réinitialiser le zoom",
+    "fitToScreen": "Ajuster à l'écran",
+    "fullscreenPreview": "Aperçu plein écran",
+    "copySvg": "Copier le SVG",
+    "export": "Exporter",
+    "parseError": "Erreur d'analyse",
+    "startTyping": "Commencez à taper pour voir l'aperçu",
+    "clickToEdit": "Cliquer pour modifier {{id}}",
+    "clickToEditSubgraph": "Cliquer pour modifier le sous-graphe",
     "subgraph": "Sous-graphe",
     "addSubgraph": "Ajouter un sous-graphe",
     "selectSubgraph": "Sélectionner le sous-graphe",

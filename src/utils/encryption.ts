@@ -3,7 +3,16 @@
  * Uses Web Crypto API with AES-GCM-256 encryption.
  */
 
-// Hardcoded key material and salt for simplicity
+import { logger } from '@/utils/logger';
+
+const log = logger.scope('encryption');
+
+// Key material and salt for client-side encryption.
+// SECURITY NOTE: This provides obfuscation rather than true security since the key
+// is embedded in the JavaScript bundle. A determined attacker with access to
+// the built JS can decrypt stored API keys. For true secret protection,
+// a user-derived key (master password) would be needed. This is acceptable
+// for a local-first app where the API key is already present in browser memory.
 const KEY_MATERIAL = 'mermaid_studio_v1_enc';
 const SALT = 'mermaid-studio-salt';
 
@@ -103,7 +112,7 @@ export async function encrypt(data: string): Promise<string> {
     // Return as base64
     return btoa(String.fromCharCode(...combined));
   } catch (error) {
-    console.error('Encryption error:', error);
+    log.error('Encryption error:', error);
     throw error;
   }
 }
@@ -159,7 +168,7 @@ export async function decrypt(encryptedData: string): Promise<string> {
     return decoder.decode(plaintext);
   } catch (error) {
     // Return empty string on any decryption error
-    console.error('Decryption error:', error);
+    log.error('Decryption error:', error);
     return '';
   }
 }

@@ -49,7 +49,10 @@ export function ColorPicker({ label, value, onChange }: Props) {
 
   function handleHexChange(v: string) {
     setHex(v);
-    if (/^#[0-9a-fA-F]{6}$/.test(v) || /^#[0-9a-fA-F]{3}$/.test(v)) {onChange(v);}
+    // Only accept hex colors: #RGB or #RRGGBB
+    if (/^#[0-9a-fA-F]{3}$/.test(v) || /^#[0-9a-fA-F]{6}$/.test(v)) {
+      onChange(v);
+    }
   }
 
   function handlePreset(color: string) {

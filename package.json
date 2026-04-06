@@ -1,12 +1,14 @@
 {
   "name": "mermaid-studio",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:analyze": "vite build",
     "preview": "vite preview",
+    "benchmark": "node scripts/benchmark.mjs",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
@@ -15,6 +17,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
+    "test:lighthouse": "lhci autorun --collect.url=http://localhost:5173",
     "lint": "eslint src --max-warnings 999",
     "lint:fix": "eslint src --fix",
     "type-check": "tsc --noEmit",
@@ -40,43 +43,53 @@
     "@radix-ui/react-context-menu": "^2.2.16",
     "@radix-ui/react-toast": "^1.2.15",
     "@types/dompurify": "^3.2.0",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "codemirror": "^6.0.2",
     "dompurify": "^3.3.3",
-    "i18next": "^25.10.5",
+    "html2canvas": "^1.4.1",
+    "i18next": "^26.0.3",
     "khroma": "^2.1.0",
-    "lucide-react": "^1.0.1",
-    "mermaid": "^11.13.0",
+    "lucide-react": "^1.7.0",
+    "mermaid": "^11.14.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "react-i18next": "^16.6.2"
+    "react-i18next": "^17.0.2"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "@eslint/js": "^10.0.1",
-    "@playwright/test": "^1.58.2",
+    "@lhci/cli": "^0.15.1",
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4.2.2",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@typescript-eslint/eslint-plugin": "^8.57.2",
-    "@typescript-eslint/parser": "^8.57.2",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
     "@vitejs/plugin-react": "^6.0.1",
-    "@vitest/coverage-v8": "^4.1.1",
-    "eslint": "^10.1.0",
+    "@vitest/coverage-v8": "^4.1.2",
+    "chrome-launcher": "^1.2.1",
+    "eslint": "^10.2.0",
     "eslint-plugin-react-hooks": "^7.1.0-canary-ed69815c-20260323",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "fake-indexeddb": "^6.2.5",
     "husky": "^9.1.7",
     "jsdom": "^29.0.1",
+    "lighthouse": "^13.0.3",
     "lint-staged": "^16.4.0",
     "postcss": "^8.5.8",
     "prettier": "^3.8.1",
+    "rollup-plugin-visualizer": "^7.0.1",
     "tailwindcss": "^4.2.2",
-    "typescript": "^5.9.3",
-    "vite": "^8.0.2",
-    "vitest": "^4.1.1"
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3",
+    "vitest": "^4.1.2",
+    "vitest-canvas-mock": "^1.1.4"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -88,7 +101,12 @@
     ]
   },
   "engines": {
-    "node": ">=24.0.0",
+    "node": "^24.0.0",
     "npm": ">=10.0.0"
+  },
+  "overrides": {
+    "lodash": "^4.17.21",
+    "lodash-es": "^4.17.21",
+    "tmp": "^0.2.3"
   }
 }

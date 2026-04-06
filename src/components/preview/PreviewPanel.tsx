@@ -5,6 +5,7 @@ import { renderDiagram, detectDiagramType } from '@/lib/mermaid/core';
 import { extractThemeIdFromContent } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
 import { sanitizeSVG } from '@/utils/sanitization';
+import { fixDiagramLabels, applyEdgeFontStyles, applyNodeFontStyles } from '@/utils/svgPostProcessing';
 import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, addNode, addEdge, generateNodeId, removeNode, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape, PresetType, PresetColors } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
@@ -91,49 +92,26 @@ function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTM
   const overlays: SubgraphOverlay[] = [];
   const knownSet = new Set(knownSubgraphIds);
 
-  // Collect candidate subgraph elements from the SVG.
-  // Mermaid v11: subgraphs are g elements with the subgraph ID directly (class "node").
-  // Older Mermaid: subgraphs are g.cluster with ID like "flowchart-SG-N".
+  // Mermaid v11 often uses class "node" for subgraphs, and ID format is "preview_N_TIMESTAMP-subgraphId"
+  // We'll look for any g element that has a rect and an ID containing one of our known subgraph IDs.
+  const allGs = Array.from(svg.querySelectorAll('g'));
   const candidates: Map<string, SVGElement> = new Map();
 
-  // Strategy 1: Look up by known IDs (handles v11 g#subgraphId)
   for (const sgId of knownSet) {
-    const el = svg.getElementById(sgId);
-    if (el && el.tagName === 'g') {
-      candidates.set(sgId, el);
+    // Look for the best matching G element for this subgraph ID
+    const match = allGs.find(g => {
+      const id = g.id || '';
+      return id === sgId || id.endsWith(`-${sgId}`);
+    });
+
+    if (match && match.querySelector('rect')) {
+      candidates.set(sgId, match);
     }
   }
 
-  // Strategy 2: Scan g.cluster elements (older Mermaid) and match by suffix
-  const clusterElements = svg.querySelectorAll('g.cluster');
-  clusterElements.forEach(el => {
-    const idAttr = el.id ?? '';
-    const match = idAttr.match(/flowchart-([^-]+)-\d+/);
-    if (match && knownSet.has(match[1])) {
-      candidates.set(match[1], el);
-    }
-    // Also handle bare cluster IDs
-    if (idAttr && knownSet.has(idAttr)) {
-      candidates.set(idAttr, el);
-    }
-  });
-
-  // Strategy 3: Scan ALL g[id] elements that are NOT flowchart nodes
-  // (covers edge cases where Mermaid uses unexpected ID formats)
-  svg.querySelectorAll('g[id]').forEach(el => {
-    const id = el.id;
-    if (!id || id.match(/^flowchart-/) || candidates.has(id)) return;
-    // A subgraph element typically has a .label-container rect and no .nodeLabel
-    if (el.querySelector('.basic.label-container') || el.querySelector('.cluster-label')) {
-      if (knownSet.has(id)) {
-        candidates.set(id, el);
-      }
-    }
-  });
-
   for (const [sgId, el] of candidates) {
-    const labelRect = el.querySelector('.cluster-label rect, .basic.label-container rect');
-    const labelText = el.querySelector('.cluster-label text, .nodeLabel text, .label text');
+    // Try different selectors for label text depending on Mermaid version
+    const labelText = el.querySelector('.cluster-label text, .nodeLabel text, .label text, text');
     const label = labelText?.textContent ?? sgId;
 
     // Account for scroll offset
@@ -142,27 +120,18 @@ function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTM
 
     try {
       const containerRect = outerContainer.getBoundingClientRect();
-      let x: number, y: number, width: number, height: number;
+      const rect = el.getBoundingClientRect();
+      
+      const clusterX = rect.left - containerRect.left + scrollLeft;
+      const clusterY = rect.top - containerRect.top + scrollTop;
+      const clusterWidth = rect.width;
+      const clusterHeight = rect.height;
 
-      if (labelRect) {
-        const rect = labelRect.getBoundingClientRect();
-        x = rect.left - containerRect.left + scrollLeft;
-        y = rect.top - containerRect.top + scrollTop;
-        width = rect.width;
-        height = rect.height;
-      } else {
-        const rect = el.getBoundingClientRect();
-        x = rect.left - containerRect.left + scrollLeft;
-        y = rect.top - containerRect.top + scrollTop;
-        width = Math.min(rect.width, 200);
-        height = 24;
-      }
-
-      const clusterRect = el.getBoundingClientRect();
-      const clusterX = clusterRect.left - containerRect.left + scrollLeft;
-      const clusterY = clusterRect.top - containerRect.top + scrollTop;
-      const clusterWidth = clusterRect.width;
-      const clusterHeight = clusterRect.height;
+      // Click target for the label area (Strategy: use the top part of the cluster)
+      const x = clusterX;
+      const y = clusterY;
+      const width = clusterWidth;
+      const height = Math.min(clusterHeight, 30); // Use top 30px as label area
 
       overlays.push({ id: sgId, label, x, y, width, height, clusterX, clusterY, clusterWidth, clusterHeight });
     } catch {
@@ -177,6 +146,7 @@ function addEdgeClickTargets(
   shadowHost: HTMLDivElement,
   containerEl: HTMLDivElement,
   onEdgeClick: (index: number) => void,
+  parsedEdges: ParsedEdge[],
 ): () => void {
   const shadowRoot = shadowHost.shadowRoot;
   if (!shadowRoot) return () => {};
@@ -186,6 +156,76 @@ function addEdgeClickTargets(
 
   const edgePaths = svg.querySelectorAll('.edgePaths path.flowchart-link');
   if (edgePaths.length === 0) return () => {};
+
+  // Create a mapping from SVG path index to parsed edge index by matching source/target
+  const svgToParsedIndex = new Map<number, number>();
+
+  // Get node positions from SVG for matching
+  const nodePositions = new Map<string, { x: number; y: number }>();
+  svg.querySelectorAll('.node').forEach((nodeEl) => {
+    const transform = nodeEl.getAttribute('transform');
+    const nodeId = nodeEl.getAttribute('id') || nodeEl.getAttribute('data-id');
+    if (transform && nodeId) {
+      const match = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+      if (match) {
+        nodePositions.set(nodeId, { x: parseFloat(match[1]), y: parseFloat(match[2]) });
+      }
+    }
+  });
+
+  // For each SVG edge path, find the matching parsed edge by checking path endpoints
+  edgePaths.forEach((path, svgIndex) => {
+    const d = path.getAttribute('d');
+    if (!d) return;
+
+    // Extract path start and end points
+    const moveMatch = d.match(/M\s+([-\d.]+)\s+([-\d.]+)/);
+    const endMatch = d.match(/([-\d.]+)\s+([-\d.]+)$/);
+
+    if (!moveMatch || !endMatch) {
+      // Fallback: use SVG order if we can't parse path
+      svgToParsedIndex.set(svgIndex, Math.min(svgIndex, parsedEdges.length - 1));
+      return;
+    }
+
+    const pathStart = { x: parseFloat(moveMatch[1]), y: parseFloat(moveMatch[2]) };
+    const pathEnd = { x: parseFloat(endMatch[1]), y: parseFloat(endMatch[2]) };
+
+    // Find the closest matching parsed edge by checking node positions
+    let bestMatch = -1;
+    let bestDistance = Infinity;
+
+    for (let i = 0; i < parsedEdges.length; i++) {
+      const edge = parsedEdges[i];
+      const sourcePos = nodePositions.get(edge.source);
+      const targetPos = nodePositions.get(edge.target);
+
+      if (!sourcePos || !targetPos) continue;
+
+      // Check if path direction matches source->target or target->source
+      const distStartToSource = Math.hypot(pathStart.x - sourcePos.x, pathStart.y - sourcePos.y);
+      const distStartToTarget = Math.hypot(pathStart.x - targetPos.x, pathStart.y - targetPos.y);
+      const distEndToSource = Math.hypot(pathEnd.x - sourcePos.x, pathEnd.y - sourcePos.y);
+      const distEndToTarget = Math.hypot(pathEnd.x - targetPos.x, pathEnd.y - targetPos.y);
+
+      // Edge matches if one endpoint is near source and the other near target
+      const forwardMatch = distStartToSource + distEndToTarget;
+      const reverseMatch = distStartToTarget + distEndToSource;
+      const minMatch = Math.min(forwardMatch, reverseMatch);
+
+      if (minMatch < bestDistance && minMatch < 50) { // 50px tolerance
+        bestDistance = minMatch;
+        bestMatch = i;
+      }
+    }
+
+    if (bestMatch !== -1) {
+      svgToParsedIndex.set(svgIndex, bestMatch);
+    } else {
+      // Fallback: use SVG order if no match found
+      svgToParsedIndex.set(svgIndex, Math.min(svgIndex, parsedEdges.length - 1));
+    }
+  });
 
   // Create an overlay SVG in the main DOM (above node overlays which have z-index: 5)
   const svgRect = svg.getBoundingClientRect();
@@ -206,7 +246,7 @@ function addEdgeClickTargets(
     overlaySvg.setAttribute('viewBox', viewBox);
   }
 
-  edgePaths.forEach((path, index) => {
+  edgePaths.forEach((path, svgIndex) => {
     const d = path.getAttribute('d');
     if (!d) return;
 
@@ -218,10 +258,13 @@ function addEdgeClickTargets(
     hitPath.style.pointerEvents = 'stroke';
     hitPath.style.cursor = 'pointer';
 
+    // Use the mapped parsed edge index instead of SVG index
+    const parsedIndex = svgToParsedIndex.get(svgIndex) ?? svgIndex;
+
     hitPath.addEventListener('click', (e) => {
       e.stopPropagation();
       e.preventDefault();
-      onEdgeClick(index);
+      onEdgeClick(parsedIndex);
     });
 
     overlaySvg.appendChild(hitPath);
@@ -231,7 +274,7 @@ function addEdgeClickTargets(
   return () => overlaySvg.remove();
 }
 
-function highlightSelectedEdge(shadowHost: HTMLDivElement, edgeIndex: number | null) {
+function highlightSelectedEdge(shadowHost: HTMLDivElement, edgeIndex: number | null, parsedEdges: ParsedEdge[]) {
   const shadowRoot = shadowHost.shadowRoot;
   if (!shadowRoot) return;
 
@@ -239,8 +282,69 @@ function highlightSelectedEdge(shadowHost: HTMLDivElement, edgeIndex: number | n
   if (!svg) return;
 
   const edgePaths = svg.querySelectorAll('.edgePaths path.flowchart-link');
+  if (edgePaths.length === 0) return;
+  if (edgeIndex === null) {
+    // Clear all selections
+    edgePaths.forEach((path) => {
+      (path as SVGPathElement).removeAttribute('data-selected-edge');
+      (path as SVGPathElement).style.filter = '';
+    });
+    return;
+  }
+
+  // Get node positions from SVG for matching
+  const nodePositions = new Map<string, { x: number; y: number }>();
+  svg.querySelectorAll('.node').forEach((nodeEl) => {
+    const transform = nodeEl.getAttribute('transform');
+    const nodeId = nodeEl.getAttribute('id') || nodeEl.getAttribute('data-id');
+    if (transform && nodeId) {
+      const match = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+      if (match) {
+        nodePositions.set(nodeId, { x: parseFloat(match[1]), y: parseFloat(match[2]) });
+      }
+    }
+  });
+
+  // Find the SVG path index that matches the selected parsed edge
+  const selectedEdge = parsedEdges[edgeIndex];
+  if (!selectedEdge) return;
+
+  let matchingSvgIndex = -1;
+  const sourcePos = nodePositions.get(selectedEdge.source);
+  const targetPos = nodePositions.get(selectedEdge.target);
+
+  if (sourcePos && targetPos) {
+    let bestDistance = Infinity;
+    edgePaths.forEach((path, svgIndex) => {
+      const d = path.getAttribute('d');
+      if (!d) return;
+
+      const moveMatch = d.match(/M\s+([-\d.]+)\s+([-\d.]+)/);
+      const endMatch = d.match(/([-\d.]+)\s+([-\d.]+)$/);
+      if (!moveMatch || !endMatch) return;
+
+      const pathStart = { x: parseFloat(moveMatch[1]), y: parseFloat(moveMatch[2]) };
+      const pathEnd = { x: parseFloat(endMatch[1]), y: parseFloat(endMatch[2]) };
+
+      const distStartToSource = Math.hypot(pathStart.x - sourcePos.x, pathStart.y - sourcePos.y);
+      const distStartToTarget = Math.hypot(pathStart.x - targetPos.x, pathStart.y - targetPos.y);
+      const distEndToSource = Math.hypot(pathEnd.x - sourcePos.x, pathEnd.y - sourcePos.y);
+      const distEndToTarget = Math.hypot(pathEnd.x - targetPos.x, pathEnd.y - targetPos.y);
+
+      const forwardMatch = distStartToSource + distEndToTarget;
+      const reverseMatch = distStartToTarget + distEndToSource;
+      const minMatch = Math.min(forwardMatch, reverseMatch);
+
+      if (minMatch < bestDistance && minMatch < 50) {
+        bestDistance = minMatch;
+        matchingSvgIndex = svgIndex;
+      }
+    });
+  }
+
+  // Apply highlight to the matching edge (or fallback to index)
   edgePaths.forEach((path, index) => {
-    if (index === edgeIndex) {
+    if (index === matchingSvgIndex || (matchingSvgIndex === -1 && index === edgeIndex)) {
       (path as SVGPathElement).setAttribute('data-selected-edge', 'true');
       (path as SVGPathElement).style.filter = 'drop-shadow(0 0 4px var(--accent))';
     } else {
@@ -265,7 +369,7 @@ interface Props {
   externalPanelOpen?: boolean;
 }
 
-export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRenderTime, onFullscreen, onNodeSelect, onSelectionOpen, externalPanelOpen }: Props) {
+function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRenderTime, onFullscreen, onNodeSelect, onSelectionOpen, externalPanelOpen }: Props) {
   const { t } = useTranslation();
   const [svg, setSvg] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -383,9 +487,9 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
 
     // Update all preset classDef colors in the diagram
     const updated = updatePresetColors(content, currentThemeColors);
-    if (updated !== content) {
+    if (updated !== content && onChange) {
       skipResyncRef.current = true;
-      onContentChange(updated);
+      onChange(updated);
     }
   }, [effectiveThemeId, content, currentThemeColors]);
 
@@ -503,24 +607,51 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
     }
 
     // Add font styles to Shadow DOM - these need to be applied directly
+    // Note: font-size is only applied to .mermaid (not *) so that per-node
+    // font-size set via classDef/style directives is not overridden.
     if (fontFamily || fontSize) {
       shadowCSS += '\n/* Font styles */\n';
-      shadowCSS += '.mermaid, .mermaid * {\n';
+      shadowCSS += '.mermaid {\n';
       if (fontFamily) shadowCSS += `  font-family: ${fontFamily};\n`;
       if (fontSize) shadowCSS += `  font-size: ${fontSize};\n`;
       shadowCSS += '}\n';
+      if (fontFamily) {
+        shadowCSS += '.mermaid * {\n';
+        shadowCSS += `  font-family: ${fontFamily};\n`;
+        shadowCSS += '}\n';
+      }
     }
 
+    // Edge label: force opaque background (color is set by SVG post-processing)
+    shadowCSS += '\n/* Edge label styling */\n';
+    shadowCSS += `g.edgeLabel rect.background, g.edgeLabel rect { fill-opacity: 1 !important; opacity: 1 !important; stroke: none !important; }\n`;
+    shadowCSS += `g.edgeLabel .label div, g.edgeLabel .label span { background-color: inherit; opacity: 1 !important; }\n`;
 
     // Create style element with theme variables
     const styleEl = document.createElement('style');
     styleEl.textContent = shadowCSS;
     shadowRoot.appendChild(styleEl);
 
-    // Create container for SVG
+    // Create container for SVG — apply edge and node font styles via SVG post-processing
     const svgContainer = document.createElement('div');
     svgContainer.className = 'mermaid';
-    svgContainer.innerHTML = sanitizeSVG(svg);
+
+    // Extract font-related node styles for post-processing
+    const nodeFontStyles = new Map<string, { fontSize?: string; fontWeight?: string; color?: string }>();
+    parsedStyles.forEach((style, nodeId) => {
+      const fontStyle: { fontSize?: string; fontWeight?: string; color?: string } = {};
+      if (style.fontSize) fontStyle.fontSize = style.fontSize;
+      if (style.fontWeight) fontStyle.fontWeight = style.fontWeight;
+      if (style.color) fontStyle.color = style.color;
+      if (Object.keys(fontStyle).length > 0) {
+        nodeFontStyles.set(nodeId, fontStyle);
+      }
+    });
+
+    svgContainer.innerHTML = applyNodeFontStyles(
+      applyEdgeFontStyles(fixDiagramLabels(sanitizeSVG(svg)), parsedLinkStyles, parsedEdges),
+      nodeFontStyles
+    );
     shadowRoot.appendChild(svgContainer);
 
     // Store reference for size calculations (pointing to SVG container in Shadow DOM)
@@ -554,10 +685,10 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
           if (willSelect) onSelectionOpen?.();
           return willSelect ? index : null;
         });
-      });
+      }, parsedEdges);
     }
 
-  }, [svg, content]);
+  }, [svg, content, parsedEdges, panelStyles, parsedLinkStyles]);
 
   // Cleanup edge hit targets on unmount
   useEffect(() => {
@@ -578,6 +709,48 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
   // Extract node overlays after SVG renders
   useEffect(() => {
     if (!svg || !svgContainerRef.current || !containerRef.current || !shadowHostRef.current) return;
+    
+    // Inject custom centering styles into shadow root
+    const shadowRoot = shadowHostRef.current.shadowRoot;
+    if (shadowRoot) {
+      const styleId = 'mermaid-centering-fix';
+      if (!shadowRoot.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+          foreignObject > div, 
+          foreignObject > span,
+          .nodeLabel,
+          .cluster-label,
+          .label {
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            height: 100% !important;
+            width: 100% !important;
+            line-height: 1 !important;
+            text-align: center !important;
+            pointer-events: auto !important;
+          }
+
+          /* Ensure containers don't block clicks to elements behind them */
+          foreignObject,
+          .cluster-label {
+            pointer-events: none !important;
+          }
+          
+          /* Subgraph label centering (SVG and HTML) */
+          .cluster-label text,
+          .label text {
+            dominant-baseline: hanging !important;
+            text-anchor: middle !important;
+            y: 0 !important;
+          }
+        `;
+        shadowRoot.appendChild(style);
+      }
+    }
+
     const timer = setTimeout(() => {
       const nodes = extractSvgNodes(containerRef.current!, shadowHostRef.current!);
       setNodeOverlays(nodes);
@@ -610,8 +783,8 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
   // Highlight selected edge when selection changes
   useEffect(() => {
     if (!shadowHostRef.current) return;
-    highlightSelectedEdge(shadowHostRef.current, selectedEdgeIndex);
-  }, [selectedEdgeIndex, svg]);
+    highlightSelectedEdge(shadowHostRef.current, selectedEdgeIndex, parsedEdges);
+  }, [selectedEdgeIndex, svg, parsedEdges]);
 
   // Parse diagram and initialize node/label/style data
   useEffect(() => {
@@ -643,7 +816,8 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
     const parsed = parseDiagram(content);
     const updatedStyles = new Map<string, NodeStyle>();
     for (const nodeId of selectedNodeIds) {
-      updatedStyles.set(nodeId, getNodeStyle(parsed.styles, parsed.classDefs, parsed.nodeClasses, nodeId));
+      const nodeStyle = getNodeStyle(parsed.styles, parsed.classDefs, parsed.nodeClasses, nodeId);
+      updatedStyles.set(nodeId, nodeStyle);
     }
     setPanelStyles(updatedStyles);
   }, [content, supportsClassDef, selectedNodeIds]);
@@ -673,13 +847,17 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
         else next.add(nodeId);
         return next;
       });
-      onSelectionOpen?.();
+      // Delay onSelectionOpen to avoid setState during render
+      requestAnimationFrame(() => onSelectionOpen?.());
     } else {
       const willSelect = !(selectedNodeIds.size === 1 && selectedNodeIds.has(nodeId));
       setSelectedNodeIds(prev =>
         prev.size === 1 && prev.has(nodeId) ? new Set() : new Set([nodeId])
       );
-      if (willSelect) onSelectionOpen?.();
+      if (willSelect) {
+        // Delay onSelectionOpen to avoid setState during render
+        requestAnimationFrame(() => onSelectionOpen?.());
+      }
       onNodeSelect?.(nodeId);
     }
   }, [supportsClassDef, onNodeSelect, onSelectionOpen, toolMode, connectFirst, onChange, content, selectedNodeIds]);
@@ -692,14 +870,36 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
   const handleSubgraphClick = useCallback((e: React.MouseEvent, subgraphId: string) => {
     e.stopPropagation();
     if (!supportsClassDef) return;
+
+    // Handle connect mode for subgraphs (connect subgraph-to-node or subgraph-to-subgraph)
+    if (toolMode === 'connect') {
+      setSelectedEdgeIndex(null);
+      if (!connectFirst) {
+        setConnectFirst(subgraphId);
+        setSelectedSubgraphId(null);
+        return;
+      }
+      if (connectFirst !== subgraphId && onChange) {
+        onChange(addEdge(content, connectFirst, subgraphId));
+      }
+      setConnectFirst(null);
+      setToolMode('select');
+      setSelectedSubgraphId(null);
+      return;
+    }
+
+    // Normal selection mode
     setSelectedNodeIds(new Set());
     setSelectedEdgeIndex(null);
     setSelectedSubgraphId(prev => {
       const willSelect = prev !== subgraphId;
-      if (willSelect) onSelectionOpen?.();
+      if (willSelect) {
+        // Delay onSelectionOpen to avoid setState during render
+        requestAnimationFrame(() => onSelectionOpen?.());
+      }
       return willSelect ? subgraphId : null;
     });
-  }, [supportsClassDef, onSelectionOpen]);
+  }, [supportsClassDef, onSelectionOpen, toolMode, connectFirst, onChange, content]);
 
   const handleSubgraphStyleChange = useCallback((subgraphId: string, styleUpdate: Partial<NodeStyle>) => {
     if (!onChange) return;
@@ -743,10 +943,20 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
     if (!onChange) return;
     skipResyncRef.current = true;
 
+    // Update panelStyles immediately so UI reflects the change
+    setPanelStyles(prev => {
+      const next = new Map(prev);
+      for (const nodeId of nodeIds) {
+        const existing = next.get(nodeId) ?? {};
+        next.set(nodeId, { ...existing, ...styleUpdate });
+      }
+      return next;
+    });
+
     // Remove old classDef and class lines for these nodes
     let result = removeNodeStyles(content, nodeIds);
 
-    // Build new classDefs and class assignments
+    // Build new classDefs, class assignments, and direct style lines
     const newLines: string[] = [];
     const classNameBase = `nodeStyle_${Date.now()}`;
     nodeIds.forEach((nodeId, index) => {
@@ -754,24 +964,34 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
       const existingStyle = panelStyles.get(nodeId) ?? {};
       const mergedStyle = { ...existingStyle, ...styleUpdate };
 
-      // Only create classDef if there are actual style properties
-      if (Object.keys(mergedStyle).length > 0) {
+      const classDefStyles: string[] = [];
+
+      // Properties applied via classDef
+      if (mergedStyle.fill) classDefStyles.push(`fill:${mergedStyle.fill}`);
+      if (mergedStyle.stroke) classDefStyles.push(`stroke:${mergedStyle.stroke}`);
+      if (mergedStyle.strokeWidth) classDefStyles.push(`stroke-width:${mergedStyle.strokeWidth}`);
+      if (mergedStyle.strokeDasharray) classDefStyles.push(`stroke-dasharray:${mergedStyle.strokeDasharray}`);
+      if (mergedStyle.color) classDefStyles.push(`color:${mergedStyle.color}`);
+      if (mergedStyle.fontWeight) classDefStyles.push(`font-weight:${mergedStyle.fontWeight}`);
+      if (mergedStyle.rx) classDefStyles.push(`rx:${mergedStyle.rx}`);
+      if (mergedStyle.ry) classDefStyles.push(`ry:${mergedStyle.ry}`);
+      if (mergedStyle.opacity) classDefStyles.push(`opacity:${mergedStyle.opacity}`);
+      if (mergedStyle.fontSize) classDefStyles.push(`font-size:${mergedStyle.fontSize}`);
+
+      // Add classDef line if we have classDef-compatible styles
+      if (classDefStyles.length > 0) {
         const className = `${classNameBase}_${index}`;
-        // Build classDef line
-        const styleParts: string[] = [];
-        if (mergedStyle.fill) styleParts.push(`fill:${mergedStyle.fill}`);
-        if (mergedStyle.stroke) styleParts.push(`stroke:${mergedStyle.stroke}`);
-        if (mergedStyle.strokeWidth) styleParts.push(`stroke-width:${mergedStyle.strokeWidth}`);
-        if (mergedStyle.strokeDasharray) styleParts.push(`stroke-dasharray:${mergedStyle.strokeDasharray}`);
-        if (mergedStyle.color) styleParts.push(`color:${mergedStyle.color}`);
-        if (mergedStyle.fontWeight) styleParts.push(`font-weight:${mergedStyle.fontWeight}`);
-        if (mergedStyle.fontSize) styleParts.push(`font-size:${mergedStyle.fontSize}`);
-        if (mergedStyle.rx) styleParts.push(`rx:${mergedStyle.rx}`);
-        if (mergedStyle.ry) styleParts.push(`ry:${mergedStyle.ry}`);
-        if (mergedStyle.opacity) styleParts.push(`opacity:${mergedStyle.opacity}`);
-        newLines.push(`    classDef ${className} ${styleParts.join(',')}`);
+        newLines.push(`    classDef ${className} ${classDefStyles.join(',')}`);
         newLines.push(`    class ${nodeId} ${className}`);
       }
+
+      // Direct style line for properties Mermaid classDef may not handle
+      const directStyles: string[] = [];
+      if (mergedStyle.fontSize) directStyles.push(`font-size:${mergedStyle.fontSize}`);
+      if (directStyles.length > 0) {
+        newLines.push(`    style ${nodeId} ${directStyles.join(',')}`);
+      }
+
     });
 
     if (newLines.length > 0) {
@@ -874,8 +1094,10 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
   // Drop handler: adds a shape when dragged onto the canvas, or moves node to root
   const handleDropOnCanvas = useCallback((e: React.DragEvent) => {
     e.preventDefault();
+    console.log('DROP ON CANVAS - dragNodeId:', dragNodeId);
     // If dragging a node over the canvas (not a shape from toolbar), move to root
     if (dragNodeId && onChange) {
+      console.log('MOVING TO ROOT:', dragNodeId);
       onChange(moveNodeToSubgraph(content, dragNodeId, null));
       setDragNodeId(null);
       setDragOverSubgraphId(null);
@@ -1084,35 +1306,15 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
               }}
             />
 
-            {selectedEdgeIndex !== null && parsedEdges[selectedEdgeIndex] && supportsClassDef && (
-              <EdgeStylePanel
-                edge={parsedEdges[selectedEdgeIndex]}
-                edgeIndex={selectedEdgeIndex}
-                edgeStyle={parsedLinkStyles.get(selectedEdgeIndex) ?? {}}
-                onClose={() => setSelectedEdgeIndex(null)}
-                onArrowChange={handleEdgeArrowChange}
-                onLabelChange={handleEdgeLabelChange}
-                onStyleChange={handleEdgeStyleChange}
-                onReset={handleEdgeReset}
-              />
-            )}
-
-            {selectedSubgraphId !== null && supportsClassDef && (
-              <SubgraphStylePanel
-                subgraphId={selectedSubgraphId}
-                subgraphLabel={subgraphList.find(sg => sg.id === selectedSubgraphId)?.label ?? ''}
-                subgraphStyle={parsedStyles.get(selectedSubgraphId) ?? {}}
-                onClose={() => setSelectedSubgraphId(null)}
-                onStyleChange={handleSubgraphStyleChange}
-                onLabelChange={handleSubgraphLabelChange}
-                onReset={handleSubgraphReset}
-              />
-            )}
-
             {nodeOverlays.map(overlay => {
               const isSelected = selectedNodeIds.has(overlay.id);
               const isConnectSource = connectFirst === overlay.id;
               const isDragging = dragNodeId === overlay.id;
+              // If we are dragging SOME node, all OTHER node overlays should ignore pointer events
+              // so they don't block the drop target (subgraphs).
+              // BUT the dragging node itself must keep pointer events auto to finish the drag.
+              const shouldBlockClicks = !!dragNodeId && !isDragging;
+
               return (
                 <div
                   key={overlay.id}
@@ -1124,11 +1326,16 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
                   draggable={toolMode === 'select' && supportsClassDef ? true : undefined}
                   onDragStart={e => {
                     if (!supportsClassDef) return;
+                    console.log('DRAG START - Node:', overlay.id);
                     setDragNodeId(overlay.id);
-                    e.dataTransfer.setData('text/plain', overlay.id);
-                    e.dataTransfer.effectAllowed = 'move';
+                    // Explicitly check for dataTransfer presence
+                    if (e.dataTransfer) {
+                      e.dataTransfer.setData('text/plain', overlay.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                    }
                   }}
                   onDragEnd={() => {
+                    console.log('DRAG END - Node:', overlay.id);
                     setDragNodeId(null);
                     setDragOverSubgraphId(null);
                   }}
@@ -1140,12 +1347,13 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
                     width: overlay.width,
                     height: overlay.height,
                     cursor: toolMode === 'connect' ? 'crosshair' : (supportsClassDef ? 'pointer' : 'default'),
-                    zIndex: 5,
+                    zIndex: isDragging ? 10 : 5,
                     border: isSelected ? '2px solid var(--accent)' : isConnectSource ? '2px dashed var(--accent)' : '2px solid transparent',
                     borderRadius: '4px',
                     transition: 'border-color 0.15s',
                     background: isConnectSource ? 'rgba(var(--accent-rgb), 0.1)' : undefined,
                     opacity: isDragging ? 0.5 : undefined,
+                    pointerEvents: shouldBlockClicks ? 'none' : 'auto',
                   }}
                   title={supportsClassDef ? t('preview.clickToEdit', { id: overlay.id }) : overlay.id}
                 />
@@ -1155,6 +1363,7 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
             {subgraphOverlays.map(sg => {
               const isSelected = selectedSubgraphId === sg.id;
               const isDropTarget = dragOverSubgraphId === sg.id;
+              const isConnectSource = connectFirst === sg.id;
               return (
                 <div
                   key={`sg-${sg.id}`}
@@ -1165,15 +1374,21 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
                   }}
                   onDragOver={e => {
                     e.preventDefault();
-                    e.dataTransfer.dropEffect = 'move';
+                    if (e.dataTransfer) {
+                      e.dataTransfer.dropEffect = 'move';
+                    }
                     setDragOverSubgraphId(sg.id);
                   }}
                   onDragLeave={() => setDragOverSubgraphId(null)}
                   onDrop={e => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (dragNodeId && onChange) {
-                      onChange(moveNodeToSubgraph(content, dragNodeId, sg.id));
+                    // Fallback to dataTransfer if dragNodeId state is lost
+                    const droppedId = dragNodeId || e.dataTransfer.getData('text/plain');
+                    console.log('SUBGRAPH DROP - state dragNodeId:', dragNodeId, 'dt droppedId:', droppedId, 'target sgId:', sg.id);
+
+                    if (droppedId && onChange) {
+                      onChange(moveNodeToSubgraph(content, droppedId, sg.id));
                     }
                     setDragNodeId(null);
                     setDragOverSubgraphId(null);
@@ -1185,20 +1400,46 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
                     top: sg.clusterY,
                     width: sg.clusterWidth,
                     height: sg.clusterHeight,
-                    cursor: supportsClassDef ? 'pointer' : 'default',
-                    zIndex: 4,
-                    border: isSelected ? '2px solid var(--accent)' : isDropTarget ? '2px dashed var(--accent)' : '2px solid transparent',
+                    cursor: toolMode === 'connect' ? 'crosshair' : (supportsClassDef ? 'pointer' : 'default'),
+                    // Subgraphs must be above nodes for connect mode and drag-drop, but below dragging nodes
+                    zIndex: toolMode === 'connect' ? 15 : (dragNodeId ? 8 : 6),
+                    border: isSelected ? '2px solid var(--accent)' : (isConnectSource || isDropTarget) ? '2px dashed var(--accent)' : '2px solid transparent',
                     borderRadius: '4px',
-                    background: isDropTarget ? 'rgba(var(--accent-rgb), 0.08)' : undefined,
+                    background: isConnectSource ? 'rgba(var(--accent-rgb), 0.1)' : (isDropTarget ? 'rgba(var(--accent-rgb), 0.08)' : undefined),
                     transition: 'border-color 0.15s, background 0.15s',
                   }}
-                  title={supportsClassDef ? t('preview.clickToEditSubgraph') : sg.label}
+                  title={supportsClassDef ? (toolMode === 'connect' ? `Click to connect from/to ${sg.id}` : t('preview.clickToEditSubgraph')) : sg.label}
                 />
               );
             })}
           </div>
         )}
       </div>
+
+      {selectedEdgeIndex !== null && parsedEdges[selectedEdgeIndex] && supportsClassDef && (
+        <EdgeStylePanel
+          edge={parsedEdges[selectedEdgeIndex]}
+          edgeIndex={selectedEdgeIndex}
+          edgeStyle={parsedLinkStyles.get(selectedEdgeIndex) ?? {}}
+          onClose={() => setSelectedEdgeIndex(null)}
+          onArrowChange={handleEdgeArrowChange}
+          onLabelChange={handleEdgeLabelChange}
+          onStyleChange={handleEdgeStyleChange}
+          onReset={handleEdgeReset}
+        />
+      )}
+
+      {selectedSubgraphId !== null && supportsClassDef && (
+        <SubgraphStylePanel
+          subgraphId={selectedSubgraphId}
+          subgraphLabel={subgraphList.find(sg => sg.id === selectedSubgraphId)?.label ?? ''}
+          subgraphStyle={parsedStyles.get(selectedSubgraphId) ?? {}}
+          onClose={() => setSelectedSubgraphId(null)}
+          onStyleChange={handleSubgraphStyleChange}
+          onLabelChange={handleSubgraphLabelChange}
+          onReset={handleSubgraphReset}
+        />
+      )}
 
       {selectedNodeIds.size > 0 && (
         <NodeStylePanel
@@ -1219,3 +1460,7 @@ export function PreviewPanel({ content, theme, themeId, onChange, onExport, onRe
     </div>
   );
 }
+
+// Memoize PreviewPanel to prevent unnecessary re-renders from parent state changes
+// Only re-renders when content, theme, themeId, onChange, onExport, onRenderTime, etc. actually change
+export const PreviewPanel = React.memo(PreviewPanelInner);

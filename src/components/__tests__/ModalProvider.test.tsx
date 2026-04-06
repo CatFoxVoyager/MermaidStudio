@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { ModalProvider } from '../ModalProvider';
 
 // Mock all modal components
@@ -155,9 +155,11 @@ describe('ModalProvider Component', () => {
   });
 
   describe('TemplateLibrary Modal', () => {
-    it('should render TemplateLibrary when showTemplates is true', () => {
+    it('should render TemplateLibrary when showTemplates is true', async () => {
       render(<ModalProvider {...mockProps} showTemplates={true} />);
-      expect(screen.getByTestId('template-library')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('template-library')).toBeInTheDocument();
+      });
     });
 
     it('should call onCloseTemplates when close button clicked', () => {
@@ -176,10 +178,12 @@ describe('ModalProvider Component', () => {
   });
 
   describe('VersionHistory Modal', () => {
-    it('should render VersionHistory when showHistory is true and activeTab exists', () => {
+    it('should render VersionHistory when showHistory is true and activeTab exists', async () => {
       const activeTab = { id: '1', title: 'Test', content: 'test', diagram_id: 'd1' };
       render(<ModalProvider {...mockProps} showHistory={true} activeTab={activeTab as any} />);
-      expect(screen.getByTestId('version-history')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('version-history')).toBeInTheDocument();
+      });
     });
 
     it('should call onCloseHistory when close button clicked', () => {
@@ -198,10 +202,12 @@ describe('ModalProvider Component', () => {
   });
 
   describe('ExportModal', () => {
-    it('should render ExportModal when showExport is true and activeTab exists', () => {
+    it('should render ExportModal when showExport is true and activeTab exists', async () => {
       render(<ModalProvider {...mockProps} showExport={true} activeTab={{ id: '1', title: 'Test Diagram', content: 'test content', diagram_id: 'd1' } as any} />);
-      expect(screen.getByTestId('export-modal')).toBeInTheDocument();
-      expect(screen.getByText('Title: Test Diagram')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('export-modal')).toBeInTheDocument();
+        expect(screen.getByText('Title: Test Diagram')).toBeInTheDocument();
+      });
     });
 
     it('should call onCloseExport when close button clicked', () => {

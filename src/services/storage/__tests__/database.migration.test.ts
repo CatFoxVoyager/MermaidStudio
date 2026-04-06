@@ -67,7 +67,7 @@ describe('Database Migration (localStorage to IndexedDB)', () => {
   describe('Fallback behavior', () => {
     it('should handle IndexedDB failure gracefully on first access', async () => {
       // Mock IndexedDB to fail
-      vi.spyOn(indexedDB, 'open').mockImplementation(() => {
+      const openSpy = vi.spyOn(indexedDB, 'open').mockImplementation(() => {
         throw new Error('QuotaExceededError');
       });
 
@@ -76,13 +76,13 @@ describe('Database Migration (localStorage to IndexedDB)', () => {
         const diagrams = await getDiagrams();
         expect(Array.isArray(diagrams)).toBe(true);
       } finally {
-        vi.spyOn(indexedDB, 'open').mockRestore();
+        openSpy.mockRestore();
       }
     });
   });
 
   describe('Data transformations', () => {
-    it('should apply default migrations to settings', async () => {
+    it('should apply default migrations to settings when values are missing', async () => {
       // This test runs first before IndexedDB is populated
       const legacyData = {
         folders: [],
@@ -93,10 +93,7 @@ describe('Database Migration (localStorage to IndexedDB)', () => {
         settings: {
           theme: 'dark',
           language: 'en',
-          // Old values that should be migrated
-          ai_provider: 'old-provider',
-          ai_base_url: 'old-url',
-          ai_model: 'old-model',
+          // Missing AI provider values - should get defaults
         },
         userTemplates: [
           { id: 'old-template', name: 'Old Template' },
@@ -107,10 +104,38 @@ describe('Database Migration (localStorage to IndexedDB)', () => {
 
       const settings = await getSettings();
 
-      // Should apply migrations
+      // Should apply defaults for missing values
       expect(settings.ai_provider).toBe('openai');
       expect(settings.ai_base_url).toBe('https://api.openai.com');
       expect(settings.ai_model).toBe('gpt-5.3-instant');
+    });
+
+    it('should preserve existing settings values', async () => {
+      const legacyData = {
+        folders: [],
+        diagrams: [],
+        versions: [],
+        tags: [],
+        diagramTags: [],
+        settings: {
+          theme: 'dark',
+          language: 'en',
+          // Existing values - should be preserved
+          ai_provider: 'existing-provider',
+          ai_base_url: 'https://existing.url',
+          ai_model: 'existing-model',
+        },
+        userTemplates: [],
+      };
+
+      localStorage.setItem('mermaid_studio_v1', JSON.stringify(legacyData));
+
+      const settings = await getSettings();
+
+      // Should preserve existing values
+      expect(settings.ai_provider).toBe('existing-provider');
+      expect(settings.ai_base_url).toBe('https://existing.url');
+      expect(settings.ai_model).toBe('existing-model');
     });
   });
 });

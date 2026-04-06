@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveThemeVariables, applyThemeToFrontmatter, applyC4FromTheme, applyStyleToContent, DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '../themeDerivation';
+import { deriveThemeVariables, applyThemeToFrontmatter, applyC4FromTheme, applyStyleToContent, stripThemeDirective, DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '../themeDerivation';
 import type { ThemeCoreColors } from '@/types';
 
 describe('themeDerivation', () => {
@@ -393,6 +393,178 @@ graph TD
       // Should NOT include default theme colors
       expect(result).not.toContain("primaryColor:");
       expect(result).not.toContain("background:");
+    });
+  });
+
+  describe('stripThemeDirective', () => {
+    it('strips YAML frontmatter', () => {
+      const content = `---
+config:
+  theme: base
+---
+flowchart TD
+  A --> B`;
+      const result = stripThemeDirective(content);
+      expect(result).not.toMatch(/^---/);
+      expect(result).toContain('flowchart TD');
+    });
+
+    it('strips %%{init}%% blocks', () => {
+      const content = `%%{init: {'theme': 'base'}}%%
+flowchart TD
+  A --> B`;
+      const result = stripThemeDirective(content);
+      expect(result).not.toContain('%%{init');
+      expect(result).toContain('flowchart TD');
+    });
+
+    it('strips %% @theme comments', () => {
+      const content = `%% @theme ocean
+flowchart TD
+  A --> B`;
+      const result = stripThemeDirective(content);
+      expect(result).not.toContain('%% @theme');
+      expect(result).toContain('flowchart TD');
+    });
+
+    it('preserves custom classDef lines', () => {
+      const content = `flowchart TD
+  A[Start] --> B[End]
+  classDef myCustom fill:#f9f,stroke:#333,stroke-width:2px
+  classDef anotherStyle fill:#bbf,stroke:#666
+  class A myCustom`;
+      const result = stripThemeDirective(content);
+      expect(result).toContain('classDef myCustom');
+      expect(result).toContain('classDef anotherStyle');
+    });
+
+    it('preserves custom class assignment lines', () => {
+      const content = `flowchart TD
+  A[Start] --> B[End]
+  classDef myCustom fill:#f9f
+  class A myCustom
+  class B myCustom`;
+      const result = stripThemeDirective(content);
+      expect(result).toContain('class A myCustom');
+      expect(result).toContain('class B myCustom');
+    });
+
+    it('preserves preset class definitions', () => {
+      const content = `flowchart TD
+  A[Start] --> B[End]
+  classDef presetPrimary fill:#ff6b6b
+  class A presetPrimary`;
+      const result = stripThemeDirective(content);
+      expect(result).toContain('classDef presetPrimary');
+      expect(result).toContain('class A presetPrimary');
+    });
+
+    it('strips C4 UpdateElementStyle and UpdateRelStyle directives', () => {
+      const content = `C4Context
+    title System Context
+    Person(user, "User")
+    UpdateElementStyle(person, $bgColor="#fff", $fontColor="#000")
+    UpdateRelStyle(line, $lineColor="#666")
+    System(sys, "System")`;
+      const result = stripThemeDirective(content);
+      expect(result).not.toContain('UpdateElementStyle');
+      expect(result).not.toContain('UpdateRelStyle');
+      expect(result).toContain('Person(user, "User")');
+      expect(result).toContain('System(sys, "System")');
+    });
+  });
+
+  describe('applyThemeToFrontmatter', () => {
+    it('merges new colors into existing themeVariables (preserves custom keys)', () => {
+      const theme = {
+        id: 'test',
+        name: 'Test',
+        description: 'Test theme',
+        isBuiltin: true,
+        coreColors: {
+          primaryColor: '#00ff00',
+          background: '#111111',
+          lineColor: '#00ff00',
+        },
+      };
+      const content = `---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: '#ff6b6b'
+    fontSize: '16px'
+    fontFamily: 'Arial, sans-serif'
+---
+flowchart TD
+  A[Start] --> B[End]`;
+
+      const result = applyThemeToFrontmatter(content, theme, false);
+
+      // New theme colors should override
+      expect(result).toContain("primaryColor: '#00ff00'");
+
+      // Custom keys should be preserved
+      expect(result).toContain("fontSize: '16px'");
+      expect(result).toContain("fontFamily: 'Arial, sans-serif'");
+    });
+
+    it('overwrites color keys from theme even when they already exist', () => {
+      const theme = {
+        id: 'ocean',
+        name: 'Ocean',
+        description: 'Ocean theme',
+        isBuiltin: true,
+        coreColors: {
+          primaryColor: '#4ECDC4',
+          background: '#1A535C',
+          lineColor: '#F7FFF7',
+        },
+      };
+      const content = `---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: '#ff0000'
+    background: '#ffffff'
+---
+flowchart TD
+  A --> B`;
+
+      const result = applyThemeToFrontmatter(content, theme, false);
+
+      expect(result).toContain("primaryColor: '#4ECDC4'");
+      expect(result).toContain("background: '#1A535C'");
+    });
+
+    it('preserves layout config (non-theme, non-themeVariables keys)', () => {
+      const theme = {
+        id: 'test',
+        name: 'Test',
+        description: 'Test',
+        isBuiltin: true,
+        coreColors: {
+          primaryColor: '#ECECFF',
+          background: '#ffffff',
+        },
+      };
+      const content = `---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: '#ff6b6b'
+  flowchart:
+    curve: basis
+    padding: 20
+---
+flowchart TD
+  A --> B`;
+
+      const result = applyThemeToFrontmatter(content, theme, false);
+
+      expect(result).toContain('curve:');
+      expect(result).toContain('basis');
+      expect(result).toContain('padding:');
+      expect(result).toContain('20');
     });
   });
 

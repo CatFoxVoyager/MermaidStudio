@@ -1,4 +1,4 @@
-import { Sun, Moon, Command, LayoutGrid as Layout, PanelLeft, GitBranch, HardDrive, Focus, Globe, FilePlus, Settings } from 'lucide-react';
+import { Sun, Moon, Command, LayoutGrid as Layout, PanelLeft, GitBranch, HardDrive, Focus, Globe, FilePlus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -8,7 +8,6 @@ interface Props {
   onOpenCommandPalette: () => void;
   onOpenTemplates: () => void;
   onNewDiagram?: () => void;
-  onOpenSettings?: () => void;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
   onOpenBackup: () => void;
@@ -19,7 +18,7 @@ interface Props {
 }
 
 export function TopBar({
-  theme, onToggleTheme, onOpenCommandPalette, onOpenTemplates, onNewDiagram, onOpenSettings,
+  theme, onToggleTheme, onOpenCommandPalette, onOpenTemplates, onNewDiagram,
   sidebarOpen, onToggleSidebar, onOpenBackup, onFocusMode, focusMode,
   language, onChangeLanguage,
 }: Props) {
@@ -39,10 +38,15 @@ export function TopBar({
         </button>
         <div className="flex items-center gap-2">
           <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: 'var(--accent)' }}>
-            <GitBranch size={13} className="text-white" strokeWidth={2.5} />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+              <rect x="3" y="3" width="7" height="7" rx="1.5" />
+              <rect x="14" y="3" width="7" height="7" rx="1.5" />
+              <rect x="14" y="14" width="7" height="7" rx="1.5" />
+              <path d="M7 10v4M7 14h10M17 14v-4" />
+            </svg>
           </div>
           <h1 className="text-sm font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-            Mermaid<span style={{ color: 'var(--accent)' }}>Studio</span>
+            Mermaid<span style={{ color: 'var(--accent)' }}>Studio</span> <span className="text-xs font-normal" style={{ color: 'var(--text-secondary)' }}>v0.4</span>
           </h1>
         </div>
       </div>
@@ -58,7 +62,8 @@ export function TopBar({
           data-testid="palette-button"
           onClick={onOpenCommandPalette}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/6"
-          style={{ color: 'var(--text-secondary)' }}>
+          style={{ color: 'var(--text-secondary)' }}
+          aria-label={t('header.commandPalette')}>
           <Command size={13} />
         </button>
         {onNewDiagram && (
@@ -111,16 +116,6 @@ export function TopBar({
             </div>
           )}
         </div>
-        {onOpenSettings && (
-          <button
-            data-testid="settings-button"
-            onClick={onOpenSettings}
-            className="p-1.5 rounded-lg transition-colors hover:bg-white/6"
-            style={{ color: 'var(--text-secondary)' }}
-            title={t('header.settings')}>
-            <Settings size={14} />
-          </button>
-        )}
         <button
           data-testid="theme-toggle"
           onClick={onToggleTheme}

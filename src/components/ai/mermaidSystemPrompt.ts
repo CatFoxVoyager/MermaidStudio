@@ -138,13 +138,5 @@ Use this as context to answer the user's question. DO NOT repeat the entire code
 - When providing code, always give complete, working code
 - When explaining, use plain text only - no code blocks`;
 
-  console.log('[buildSystemPrompt] Generated prompt:', {
-    hasDiagram,
-    diagramType,
-    contentLength: currentContent.length,
-    contentPreview: currentContent.substring(0, 100),
-    promptLength: basePrompt.length,
-  });
-
   return basePrompt;
 }

@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Tab } from '@/types';
+import { validateDiagramContent } from '@/utils/validation';
 
 export interface UseAppHandlersParams {
   activeTab: Tab | null;
@@ -67,6 +68,12 @@ export function useAppHandlers({
 
   const handleCopyLink = useCallback(() => {
     if (!activeTab) {return;}
+    // Validate diagram content before sharing via URL
+    const validation = validateDiagramContent(activeTab.content);
+    if (!validation.valid) {
+      showToast(t('toast.invalidContent') || 'Content contains unsafe elements');
+      return;
+    }
     const encoded = btoa(encodeURIComponent(activeTab.content));
     const url = `${window.location.origin}${window.location.pathname}#d=${encoded}`;
     navigator.clipboard.writeText(url);

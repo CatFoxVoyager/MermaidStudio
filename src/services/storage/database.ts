@@ -8,6 +8,9 @@
 import type { Diagram, DiagramVersion, Folder, Tag, AppSettings, UserTemplate, BackupData } from '@/types';
 import { encrypt, decrypt } from '@/utils/encryption';
 import { generateSecureId } from '@/utils/crypto';
+import { logger } from '@/utils/logger';
+
+const log = logger.scope('Database');
 
 const DB_NAME = 'MermaidStudio';
 const DB_VERSION = 1;
@@ -80,7 +83,7 @@ async function load(): Promise<DBData> {
     return migrated;
 
   } catch (error) {
-    console.error('IndexedDB error, falling back to localStorage:', error);
+    log.error('IndexedDB error, falling back to localStorage:', error);
     // Fallback to localStorage if IndexedDB fails
     const fallback = await getFromLocalStorageFallback();
     dataCache = fallback;
@@ -105,7 +108,7 @@ async function save(data: DBData): Promise<void> {
       request.onerror = () => reject(request.error);
     });
   } catch (error) {
-    console.error('IndexedDB save failed, saving to localStorage:', error);
+    log.error('IndexedDB save failed, saving to localStorage:', error);
     // Fallback to localStorage
     saveToLocalStorageFallback(data);
   }
@@ -118,17 +121,30 @@ async function migrateFromLocalStorage(): Promise<DBData> {
   try {
     const raw = localStorage.getItem(LOCAL_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as DBData;
-      // Apply migrations if needed - only set defaults if values don't exist
-      if (parsed.userTemplates) {parsed.userTemplates = [];}
-      if (!parsed.settings.ai_provider) {parsed.settings.ai_provider = 'openai';}
-      if (!parsed.settings.ai_base_url) {parsed.settings.ai_base_url = 'https://api.openai.com';}
-      if (!parsed.settings.ai_model) {parsed.settings.ai_model = 'gpt-5.3-instant';}
-      console.log('✅ Migrated data from localStorage to IndexedDB');
-      return parsed;
+      const parsed = JSON.parse(raw) as Partial<DBData>;
+      // Apply migrations - only set defaults if values don't exist
+      const migrated: DBData = {
+        folders: parsed.folders ?? [],
+        diagrams: parsed.diagrams ?? [],
+        versions: parsed.versions ?? [],
+        tags: parsed.tags ?? [],
+        diagramTags: parsed.diagramTags ?? [],
+        settings: {
+          theme: parsed.settings?.theme ?? 'light',
+          language: parsed.settings?.language ?? 'en',
+          ai_api_key: parsed.settings?.ai_api_key ?? '',
+          ai_provider: parsed.settings?.ai_provider ?? 'openai',
+          ai_base_url: parsed.settings?.ai_base_url ?? 'https://api.openai.com',
+          ai_model: parsed.settings?.ai_model ?? 'gpt-5.3-instant',
+          _encryptedKey: parsed.settings?._encryptedKey,
+        },
+        userTemplates: parsed.userTemplates ?? [],
+      };
+      log.info('Migrated data from localStorage to IndexedDB');
+      return migrated;
     }
   } catch (error) {
-    console.warn('[DB] Failed to migrate from localStorage:', error);
+    log.warn('Failed to migrate from localStorage:', error);
   }
   return createFreshData();
 }
@@ -140,16 +156,28 @@ async function getFromLocalStorageFallback(): Promise<DBData> {
   try {
     const raw = localStorage.getItem(LOCAL_KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as DBData;
-      // Apply migrations if needed - only set defaults if values don't exist
-      if (parsed.userTemplates) {parsed.userTemplates = [];}
-      if (!parsed.settings.ai_provider) {parsed.settings.ai_provider = 'openai';}
-      if (!parsed.settings.ai_base_url) {parsed.settings.ai_base_url = 'https://api.openai.com';}
-      if (!parsed.settings.ai_model) {parsed.settings.ai_model = 'gpt-5.3-instant';}
-      return parsed;
+      const parsed = JSON.parse(raw) as Partial<DBData>;
+      // Apply migrations - only set defaults if values don't exist
+      return {
+        folders: parsed.folders ?? [],
+        diagrams: parsed.diagrams ?? [],
+        versions: parsed.versions ?? [],
+        tags: parsed.tags ?? [],
+        diagramTags: parsed.diagramTags ?? [],
+        settings: {
+          theme: parsed.settings?.theme ?? 'light',
+          language: parsed.settings?.language ?? 'en',
+          ai_api_key: parsed.settings?.ai_api_key ?? '',
+          ai_provider: parsed.settings?.ai_provider ?? 'openai',
+          ai_base_url: parsed.settings?.ai_base_url ?? 'https://api.openai.com',
+          ai_model: parsed.settings?.ai_model ?? 'gpt-5.3-instant',
+          _encryptedKey: parsed.settings?._encryptedKey,
+        },
+        userTemplates: parsed.userTemplates ?? [],
+      };
     }
   } catch (error) {
-    console.warn('[DB] Failed to read from localStorage fallback:', error);
+    log.warn('Failed to read from localStorage fallback:', error);
   }
   return createFreshData();
 }
@@ -161,7 +189,7 @@ function saveToLocalStorageFallback(data: DBData): void {
   try {
     localStorage.setItem(LOCAL_KEY, JSON.stringify(data));
   } catch (error) {
-    console.warn('[DB] Failed to save to localStorage fallback:', error);
+    log.warn('Failed to save to localStorage fallback:', error);
   }
 }
 
@@ -399,7 +427,7 @@ export async function getSettings(): Promise<AppSettings> {
     delete settings._encryptedKey;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const { _encryptedKey, ...cleanSettings } = settings;
   return cleanSettings;
 }
@@ -413,7 +441,7 @@ export async function updateSettings(updates: Partial<AppSettings>): Promise<voi
   }
 
   // Apply all updates EXCEPT ai_api_key (which should only be stored as _encryptedKey)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const { ai_api_key, ...safeUpdates } = updates;
   Object.assign(db.settings, safeUpdates);
 
@@ -428,6 +456,8 @@ export async function updateSettings(updates: Partial<AppSettings>): Promise<voi
 // ===== Backup / Import =====
 export async function exportBackup(): Promise<BackupData> {
   const db = await load();
+  // Strip sensitive encrypted API key from exports for security
+  const { _encryptedKey, ai_api_key, ...safeSettings } = db.settings;
   return {
     version: 1,
     exported_at: new Date().toISOString(),
@@ -437,7 +467,7 @@ export async function exportBackup(): Promise<BackupData> {
     tags: db.tags,
     diagramTags: db.diagramTags,
     userTemplates: db.userTemplates,
-    settings: db.settings, // Include settings (with encrypted API key)
+    settings: safeSettings,
   };
 }
 

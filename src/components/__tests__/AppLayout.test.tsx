@@ -3,7 +3,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import { Suspense } from 'react';
 import { AppLayout } from '../AppLayout';
 
 // Mock child components
@@ -50,10 +51,24 @@ vi.mock('@/components/modals/settings/DiagramColorsPanel', () => ({
       <button onClick={() => onContentChange('new color content')}>Change Content</button>
     </div>
   ),
+  default: ({ theme, onClose, onContentChange }: any) => (
+    <div data-testid="diagram-colors">
+      <div>Theme: {theme}</div>
+      <button onClick={onClose}>Close</button>
+      <button onClick={() => onContentChange('new color content')}>Change Content</button>
+    </div>
+  ),
 }));
 
 vi.mock('@/components/modals/settings/AdvancedStylePanel', () => ({
   AdvancedStylePanel: ({ theme, onClose, onContentChange }: any) => (
+    <div data-testid="advanced-style">
+      <div>Theme: {theme}</div>
+      <button onClick={onClose}>Close</button>
+      <button onClick={() => onContentChange('new style content')}>Change Content</button>
+    </div>
+  ),
+  default: ({ theme, onClose, onContentChange }: any) => (
     <div data-testid="advanced-style">
       <div>Theme: {theme}</div>
       <button onClick={onClose}>Close</button>
@@ -137,10 +152,14 @@ describe('AppLayout Component', () => {
   });
 
   describe('AI Panel', () => {
-    it('should render AI panel when showAI is true', () => {
+    it('should render AI panel when showAI is true', async () => {
       const activeTab = { id: '1', title: 'Test', content: 'test', diagram_id: 'd1', saved_content: 'test', is_dirty: false };
-      render(<AppLayout {...mockProps} showAI={true} activeTab={activeTab as any} />);
-      expect(screen.getByTestId('ai-panel')).toBeInTheDocument();
+      render(
+        <Suspense fallback={<div>Loading...</div>}>
+          <AppLayout {...mockProps} showAI={true} activeTab={activeTab as any} />
+        </Suspense>
+      );
+      await waitFor(() => expect(screen.getByTestId('ai-panel')).toBeInTheDocument());
     });
 
     it('should not render AI panel when showAI is false', () => {
@@ -150,10 +169,14 @@ describe('AppLayout Component', () => {
   });
 
   describe('Diagram Colors Panel', () => {
-    it('should render diagram colors panel when showDiagramColors is true and active tab exists', () => {
+    it('should render diagram colors panel when showDiagramColors is true and active tab exists', async () => {
       const activeTab = { id: '1', title: 'Test', content: 'test', diagram_id: 'd1', saved_content: 'test', is_dirty: false };
-      render(<AppLayout {...mockProps} showDiagramColors={true} activeTab={activeTab as any} />);
-      expect(screen.getByTestId('diagram-colors')).toBeInTheDocument();
+      render(
+        <Suspense fallback={<div>Loading...</div>}>
+          <AppLayout {...mockProps} showDiagramColors={true} activeTab={activeTab as any} />
+        </Suspense>
+      );
+      await waitFor(() => expect(screen.getByTestId('diagram-colors')).toBeInTheDocument());
     });
 
     it('should not render diagram colors panel when showDiagramColors is false', () => {
@@ -163,10 +186,14 @@ describe('AppLayout Component', () => {
   });
 
   describe('Advanced Style Panel', () => {
-    it('should render advanced style panel when showAdvancedStyle is true and active tab exists', () => {
+    it('should render advanced style panel when showAdvancedStyle is true and active tab exists', async () => {
       const activeTab = { id: '1', title: 'Test', content: 'test', diagram_id: 'd1', saved_content: 'test', is_dirty: false };
-      render(<AppLayout {...mockProps} showAdvancedStyle={true} activeTab={activeTab as any} />);
-      expect(screen.getByTestId('advanced-style')).toBeInTheDocument();
+      render(
+        <Suspense fallback={<div>Loading...</div>}>
+          <AppLayout {...mockProps} showAdvancedStyle={true} activeTab={activeTab as any} />
+        </Suspense>
+      );
+      await waitFor(() => expect(screen.getByTestId('advanced-style')).toBeInTheDocument());
     });
 
     it('should not render advanced style panel when showAdvancedStyle is false', () => {
@@ -246,33 +273,47 @@ describe('AppLayout Component', () => {
       expect(screen.getByTestId('ai-panel')).toBeInTheDocument();
     });
 
-    it('should render all panels when all flags are true and active tab exists', () => {
+    it('should render all panels when all flags are true and active tab exists', async () => {
       const activeTab = { id: '1', title: 'Test', content: 'test', diagram_id: 'd1', saved_content: 'test', is_dirty: false };
       render(
-        <AppLayout
-          {...mockProps}
-          showAI={true}
-          showDiagramColors={true}
-          showAdvancedStyle={true}
-          activeTab={activeTab as any}
-        />
+        <Suspense fallback={<div>Loading...</div>}>
+          <AppLayout
+            {...mockProps}
+            showAI={true}
+            showDiagramColors={true}
+            showAdvancedStyle={true}
+            activeTab={activeTab as any}
+          />
+        </Suspense>
       );
-      expect(screen.getByTestId('ai-panel')).toBeInTheDocument();
-      expect(screen.getByTestId('diagram-colors')).toBeInTheDocument();
-      expect(screen.getByTestId('advanced-style')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByTestId('ai-panel')).toBeInTheDocument();
+        expect(screen.getByTestId('diagram-colors')).toBeInTheDocument();
+        expect(screen.getByTestId('advanced-style')).toBeInTheDocument();
+      });
     });
 
-    it('should call onContentChange with active tab ID when diagram colors panel changes content', () => {
+    it('should call onContentChange with active tab ID when diagram colors panel changes content', async () => {
       const activeTab = { id: 'tab1', title: 'Test', content: 'test', diagram_id: 'd1', saved_content: 'test', is_dirty: false };
-      render(<AppLayout {...mockProps} showDiagramColors={true} activeTab={activeTab as any} />);
+      render(
+        <Suspense fallback={<div>Loading...</div>}>
+          <AppLayout {...mockProps} showDiagramColors={true} activeTab={activeTab as any} />
+        </Suspense>
+      );
+      await waitFor(() => screen.getByTestId('diagram-colors'));
       const changeButton = screen.getByText('Change Content');
       changeButton.click();
       expect(mockProps.onContentChange).toHaveBeenCalledWith('tab1', 'new color content');
     });
 
-    it('should call onContentChange with active tab ID when advanced style panel changes content', () => {
+    it('should call onContentChange with active tab ID when advanced style panel changes content', async () => {
       const activeTab = { id: 'tab2', title: 'Test', content: 'test', diagram_id: 'd1', saved_content: 'test', is_dirty: false };
-      render(<AppLayout {...mockProps} showAdvancedStyle={true} activeTab={activeTab as any} />);
+      render(
+        <Suspense fallback={<div>Loading...</div>}>
+          <AppLayout {...mockProps} showAdvancedStyle={true} activeTab={activeTab as any} />
+        </Suspense>
+      );
+      await waitFor(() => screen.getByTestId('advanced-style'));
       const changeButton = screen.getByText('Change Content');
       changeButton.click();
       expect(mockProps.onContentChange).toHaveBeenCalledWith('tab2', 'new style content');

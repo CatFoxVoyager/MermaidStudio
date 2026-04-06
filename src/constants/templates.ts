@@ -349,32 +349,28 @@ kanban
 config:
   theme: 'base'
 ---
-graph TB
-    subgraph Client
-        Web[Web App]
-        Mobile[Mobile App]
-    end
-    subgraph API_Layer
-        Gateway[API Gateway]
-        Auth[Auth Service]
-    end
-    subgraph Services
-        User[User Service]
-        Order[Order Service]
-    end
-    subgraph Data
-        UserDB[(User DB)]
-        OrderDB[(Order DB)]
-        Cache[(Cache)]
-    end
-    Web --> Gateway
-    Mobile --> Gateway
-    Gateway --> Auth
-    Gateway --> User
-    Gateway --> Order
-    User --> UserDB
-    User --> Cache
-    Order --> OrderDB`,
+architecture-beta
+    group client(cloud)[Client]
+    service web(server)[Web App] in client
+    service mobile(tablet)[Mobile App] in client
+    group api(cloud)[API Layer]
+    service gateway(internet)[API Gateway] in api
+    service auth(lock)[Auth Service] in api
+    group services(cloud)[Services]
+    service users(server)[User Service] in services
+    service orders(server)[Order Service] in services
+    group data(cloud)[Data]
+    service userdb(database)[User DB] in data
+    service orderdb(database)[Order DB] in data
+    service cache(cache)[Cache] in data
+    web:R -- L:gateway
+    mobile:R -- L:gateway
+    gateway:R -- L:auth
+    gateway:B -- T:users
+    gateway:B -- T:orders
+    users:B -- T:userdb
+    users:B -- T:cache
+    orders:B -- T:orderdb`,
   },
   {
     id: 'block-network', title: 'Network Design', description: 'Block diagram for network topology',
@@ -400,6 +396,111 @@ block-beta
     end
     space
     G["Database"]`,
+  },
+  {
+    id: 'class-animals', title: 'UML Class Diagram', description: 'Object-oriented class relationships',
+    category: 'Class Diagram', complexity: 'moderate', type: 'classDiagram',
+    content: `---
+config:
+  theme: 'base'
+---
+classDiagram
+    class Vehicle {
+        <<abstract>>
+        +String make
+        +String model
+        +int year
+        +start() void
+        +stop() void
+    }
+    class Car {
+        +int numDoors
+        +openTrunk() void
+    }
+    class Truck {
+        +double payloadCapacity
+        +loadCargo(double weight) bool
+    }
+    class Engine {
+        +int horsepower
+        +String fuelType
+        +ignite() void
+    }
+    class Manufacturer {
+        +String name
+        +String country
+    }
+    Vehicle <|-- Car
+    Vehicle <|-- Truck
+    Vehicle *-- Engine : contains
+    Vehicle o-- Manufacturer : made by`,
+  },
+  {
+    id: 'c4-system-context', title: 'System Context Diagram', description: 'C4 architecture showing services and users',
+    category: 'C4 Diagram', complexity: 'advanced', type: 'c4',
+    content: `---
+config:
+  theme: 'base'
+---
+C4Context
+    title System Context - Online Shopping
+    Enterprise_Boundary(b0, "Company") {
+        Person(customer, "Customer", "Buys products online")
+        System(store, "Online Store", "Web shop")
+        System_Ext(email, "Email System", "Notifications")
+        System_Ext(payment, "Payment Gateway", "Payments")
+    }
+    Rel(customer, store, "Uses")
+    Rel(store, email, "Sends emails", "SMTP")
+    Rel(store, payment, "Processes payments", "HTTPS/API")`,
+  },
+  {
+    id: 'packet-udp', title: 'UDP Packet', description: 'Network packet structure',
+    category: 'Packet Diagram', complexity: 'simple', type: 'packetDiagram',
+    content: `---
+config:
+  theme: 'base'
+---
+packet-beta
+    title UDP Packet
+    0-15: "Source Port"
+    16-31: "Destination Port"
+    32-47: "Length"
+    48-63: "Checksum"`,
+  },
+  {
+    id: 'requirement-auth', title: 'System Requirements', description: 'Requirements traceability',
+    category: 'Requirement Diagram', complexity: 'moderate', type: 'requirementDiagram',
+    content: `---
+config:
+  theme: 'base'
+---
+requirementDiagram
+    requirement security_req {
+        id: 1
+        text: the system shall protect user data
+        risk: high
+        verifymethod: test
+    }
+    functionalRequirement user_mgmt {
+        id: 1.1
+        text: the system shall provide intuitive navigation
+        risk: low
+        verifymethod: inspection
+    }
+    performanceRequirement perf_req {
+        id: 1.2
+        text: Response time under 200ms
+        risk: medium
+        verifymethod: demonstration
+    }
+    element user_service {
+        type: systemElement
+    }
+    security_req - traces -> user_mgmt
+    security_req - derives -> perf_req
+    user_service - satisfies -> security_req
+    user_mgmt - refines -> user_service`,
   },
 ];
 

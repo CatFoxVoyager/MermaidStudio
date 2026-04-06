@@ -438,16 +438,12 @@ export function NodeStylePanel({
                   value={
                     fontSize === 'mixed'
                       ? ''
-                      : fontSize
-                        ? parsePx(fontSize)
-                        : ''
+                      : fontSize ? parsePx(fontSize) : 18
                   }
                   placeholder={fontSize === 'mixed' ? t('nodeStyle.mixed') : ''}
                   onChange={e => {
                     const v = e.target.value;
-                    if (v) {
-                      handleStyleChange('fontSize', `${v}px`);
-                    }
+                    handleStyleChange('fontSize', v ? `${v}px` : undefined);
                   }}
                   className="flex-1 px-2 py-1.5 rounded-md border text-xs font-mono w-0"
                   style={{

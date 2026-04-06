@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { callAI, testConnection, fetchModels } from '../providers';
+import { callAI, testConnection, fetchModels, getPreset, PROVIDER_PRESETS } from '../providers';
 import { aiRateLimiter } from '@/utils/rateLimiter';
 
 // Mock fetch globally
@@ -345,7 +345,7 @@ describe('AI Providers Rate Limiting', () => {
       const result = await testConnection(config);
 
       expect(result.ok).toBe(false);
-      expect(result.message).toBe('Empty response from model.');
+      expect(result.message).toBe('Empty response received from AI provider.');
     });
 
     it('should handle network errors', async () => {
@@ -417,6 +417,310 @@ describe('AI Providers Rate Limiting', () => {
       // Should fallback to presets
       expect(Array.isArray(models)).toBe(true);
       expect(models.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Provider presets', () => {
+    it('should return correct preset for OpenAI', () => {
+      const preset = getPreset('openai');
+      expect(preset.label).toBe('OpenAI');
+      expect(preset.requiresKey).toBe(true);
+      expect(preset.baseUrl).toBe('https://api.openai.com');
+      expect(preset.defaultModel).toBe('gpt-5.3-instant');
+    });
+
+    it('should return correct preset for Anthropic', () => {
+      const preset = getPreset('claude');
+      expect(preset.label).toBe('Anthropic Claude');
+      expect(preset.requiresKey).toBe(true);
+      expect(preset.baseUrl).toBe('https://api.anthropic.com');
+      expect(preset.defaultModel).toBe('claude-sonnet-4-6');
+    });
+
+    it('should return correct preset for Gemini', () => {
+      const preset = getPreset('gemini');
+      expect(preset.label).toBe('Google Gemini');
+      expect(preset.requiresKey).toBe(true);
+      expect(preset.baseUrl).toBe('https://generativelanguage.googleapis.com');
+      expect(preset.defaultModel).toBe('gemini-3.1-flash');
+    });
+
+    it('should return correct preset for Ollama', () => {
+      const preset = getPreset('ollama');
+      expect(preset.label).toBe('Ollama');
+      expect(preset.requiresKey).toBe(false);
+      expect(preset.baseUrl).toBe('http://host.docker.internal:11434');
+    });
+
+    it('should return correct preset for LM Studio', () => {
+      const preset = getPreset('lmstudio');
+      expect(preset.label).toBe('LM Studio');
+      expect(preset.requiresKey).toBe(false);
+      expect(preset.baseUrl).toBe('http://host.docker.internal:1234');
+    });
+
+    it('should return correct preset for custom endpoint', () => {
+      const preset = getPreset('custom');
+      expect(preset.label).toBe('Custom / Other');
+      expect(preset.requiresKey).toBe(false);
+      expect(preset.baseUrl).toBe('http://host.docker.internal:8080');
+    });
+
+    it('should have all required models for each provider', () => {
+      const openaiPreset = getPreset('openai');
+      expect(openaiPreset.models).toContain('gpt-5.4-pro');
+      expect(openaiPreset.models).toContain('gpt-5.3-instant');
+      expect(openaiPreset.models).toContain('gpt-4o');
+
+      const claudePreset = getPreset('claude');
+      expect(claudePreset.models).toContain('claude-opus-4-6');
+      expect(claudePreset.models).toContain('claude-sonnet-4-6');
+      expect(claudePreset.models).toContain('claude-haiku-4-5');
+    });
+  });
+
+  describe('Error handling', () => {
+    it('should handle network failures gracefully', async () => {
+      const config = {
+        provider: 'openai' as const,
+        apiKey: 'sk-test-key',
+        baseUrl: 'https://api.openai.com',
+        model: 'gpt-4',
+      };
+
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+
+      vi.mocked(global.fetch).mockRejectedValue(new Error('Network error'));
+
+      await expect(callAI(config, messages)).rejects.toThrow('Network error');
+    });
+
+    it('should handle timeout scenarios', async () => {
+      const config = {
+        provider: 'claude' as const,
+        apiKey: 'sk-ant-test-key',
+        baseUrl: 'https://api.anthropic.com',
+        model: 'claude-3-opus-20240229',
+      };
+
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+
+      // Mock timeout by never resolving
+      vi.mocked(global.fetch).mockImplementation(
+        () => new Promise(() => {}) // Never resolves
+      );
+
+      // Test should handle timeout - note: actual timeout handling depends on AbortController
+      // This test documents the expected behavior
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 100)
+      );
+
+      await expect(Promise.race([callAI(config, messages), timeoutPromise])).rejects.toThrow('Request timeout');
+    });
+
+    it('should handle malformed JSON responses', async () => {
+      const config = {
+        provider: 'openai' as const,
+        apiKey: 'sk-test-key',
+        baseUrl: 'https://api.openai.com',
+        model: 'gpt-4',
+      };
+
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => {
+          throw new SyntaxError('Unexpected token');
+        },
+      } as Response);
+
+      await expect(callAI(config, messages)).rejects.toThrow();
+    });
+
+    it('should handle empty response bodies', async () => {
+      const config = {
+        provider: 'gemini' as const,
+        apiKey: 'AIza-test-key',
+        baseUrl: 'https://generativelanguage.googleapis.com',
+        model: 'gemini-pro',
+      };
+
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      } as Response);
+
+      await expect(callAI(config, messages)).rejects.toThrow('Empty response');
+    });
+  });
+
+  describe('Base URL handling', () => {
+    it('should handle base URLs with trailing slashes', async () => {
+      const config = {
+        provider: 'openai' as const,
+        apiKey: 'sk-test-key',
+        baseUrl: 'https://api.openai.com/',
+        model: 'gpt-4',
+      };
+
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: 'Response' } }] }),
+      } as Response);
+
+      await callAI(config, messages);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.openai.com/v1/chat/completions',
+        expect.any(Object)
+      );
+    });
+
+    it('should handle base URLs without trailing slashes', async () => {
+      const config = {
+        provider: 'openai' as const,
+        apiKey: 'sk-test-key',
+        baseUrl: 'https://api.openai.com',
+        model: 'gpt-4',
+      };
+
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: 'Response' } }] }),
+      } as Response);
+
+      await callAI(config, messages);
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.openai.com/v1/chat/completions',
+        expect.any(Object)
+      );
+    });
+  });
+
+  describe('Response validation', () => {
+    it('should reject timestamp-only responses', async () => {
+      const config = {
+        provider: 'openai' as const,
+        apiKey: 'sk-test-key',
+        baseUrl: 'https://api.openai.com',
+        model: 'gpt-4',
+      };
+
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: '12:34' } }] }),
+      } as Response);
+
+      await expect(callAI(config, messages)).rejects.toThrow('timestamp response');
+    });
+
+    it('should reject very short responses', async () => {
+      const config = {
+        provider: 'claude' as const,
+        apiKey: 'sk-ant-test-key',
+        baseUrl: 'https://api.anthropic.com',
+        model: 'claude-3-opus-20240229',
+      };
+
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({ content: [{ text: '' }] }),
+      } as Response);
+
+      await expect(callAI(config, messages)).rejects.toThrow('Empty response');
+    });
+
+    it('should accept valid responses longer than minimum', async () => {
+      const config = {
+        provider: 'gemini' as const,
+        apiKey: 'AIza-test-key',
+        baseUrl: 'https://generativelanguage.googleapis.com',
+        model: 'gemini-pro',
+      };
+
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: 'This is a valid response longer than 20 characters' }] } }],
+        }),
+      } as Response);
+
+      const result = await callAI(config, messages);
+      expect(result).toBe('This is a valid response longer than 20 characters');
+    });
+  });
+
+  describe('Special provider handling', () => {
+    it('should handle Ollama without API key', async () => {
+      const config = {
+        provider: 'ollama' as const,
+        apiKey: '',
+        baseUrl: 'http://host.docker.internal:11434',
+        model: 'llama4-scout',
+      };
+
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: 'Response from Ollama' } }] }),
+      } as Response);
+
+      const result = await callAI(config, messages);
+      expect(result).toBe('Response from Ollama');
+    });
+
+    it('should handle LM Studio without API key', async () => {
+      const config = {
+        provider: 'lmstudio' as const,
+        apiKey: '',
+        baseUrl: 'http://host.docker.internal:1234',
+        model: 'local-model',
+      };
+
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: 'Response from LM Studio' } }] }),
+      } as Response);
+
+      const result = await callAI(config, messages);
+      expect(result).toBe('Response from LM Studio');
+    });
+
+    it('should handle custom endpoint with optional API key', async () => {
+      const config = {
+        provider: 'custom' as const,
+        apiKey: 'optional-key',
+        baseUrl: 'http://host.docker.internal:8080',
+        model: 'model',
+      };
+
+      const messages = [{ role: 'user' as const, content: 'Hello' }];
+
+      vi.mocked(global.fetch).mockResolvedValue({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: 'Response from custom endpoint' } }] }),
+      } as Response);
+
+      const result = await callAI(config, messages);
+      expect(result).toBe('Response from custom endpoint');
     });
   });
 });

@@ -30,8 +30,6 @@ export const builtinThemes: MermaidTheme[] = [
       warningColor: '#FF9900',
       errorColor: '#CC0000',
       infoColor: '#0099FF',
-      fontFamily: 'Inter, system-ui, sans-serif',
-      fontSize: '14px',
     },
   },
   {
@@ -50,8 +48,6 @@ export const builtinThemes: MermaidTheme[] = [
       warningColor: '#E67E22',
       errorColor: '#E74C3C',
       infoColor: '#FF9F43',
-      fontFamily: 'Inter, system-ui, sans-serif',
-      fontSize: '14px',
     },
   },
   {
@@ -70,8 +66,6 @@ export const builtinThemes: MermaidTheme[] = [
       warningColor: '#FFD600',
       errorColor: '#FF3D00',
       infoColor: '#FF006E',          // Changed from #00B8D4 to use original accent color
-      fontFamily: 'Inter, system-ui, sans-serif',
-      fontSize: '14px',
     },
   },
   {
@@ -90,8 +84,6 @@ export const builtinThemes: MermaidTheme[] = [
       warningColor: '#FCD34D',
       errorColor: '#FCA5A5',
       infoColor: '#60A5FA',
-      fontFamily: 'Inter, system-ui, sans-serif',
-      fontSize: '14px',
     },
   },
   {
@@ -110,8 +102,6 @@ export const builtinThemes: MermaidTheme[] = [
       warningColor: '#F59E0B',
       errorColor: '#EF4444',
       infoColor: '#06B6D4',
-      fontFamily: 'Inter, system-ui, sans-serif',
-      fontSize: '14px',
     },
   },
   {
@@ -130,8 +120,6 @@ export const builtinThemes: MermaidTheme[] = [
       warningColor: '#EAB308',
       errorColor: '#991B1B',
       infoColor: '#F59E0B',
-      fontFamily: 'Inter, system-ui, sans-serif',
-      fontSize: '14px',
     },
   },
   {
@@ -150,8 +138,6 @@ export const builtinThemes: MermaidTheme[] = [
       warningColor: '#CA8A04',
       errorColor: '#DC2626',
       infoColor: '#22C55E',
-      fontFamily: 'Inter, system-ui, sans-serif',
-      fontSize: '14px',
     },
   },
   {
@@ -170,8 +156,6 @@ export const builtinThemes: MermaidTheme[] = [
       warningColor: '#F59E0B',
       errorColor: '#EF4444',
       infoColor: '#7C3AED',
-      fontFamily: 'Inter, system-ui, sans-serif',
-      fontSize: '14px',
     },
   },
   {
@@ -190,8 +174,6 @@ export const builtinThemes: MermaidTheme[] = [
       warningColor: '#F59E0B',
       errorColor: '#EF4444',
       infoColor: '#3B82F6',
-      fontFamily: 'Inter, system-ui, sans-serif',
-      fontSize: '14px',
     },
   },
   {
@@ -210,8 +192,6 @@ export const builtinThemes: MermaidTheme[] = [
       warningColor: '#6B7280',
       errorColor: '#111827',
       infoColor: '#9CA3AF',
-      fontFamily: 'Inter, system-ui, sans-serif',
-      fontSize: '14px',
     },
   },
 ];
@@ -360,9 +340,25 @@ export const THEME_SLOT_GROUPS: ThemeSlotGroup[] = [
 
 /**
  * Find a theme by its ID.
+ * Searches in builtin themes first, then in localStorage custom themes.
  */
 export function getThemeById(id: string): MermaidTheme | undefined {
-  return builtinThemes.find((t) => t.id === id);
+  // First, search in builtin themes
+  const builtinTheme = builtinThemes.find((t) => t.id === id);
+  if (builtinTheme) return builtinTheme;
+
+  // Then, search in localStorage custom themes
+  try {
+    const stored = localStorage.getItem('mermaid-studio-custom-themes');
+    if (stored) {
+      const customThemes: MermaidTheme[] = JSON.parse(stored);
+      return customThemes.find((t) => t.id === id);
+    }
+  } catch (err) {
+    console.warn('Failed to load custom themes from localStorage:', err);
+  }
+
+  return undefined;
 }
 
 /**
