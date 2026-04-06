@@ -54,7 +54,7 @@ export class TopBar {
   readonly aiButton: Locator;
   readonly templatesButton: Locator;
   readonly newDiagramButton: Locator;
-  readonly settingsButton: Locator;
+  readonly languageButton: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -64,7 +64,7 @@ export class TopBar {
     this.aiButton = page.locator('[data-testid="ai-button"]');
     this.templatesButton = page.locator('[data-testid="templates-button"]');
     this.newDiagramButton = page.locator('[data-testid="new-diagram-button"]');
-    this.settingsButton = page.locator('[data-testid="settings-button"]');
+    this.languageButton = page.locator('button:has(svg.lucide-globe)');
   }
 
   async toggleTheme() {
@@ -94,9 +94,11 @@ export class TopBar {
     await anyNewDiagramButton.click({ timeout: 10000 });
   }
 
-  async openSettings() {
-    await this.settingsButton.click();
-    // Wait for React state to update and side panel to open
+  async changeLanguage(lang: 'en' | 'fr') {
+    await this.languageButton.click();
+    const langLabel = lang === 'en' ? 'English' : 'Français';
+    await this.page.click(`button:has-text("${langLabel}")`);
+    // Wait for translation to apply
     await this.page.waitForTimeout(500);
   }
 }

@@ -7,23 +7,28 @@ import { renderHook, waitFor, act } from '@testing-library/react';
 import { useTabs } from '../useTabs';
 
 // Mock database functions
-vi.mock('@/services/storage/database', () => ({
-  getDiagram: vi.fn((diagramId) => Promise.resolve({
-    id: diagramId,
-    title: diagramId, // Use diagramId as title
-    content: `graph TD\n  A${diagramId}-->B${diagramId}`,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  })),
-  updateDiagram: vi.fn(() => Promise.resolve()),
-  saveVersion: vi.fn(() => Promise.resolve()),
-  getSettings: vi.fn(() => Promise.resolve({
-    theme: 'light',
-    language: 'en',
-    lastOpenDiagramId: null,
-  })),
-  updateSettings: vi.fn(() => Promise.resolve()),
-}));
+vi.mock('@/services/storage/database', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/storage/database')>();
+  return {
+    ...actual,
+    getDiagram: vi.fn((diagramId: string) => Promise.resolve({
+      id: diagramId,
+      title: diagramId,
+      content: `graph TD\n  A${diagramId}-->B${diagramId}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })),
+    getDiagrams: vi.fn(() => Promise.resolve([])),
+    updateDiagram: vi.fn(() => Promise.resolve()),
+    saveVersion: vi.fn(() => Promise.resolve()),
+    getSettings: vi.fn(() => Promise.resolve({
+      theme: 'light',
+      language: 'en',
+      lastOpenDiagramId: null,
+    })),
+    updateSettings: vi.fn(() => Promise.resolve()),
+  };
+});
 
 describe('useTabs Hook', () => {
   beforeEach(() => {

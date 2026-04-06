@@ -7,6 +7,8 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org/)
 [![Ko-Fi](https://img.shields.io/badge/Ko--Fi-Support%20Me-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/jeremie93407)
 
+**🚀 Try the demo: [https://mermaid.jeremiedufault.ca/](https://mermaid.jeremiedufault.ca/)**
+
 ## 🎯 Open-Source Alternative to Mermaid Live Editor
 
 Created by [Jérémie Dufault](https://jeremiedufault.ca)

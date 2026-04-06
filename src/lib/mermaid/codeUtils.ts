@@ -44,6 +44,7 @@ export interface NodeStyle {
   strokeDasharray?: string;  // e.g., "5 5" for dashed
   fontWeight?: string;       // e.g., "bold", "normal"
   fontSize?: string;         // e.g., "16px", "14px"
+  fontFamily?: string;       // e.g., "Arial", "Courier"
   rx?: string;              // e.g., "10"
   ry?: string;              // e.g., "10"
   opacity?: string;         // e.g., "0.5"
@@ -54,6 +55,11 @@ export interface EdgeStyle {
   strokeWidth?: string;
   strokeDasharray?: string;  // e.g., "5 5" for dashed
   opacity?: string;          // e.g., "0.5"
+  fontSize?: string;         // e.g., "14px"
+  fontWeight?: string;       // e.g., "bold"
+  fill?: string;             // Label background color
+  fillOpacity?: string;      // Label background opacity
+  color?: string;            // Label text color
 }
 
 export interface ParsedDiagram {
@@ -229,6 +235,13 @@ function shapeWrap(label: string, shape: NodeShape, quoted = false): string {
 const STANDALONE_NODE_RE = /^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)$/;
 const ARROW_RE = /-->|---|--\|>|\|>|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|~~~/;
 
+/**
+ * Check if an ID refers to a subgraph.
+ */
+function isSubgraphId(id: string, subgraphs: ParsedSubgraph[]): boolean {
+  return subgraphs.some(sg => sg.id === id);
+}
+
 export function parseStyleValue(val: string): NodeStyle {
   const style: NodeStyle = {};
   // Try comma split first (classDef format), fall back to semicolon (style format)
@@ -243,6 +256,7 @@ export function parseStyleValue(val: string): NodeStyle {
     else if (k === 'color') {style.color = v;}
     else if (k === 'font-weight') {style.fontWeight = v;}
     else if (k === 'font-size') {style.fontSize = v;}
+    else if (k === 'font-family') {style.fontFamily = v;}
     else if (k === 'rx') {style.rx = v;}
     else if (k === 'ry') {style.ry = v;}
     else if (k === 'opacity') {style.opacity = v;}
@@ -259,23 +273,26 @@ export function styleToString(style: NodeStyle): string {
   if (style.color !== undefined) {parts.push(`color:${style.color}`);}
   if (style.fontWeight !== undefined) {parts.push(`font-weight:${style.fontWeight}`);}
   if (style.fontSize !== undefined) {parts.push(`font-size:${style.fontSize}`);}
+  if (style.fontFamily !== undefined) {parts.push(`font-family:${style.fontFamily}`);}
   if (style.rx !== undefined) {parts.push(`rx:${style.rx}`);}
   if (style.ry !== undefined) {parts.push(`ry:${style.ry}`);}
   if (style.opacity !== undefined) {parts.push(`opacity:${style.opacity}`);}
   return parts.join(',');
 }
 
-export function parseLinkStyles(source: string): Map<number, EdgeStyle> {
-  const linkStyles = new Map<number, EdgeStyle>();
+export function parseLinkStyles(source: string): Map<number | 'default', EdgeStyle> {
+  const linkStyles = new Map<number | 'default', EdgeStyle>();
   const lines = source.split('\n');
 
   for (const line of lines) {
     const trimmed = line.trim();
-    const match = trimmed.match(/^linkStyle\s+(\d+)\s+(.+)$/);
+    const match = trimmed.match(/^linkStyle\s+(\d+|default)\s+(.+)$/);
     if (match) {
-      const index = parseInt(match[1], 10);
+      const indexStr = match[1];
+      const index = indexStr === 'default' ? 'default' : parseInt(indexStr, 10);
       const styleStr = match[2];
-      linkStyles.set(index, parseEdgeStyleValue(styleStr));
+      const parsedStyle = parseEdgeStyleValue(styleStr);
+      linkStyles.set(index, parsedStyle);
     }
   }
 
@@ -288,10 +305,16 @@ function parseEdgeStyleValue(val: string): EdgeStyle {
   val.split(separator).forEach(part => {
     const [k, v] = part.trim().split(':').map(s => s.trim());
     if (!k || !v) {return;}
+    // Support both camelCase and kebab-case property names
     if (k === 'stroke') {style.stroke = v;}
-    else if (k === 'stroke-width') {style.strokeWidth = v;}
-    else if (k === 'stroke-dasharray') {style.strokeDasharray = v;}
+    else if (k === 'stroke-width' || k === 'strokeWidth') {style.strokeWidth = v;}
+    else if (k === 'stroke-dasharray' || k === 'strokeDasharray') {style.strokeDasharray = v;}
     else if (k === 'opacity') {style.opacity = v;}
+    else if (k === 'font-size' || k === 'fontSize') {style.fontSize = v;}
+    else if (k === 'font-weight' || k === 'fontWeight') {style.fontWeight = v;}
+    else if (k === 'fill') {style.fill = v;}
+    else if (k === 'fill-opacity' || k === 'fillOpacity') {style.fillOpacity = v;}
+    else if (k === 'color') {style.color = v;}
   });
   return style;
 }
@@ -302,10 +325,17 @@ export function edgeStyleToString(style: EdgeStyle): string {
   if (style.strokeWidth !== undefined) {parts.push(`stroke-width:${style.strokeWidth}`);}
   if (style.strokeDasharray !== undefined) {parts.push(`stroke-dasharray:${style.strokeDasharray}`);}
   if (style.opacity !== undefined) {parts.push(`opacity:${style.opacity}`);}
+  if (style.fontSize !== undefined) {parts.push(`font-size:${style.fontSize}`);}
+  if (style.fontWeight !== undefined) {parts.push(`font-weight:${style.fontWeight}`);}
+  // Include fill, fillOpacity, and color in linkStyle syntax so they persist during UI updates.
+  // Mermaid incorrectly applies fill to edge paths, so we fix this in SVG post-processing.
+  if (style.fill !== undefined) {parts.push(`fill:${style.fill}`);}
+  if (style.fillOpacity !== undefined) {parts.push(`fill-opacity:${style.fillOpacity}`);}
+  if (style.color !== undefined) {parts.push(`color:${style.color}`);}
   return parts.join(',');
 }
 
-export function updateLinkStyle(source: string, edgeIndex: number, style: EdgeStyle): string {
+export function updateLinkStyle(source: string, edgeIndex: number | 'default', style: EdgeStyle): string {
   const lines = source.split('\n');
   const styleStr = edgeStyleToString(style);
 
@@ -507,8 +537,8 @@ export function parseDiagram(source: string): ParsedDiagram {
         const targetId = arrowMatch[5];
         const targetShapeRaw = arrowMatch[6]?.trim();
 
-        // Ensure source node exists
-        if (!seenIds.has(sourceId)) {
+        // Ensure source node exists (unless it's a subgraph)
+        if (!seenIds.has(sourceId) && !isSubgraphId(sourceId, subgraphs)) {
           seenIds.add(sourceId);
           if (sourceShapeRaw) {
             const { label: srcLabel, shape: srcShape } = parseNodeLabel(sourceShapeRaw);
@@ -518,7 +548,7 @@ export function parseDiagram(source: string): ParsedDiagram {
           }
         }
         // Parse target label from shape (e.g. B{Is it working?})
-        if (!seenIds.has(targetId)) {
+        if (!seenIds.has(targetId) && !isSubgraphId(targetId, subgraphs)) {
           seenIds.add(targetId);
           if (targetShapeRaw) {
             const { label: tgtLabel, shape: tgtShape } = parseNodeLabel(targetShapeRaw);
@@ -526,7 +556,7 @@ export function parseDiagram(source: string): ParsedDiagram {
           } else {
             nodes.push({ id: targetId, label: targetId, shape: 'rect', raw: targetId, parentSubgraphId: parentId });
           }
-        } else if (targetShapeRaw) {
+        } else if (targetShapeRaw && !isSubgraphId(targetId, subgraphs)) {
           const existing = nodes.find(n => n.id === targetId);
           if (existing && existing.label === existing.id) {
             const { label: tgtLabel, shape: tgtShape } = parseNodeLabel(targetShapeRaw);
@@ -554,8 +584,9 @@ export function parseDiagram(source: string): ParsedDiagram {
     const standalone = line.match(STANDALONE_NODE_RE);
     if (standalone) {
       const id = standalone[2];
-      if (['TD', 'TB', 'BT', 'RL', 'LR', 'end', 'subgraph', 'direction'].includes(id)) {continue;}
-      if (!seenIds.has(id)) {
+      // Allow IDs that START with subgraph (like subgraph1) but NOT the bare keyword
+      if (['TD', 'TB', 'BT', 'RL', 'LR', 'end', 'direction'].includes(id) || id === 'subgraph') {continue;}
+      if (!seenIds.has(id) && !isSubgraphId(id, subgraphs)) {
         seenIds.add(id);
         nodes.push({ id, label: id, shape: 'rect', raw: id, parentSubgraphId: parentId });
       }
@@ -566,11 +597,38 @@ export function parseDiagram(source: string): ParsedDiagram {
   return { nodes, edges, styles, classDefs, nodeClasses, linkStyles, subgraphs };
 }
 
-export function updateNodeStyle(source: string, nodeId: string, style: NodeStyle): string {
+export function updateNodeStyle(source: string, nodeId: string, newStyle: NodeStyle): string {
   const lines = source.split('\n');
-  const styleStr = styleToString(style);
 
+  // Find existing direct style line for this node
   const existingIdx = lines.findIndex(l => l.trim().startsWith(`style ${nodeId} `) || l.trim().startsWith(`style ${nodeId}\t`));
+
+  // Get existing style to merge with new style
+  let mergedStyle: NodeStyle = {};
+  if (existingIdx !== -1) {
+    const line = lines[existingIdx];
+    const match = line.match(/^style\s+\S+\s+(.+)$/);
+    if (match) {
+      mergedStyle = parseStyleValue(match[1]);
+    }
+  }
+
+  // If newStyle is explicitly empty {}, it means we want to CLEAR the style
+  if (Object.keys(newStyle).length === 0 && Object.getPrototypeOf(newStyle) === Object.prototype) {
+    mergedStyle = {};
+  } else {
+    // Merge NEW styles into existing
+    Object.assign(mergedStyle, newStyle);
+
+    // Remove keys that are explicitly set to undefined or empty string in newStyle
+    for (const [key, value] of Object.entries(newStyle)) {
+      if (value === undefined || value === '') {
+        delete (mergedStyle as any)[key];
+      }
+    }
+  }
+
+  const styleStr = styleToString(mergedStyle);
   const styleLine = `style ${nodeId} ${styleStr}`;
 
   if (existingIdx !== -1) {
@@ -680,8 +738,10 @@ export function removeNode(source: string, nodeId: string): string {
     if (trimmed.startsWith(`style ${nodeId}\t`)) {return false;}
     if (trimmed.startsWith(`class ${nodeId} `)) {return false;}
 
-    const edgeRe = new RegExp(`(^|\\s)${nodeId}(\\s*)(-->|---|-.->|-\\.->|==>|x--x|\\.->|<-->|o--o|--|~~~)`);
-    const edgeRe2 = new RegExp(`(-->|---|-.->|-\\.->|==>|x--x|\\.->|<-->|o--o|--|~~~)[^\\n]*\\s${nodeId}\\s*$`);
+    // Use word boundaries to avoid matching node1 when deleting node10
+    // and correctly handle subgraph-to-node or subgraph-to-subgraph edges
+    const edgeRe = new RegExp(`(^|\\s)${nodeId}\\b(\\s*)(-->|---|-.->|-\\.->|==>|x--x|\\.->|<-->|o--o|--|~~~)`);
+    const edgeRe2 = new RegExp(`(-->|---|-.->|-\\.->|==>|x--x|\\.->|<-->|o--o|--|~~~)[^\\n]*\\s${nodeId}\\b\\s*$`);
     if (edgeRe.test(trimmed) || edgeRe2.test(trimmed)) {return false;}
 
     const nodeMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[)[^\n]+)/);
@@ -812,6 +872,21 @@ export function addSubgraph(source: string, id?: string, label?: string): string
   const subgraphLabel = label ?? 'Subgraph';
   const lines = source.split('\n');
 
+  // Detect indentation from existing content nodes (skip config and empty lines)
+  let indent = '    '; // default 4 spaces
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith('---') && !trimmed.startsWith('config:') &&
+        !trimmed.startsWith('flowchart') && !trimmed.startsWith('graph') &&
+        !trimmed.startsWith('subgraph') && !isMetaLine(trimmed)) {
+      const match = line.match(/^(\s+)/);
+      if (match) {
+        indent = match[1];
+        break;
+      }
+    }
+  }
+
   let insertIdx = lines.length;
   for (let i = lines.length - 1; i >= 0; i--) {
     if (isMetaLine(lines[i].trim())) {
@@ -826,7 +901,9 @@ export function addSubgraph(source: string, id?: string, label?: string): string
   const prefix = insertIdx > 0 && lines[insertIdx - 1].trim() !== '' ? '\n' : '';
   const needsQuotes = /[^a-zA-Z0-9_-]/.test(subgraphLabel);
   const labelFormat = needsQuotes ? `["${subgraphLabel}"]` : `[${subgraphLabel}]`;
-  const block = `${prefix}  subgraph ${subgraphId}${labelFormat}\n  end`;
+  // Add a default node inside so the subgraph is visible (with proper indentation)
+  const innerIndent = indent + '  ';
+  const block = `${prefix}${indent}subgraph ${subgraphId}${labelFormat}\n${innerIndent}N1[${subgraphLabel}]\n${indent}end`;
 
   lines.splice(insertIdx, 0, block);
   return lines.join('\n');
@@ -1064,7 +1141,8 @@ function findSubgraphRegions(lines: string[]): SubgraphRegion[] {
     if (trimmed.startsWith('subgraph')) {
       const match = trimmed.match(/^subgraph\s+([A-Za-z_][A-Za-z0-9_-]*)/);
       if (match) {
-        const indent = lines[i].match(/^(\s*)/)?.[1] ?? '';
+        const indentMatch = lines[i].match(/^(\s*)/);
+        const indent = indentMatch ? indentMatch[1] : '';
         stack.push({ id: match[1], startLineIdx: i, indent });
       }
     } else if (trimmed === 'end' && stack.length > 0) {
@@ -1077,7 +1155,7 @@ function findSubgraphRegions(lines: string[]): SubgraphRegion[] {
 }
 
 /** Find the line index of a node's standalone declaration, or the first edge line it appears on */
-function findNodeLine(lines: string[], nodeId: string): number {
+function findNodeLine(lines: string[], nodeId: string): { index: number; isStandalone: boolean } {
   const idPattern = new RegExp(`\\b${escapeRegex(nodeId)}\\b`);
 
   // First: look for standalone declaration (nodeId[Label], nodeId(Label), etc.)
@@ -1085,8 +1163,8 @@ function findNodeLine(lines: string[], nodeId: string): number {
     const trimmed = lines[i].trim();
     if (trimmed.startsWith(nodeId) && !ARROW_RE.test(trimmed) && !trimmed.startsWith('style ') && !trimmed.startsWith('class ')) {
       // Matches standalone node pattern
-      if (trimmed.match(new RegExp(`^${escapeRegex(nodeId)}(\\[|\\(|\\{|>|\\/)`))) {
-        return i;
+      if (trimmed.match(new RegExp(`^${escapeRegex(nodeId)}(\\[|\\(|\\{|>|\\/|$)`))) {
+        return { index: i, isStandalone: true };
       }
     }
   }
@@ -1095,19 +1173,11 @@ function findNodeLine(lines: string[], nodeId: string): number {
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
     if (ARROW_RE.test(trimmed) && idPattern.test(trimmed)) {
-      return i;
+      return { index: i, isStandalone: false };
     }
   }
 
-  // Third: look for bare node ID
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    if (trimmed === nodeId) {
-      return i;
-    }
-  }
-
-  return -1;
+  return { index: -1, isStandalone: false };
 }
 
 /**
@@ -1118,78 +1188,44 @@ export function moveNodeToSubgraph(source: string, nodeId: string, targetSubgrap
   const lines = source.split('\n');
   const regions = findSubgraphRegions(lines);
 
-  // Find the standalone declaration line for the node
-  let standaloneIdx = -1;
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    if (trimmed.startsWith(nodeId) && !ARROW_RE.test(trimmed) && !trimmed.startsWith('style ') && !trimmed.startsWith('class ') && !trimmed.startsWith('linkStyle ')) {
-      // Matches standalone node pattern: nodeId[Label], nodeId(Label], etc.
-      if (trimmed.match(new RegExp(`^${escapeRegex(nodeId)}(\\[|\\(|\\{|>|\\/)`))) {
-        standaloneIdx = i;
-        break;
-      }
-      // Bare node ID (just the id on its own)
-      if (trimmed === nodeId) {
-        standaloneIdx = i;
-        break;
-      }
-    }
-  }
-
-  // If no standalone declaration, find the first edge line the node appears on
-  let edgeLineIdx = -1;
-  if (standaloneIdx === -1) {
-    const idPattern = new RegExp(`\\b${escapeRegex(nodeId)}\\b`);
-    for (let i = 0; i < lines.length; i++) {
-      if (ARROW_RE.test(lines[i]) && idPattern.test(lines[i])) {
-        edgeLineIdx = i;
-        break;
-      }
-    }
-  }
-
-  // Use whichever we found
-  const nodeLineIdx = standaloneIdx !== -1 ? standaloneIdx : edgeLineIdx;
+  const { index: nodeLineIdx, isStandalone } = findNodeLine(lines, nodeId);
   if (nodeLineIdx === -1) return source;
 
-  // Find current subgraph of the node
+  // Find current subgraph of the node (innermost)
   let currentSubgraphId: string | null = null;
+  let minRange = Infinity;
   for (const region of regions) {
     if (nodeLineIdx > region.startLineIdx && nodeLineIdx < region.endLineIdx) {
-      currentSubgraphId = region.id;
+      const range = region.endLineIdx - region.startLineIdx;
+      if (range < minRange) {
+        minRange = range;
+        currentSubgraphId = region.id;
+      }
     }
   }
 
   // No-op: already in target
   if (currentSubgraphId === targetSubgraphId) return source;
 
-  const isStandalone = standaloneIdx !== -1;
-
-  // Only remove the line if it's a standalone declaration (not an edge)
-  if (isStandalone) {
-    const nodeLine = lines[standaloneIdx];
-    lines.splice(standaloneIdx, 1);
-  }
-
-  // Recalculate regions after removal (line indices shifted)
-  const updatedRegions = findSubgraphRegions(lines);
-
-  // Build the line to insert
-  const trimmedNodeLine = isStandalone
-    ? source.split('\n')[standaloneIdx]?.trim() ?? nodeId
-    : nodeId;
-
+  const lineToMove = lines[nodeLineIdx].trim();
+  
   if (targetSubgraphId === null) {
-    // Move to root: insert before first subgraph or after last node/edge
+    // MOVING OUT to root
+    // If it's a standalone line, move the whole line.
+    // If it's an edge line, we move the whole edge line because usually 
+    // we want the relationship to be at the root level if one of its nodes is out.
+    lines.splice(nodeLineIdx, 1);
+    const updatedRegions = findSubgraphRegions(lines);
+
     let insertIdx = lines.length;
-    if (updatedRegions.length > 0) {
-      insertIdx = updatedRegions[0].startLineIdx;
-      // Skip backwards over blank lines
+    const firstSubgraph = updatedRegions.sort((a, b) => a.startLineIdx - b.startLineIdx)[0];
+    
+    if (firstSubgraph) {
+      insertIdx = firstSubgraph.startLineIdx;
       while (insertIdx > 0 && lines[insertIdx - 1].trim() === '') {
         insertIdx--;
       }
     } else {
-      // Find last content line (node/edge)
       for (let i = lines.length - 1; i >= 0; i--) {
         const t = lines[i].trim();
         if (t && !t.startsWith('style ') && !t.startsWith('classDef ') && !t.startsWith('class ') && !t.startsWith('linkStyle ')) {
@@ -1198,20 +1234,27 @@ export function moveNodeToSubgraph(source: string, nodeId: string, targetSubgrap
         }
       }
     }
-
-    const rootIndent = '  ';
-    lines.splice(insertIdx, 0, `${rootIndent}${trimmedNodeLine}`);
+    lines.splice(insertIdx, 0, `  ${lineToMove}`);
   } else {
-    // Move into a target subgraph
-    const targetRegion = updatedRegions.find(r => r.id === targetSubgraphId);
+    // MOVING IN to a subgraph
+    const targetRegion = findSubgraphRegions(lines).find(r => r.id === targetSubgraphId);
     if (!targetRegion) return source;
 
-    // Insert before the 'end' line of the target subgraph
-    const endLineIdx = targetRegion.endLineIdx;
-    const subgraphIndent = targetRegion.indent;
-    const contentIndent = subgraphIndent + '  ';
-
-    lines.splice(endLineIdx, 0, `${contentIndent}${trimmedNodeLine}`);
+    if (isStandalone) {
+      // Move the standalone line into the subgraph
+      lines.splice(nodeLineIdx, 1);
+      const updatedRegions = findSubgraphRegions(lines);
+      const updatedTarget = updatedRegions.find(r => r.id === targetSubgraphId);
+      if (updatedTarget) {
+        lines.splice(updatedTarget.endLineIdx, 0, `${updatedTarget.indent}  ${lineToMove}`);
+      }
+    } else {
+      // Node only exists in an edge. 
+      // DON'T move the edge (it would drag the other node too).
+      // Instead, add a standalone definition for the node in the target subgraph.
+      // This forces Mermaid to place the node in that subgraph.
+      lines.splice(targetRegion.endLineIdx, 0, `${targetRegion.indent}  ${nodeId}`);
+    }
   }
 
   return lines.join('\n');
@@ -1250,8 +1293,8 @@ export function applyNodePreset(source: string, nodeIds: string[], presetType: P
 
   const color = colors[colorMap[presetType]];
 
-  // Create or update the classDef
-  const classDefLine = `classDef ${className} fill:${color},stroke:${color},color:#000000`;
+  // Create or update the classDef - use black border for all presets
+  const classDefLine = `classDef ${className} fill:${color},stroke:#000000,color:#000000`;
   const classDefIdx = lines.findIndex(l => l.trim().startsWith(`classDef ${className}`));
 
   if (classDefIdx !== -1) {
@@ -1338,8 +1381,8 @@ export function updatePresetColors(source: string, colors: PresetColors): string
     const trimmed = lines[i].trim();
     for (const [className, color] of Object.entries(colorMap)) {
       if (trimmed.startsWith(`classDef ${className}`)) {
-        // Update the classDef with new colors
-        lines[i] = `classDef ${className} fill:${color},stroke:${color},color:#ffffff`;
+        // Update the classDef with new colors - use black border for all presets
+        lines[i] = `classDef ${className} fill:${color},stroke:#000000,color:#000000`;
         break;
       }
     }

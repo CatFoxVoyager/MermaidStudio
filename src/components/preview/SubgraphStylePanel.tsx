@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { X, RotateCcw, Settings2 } from 'lucide-react';
+import { X, RotateCcw, Settings2, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 import type { NodeStyle } from '@/lib/mermaid/codeUtils';
@@ -25,6 +25,15 @@ export function SubgraphStylePanel({
 }: SubgraphStylePanelProps) {
   const { t } = useTranslation();
   const [label, setLabel] = useState(subgraphLabel);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  const handleLabelChange = useCallback(
+    (newLabel: string) => {
+      setLabel(newLabel);
+      onLabelChange(subgraphId, newLabel);
+    },
+    [subgraphId, onLabelChange],
+  );
 
   const BORDER_STYLE_OPTIONS = [
     { value: '', label: t('subgraphStyle.solid'), dasharray: '' },
@@ -32,18 +41,22 @@ export function SubgraphStylePanel({
     { value: '2 2', label: t('subgraphStyle.dotted'), dasharray: '2 2' },
   ] as const;
 
-  const handleLabelBlur = useCallback(() => {
-    onLabelChange(subgraphId, label);
-  }, [subgraphId, label, onLabelChange]);
-
-  const handleLabelKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        onLabelChange(subgraphId, label);
-      }
-    },
-    [subgraphId, label, onLabelChange],
-  );
+  const FONT_WEIGHT_OPTIONS = [
+    { value: '', label: t('nodeStyle.fontDefault') },
+    { value: 'normal', label: t('nodeStyle.fontNormal') },
+    { value: 'bold', label: t('nodeStyle.fontBold') },
+    { value: 'lighter', label: t('nodeStyle.fontLighter') },
+    { value: 'bolder', label: t('nodeStyle.fontBolder') },
+    { value: '100', label: '100' },
+    { value: '200', label: '200' },
+    { value: '300', label: '300' },
+    { value: '400', label: '400' },
+    { value: '500', label: '500' },
+    { value: '600', label: '600' },
+    { value: '700', label: '700' },
+    { value: '800', label: '800' },
+    { value: '900', label: '900' },
+  ] as const;
 
   const handleStyleChange = useCallback(
     (field: keyof NodeStyle, value: string | undefined) => {
@@ -59,6 +72,7 @@ export function SubgraphStylePanel({
       className="absolute top-0 right-0 h-full w-[280px] z-30 animate-slide-in-right rounded-l-xl border-l shadow-xl overflow-y-auto"
       style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}
       onClick={e => e.stopPropagation()}
+      onMouseDown={e => e.stopPropagation()}
     >
       {/* Header */}
       <div
@@ -118,9 +132,7 @@ export function SubgraphStylePanel({
             type="text"
             value={label}
             placeholder={t('subgraphStyle.labelPlaceholder')}
-            onChange={e => setLabel(e.target.value)}
-            onBlur={handleLabelBlur}
-            onKeyDown={handleLabelKeyDown}
+            onChange={e => handleLabelChange(e.target.value)}
             className="w-full px-2.5 py-1.5 rounded-md border text-xs"
             style={{
               background: 'var(--surface-base)',
@@ -210,6 +222,145 @@ export function SubgraphStylePanel({
             })}
           </div>
         </div>
+
+        <ColorPicker
+          label={t('subgraphStyle.textColor')}
+          value={subgraphStyle.color ?? ''}
+          onChange={v => handleStyleChange('color', v || undefined)}
+        />
+
+        {/* Advanced Toggle */}
+        <button
+          onClick={() => setAdvancedOpen(v => !v)}
+          className="flex items-center gap-1 py-1 text-[10px] font-medium uppercase tracking-wider transition-colors"
+          style={{ color: 'var(--text-tertiary)' }}
+        >
+          <ChevronDown
+            size={11}
+            style={{
+              transform: advancedOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+            }}
+          />
+          {t('nodeStyle.advanced')}
+        </button>
+
+        {/* Advanced Section */}
+        {advancedOpen && (
+          <div className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-1 duration-200">
+            {/* Font Family */}
+            <div className="flex flex-col gap-1">
+              <span
+                className="text-[10px] font-medium uppercase tracking-wider"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                {t('subgraphStyle.fontFamily')}
+              </span>
+              <div className="relative">
+                <select
+                  value={subgraphStyle.fontFamily ?? ''}
+                  onChange={e =>
+                    handleStyleChange('fontFamily', e.target.value || undefined)
+                  }
+                  className="w-full px-2.5 py-1.5 rounded-md border text-xs appearance-none pr-8"
+                  style={{
+                    background: 'var(--surface-base)',
+                    borderColor: 'var(--border-subtle)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="">{t('nodeStyle.fontDefault')}</option>
+                  <option value="Inter, system-ui, sans-serif">Inter</option>
+                  <option value="Montserrat, sans-serif">Montserrat</option>
+                  <option value="Roboto, sans-serif">Roboto</option>
+                  <option value="'Open Sans', sans-serif">Open Sans</option>
+                  <option value="'Playfair Display', serif">Playfair Display</option>
+                  <option value="monospace">Monospace</option>
+                </select>
+                <ChevronDown
+                  size={11}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{ color: 'var(--text-tertiary)' }}
+                />
+              </div>
+            </div>
+
+            {/* Font Weight */}
+            <div className="flex flex-col gap-1">
+              <span
+                className="text-[10px] font-medium uppercase tracking-wider"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                {t('subgraphStyle.fontWeight')}
+              </span>
+              <div className="relative">
+                <select
+                  value={subgraphStyle.fontWeight ?? ''}
+                  onChange={e =>
+                    handleStyleChange('fontWeight', e.target.value || undefined)
+                  }
+                  className="w-full px-2.5 py-1.5 rounded-md border text-xs appearance-none pr-8"
+                  style={{
+                    background: 'var(--surface-base)',
+                    borderColor: 'var(--border-subtle)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                  }}
+                >
+                  {FONT_WEIGHT_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={11}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{ color: 'var(--text-tertiary)' }}
+                />
+              </div>
+            </div>
+
+            {/* Font Size */}
+            <div className="flex flex-col gap-1">
+              <span
+                className="text-[10px] font-medium uppercase tracking-wider"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                {t('subgraphStyle.fontSize')}
+              </span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min={10}
+                  max={48}
+                  step={1}
+                  value={
+                    subgraphStyle.fontSize ? parsePx(subgraphStyle.fontSize) : 16
+                  }
+                  onChange={e => {
+                    const v = e.target.value;
+                    handleStyleChange('fontSize', v ? `${v}px` : undefined);
+                  }}
+                  className="flex-1 px-2 py-1.5 rounded-md border text-xs font-mono w-0"
+                  style={{
+                    background: 'var(--surface-base)',
+                    borderColor: 'var(--border-subtle)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                  }}
+                />
+                <span
+                  className="text-xs font-mono shrink-0"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  px
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Opacity */}
         <div className="flex flex-col gap-1">

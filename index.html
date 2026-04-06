@@ -4,34 +4,55 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Advanced Mermaid Editor</title>
-    <meta property="og:image" content="https://bolt.new/static/og_default.png" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="https://bolt.new/static/og_default.png" />
 
-    <!-- Content Security Policy -->
-    <meta http-equiv="Content-Security-Policy" content="
-      default-src 'self';
-      script-src 'self' 'unsafe-inline' 'unsafe-eval';
-      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-      img-src 'self' data: https:;
-      connect-src 'self' https://api.openai.com https://api.anthropic.com https://generativelanguage.googleapis.com http://localhost:* http://127.0.0.1:* http://host.docker.internal:* ws://localhost:* ws://127.0.0.1:* ws://host.docker.internal:*;
-      font-src 'self' https://fonts.gstatic.com;
-      object-src 'none';
-      base-uri 'self';
-      form-action 'self';
-      frame-ancestors 'none';
-    ">
+    <!-- Primary Meta Tags -->
+    <title>MermaidStudio v0.4 - Advanced Mermaid Diagram Editor</title>
+    <meta name="title" content="MermaidStudio - Advanced Mermaid Diagram Editor">
+    <meta name="description" content="Create, edit, and export beautiful Mermaid diagrams with our advanced editor. Supports flowcharts, sequence diagrams, class diagrams, Gantt charts, and more.">
+    <link rel="canonical" href="https://mermaidstudio.app">
 
-    <!-- Additional Security Headers -->
-    <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
-    <meta http-equiv="X-Frame-Options" content="DENY">
-    <meta name="referrer" content="no-referrer">
-    <!-- Google Fonts: Inter -->
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://mermaidstudio.app">
+    <meta property="og:title" content="MermaidStudio - Advanced Mermaid Diagram Editor">
+    <meta property="og:description" content="Create, edit, and export beautiful Mermaid diagrams with our advanced editor.">
+    <meta property="og:image" content="https://mermaidstudio.app/og-image.png">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:locale:alternate" content="fr_FR">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://mermaidstudio.app">
+    <meta property="twitter:title" content="MermaidStudio - Advanced Mermaid Diagram Editor">
+    <meta property="twitter:description" content="Create, edit, and export beautiful Mermaid diagrams.">
+    <meta property="twitter:image" content="https://mermaidstudio.app/twitter-image.png">
+
+    <!-- Additional SEO -->
+    <meta name="keywords" content="mermaid, diagram, flowchart, sequence diagram, editor, visualization, uml, gantt chart, mindmap">
+    <meta name="author" content="MermaidStudio">
+    <meta name="robots" content="index, follow">
+    <link rel="alternate" hreflang="en" href="https://mermaidstudio.app/en">
+    <link rel="alternate" hreflang="fr" href="https://mermaidstudio.app/fr">
+
+    <!-- PWA -->
+    <meta name="theme-color" content="#0d7377">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="MermaidStudio">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Resource Hints for Performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="dns-prefetch" href="https://api.openai.com">
+    <link rel="dns-prefetch" href="https://api.anthropic.com">
+
+    <!-- Google Fonts with display swap for non-blocking render -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Note: Content Security Policy and security headers should be set via server HTTP headers, not meta tags.
+         Configure these in your web server (nginx, Apache, Vite preview server, etc.) -->
   </head>
   <body>
     <div id="root"></div>

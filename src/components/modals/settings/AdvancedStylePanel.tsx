@@ -14,18 +14,7 @@ interface AdvancedStylePanelProps {
   theme: 'dark' | 'light';
 }
 
-const FONT_OPTIONS = [
-  'Inter, system-ui, sans-serif',
-  'Arial, Helvetica, sans-serif',
-  'Georgia, serif',
-  'Courier New, monospace',
-  'Verdana, Geneva, sans-serif',
-  'Trebuchet MS, sans-serif',
-  'Palatino Linotype, serif',
-  'Comic Sans MS, cursive',
-  'Impact, sans-serif',
-  'Fira Code, monospace',
-];
+import { FONT_FAMILY_OPTIONS } from '@/constants/fonts';
 
 function SliderControl({ label, icon, value, min, max, step, unit, onChange, theme }: {
   label: string;
@@ -138,76 +127,80 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   // Store base content when panel opens and initialize styles from it
   useEffect(() => {
     if (isOpen && currentContent) {
-      // Skip if this content change was caused by our own applyStyles
+      // If we are currently applying a style change, just update refs and skip re-extraction
       if (applyingRef.current) {
         applyingRef.current = false;
         previousContentRef.current = currentContent;
+        baseContentRef.current = currentContent;
         return;
       }
 
-      // Detect if content has significantly changed (tab switch vs style update)
+      // Check if content has changed since last time
       const contentChanged = previousContentRef.current !== currentContent;
-      const isDifferentTab = contentChanged && !currentContent.includes(baseContentRef.current.slice(0, 100));
-
-      // Re-initialize if first time, panel was closed, or content is significantly different
-      if (!isInitialized.current || isDifferentTab) {
-        baseContentRef.current = currentContent;
+      
+      if (contentChanged) {
+        // Update diagram type if it changed
         const detectedType = detectDiagramType(currentContent);
-        setDiagramType(detectedType);
+        if (detectedType !== diagramType) {
+          setDiagramType(detectedType);
+        }
 
         const existingStyles = extractStyleOptionsFromContent(currentContent);
-        if (Object.keys(existingStyles).length > 0) {
-          // Update style options WITHOUT marking as user change
-          // This prevents auto-applying extracted styles back to content
-          setStyleOptions(prev => ({ ...prev, ...existingStyles }));
-          // Reset the flag so we don't re-apply styles that were already in the content
-          userHasChangedStyles.current = false;
-        } else {
-          // No existing styles, start fresh
-          setStyleOptions({ ...DEFAULT_STYLE_OPTIONS });
-          userHasChangedStyles.current = false;
-        }
-        isInitialized.current = true;
+        
+        // ALWAYS sync our state if the change came from outside (editor or other panel)
+        // This ensures the UI reflects manual code edits or Diagram Colors updates instantly
+        setStyleOptions(prev => {
+          const next = { ...DEFAULT_STYLE_OPTIONS, ...existingStyles };
+          // Simple equality check to avoid redundant state updates
+          if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+          return next;
+        });
+        
+        // Reset the flag since we are now in sync with the current content
+        userHasChangedStyles.current = false;
+
         previousContentRef.current = currentContent;
+        baseContentRef.current = currentContent;
       }
+      
+      isInitialized.current = true;
     } else if (!isOpen) {
       isInitialized.current = false;
       baseContentRef.current = '';
       previousContentRef.current = '';
       userHasChangedStyles.current = false;
     }
-  }, [isOpen, currentContent]);
+  }, [isOpen, currentContent, diagramType]);
 
   // Define applyStyles function
   const applyStyles = useCallback((opts: DiagramStyleOptions) => {
     if (!baseContentRef.current) {return;}
     applyingRef.current = true;
     const isDark = theme === 'dark';
-    onContentChange(applyStyleToContent(baseContentRef.current, opts, isDark));
+    const newContent = applyStyleToContent(baseContentRef.current, opts, isDark);
+    previousContentRef.current = newContent;
+    onContentChange(newContent);
   }, [onContentChange, theme]);
 
-  // Apply styles in real-time when styleOptions change (but only when panel is open and user made changes)
-  // Note: applyStyles intentionally omitted from deps to prevent infinite loop
-  // applyingRef prevents re-triggering when our own apply updates content
+  // Apply styles in real-time when styleOptions change (but only when panel is open)
   useEffect(() => {
-    if (isOpen && isInitialized.current && userHasChangedStyles.current) {
+    if (isOpen && isInitialized.current) {
       applyStyles(styleOptions);
     }
-  }, [isOpen, styleOptions]);
+  }, [isOpen, styleOptions, applyStyles]);
 
   const update = useCallback((partial: Partial<DiagramStyleOptions>) => {
-    userHasChangedStyles.current = true; // Mark that user made changes
-    setStyleOptions(prev => ({ ...prev, ...partial }));
+    setStyleOptions(prev => {
+      return { ...prev, ...partial };
+    });
   }, []);
 
   const handleReset = useCallback(() => {
     const defaults = { ...DEFAULT_STYLE_OPTIONS };
-    userHasChangedStyles.current = true; // Mark that user made changes
+    userHasChangedStyles.current = true; 
     setStyleOptions(defaults);
-    applyingRef.current = true;
-    const isDark = theme === 'dark';
-    onContentChange(applyStyleToContent(baseContentRef.current, defaults, isDark));
-  }, [onContentChange, theme]);
+    applyStyles(defaults);
+  }, [applyStyles]);
 
   const handleClose = useCallback(() => {
     onClose();
@@ -222,6 +215,11 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   const hasConfigOptions = isFlowchart || isSequence || isGantt;
   const isElkLayout = styleOptions.layoutEngine === 'elk' || styleOptions.layoutEngine === 'elk.stress';
   const supportsDirection = diagramType === 'flowchart' || diagramType === 'graph';
+
+  // Use the new capabilities from types
+  const supportsStyleKeyword = stylingCapabilities.supportsStyleKeyword;
+  const supportsRectBlocks = stylingCapabilities.supportsRectBlocks;
+  const isThemeOnly = stylingCapabilities.supportsThemeVariablesOnly;
 
   return (
     <div className="flex flex-col h-full border-l" style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}>
@@ -258,7 +256,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
               color: 'var(--text-primary)',
             }}
           >
-            {FONT_OPTIONS.map(f => (
+            {FONT_FAMILY_OPTIONS.map(f => (
               <option key={f} value={f} style={{ fontFamily: f }}>
                 {f.split(',')[0]}
               </option>
@@ -284,7 +282,45 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
         {!hasConfigOptions && (
           <div className="text-center py-6 px-3 rounded-lg border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-floating)' }}>
             <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              {t('advancedStyle.noOptions', { type: diagramType })}
+              {isThemeOnly ? (
+                <>
+                  <strong>{diagramType}</strong> diagrams support styling through <strong>theme variables</strong> only.
+                  <br /><br />
+                  Use the <strong>Diagram Colors</strong> panel to customize colors, or manually add <code className="px-1 py-0.5 rounded text-[9px]" style={{ background: 'var(--surface-base)' }}>%%&#123;init: &#123;...&#125;%%&#125;</code> directives to set theme variables.
+                  <br /><br />
+                  <span style={{ color: 'var(--text-tertiary)' }}>Examples: <code>primaryColor</code>, <code>lineColor</code>, <code>fontSize</code></span>
+                </>
+              ) : (
+                t('advancedStyle.noOptions', { type: diagramType })
+              )}
+            </p>
+          </div>
+        )}
+
+        {supportsStyleKeyword && !isFlowchart && (
+          <div className="py-3 px-3 rounded-lg border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-floating)' }}>
+            <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              <strong>{diagramType}</strong> styling: Use the <code className="px-1 py-0.5 rounded text-[9px]" style={{ background: 'var(--surface-base)' }}>style</code> keyword for individual elements.
+              <br /><br />
+              <span style={{ color: 'var(--text-tertiary)' }}>Example:</span>
+              <pre className="mt-2 text-[9px] p-2 rounded overflow-x-auto" style={{ background: 'var(--surface-base)', color: 'var(--text-primary)' }}>
+{diagramType === 'stateDiagram' ? `style StateName fill:#6f6,stroke:#0f0,color:#000` : `style ClassName fill:#dbeafe,stroke:#1d4ed8`}
+              </pre>
+            </p>
+          </div>
+        )}
+
+        {supportsRectBlocks && (
+          <div className="py-3 px-3 rounded-lg border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-floating)' }}>
+            <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              <strong>{diagramType}</strong> styling: Use <code className="px-1 py-0.5 rounded text-[9px]" style={{ background: 'var(--surface-base)' }}>rect</code> blocks to highlight sections.
+              <br /><br />
+              <span style={{ color: 'var(--text-tertiary)' }}>Example:</span>
+              <pre className="mt-2 text-[9px] p-2 rounded overflow-x-auto" style={{ background: 'var(--surface-base)', color: 'var(--text-primary)' }}>
+{`rect rgb(59, 130, 246)
+    A->>B: Message in highlighted section
+end`}
+              </pre>
             </p>
           </div>
         )}
@@ -396,7 +432,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
                 <Spline size={11} style={{ color: 'var(--text-tertiary)' }} />
-                <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.edgeStyle')}</span>
+                <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.edgeStyle', 'Edge Curve Style')}</span>
               </div>
               <div className="grid grid-cols-3 gap-1">
                 {CURVE_OPTIONS.map(opt => (
@@ -419,6 +455,101 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
                     {opt.label}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Global Edge Styling */}
+            <div className="space-y-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+              <div className="flex items-center gap-1.5 mb-2">
+                <Spline size={11} style={{ color: 'var(--text-tertiary)' }} />
+                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Global Edge Styling</span>
+              </div>
+
+              <SliderControl
+                label="Edge Stroke Width"
+                icon={<Maximize2 size={11} />}
+                value={styleOptions.edgeStrokeWidth ?? 2}
+                min={1} max={10} step={1} unit="px"
+                onChange={(v) => update({ edgeStrokeWidth: v })}
+                theme={theme}
+              />
+
+              <ColorPicker
+                label="Edge Stroke Color"
+                value={styleOptions.edgeStrokeColor ?? '#333333'}
+                onChange={v => update({ edgeStrokeColor: v })}
+              />
+
+              <SliderControl
+                label="Edge Opacity"
+                icon={<Square size={11} />}
+                value={styleOptions.edgeOpacity ?? 1}
+                min={0.1} max={1} step={0.1} unit=""
+                onChange={(v) => update({ edgeOpacity: v })}
+                theme={theme}
+              />
+
+              <SliderControl
+                label="Edge Font Size"
+                icon={<Type size={11} />}
+                value={styleOptions.edgeFontSize ?? 14}
+                min={8} max={24} step={1} unit="px"
+                onChange={(v) => update({ edgeFontSize: v })}
+                theme={theme}
+              />
+
+              <ColorPicker
+                label="Edge Label Color"
+                value={styleOptions.edgeLabelColor ?? (isDark ? '#e5e7eb' : '#374151')}
+                onChange={v => update({ edgeLabelColor: v })}
+              />
+
+              <ColorPicker
+                label="Edge Label Background"
+                value={styleOptions.edgeLabelBackgroundColor ?? (isDark ? '#1a1f2e' : '#ffffff')}
+                onChange={v => update({ edgeLabelBackgroundColor: v })}
+              />
+
+              <SliderControl
+                label="Edge Label Opacity"
+                icon={<Square size={11} />}
+                value={styleOptions.edgeLabelOpacity ?? 1}
+                min={0} max={1} step={0.1} unit=""
+                onChange={(v) => update({ edgeLabelOpacity: v })}
+                theme={theme}
+              />
+
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5">
+                  <Spline size={11} style={{ color: 'var(--text-tertiary)' }} />
+                  <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>Line Style</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1">
+                  {[
+                    { value: '', label: 'Solid' },
+                    { value: '5 5', label: 'Dashed' },
+                    { value: '2 2', label: 'Dotted' }
+                  ].map(opt => (
+                    <button
+                      key={opt.label}
+                      onClick={() => update({ edgeDasharray: opt.value })}
+                      className="text-[9px] py-1.5 rounded-sm border transition-all text-center font-medium"
+                      style={{
+                        background: (styleOptions.edgeDasharray || '') === opt.value
+                          ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
+                          : 'transparent',
+                        borderColor: (styleOptions.edgeDasharray || '') === opt.value
+                          ? 'var(--accent)'
+                          : 'var(--border-subtle)',
+                        color: (styleOptions.edgeDasharray || '') === opt.value
+                          ? 'var(--accent)'
+                          : 'var(--text-secondary)',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </>

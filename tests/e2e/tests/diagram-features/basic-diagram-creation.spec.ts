@@ -7,15 +7,23 @@ test.describe('Basic Diagram Creation', () => {
   test.beforeEach(async ({ page }) => {
     const appLayout = new AppLayoutPage(page);
     await page.goto('/');
-    // Wait for page to be fully loaded
     await page.waitForLoadState('networkidle');
-    // Wait a bit for React to mount
     await page.waitForTimeout(1000);
-    // Create a new diagram first since app starts with no tabs
-    await appLayout.newDiagram();
-    // Wait for tab to be created
-    await page.waitForTimeout(500);
-    // Write some initial content to trigger render
+
+    // Ensure we have at least one tab
+    const tabCount = await appLayout.tabBar.tabs.count();
+    if (tabCount === 0) {
+      await appLayout.newDiagram();
+      await page.waitForTimeout(500);
+    } else if (tabCount > 1) {
+      // Close extra tabs to have a consistent state
+      for (let i = tabCount - 1; i > 0; i--) {
+        await appLayout.tabBar.closeTab(i);
+        await page.waitForTimeout(200);
+      }
+    }
+
+    // Write some initial content to the first tab to trigger render
     await appLayout.workspace.editor.setCode(basicDiagrams.simpleFlow);
     await TestUtils.waitForDiagramRender(page);
   });

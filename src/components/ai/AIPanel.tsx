@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, Send, Bot, User, Sparkles, Copy, Check, RotateCcw, Settings2, AlertCircle } from 'lucide-react';
 import type { AIMessage } from '@/types';
-import { getSettings } from '@/services/storage/database';
-import { callAI, getPreset } from '@/services/ai/providers';
-import { buildSystemPrompt } from './mermaidSystemPrompt';
+import { useAIChat } from '@/hooks/ai/useAIChat';
+import { useAISend } from '@/hooks/ai/useAISend';
+import { useAISettings } from '@/hooks/ai/useAISettings';
+import { getPreset } from '@/services/ai/providers';
 
 interface Props {
   currentContent: string;
@@ -23,7 +24,7 @@ function CodeBlock({ lang, code, onApply }: { lang: string; code: string; onAppl
   // Validate Mermaid code for common issues
   const validateCode = (mermaidCode: string): boolean => {
     const trimmed = mermaidCode.trim();
-    
+
     // Check if code contains natural language instructions
     const invalidPatterns = [
       /^(Here is|Here's|This is|Below is|The following)/i,
@@ -174,144 +175,30 @@ function ProviderBadge({ provider }: { provider: string }) {
 
 export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, settingsKey }: Props) {
   const { t } = useTranslation();
-  const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [provider, setProvider] = useState<string>('openai');
-  const [isConfigured, setIsConfigured] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Use extracted hooks for all logic
+  const { messages, addMessage, resetChat, bottomRef } = useAIChat();
+  const { provider, isConfigured, preset } = useAISettings(settingsKey);
+  const { send, loading } = useAISend({
+    currentContent,
+    messages,
+    addMessage,
+    isConfigured,
+  });
 
   const SUGGESTIONS = [
     t('ai.suggestion1'), t('ai.suggestion2'),
     t('ai.suggestion3'), t('ai.suggestion4'),
     t('ai.suggestion5'), t('ai.suggestion6'),
-  ];
+  ] as const;
 
-  // Load settings asynchronously
-  useEffect(() => {
-    getSettings().then(settings => {
-      const prov = settings.ai_provider ?? 'openai';
-      const preset = getPreset(prov);
-      setProvider(prov);
-      setIsConfigured(!preset.requiresKey || !!settings.ai_api_key);
-    });
-  }, [settingsKey]); // Reload when settingsKey changes
-
-  const preset = getPreset(provider as Parameters<typeof getPreset>[0]);
-
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-
-  function addMsg(role: AIMessage['role'], content: string): AIMessage {
-    const m: AIMessage = { id: crypto.randomUUID(), role, content, timestamp: new Date().toISOString() };
-    setMessages(prev => [...prev, m]);
-    return m;
-  }
-
-  function resetChat() {
-    setMessages([]);
-  }
-
-  async function send(text: string) {
+  // Wrapper function for send that includes input clearing
+  async function handleSend(text: string) {
     if (!text.trim() || loading) {return;}
     setInput('');
-    addMsg('user', text);
-    setLoading(true);
-
-    const currentSettings = await getSettings();
-
-    if (isConfigured) {
-      try {
-        // Detect diagram type from current content
-        const hasDiagram = currentContent.trim().length > 0;
-        const firstLine = currentContent.trim().split('\n')[0].toLowerCase();
-        let diagramType = '';
-        if (firstLine.includes('flowchart') || firstLine.includes('graph')) {diagramType = 'flowchart';}
-        else if (firstLine.includes('sequence')) {diagramType = 'sequence diagram';}
-        else if (firstLine.includes('class')) {diagramType = 'class diagram';}
-        else if (firstLine.includes('state')) {diagramType = 'state diagram';}
-        else if (firstLine.includes('er')) {diagramType = 'entity relationship diagram';}
-        else if (firstLine.includes('gantt')) {diagramType = 'gantt chart';}
-        else if (firstLine.includes('mindmap')) {diagramType = 'mindmap';}
-        else if (firstLine.includes('gitgraph')) {diagramType = 'git graph';}
-        else if (firstLine.includes('pie')) {diagramType = 'pie chart';}
-        else if (firstLine.includes('journey')) {diagramType = 'user journey';}
-        else if (firstLine.includes('timeline')) {diagramType = 'timeline';}
-        else if (firstLine.includes('block')) {diagramType = 'block diagram';}
-        else if (firstLine.includes('architecture')) {diagramType = 'architecture diagram';}
-        else if (firstLine.includes('c4')) {diagramType = 'c4 diagram';}
-        else if (firstLine.includes('kanban')) {diagramType = 'kanban board';}
-        else if (firstLine.includes('quadrant')) {diagramType = 'quadrant chart';}
-
-        const systemPrompt = buildSystemPrompt({
-          currentContent,
-          hasDiagram,
-          diagramType,
-        });
-        const chatHistory = messages.slice(-6).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
-        const allMessages = [
-          { role: 'system' as const, content: systemPrompt },
-          ...chatHistory,
-          { role: 'user' as const, content: text },
-        ];
-
-        // Debug logging
-        console.log('[AI Panel] Sending request:', {
-          provider: currentSettings.ai_provider ?? 'openai',
-          model: currentSettings.ai_model ?? 'default',
-          hasDiagram,
-          diagramType,
-          contentLength: currentContent.length,
-          contentPreview: currentContent.substring(0, 50),
-          userMessage: text,
-          messageCount: allMessages.length,
-        });
-
-        const reply = await callAI({
-          provider: currentSettings.ai_provider ?? 'openai',
-          apiKey: currentSettings.ai_api_key ?? '',
-          baseUrl: currentSettings.ai_base_url ?? '',
-          model: currentSettings.ai_model ?? '',
-        }, allMessages);
-
-        console.log('[AI Panel] Received response:', {
-          replyLength: reply?.length ?? 0,
-          replyPreview: reply?.substring(0, 100),
-          fullReply: reply,
-          isEmpty: !reply || reply.trim().length === 0,
-        });
-
-        // Validate response before showing
-        if (!reply || reply.trim().length === 0) {
-          console.error('[AI Panel] Empty response received');
-          addMsg('assistant', t('ai.errorPrefix', { msg: 'Empty response received from AI provider. Please check your settings.' }));
-        } else if (reply.includes('No response from') || reply.includes('error') || reply.includes('Error:')) {
-          // Likely an error message - show as error
-          console.error('[AI Panel] Error response:', reply);
-          addMsg('assistant', t('ai.errorPrefix', { msg: reply }));
-        } else if (reply.length < 10 && /^\d{1,2}:\d{2}$/.test(reply.trim())) {
-          // Detect timestamp-only responses (e.g., "17:04")
-          console.error('[AI Panel] Suspicious timestamp-only response:', reply);
-          addMsg('assistant', t('ai.errorPrefix', { msg: `Received unexpected response: "${reply}". This may indicate an issue with the AI provider. Please check your API key and model settings.` }));
-        } else {
-          addMsg('assistant', reply);
-        }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Unknown error';
-        console.error('[AI Panel] Error:', e);
-        addMsg('assistant', t('ai.errorPrefix', { msg }));
-      }
-    } else {
-      await new Promise(r => setTimeout(r, 400));
-      const lower = text.toLowerCase();
-      const first = currentContent.trim().split('\n')[0].toLowerCase();
-      const type = first.includes('flowchart') || first.includes('graph') ? 'flowchart' : first.includes('sequence') ? 'sequence diagram' : 'diagram';
-      if (lower.includes('explain') || lower.includes('what')) {
-        addMsg('assistant', `This is a ${type}. It visualizes the flow and relationships between elements.\n\nEach node represents a step or entity, and edges show connections or transitions.\n\n${t('ai.configureProvider')}`);
-      } else {
-        addMsg('assistant', `I can help with your ${type}!\n\n${t('ai.configureProvider')}`);
-      }
-    }
-    setLoading(false);
+    addMessage('user', text);
+    await send(text, t);
   }
 
   return (
@@ -404,7 +291,7 @@ export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, sett
       {messages.length === 0 && (
         <div className="px-3 pb-2 shrink-0 flex flex-wrap gap-1.5">
           {SUGGESTIONS.map(s => (
-            <button key={s} onClick={() => send(s)}
+            <button key={s} onClick={() => handleSend(s)}
               className="px-2.5 py-1 rounded-full text-[11px] border transition-all duration-150"
               style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
               onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
@@ -420,7 +307,7 @@ export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, sett
           <textarea
             data-testid="ai-input"
             value={input} onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(input); } }}
             placeholder={t('ai.placeholder')} rows={2}
             className="flex-1 px-3 py-2 text-xs rounded-xl resize-none border outline-hidden transition-colors"
             style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
@@ -428,7 +315,7 @@ export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, sett
             onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')} />
           <button
             data-testid="ai-send"
-            onClick={() => send(input)} disabled={!input.trim() || loading}
+            onClick={() => handleSend(input)} disabled={!input.trim() || loading}
             className="p-2 rounded-xl text-white transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
             style={{ background: 'var(--accent)' }}>
             <Send size={14} />

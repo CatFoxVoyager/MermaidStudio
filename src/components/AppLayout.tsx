@@ -1,10 +1,13 @@
+import { lazy, Suspense } from 'react';
 import { TopBar } from '@/components/shared/TopBar';
 import { Sidebar } from '@/sidebar/Sidebar';
 import { WorkspacePanel } from '@/editor/WorkspacePanel';
-import { AIPanel } from '@/ai/AIPanel';
-import { DiagramColorsPanel } from '@/components/modals/settings/DiagramColorsPanel';
-import { AdvancedStylePanel } from '@/components/modals/settings/AdvancedStylePanel';
 import type { Tab, MermaidTheme } from '@/types';
+
+// Lazy load heavy panel components
+const LazyAIPanel = lazy(() => import('@/ai/AIPanel').then(m => ({ default: m.AIPanel })));
+const LazyDiagramColorsPanel = lazy(() => import('@/components/modals/settings/DiagramColorsPanel').then(m => ({ default: m.DiagramColorsPanel })));
+const LazyAdvancedStylePanel = lazy(() => import('@/components/modals/settings/AdvancedStylePanel').then(m => ({ default: m.AdvancedStylePanel })));
 
 interface AppLayoutProps {
   // Theme
@@ -117,7 +120,6 @@ export function AppLayout({
         onOpenCommandPalette={onOpenCommandPalette}
         onOpenTemplates={onShowTemplates}
         onNewDiagram={onNewDiagram}
-        onOpenSettings={activeTab ? onShowDiagramColors : undefined}
         sidebarOpen={sidebarOpen}
         onToggleSidebar={onToggleSidebar}
         onOpenBackup={onOpenBackup}
@@ -141,7 +143,7 @@ export function AppLayout({
           )}
         </div>
 
-        <div className="flex-1 flex overflow-hidden min-w-0">
+        <main className="flex-1 flex overflow-hidden min-w-0" role="main">
           <WorkspacePanel
             tabs={tabs}
             activeTabId={activeTabId}
@@ -167,53 +169,58 @@ export function AppLayout({
             onAdvancedStyleClose={onAdvancedStyleClose}
             showDiagramColors={showDiagramColors}
             showAdvancedStyle={showAdvancedStyle}
-            renderTimeMs={renderTimeMs}
             onRenderTime={onRenderTime}
           />
 
           <div className="shrink-0 overflow-hidden transition-all duration-200"
             style={{ width: showDiagramColors ? 280 : 0 }}>
             {showDiagramColors && activeTab && (
-              <DiagramColorsPanel
-                isOpen
-                onClose={onDiagramColorsClose}
-                currentContent={activeTab.content}
-                onContentChange={(content) => onContentChange(activeTab.id, content)}
-                theme={theme}
-                currentThemeId={activeTab.themeId}
-                onThemeIdChange={onThemeIdChange}
-                defaultThemeId={defaultTheme?.id}
-                onSetDefaultTheme={setDefaultTheme}
-              />
+              <Suspense fallback={null}>
+                <LazyDiagramColorsPanel
+                  isOpen
+                  onClose={onDiagramColorsClose}
+                  currentContent={activeTab.content}
+                  onContentChange={(content) => onContentChange(activeTab.id, content)}
+                  theme={theme}
+                  currentThemeId={activeTab.themeId}
+                  onThemeIdChange={onThemeIdChange}
+                  defaultThemeId={defaultTheme?.id}
+                  onSetDefaultTheme={setDefaultTheme}
+                />
+              </Suspense>
             )}
           </div>
 
           <div className="shrink-0 overflow-hidden transition-all duration-200"
             style={{ width: showAdvancedStyle ? 280 : 0 }}>
             {showAdvancedStyle && activeTab && (
-              <AdvancedStylePanel
-                isOpen
-                onClose={onAdvancedStyleClose}
-                currentContent={activeTab.content}
-                onContentChange={(content) => onContentChange(activeTab.id, content)}
-                theme={theme}
-              />
+              <Suspense fallback={null}>
+                <LazyAdvancedStylePanel
+                  isOpen
+                  onClose={onAdvancedStyleClose}
+                  currentContent={activeTab.content}
+                  onContentChange={(content) => onContentChange(activeTab.id, content)}
+                  theme={theme}
+                />
+              </Suspense>
             )}
           </div>
 
           <div className="shrink-0 overflow-hidden transition-all duration-200"
             style={{ width: showAI ? 300 : 0 }}>
             {showAI && (
-              <AIPanel
-                currentContent={activeTab?.content ?? ''}
-                onApply={onAIApply}
-                onClose={onAIClose}
-                onOpenSettings={onAIOpenSettings}
-                settingsKey={0} // This would need to be passed separately
-              />
+              <Suspense fallback={null}>
+                <LazyAIPanel
+                  currentContent={activeTab?.content ?? ''}
+                  onApply={onAIApply}
+                  onClose={onAIClose}
+                  onOpenSettings={onAIOpenSettings}
+                  settingsKey={0} // This would need to be passed separately
+                />
+              </Suspense>
             )}
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );

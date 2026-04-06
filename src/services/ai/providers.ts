@@ -1,5 +1,20 @@
 import type { AIProvider, AIProviderConfig } from '@/types';
 import { aiRateLimiter } from '@/utils/rateLimiter';
+import { logger } from '@/utils/logger';
+
+const log = logger.scope('AI Provider');
+
+// API endpoint constants
+const API_ENDPOINTS = {
+  GEMINI: '/v1beta/models',
+  CLAUDE: '/v1/messages',
+  OPENAI_COMPATIBLE: '/v1/chat/completions',
+  MODELS: '/v1/models',
+} as const;
+
+// Suspicious response patterns that indicate API errors
+const TIMESTAMP_PATTERN = /^\d{1,2}:\d{2}$/;
+const MIN_VALID_RESPONSE_LENGTH = 20;
 
 export interface ProviderPreset {
   id: AIProvider;
@@ -79,6 +94,25 @@ export function getPreset(id: AIProvider): ProviderPreset {
   return PROVIDER_PRESETS.find(p => p.id === id) ?? PROVIDER_PRESETS[0];
 }
 
+/**
+ * Validate AI response for suspicious patterns that may indicate errors
+ * @throws {Error} If response appears to be an error masquerading as valid output
+ */
+function validateAIResponse(response: string, providerName: string): void {
+  if (!response || response.trim().length === 0) {
+    throw new Error('Empty response received from AI provider.');
+  }
+
+  // Detect timestamp-only responses that often indicate API errors
+  if (response.length < MIN_VALID_RESPONSE_LENGTH && TIMESTAMP_PATTERN.test(response.trim())) {
+    log.warn(`${providerName} suspicious timestamp response:`, response);
+    throw new Error(
+      `Received unexpected timestamp response: "${response}". ` +
+      `This may indicate an API error or incorrect model configuration.`
+    );
+  }
+}
+
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -88,13 +122,13 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
   const { provider, apiKey, baseUrl, model } = config;
   const base = baseUrl.replace(/\/$/, '');
 
-  console.log('[callAI] Request:', {
+  log.debug('Request:', {
     provider,
     model,
     baseUrl: base,
     messageCount: messages.length,
     hasSystemMessage: messages.some(m => m.role === 'system'),
-    lastUserMessage: messages.filter(m => m.role === 'user').pop()?.content.substring(0, 100),
+    lastUserMessageLength: messages.filter(m => m.role === 'user').pop()?.content.length ?? 0,
   });
 
   // Check rate limit
@@ -106,7 +140,7 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
   }
 
   if (provider === 'gemini') {
-    const url = `${base}/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const url = `${base}${API_ENDPOINTS.GEMINI}/${model}:generateContent`;
     const systemMsg = messages.find(m => m.role === 'system');
     const chatMessages = messages.filter(m => m.role !== 'system');
 
@@ -120,42 +154,29 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
       body.system_instruction = { parts: [{ text: systemMsg.content }] };
     }
 
-    console.log('[callAI] Gemini request:', { url, model });
+    log.debug('Gemini request:', { url, model });
 
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
       body: JSON.stringify(body),
     });
 
-    console.log('[callAI] Gemini response status:', res.status);
-
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error('[callAI] Gemini error:', err);
-      throw new Error((err as { error?: { message?: string } }).error?.message ?? `Gemini error ${res.status}`);
+      const err = await res.json().catch(() => ({})) as Record<string, unknown>;
+      log.error('Gemini error:', err);
+      throw new Error(`API request failed (${res.status}). Please check your API key and model settings.`);
     }
 
-    const data = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
-    console.log('[callAI] Gemini response:', {
-      hasCandidates: !!data.candidates,
-      candidatesLength: data.candidates?.length,
-      textPreview: data.candidates?.[0]?.content?.parts?.[0]?.text?.substring(0, 100),
-    });
+    const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+    const response = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 
-    const response = data.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No response from Gemini.';
-
-    // Validate response
-    if (response.length < 20 && /^\d{1,2}:\d{2}$/.test(response.trim())) {
-      console.error('[callAI] Gemini suspicious timestamp response:', response);
-      throw new Error(`Received unexpected timestamp response: "${response}"`);
-    }
-
+    validateAIResponse(response, 'Gemini');
     return response;
   }
 
   if (provider === 'claude') {
-    const url = `${base}/v1/messages`;
+    const url = `${base}${API_ENDPOINTS.CLAUDE}`;
     const systemMsg = messages.find(m => m.role === 'system')?.content;
     const chatMessages = messages.filter(m => m.role !== 'system');
 
@@ -164,9 +185,11 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
       max_tokens: 1024,
       messages: chatMessages.map(m => ({ role: m.role, content: m.content })),
     };
-    if (systemMsg) {body.system = systemMsg;}
+    if (systemMsg) {
+      body.system = systemMsg;
+    }
 
-    console.log('[callAI] Claude request:', { url, model });
+    log.debug('Claude request:', { url, model });
 
     const res = await fetch(url, {
       method: 'POST',
@@ -179,37 +202,26 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
       body: JSON.stringify(body),
     });
 
-    console.log('[callAI] Claude response status:', res.status);
-
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      console.error('[callAI] Claude error:', err);
-      throw new Error((err as { error?: { message?: string } }).error?.message ?? `Claude error ${res.status}`);
+      const err = await res.json().catch(() => ({})) as Record<string, unknown>;
+      log.error('Claude error:', err);
+      throw new Error((err.error as { message?: string })?.message ?? `Claude error ${res.status}`);
     }
 
-    const data = await res.json() as { content?: { text?: string }[] };
-    console.log('[callAI] Claude response:', {
-      hasContent: !!data.content,
-      contentLength: data.content?.length,
-      textPreview: data.content?.[0]?.text?.substring(0, 100),
-    });
+    const data = await res.json() as { content?: Array<{ text?: string }> };
+    const response = data.content?.[0]?.text ?? '';
 
-    const response = data.content?.[0]?.text ?? 'No response from Claude.';
-
-    // Validate response
-    if (response.length < 20 && /^\d{1,2}:\d{2}$/.test(response.trim())) {
-      console.error('[callAI] Claude suspicious timestamp response:', response);
-      throw new Error(`Received unexpected timestamp response: "${response}"`);
-    }
-
+    validateAIResponse(response, 'Claude');
     return response;
   }
 
-  const url = `${base}/v1/chat/completions`;
+  const url = `${base}${API_ENDPOINTS.OPENAI_COMPATIBLE}`;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (apiKey) {headers['Authorization'] = `Bearer ${apiKey}`;}
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
 
-  console.log('[callAI] OpenAI-compatible request:', { url, model });
+  log.debug('OpenAI-compatible request:', { url, model });
 
   const res = await fetch(url, {
     method: 'POST',
@@ -217,30 +229,16 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
     body: JSON.stringify({ model, messages, max_tokens: 1000 }),
   });
 
-  console.log('[callAI] Response status:', res.status, res.statusText);
-
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    console.error('[callAI] Error response:', err);
-    throw new Error((err as { error?: { message?: string } }).error?.message ?? `API error ${res.status}`);
+    const err = await res.json().catch(() => ({})) as Record<string, unknown>;
+    log.error('Error response:', err);
+    throw new Error((err.error as { message?: string })?.message ?? `API error ${res.status}`);
   }
 
-  const data = await res.json() as { choices?: { message?: { content?: string } }[] };
-  console.log('[callAI] Response data:', {
-    hasChoices: !!data.choices,
-    choicesLength: data.choices?.length,
-    firstChoice: data.choices?.[0],
-    contentPreview: data.choices?.[0]?.message?.content?.substring(0, 100),
-  });
+  const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+  const response = data.choices?.[0]?.message?.content ?? '';
 
-  const response = data.choices?.[0]?.message?.content ?? 'No response received.';
-
-  // Validate response - detect suspicious short responses that might indicate an error
-  if (response.length < 20 && /^\d{1,2}:\d{2}$/.test(response.trim())) {
-    console.error('[callAI] Suspicious timestamp-only response detected:', response);
-    throw new Error(`Received unexpected timestamp response: "${response}". This may indicate an API error or incorrect model configuration.`);
-  }
-
+  validateAIResponse(response, 'OpenAI-compatible');
   return response;
 }
 
@@ -260,41 +258,31 @@ export async function fetchModels(provider: AIProvider, baseUrl: string): Promis
   const base = baseUrl.replace(/\/$/, '');
 
   try {
-    const url = `${base}/v1/models`;
+    // Gemini uses a different API structure for listing models
     if (provider === 'gemini') {
-      // Gemini uses a different API structure for listing models
       return getPreset(provider).models;
     }
 
-    console.log('[fetchModels] Fetching from:', url);
+    const url = `${base}${API_ENDPOINTS.MODELS}`;
+    log.debug('Fetching models from:', url);
 
-    // Simple GET request for all providers
-    const res = await fetch(url, {
-      method: 'GET',
-    });
-
-    console.log('[fetchModels] Response status:', res.status, res.statusText);
-    console.log('[fetchModels] Response ok:', res.ok);
+    const res = await fetch(url, { method: 'GET' });
 
     if (!res.ok) {
       throw new Error(`Failed to fetch models: ${res.status}`);
     }
 
-    const data = await res.json();
-    console.log('[fetchModels] Response data:', data);
-
+    const data = await res.json() as { data?: Array<{ id: string }> };
     const models = data.data?.map((m: { id: string }) => m.id) ?? [];
-    console.log('[fetchModels] Extracted models:', models);
 
     if (models.length > 0) {
       return models;
     }
 
-    console.log('[fetchModels] No models found, returning presets');
+    log.debug('No models found, returning presets');
     return getPreset(provider).models;
   } catch (error) {
-    console.error('[fetchModels] Error:', error);
-    // If fetch fails, return preset models as fallback
+    log.error('Error fetching models:', error);
     return getPreset(provider).models;
   }
 }

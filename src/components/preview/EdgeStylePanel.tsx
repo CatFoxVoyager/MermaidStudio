@@ -28,6 +28,14 @@ export function EdgeStylePanel({
   const { t } = useTranslation();
   const [label, setLabel] = useState(edge.label);
 
+  const handleLabelChange = useCallback(
+    (newLabel: string) => {
+      setLabel(newLabel);
+      onLabelChange(edge.source, edge.target, newLabel);
+    },
+    [edge.source, edge.target, onLabelChange],
+  );
+
   const ARROW_OPTIONS = [
     { value: '-->',   label: t('edgeStyle.arrowArrow') },
     { value: '---',   label: t('edgeStyle.arrowLine') },
@@ -51,19 +59,6 @@ export function EdgeStylePanel({
     [edge.source, edge.target, onArrowChange],
   );
 
-  const handleLabelBlur = useCallback(() => {
-    onLabelChange(edge.source, edge.target, label);
-  }, [edge.source, edge.target, label, onLabelChange]);
-
-  const handleLabelKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        onLabelChange(edge.source, edge.target, label);
-      }
-    },
-    [edge.source, edge.target, label, onLabelChange],
-  );
-
   const handleStyleChange = useCallback(
     (field: keyof EdgeStyle, value: string | undefined) => {
       onStyleChange(edgeIndex, { [field]: value });
@@ -78,6 +73,7 @@ export function EdgeStylePanel({
       className="absolute top-0 right-0 h-full w-[280px] z-30 animate-slide-in-right rounded-l-xl border-l shadow-xl overflow-y-auto"
       style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}
       onClick={e => e.stopPropagation()}
+      onMouseDown={e => e.stopPropagation()}
     >
       {/* Header */}
       <div
@@ -171,9 +167,7 @@ export function EdgeStylePanel({
             type="text"
             value={label}
             placeholder={t('edgeStyle.labelPlaceholder')}
-            onChange={e => setLabel(e.target.value)}
-            onBlur={handleLabelBlur}
-            onKeyDown={handleLabelKeyDown}
+            onChange={e => handleLabelChange(e.target.value)}
             className="w-full px-2.5 py-1.5 rounded-md border text-xs"
             style={{
               background: 'var(--surface-base)',
@@ -204,16 +198,16 @@ export function EdgeStylePanel({
               type="range"
               min={1}
               max={8}
-              step={1}
-              value={parsePx(edgeStyle.strokeWidth) || 2}
-              onChange={e => handleStyleChange('strokeWidth', `${e.target.value}px`)}
+              step={0.5}
+              value={parsePx(edgeStyle.strokeWidth) || 1.5}
+              onChange={e => handleStyleChange('strokeWidth', `${parseFloat(e.target.value).toFixed(1)}px`)}
               className="flex-1 accent-teal-500"
             />
             <span
               className="text-xs w-8 text-right font-mono"
               style={{ color: 'var(--text-secondary)' }}
             >
-              {edgeStyle.strokeWidth ?? '2px'}
+              {edgeStyle.strokeWidth ?? '1.5px'}
             </span>
           </div>
         </div>
@@ -257,29 +251,52 @@ export function EdgeStylePanel({
           </div>
         </div>
 
-        {/* Opacity */}
+        {/* Background Color */}
+        <ColorPicker
+          label={t('edgeStyle.labelBackground') || 'Label Background'}
+          value={edgeStyle.fill ?? ''}
+          onChange={v => handleStyleChange('fill', v || undefined)}
+        />
+
+        {/* Label Text Color */}
+        <ColorPicker
+          label={t('edgeStyle.labelTextColor') || 'Label Text Color'}
+          value={edgeStyle.color ?? ''}
+          onChange={v => handleStyleChange('color', v || undefined)}
+        />
+
+        {/* Label Font Size */}
         <div className="flex flex-col gap-1">
           <span
             className="text-[10px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
-            {t('edgeStyle.opacity')}
+            {t('edgeStyle.labelFontSize')}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.1}
-              value={parseFloat(edgeStyle.opacity ?? '1')}
-              onChange={e => handleStyleChange('opacity', e.target.value)}
-              className="flex-1 accent-teal-500"
+              type="number"
+              min={8}
+              max={48}
+              step={1}
+              value={parsePx(edgeStyle.fontSize) || 18}
+              onChange={e => {
+                const v = e.target.value;
+                handleStyleChange('fontSize', v ? `${v}px` : undefined);
+              }}
+              className="flex-1 px-2 py-1.5 rounded-md border text-xs font-mono w-0"
+              style={{
+                background: 'var(--surface-base)',
+                borderColor: 'var(--border-subtle)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+              }}
             />
             <span
-              className="text-xs w-8 text-right font-mono"
-              style={{ color: 'var(--text-secondary)' }}
+              className="text-xs font-mono shrink-0"
+              style={{ color: 'var(--text-tertiary)' }}
             >
-              {edgeStyle.opacity ?? '1'}
+              px
             </span>
           </div>
         </div>

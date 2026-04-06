@@ -247,7 +247,8 @@ flowchart TD
         </div>
         <button className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-sm"
           style={{ color: 'var(--text-tertiary)' }}
-          onClick={e => showDiagramCtx(e, d)}>
+          onClick={e => showDiagramCtx(e, d)}
+          aria-label={`Options for ${d.title}`}>
           <MoreHorizontal size={11} />
         </button>
       </div>
@@ -276,7 +277,8 @@ flowchart TD
             <span className="flex-1 text-xs truncate">{f.name}</span>
           )}
           <button className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-sm"
-            onClick={e => showFolderCtx(e, f)} style={{ color: 'var(--text-tertiary)' }}>
+            onClick={e => showFolderCtx(e, f)} style={{ color: 'var(--text-tertiary)' }}
+            aria-label={`Options for ${f.name}`}>
             <MoreHorizontal size={11} />
           </button>
         </div>

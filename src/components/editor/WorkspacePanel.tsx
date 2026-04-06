@@ -63,6 +63,11 @@ export function WorkspacePanel({
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
+  function formatInterval(ms: number): string {
+    const minutes = ms / 60000;
+    return `${minutes}m`;
+  }
+
   async function handleCopyCode() {
     if (!activeTab?.content) return;
     await navigator.clipboard.writeText(activeTab.content);
@@ -166,11 +171,11 @@ export function WorkspacePanel({
           </button>
           <div className="relative" ref={autoSaveMenuRef}>
             <button onClick={() => setShowAutoSaveMenu(v => !v)}
-              title={autoSaveInterval ? `Auto-save every ${autoSaveInterval === 60000 ? '1 min' : '5 min'}` : 'Auto-save: Off'}
+              title={autoSaveInterval ? `Auto-snapshot every ${formatInterval(autoSaveInterval)}` : 'Auto-snapshot: Off'}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-all hover:bg-white/8"
               style={{ color: autoSaveInterval ? 'var(--accent)' : 'var(--text-tertiary)', background: autoSaveInterval ? 'var(--accent-dim)' : undefined }}>
               <RotateCw size={11} className={autoSaveInterval ? 'animate-spin' : ''} />
-              {showLabels && <span>Auto-save{autoSaveInterval ? ` ${autoSaveInterval === 60000 ? '1m' : '5m'}` : ''}</span>}
+              {showLabels && <span>Auto-snapshot{autoSaveInterval ? ` ${formatInterval(autoSaveInterval)}` : ''}</span>}
             </button>
             {showAutoSaveMenu && (
               <div className="absolute top-full left-0 mt-1 z-50 rounded-md border py-1 min-w-[100px]"
@@ -178,7 +183,9 @@ export function WorkspacePanel({
                 {([
                   { value: null, label: 'Off' },
                   { value: 60000, label: '1 min' },
+                  { value: 120000, label: '2 min' },
                   { value: 300000, label: '5 min' },
+                  { value: 600000, label: '10 min' },
                 ] as const).map(opt => (
                   <button key={opt.label}
                     onClick={() => { setAutoSaveInterval(opt.value); setShowAutoSaveMenu(false); }}
@@ -326,22 +333,23 @@ function EmptyState({ onNewDiagram, onShowTemplates, onShowPalette }: {
     <div className="flex-1 flex flex-col items-center justify-center preview-grid h-full"
       style={{ background: 'var(--surface-base)' }}>
       <div className="flex flex-col items-center gap-6 text-center max-w-sm p-6">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-          style={{ background: 'var(--surface-floating)' }}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2"
-            style={{ color: 'var(--text-tertiary)' }}>
-            <rect x="3" y="3" width="7" height="7" rx="1.5" />
-            <rect x="14" y="3" width="7" height="7" rx="1.5" />
-            <rect x="14" y="14" width="7" height="7" rx="1.5" />
-            <path d="M7 10v4M7 14h10M17 14v-4" strokeLinecap="round" />
-          </svg>
+        <div className="flex items-center gap-3">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+            style={{ background: 'var(--surface-floating)' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2"
+              style={{ color: 'var(--text-tertiary)' }}>
+              <rect x="3" y="3" width="7" height="7" rx="1.5" />
+              <rect x="14" y="3" width="7" height="7" rx="1.5" />
+              <rect x="14" y="14" width="7" height="7" rx="1.5" />
+              <path d="M7 10v4M7 14h10M17 14v-4" strokeLinecap="round" />
+            </svg>
+          </div>
+          <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>MermaidStudio</span>
+          <span className="text-sm font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-floating)', color: 'var(--text-secondary)' }}>v0.4</span>
         </div>
-        <div>
-          <p className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>MermaidStudio</p>
-          <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-            {t('editor.openOrCreate')}
-          </p>
-        </div>
+        <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+          {t('editor.openOrCreate')}
+        </p>
         <div className="w-full flex flex-col gap-2">
           {actions.map(({ icon, label, description, onClick, testId }) => (
             <button

@@ -1,6 +1,6 @@
-import { RotateCcw, X, Palette, Check, Plus, Pencil, Star } from 'lucide-react';
+import { RotateCcw, X, Palette, Check, Plus, Pencil, Star, Trash2 } from 'lucide-react';
 import { builtinThemes, getThemeById } from '@/constants/themes';
-import { applyC4FromTheme, stripThemeDirective, getSwatchColors, applyThemeToFrontmatter } from '@/constants/themeDerivation';
+import { applyC4FromTheme, stripThemeDirective, getSwatchColors, applyThemeToFrontmatter, removeThemeColorsFromFrontmatter } from '@/constants/themeDerivation';
 import type { MermaidTheme, DiagramType } from '@/types';
 import { getStylingCapabilities } from '@/types';
 import { useTranslation } from 'react-i18next';
@@ -79,15 +79,15 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
   const handleApplyTheme = (theme: MermaidTheme) => {
     if (!currentContent) return;
 
-    const cleanContent = stripThemeDirective(currentContent);
-
     let newContent: string;
-    if (isC4DiagramType(cleanContent)) {
+    if (isC4DiagramType(currentContent)) {
       // C4 diagrams use UpdateElementStyle/UpdateRelStyle AND store themeId
+      const cleanContent = stripThemeDirective(currentContent);
       newContent = applyC4FromTheme(cleanContent, theme);
     } else {
       // Other diagrams: generate YAML frontmatter with filtered themeVariables
-      newContent = applyThemeToFrontmatter(cleanContent, theme, isDark);
+      // DO NOT strip existing frontmatter here; applyThemeToFrontmatter preserves layout options
+      newContent = applyThemeToFrontmatter(currentContent, theme, isDark);
     }
 
     // Update preset colors if there are any preset classDef lines
@@ -108,10 +108,14 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
       let cleanContent = currentContent;
       if (isC4DiagramType(currentContent)) {
         cleanContent = stripThemeDirective(currentContent);
+      } else {
+        // Strip only theme colors, preserving Advanced Styling layout options
+        cleanContent = removeThemeColorsFromFrontmatter(cleanContent);
       }
-      // Strip theme YAML frontmatter and %% @theme comment
-      cleanContent = stripThemeDirective(cleanContent);
-      onContentChange(cleanContent);
+      // Use the prop directly to avoid any scoping issues
+      if (onContentChange) {
+        onContentChange(cleanContent);
+      }
       onThemeIdChange?.(null);
       setSelectedTheme(null);
       setShowThemeEditor(false);
@@ -137,6 +141,19 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
     if (!theme.isBuiltin) {
       setEditingTheme(theme);
       setShowThemeEditor(true);
+    }
+  };
+
+  // Handle deleting a custom theme
+  const handleDeleteTheme = (e: React.MouseEvent, themeId: string) => {
+    e.stopPropagation();
+    const updated = customThemes.filter(t => t.id !== themeId);
+    setCustomThemes(updated);
+    localStorage.setItem('mermaid-studio-custom-themes', JSON.stringify(updated));
+
+    // If the deleted theme was active, reset to default
+    if (currentThemeId === themeId) {
+      handleResetToDefault();
     }
   };
 
@@ -172,6 +189,7 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
         </div>
       </div>
 
+      {!showThemeEditor && (
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {/* Reset Button */}
         {currentThemeId && (
@@ -232,17 +250,27 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
                       </span>
                     )}
                     {!themeItem.isBuiltin && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditTheme(themeItem);
-                        }}
-                        className="p-1 rounded transition-colors hover:bg-white/10"
-                        style={{ color: 'var(--text-secondary)' }}
-                        title={t('themeEditor.editTheme')}
-                      >
-                        <Pencil size={10} />
-                      </button>
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditTheme(themeItem);
+                          }}
+                          className="p-1 rounded transition-colors hover:bg-white/10"
+                          style={{ color: 'var(--text-secondary)' }}
+                          title={t('themeEditor.editTheme')}
+                        >
+                          <Pencil size={10} />
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteTheme(e, themeItem.id)}
+                          className="p-1 rounded transition-colors hover:bg-red-500/20 hover:text-red-500"
+                          style={{ color: 'var(--text-tertiary)' }}
+                          title="Delete theme"
+                        >
+                          <Trash2 size={10} />
+                        </button>
+                      </>
                     )}
                     {isSelected && !isActive && (
                       <div className="flex items-center gap-1">
@@ -319,6 +347,7 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
           );
         })}
       </div>
+      )}
 
       {/* Theme Editor Panel (preserved from Plan 02) */}
       {showThemeEditor && (

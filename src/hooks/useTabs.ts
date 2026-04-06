@@ -109,15 +109,23 @@ export function useTabs() {
 
   const updateTabContent = useCallback((tabId: string, content: string) => {
     const themeFromContent = extractThemeIdFromContent(content);
-    setTabs(prev => prev.map(t => {
-      if (t.id !== tabId) return t;
-      const updates: Partial<Tab> = { content, is_dirty: content !== t.saved_content };
-      // Auto-detect theme from %% @theme comment when content changes (e.g. paste)
-      if (themeFromContent !== null) {
-        updates.themeId = themeFromContent;
-      }
-      return { ...t, ...updates };
-    }));
+    setTabs(prev => {
+      const tab = prev.find(t => t.id === tabId);
+      if (!tab) return prev;
+
+      // Persist to database in background immediately so it's not lost on tab switch
+      updateDiagram(tab.diagram_id, { content, themeId: themeFromContent ?? tab.themeId })
+        .catch(err => console.error('[useTabs] Auto-save failed:', err));
+
+      return prev.map(t => {
+        if (t.id !== tabId) return t;
+        const updates: Partial<Tab> = { content, is_dirty: content !== t.saved_content };
+        if (themeFromContent !== null) {
+          updates.themeId = themeFromContent;
+        }
+        return { ...t, ...updates };
+      });
+    });
   }, []);
 
   const updateTabTheme = useCallback((tabId: string, themeId: string | null) => {

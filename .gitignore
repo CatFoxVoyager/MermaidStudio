@@ -207,3 +207,49 @@ debug-*.spec.ts
 debug-*.test.ts
 *-debug.spec.ts
 *-debug.test.ts
+
+# =============================================================================
+# LIGHTHOUSE REPORTS
+# =============================================================================
+lighthouse-reports/*.json
+lighthouse-reports/*.html
+dist/stats.html
+CLAUDE.md
+
+# =============================================================================
+# ROOT DEBUG/TEST FILES
+# =============================================================================
+# PNG screenshots in root (test/debug)
+*.png
+!docs/**/*.png
+!public/**/*.png
+
+# Mermaid test files in root
+test-*.mmd
+*.mmd
+!docs/**/*.mmd
+
+# Test scripts in root
+test-*.cjs
+*-test.cjs
+*-debug.cjs
+debug-*.cjs
+
+# Gemini AI workspace
+.gemini/
+
+# Analysis/reports in root
+codebase_analysis.md
+*-analysis.md
+*-report.md
+*-debug.md
+
+# Screenshot/test directories
+screenshots/
+.backup/
+
+# Experimental source files
+src/lib/mermaid/__tests__/parseLinkStyles.test.ts
+src/utils/__tests__/edgeFontStyles.test.ts
+src/utils/__tests__/edgeLabelBackground.test.ts
+tests/e2e/tests/visual/

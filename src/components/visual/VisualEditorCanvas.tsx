@@ -83,7 +83,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     if (e) { setError(e); return; }
     setError(null);
     setSvg(s);
-  }, [content]);
+  }, [content, themeId]);
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
