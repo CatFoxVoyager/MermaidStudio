@@ -239,29 +239,30 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
       const bgColor = transparentBg ? 'transparent' : 
         getComputedStyle(document.documentElement).getPropertyValue('--surface-base').trim() || '#ffffff';
 
-      // Create a canvas element
-      const canvas = document.createElement('canvas');
-      const scale = 2; // High resolution
-      canvas.width = width * scale;
-      canvas.height = height * scale;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Could not get canvas context');
-
-      // Draw background if not transparent
-      if (!transparentBg) {
-        ctx.fillStyle = bgColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-
       // Use a data URL for the image to avoid cross-origin issues
       const img = new Image();
-      // Use btoa for encoding the SVG string to base64 to ensure it's "safe" for canvas
+      // Encode SVG as base64 data URL (more reliable than blob URL for canvas)
       const svgBase64 = btoa(unescape(encodeURIComponent(cleanSvg)));
       const url = `data:image/svg+xml;base64,${svgBase64}`;
 
       img.onload = () => {
         try {
+          // Create canvas with image's natural dimensions
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Could not get canvas context');
+
+          // Fill background first if not transparent
+          if (!transparentBg) {
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
+
+          // Draw the image at full canvas size
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
           canvas.toBlob((blob) => {
             if (blob) {
               const pngUrl = URL.createObjectURL(blob);
@@ -269,8 +270,11 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
               a.href = pngUrl;
               a.download = `${diagramTitle.replace(/\s+/g, '_')}.png`;
               a.click();
-              URL.revokeObjectURL(pngUrl);
+              // Delay URL revocation to ensure download completes
+              setTimeout(() => URL.revokeObjectURL(pngUrl), 1000);
               markDone('png');
+            } else {
+              console.error('PNG Export: Blob is null or undefined');
             }
           }, 'image/png');
         } catch (e) {
@@ -280,7 +284,6 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
 
       img.onerror = (err) => {
         console.error('Failed to load SVG into image for PNG export:', err);
-        URL.revokeObjectURL(url);
       };
 
       img.src = url;
