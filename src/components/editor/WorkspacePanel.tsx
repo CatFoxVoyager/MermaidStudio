@@ -345,7 +345,7 @@ function EmptyState({ onNewDiagram, onShowTemplates, onShowPalette }: {
             </svg>
           </div>
           <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>MermaidStudio</span>
-          <span className="text-sm font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-floating)', color: 'var(--text-secondary)' }}>v0.4</span>
+          <span className="text-sm font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-floating)', color: 'var(--text-secondary)' }}>v0.4.1</span>
         </div>
         <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
           {t('editor.openOrCreate')}

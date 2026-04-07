@@ -16,7 +16,7 @@ progress:
 
 # STATE: MermaidStudio
 
-**Last Updated:** 2026-03-28T06:20:00Z
+**Last Updated:** 2026-04-07T11:12:00Z
 **Last Session:** 2026-03-28T06:15:32.507Z
 **Stopped At:** Completed 13-04-PLAN.md
 **Current Phase:** 13
@@ -53,6 +53,8 @@ Plan: Not started
 | 260327-iwh | Add all missing Mermaid flowchart features ( v11 shapes, icons, markdown, edges) | 2026-03-27 | a7433bd | Verified | [260327-iwh-add-all-missing-mermaid-flowchart-featur](./quick/260327-iwh-add-all-missing-mermaid-flowchart-featur/) |
 | 260327-qfx | Fix theme system: render-time application + 8 color swatches | 2026-03-27 | 1561439 | Verified | [260327-qfx-fix-theme-system-apply-themes-at-render-](./quick/260327-qfx-fix-theme-system-apply-themes-at-render-/) |
 | 260328-34y | Create real themes with proper color schemes (restore full diagram color palettes) | 2026-03-28 | 71907bd | | [260328-34y-create-real-themes-with-proper-color-sch](./quick/260328-34y-create-real-themes-with-proper-color-sch/) |
+| 260407-9g8 | Add open source footer with GitHub link | 2026-04-07 | 8515ecc | Verified | [260407-9g8-add-open-source-footer-with-github-link-](./quick/260407-9g8-add-open-source-footer-with-github-link-/) |
+| 260407-9g8 | Add open source footer with GitHub link at bottom of page | 2026-04-07 | 8515ecc | Verified | [260407-9g8-add-open-source-footer-with-github-link-](./quick/260407-9g8-add-open-source-footer-with-github-link-/) |
 
 ## Performance Metrics
 
