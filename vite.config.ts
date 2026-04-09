@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
+import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -18,17 +19,7 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   optimizeDeps: {
-    exclude: ['lucide-react', 'mermaid'],
-    include: ['dayjs', '@braintree/sanitize-url', 'langium'],
-    esbuildOptions: {
-      target: 'esnext',
-    },
-  },
-  resolve: {
-    tsconfigPaths: true,
-    alias: {
-      'dayjs/plugin/isoWeek': 'dayjs/esm/plugin/isoWeek',
-    },
+    exclude: ['lucide-react'],
   },
   server: {
     port: 5173,
