@@ -13,6 +13,8 @@ interface Props {
   onClose: () => void;
   onOpenSettings: () => void;
   settingsKey?: number; // Add this to force reload when settings change
+  fixMode?: boolean;           // ADD THIS
+  onEnterFixMode?: () => void; // ADD THIS
 }
 
 function CodeBlock({ lang, code, onApply }: { lang: string; code: string; onApply?: (c: string) => void }) {
@@ -173,7 +175,7 @@ function ProviderBadge({ provider }: { provider: string }) {
   );
 }
 
-export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, settingsKey }: Props) {
+export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, settingsKey, fixMode, onEnterFixMode }: Props) {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
 
@@ -186,6 +188,9 @@ export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, sett
     addMessage,
     isConfigured,
   });
+
+  // Hide suggestions when in fix mode
+  const shouldShowSuggestions = messages.length === 0 && !fixMode;
 
   const SUGGESTIONS = [
     t('ai.suggestion1'), t('ai.suggestion2'),
@@ -272,7 +277,18 @@ export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, sett
           </div>
         )}
         {messages.map(m => <Bubble key={m.id} msg={m} onApply={onApply} />)}
-        {loading && (
+        {loading && fixMode && (
+          <div className="flex gap-2.5">
+            <div className="w-6 h-6 rounded-full flex items-center justify-center border" style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
+              <Bot size={11} style={{ color: 'var(--accent)' }} />
+            </div>
+            <div className="flex items-center gap-1 px-3 py-2 rounded-xl" style={{ background: 'var(--surface-floating)' }}>
+              <div className="w-1.5 h-1.5 rounded-full animate-pulse-dot" style={{ background: 'var(--accent)' }} />
+              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('ai.analyzing')}</span>
+            </div>
+          </div>
+        )}
+        {loading && !fixMode && (
           <div className="flex gap-2.5">
             <div className="w-6 h-6 rounded-full flex items-center justify-center border" style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
               <Bot size={11} style={{ color: 'var(--accent)' }} />
@@ -288,7 +304,7 @@ export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, sett
         <div ref={bottomRef} />
       </div>
 
-      {messages.length === 0 && (
+      {shouldShowSuggestions && (
         <div className="px-3 pb-2 shrink-0 flex flex-wrap gap-1.5">
           {SUGGESTIONS.map(s => (
             <button key={s} onClick={() => handleSend(s)}
