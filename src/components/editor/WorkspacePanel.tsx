@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, Clock, Download, Sparkles, AlignLeft, Maximize, GitCompare, BookmarkPlus, FilePlus, LayoutTemplate, Terminal, Palette, SlidersHorizontal, Undo, Copy, Check, RotateCw } from 'lucide-react';
+import { Save, Clock, Download, Sparkles, AlignLeft, Maximize, GitCompare, BookmarkPlus, FilePlus, LayoutTemplate, Terminal, Palette, SlidersHorizontal, Undo, Copy, Check, RotateCw, Wrench } from 'lucide-react';
 import { CodeEditor } from './CodeEditor';
 import type { CodeEditorRef } from './CodeEditor';
 import { PreviewPanel } from '@/preview/PreviewPanel';
@@ -37,6 +37,7 @@ interface Props {
   onRenderTime: (ms: number) => void;
   /** Diagram-specific theme ID from the active tab */
   themeId?: string;
+  onOpenAIPanel?: (options?: { mode?: 'chat' | 'fix' }) => void;
 }
 
 export function WorkspacePanel({
@@ -45,7 +46,7 @@ export function WorkspacePanel({
   onShowHistory, onShowExport, onToggleAI, onFullscreen, onSaveTemplate,
   onNewDiagram, onShowTemplates, onShowPalette, onShowDiagramColors, onShowAdvancedStyle,
   onDiagramColorsClose, onAdvancedStyleClose, showDiagramColors, showAdvancedStyle,
-  showAI, renderTimeMs, onRenderTime, themeId,
+  showAI, renderTimeMs, onRenderTime, themeId, onOpenAIPanel,
 }: Props) {
   const { t } = useTranslation();
   const [splitPos, setSplitPos] = useState(40);
@@ -210,6 +211,13 @@ export function WorkspacePanel({
             data-testid="ai-button"
             icon={<Sparkles size={13} />} label="AI" showLabel={showLabels}
             onClick={onToggleAI} title={t('editor.aiAssistant')} active={showAI} />
+          <ToolbarButton
+            data-testid="fix-diagram-button"
+            icon={<><Wrench size={13} /><Sparkles size={9} className="ml-[-4px] mt-[2px]" /></>}
+            label="Fix"
+            showLabel={showLabels}
+            onClick={() => onOpenAIPanel?.({ mode: 'fix' })}
+            title={t('ai.fixDiagram')} />
           <ToolbarButton icon={<Palette size={13} />} label={t('editor.diagramColors')} showLabel={showLabels}
             onClick={onShowDiagramColors} title={t('editor.diagramColors')} />
           <ToolbarButton icon={<SlidersHorizontal size={13} />} label={t('editor.advancedStyling')} showLabel={showLabels}
