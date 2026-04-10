@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppLayout } from '@/components/AppLayout';
@@ -47,6 +47,25 @@ export default function App() {
     openDiagram: appState.openDiagram,
     refresh: appState.refresh,
   });
+
+  // Fix mode state for AI panel
+  const [aiFixMode, setAiFixMode] = useState(false);
+
+  // Handler for opening AI panel with mode option
+  const handleOpenAIPanel = useCallback((options?: { mode?: 'chat' | 'fix' }) => {
+    openModal('showAI');
+    if (options?.mode === 'fix') {
+      setAiFixMode(true);
+    } else {
+      setAiFixMode(false);
+    }
+  }, [openModal]);
+
+  // Update handleCloseAIPanel to reset fix mode
+  const handleCloseAIPanel = useCallback(() => {
+    closeModal('showAI');
+    setAiFixMode(false);
+  }, [closeModal]);
 
   // Diagram actions
   const { newDiagram, handleTemplateSelect, handleNewFolder } = useDiagramActions({
@@ -115,8 +134,10 @@ export default function App() {
         showDiagramColors={modals.showDiagramColors}
         showAdvancedStyle={modals.showAdvancedStyle}
         onAIApply={modalHandlers.handleAIApply}
-        onAIClose={modalClose('showAI')}
+        onAIClose={handleCloseAIPanel}
         onAIOpenSettings={modalOpen('showAISettings')}
+        onOpenAIPanel={handleOpenAIPanel}
+        aiFixMode={aiFixMode}
         onDiagramColorsClose={modalClose('showDiagramColors')}
         onAdvancedStyleClose={modalClose('showAdvancedStyle')}
         focusMode={appState.focusMode}
