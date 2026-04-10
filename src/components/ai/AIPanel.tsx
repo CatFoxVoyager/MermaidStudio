@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, Send, Bot, User, Sparkles, Copy, Check, RotateCcw, Settings2, AlertCircle } from 'lucide-react';
 import type { AIMessage } from '@/types';
@@ -182,12 +182,19 @@ export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, sett
   // Use extracted hooks for all logic
   const { messages, addMessage, resetChat, bottomRef } = useAIChat();
   const { provider, isConfigured, preset } = useAISettings(settingsKey);
-  const { send, loading } = useAISend({
+  const { send, sendFixRequest, loading } = useAISend({
     currentContent,
     messages,
     addMessage,
     isConfigured,
   });
+
+  // Trigger fix request when entering fix mode
+  useEffect(() => {
+    if (fixMode && isConfigured && messages.length === 0) {
+      sendFixRequest(t);
+    }
+  }, [fixMode, isConfigured]);
 
   // Hide suggestions when in fix mode
   const shouldShowSuggestions = messages.length === 0 && !fixMode;
