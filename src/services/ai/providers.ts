@@ -120,7 +120,8 @@ interface ChatMessage {
 
 export async function callAI(config: AIProviderConfig, messages: ChatMessage[]): Promise<string> {
   const { provider, apiKey, baseUrl, model } = config;
-  const base = baseUrl.replace(/\/$/, '');
+  // Remove trailing slash and /v1 suffix to avoid double /v1/ in URLs
+  const base = baseUrl.replace(/\/$/, '').replace(/\/v1$/, '');
 
   log.debug('Request:', {
     provider,
@@ -255,7 +256,8 @@ export async function testConnection(config: AIProviderConfig): Promise<{ ok: bo
 }
 
 export async function fetchModels(provider: AIProvider, baseUrl: string): Promise<string[]> {
-  const base = baseUrl.replace(/\/$/, '');
+  // Remove trailing slash and /v1 suffix to avoid double /v1/ in URLs
+  const base = baseUrl.replace(/\/$/, '').replace(/\/v1$/, '');
 
   try {
     // Gemini uses a different API structure for listing models
