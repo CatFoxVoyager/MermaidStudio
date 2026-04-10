@@ -222,7 +222,7 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
     headers['Authorization'] = `Bearer ${apiKey}`;
   }
 
-  const requestBody = { model, messages, max_tokens: 1000 };
+  const requestBody = { model, messages, max_tokens: 4096 };
   log.debug('OpenAI-compatible request:', { url, model, body: requestBody });
 
   const res = await fetch(url, {
@@ -237,8 +237,21 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
     throw new Error((err.error as { message?: string })?.message ?? `API error ${res.status}`);
   }
 
-  const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
-  const response = data.choices?.[0]?.message?.content ?? '';
+  const data = await res.json() as {
+    choices?: Array<{
+      message?: {
+        content?: string;
+        reasoning_content?: string;
+      };
+    }>;
+  };
+
+  // Some models (like GLM) put content in reasoning_content field
+  const choice = data.choices?.[0];
+  const response =
+    choice?.message?.reasoning_content ?? // Reasoning models (GLM, DeepSeek-R1)
+    choice?.message?.content ??           // Standard OpenAI format
+    '';
 
   validateAIResponse(response, 'OpenAI-compatible');
   return response;
