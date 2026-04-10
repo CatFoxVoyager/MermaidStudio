@@ -54,6 +54,8 @@ interface AppLayoutProps {
   onAIApply: (content: string) => void;
   onAIClose: () => void;
   onAIOpenSettings: () => void;
+  onOpenAIPanel?: (options?: { mode?: 'chat' | 'fix' }) => void;
+  aiFixMode?: boolean;
   onDiagramColorsClose: () => void;
   onAdvancedStyleClose: () => void;
   /** Called when diagram-level theme changes (from DiagramColorsPanel) */
@@ -103,6 +105,8 @@ export function AppLayout({
   onAIApply,
   onAIClose,
   onAIOpenSettings,
+  onOpenAIPanel,
+  aiFixMode,
   onDiagramColorsClose,
   onAdvancedStyleClose,
   onThemeIdChange,
@@ -170,6 +174,7 @@ export function AppLayout({
             showDiagramColors={showDiagramColors}
             showAdvancedStyle={showAdvancedStyle}
             onRenderTime={onRenderTime}
+            onOpenAIPanel={onOpenAIPanel}
           />
 
           <div className="shrink-0 overflow-hidden transition-all duration-200"
@@ -216,6 +221,8 @@ export function AppLayout({
                   onClose={onAIClose}
                   onOpenSettings={onAIOpenSettings}
                   settingsKey={0} // This would need to be passed separately
+                  fixMode={aiFixMode}
+                  onEnterFixMode={() => {}}
                 />
               </Suspense>
             )}
