@@ -158,7 +158,14 @@
     "describeDefault": "Ask me to explain, improve, or transform your diagram",
     "configureProvider": "Click the settings icon above to configure an AI provider (OpenAI, Claude, Gemini, Ollama, LM Studio, or any OpenAI-compatible endpoint).",
     "providerSettings": "AI Provider Settings",
-    "errorPrefix": "Failed to get a response: {{msg}}\n\nCheck your provider settings and try again."
+    "errorPrefix": "Failed to get a response: {{msg}}\n\nCheck your provider settings and try again.",
+    "fixDiagram": "Fix Diagram",
+    "fixDiagramTitle": "AI Diagram Fix",
+    "fixDiagramButton": "Fix with AI",
+    "analyzing": "Analyzing diagram...",
+    "noIssuesFound": "No issues found! Your diagram looks great.",
+    "fixErrorPrefix": "Fix error: {{msg}}",
+    "openChatForHelp": "Open chat for help"
   },
   "editor": {
     "codeEditor": "Code Editor",

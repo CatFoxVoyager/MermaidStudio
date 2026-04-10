@@ -158,7 +158,14 @@
     "describeDefault": "Demandez-moi d'expliquer, d'améliorer ou de transformer votre diagramme",
     "configureProvider": "Cliquez sur l'icône de paramètres ci-dessus pour configurer un fournisseur IA (OpenAI, Claude, Gemini, Ollama, LM Studio ou tout point de terminaison compatible OpenAI).",
     "providerSettings": "Paramètres du fournisseur IA",
-    "errorPrefix": "Échec de la réponse : {{msg}}\n\nVérifiez vos paramètres de fournisseur et réessayez."
+    "errorPrefix": "Échec de la réponse : {{msg}}\n\nVérifiez vos paramètres de fournisseur et réessayez.",
+    "fixDiagram": "Réparer le diagramme",
+    "fixDiagramTitle": "Réparation IA de diagramme",
+    "fixDiagramButton": "Réparer avec IA",
+    "analyzing": "Analyse du diagramme...",
+    "noIssuesFound": "Aucun problème trouvé ! Votre diagramme est excellent.",
+    "fixErrorPrefix": "Erreur de réparation : {{msg}}",
+    "openChatForHelp": "Ouvrir le chat pour aider"
   },
   "editor": {
     "codeEditor": "Éditeur de code",
