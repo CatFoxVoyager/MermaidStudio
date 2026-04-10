@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { getSettings } from '@/services/storage/database';
 import { callAI } from '@/services/ai/providers';
-import { buildSystemPrompt } from '@/components/ai/mermaidSystemPrompt';
+import { buildSystemPrompt, buildFixSystemPrompt } from '@/components/ai/mermaidSystemPrompt';
 import { logger } from '@/utils/logger';
 import type { AIMessage } from '@/types';
 
@@ -143,5 +143,82 @@ export function useAISend({ currentContent, messages, addMessage, isConfigured }
     }
   }, [currentContent, messages, addMessage, isConfigured, loading]);
 
-  return { send, loading };
+  const sendFixRequest = useCallback(async (t: (key: string, params?: unknown) => string) => {
+    if (loading) {
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const currentSettings = await getSettings();
+
+      if (isConfigured) {
+        const hasDiagram = currentContent.trim().length > 0;
+        const diagramType = detectDiagramTypeFromContent(currentContent);
+
+        // Use the fix-specific system prompt
+        const systemPrompt = buildFixSystemPrompt({
+          currentContent,
+          hasDiagram,
+          diagramType,
+        });
+
+        // Build fix request message
+        const allMessages = [
+          { role: 'system' as const, content: systemPrompt },
+          { role: 'user' as const, content: 'Please analyze this diagram for syntax, semantic, and style issues. Provide the fixed version.' },
+        ];
+
+        log.debug('Sending fix request', {
+          provider: currentSettings.ai_provider ?? 'openai',
+          model: currentSettings.ai_model ?? 'default',
+          hasDiagram,
+          diagramType,
+        });
+
+        const reply = await callAI({
+          provider: currentSettings.ai_provider ?? 'openai',
+          apiKey: currentSettings.ai_api_key ?? '',
+          baseUrl: currentSettings.ai_base_url ?? '',
+          model: currentSettings.ai_model ?? '',
+        }, allMessages);
+
+        log.debug('Received fix response', {
+          replyLength: reply?.length ?? 0,
+          replyPreview: reply?.substring(0, 100),
+        });
+
+        // Handle response
+        if (!reply || reply.trim().length === 0) {
+          log.warn('Empty fix response');
+          addMessage('assistant', t('ai.errorPrefix', { msg: 'Empty response from AI provider. Please check your settings.' }));
+        } else if (reply.includes('No issues found') || reply.includes('looks great')) {
+          // No issues found - positive message
+          addMessage('assistant', reply);
+        } else if (reply.includes('Error:') || (reply.startsWith('Error') && !reply.includes('syntax error'))) {
+          // Error in response (but not "syntax error" which is valid)
+          log.warn('Error in fix response:', reply);
+          addMessage('assistant', t('ai.errorPrefix', { msg: reply }));
+        } else {
+          // Valid response with fixes
+          addMessage('assistant', reply);
+        }
+      } else {
+        // Not configured
+        addMessage('assistant', `To use the Fix Diagram feature, please configure your AI provider first.\n\n${t('ai.configureProvider')}`);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unknown error';
+      log.error('Fix request error:', e);
+      const safeMsg = msg.replace(/api[_-]?key[^=]*=\s*\S+/gi, '[REDACTED]')
+        .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
+        .replace(/sk-[a-zA-Z0-9]{20,}/g, '[REDACTED_KEY]');
+      addMessage('assistant', t('ai.errorPrefix', { msg: safeMsg }));
+    } finally {
+      setLoading(false);
+    }
+  }, [currentContent, addMessage, isConfigured, loading]);
+
+  return { send, sendFixRequest, loading };
 }
