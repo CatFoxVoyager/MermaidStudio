@@ -53,8 +53,8 @@ MermaidStudio is an open-source, self-hosted Mermaid diagram editor that runs en
 
 #### AI Features
 - ✨ **Diagram Generation** - Create diagrams from natural language prompts
-- 🔧 **AI Correction** - Let AI fix syntax errors
-- 💡 **Diagram Enhancement** - Refine your diagrams with suggestions
+- 🔧 **AI Fix Diagram** - Automatically detect and repair syntax errors, semantic issues, and style problems with a single click
+- 💡 **Diagram Enhancement** - Refine your diagrams with suggestions and improvements
 
 ### 📄 Data Management
 - 💾 **Local Storage** - Persistent storage with browser localStorage
