@@ -222,12 +222,13 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
     headers['Authorization'] = `Bearer ${apiKey}`;
   }
 
-  log.debug('OpenAI-compatible request:', { url, model });
+  const requestBody = { model, messages, max_tokens: 1000 };
+  log.debug('OpenAI-compatible request:', { url, model, body: requestBody });
 
   const res = await fetch(url, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ model, messages, max_tokens: 1000 }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!res.ok) {
