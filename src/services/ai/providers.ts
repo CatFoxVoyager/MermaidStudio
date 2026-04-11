@@ -1,6 +1,7 @@
 import type { AIProvider, AIProviderConfig } from '@/types';
 import { aiRateLimiter } from '@/utils/rateLimiter';
 import { logger } from '@/utils/logger';
+import { callEmbeddedAI } from './EmbeddedProvider';
 
 const log = logger.scope('AI Provider');
 
@@ -28,6 +29,31 @@ export interface ProviderPreset {
 }
 
 export const PROVIDER_PRESETS: ProviderPreset[] = [
+  {
+    id: 'embedded',
+    label: 'In-Browser (CPU Only)',
+    baseUrl: '',
+    defaultModel: 'llama-3.2-1b-q4_k_m',
+    models: [
+      'smollm2-360m-q8_0',
+      'llama-3.2-1b-q4_k_m',
+      'qwen2.5-0.5b-instruct-q8_0',
+      'phi-3.5-mini-instruct-q4_k_m'
+    ],
+    requiresKey: false,
+    keyPlaceholder: '',
+    description: 'Runs entirely in your browser using CPU. No account or API key needed.',
+  },
+  {
+    id: 'ollama-cpu',
+    label: 'Ollama (CPU Optimized)',
+    baseUrl: 'http://host.docker.internal:11434',
+    defaultModel: 'liquid-lfm:1.2b',
+    models: ['liquid-lfm:1.2b', 'qwen2.5-coder:0.5b', 'qwen2.5-coder:1.5b', 'phi3.5:mini', 'llama3.2:1b', 'deepseek-v2:lite', 'gemma2:2b'],
+    requiresKey: false,
+    keyPlaceholder: '',
+    description: 'Ultra-light models for CPU-only execution (Fast & No GPU needed)',
+  },
   {
     id: 'openai',
     label: 'OpenAI',
@@ -162,8 +188,18 @@ interface ChatMessage {
   content: string;
 }
 
-export async function callAI(config: AIProviderConfig, messages: ChatMessage[]): Promise<string> {
+export async function callAI(
+  config: AIProviderConfig, 
+  messages: ChatMessage[],
+  onProgress?: (progress: number) => void
+): Promise<string> {
   const { provider, apiKey, baseUrl, model } = config;
+
+  if (provider === 'embedded') {
+    log.debug('Using Embedded AI provider', { model });
+    return callEmbeddedAI(model, messages, onProgress);
+  }
+
   // Remove trailing slash and /v1 suffix to avoid double /v1/ in URLs
   const base = baseUrl.replace(/\/$/, '').replace(/\/v1$/, '');
 
@@ -292,10 +328,13 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
     }>;
   };
 
-  // Some models (like GLM) put content in reasoning_content field
+  // Reasoning models (o1, o3) return both reasoning_content (thoughts) and content (answer)
+  // Some models (GLM) put actual content in reasoning_content field
   const choice = data.choices?.[0];
+  const content = choice?.message?.content?.trim() || '';
   const reasoningContent = choice?.message?.reasoning_content?.trim() || '';
-  let response = reasoningContent || choice?.message?.content || '';
+  // Prioritize content (actual response) over reasoning_content (internal thoughts)
+  let response = content || reasoningContent;
   response = filterThinkingPatterns(response);
 
   validateAIResponse(response, 'OpenAI-compatible');
@@ -303,6 +342,9 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
 }
 
 export async function testConnection(config: AIProviderConfig): Promise<{ ok: boolean; message: string }> {
+  if (config.provider === 'embedded') {
+    return { ok: true, message: 'Embedded AI is ready!' };
+  }
   try {
     const result = await callAI(config, [
       { role: 'user', content: 'Reply with only the word "ok".' },

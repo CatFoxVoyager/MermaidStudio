@@ -182,7 +182,7 @@ export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, sett
   // Use extracted hooks for all logic
   const { messages, addMessage, resetChat, bottomRef } = useAIChat();
   const { provider, isConfigured, preset } = useAISettings(settingsKey);
-  const { send, sendFixRequest, loading } = useAISend({
+  const { send, sendFixRequest, loading, downloadProgress } = useAISend({
     currentContent,
     messages,
     addMessage,
@@ -300,11 +300,25 @@ export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, sett
             <div className="w-6 h-6 rounded-full flex items-center justify-center border" style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
               <Bot size={11} style={{ color: 'var(--accent)' }} />
             </div>
-            <div className="flex items-center gap-1 px-3 py-2 rounded-xl" style={{ background: 'var(--surface-floating)' }}>
-              {[0, 150, 300].map(d => (
-                <div key={d} className="w-1.5 h-1.5 rounded-full animate-pulse-dot"
-                  style={{ background: 'var(--text-tertiary)', animationDelay: `${d}ms` }} />
-              ))}
+            <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+              <div className="flex items-center gap-1 px-3 py-2 rounded-xl" style={{ background: 'var(--surface-floating)', alignSelf: 'flex-start' }}>
+                {downloadProgress !== null ? (
+                  <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    {t('ai.downloadingModel')} ({downloadProgress}%)
+                  </span>
+                ) : (
+                  [0, 150, 300].map(d => (
+                    <div key={d} className="w-1.5 h-1.5 rounded-full animate-pulse-dot"
+                      style={{ background: 'var(--text-tertiary)', animationDelay: `${d}ms` }} />
+                  ))
+                )}
+              </div>
+              {downloadProgress !== null && (
+                <div className="w-32 h-1 rounded-full overflow-hidden" style={{ background: 'var(--surface-base)' }}>
+                  <div className="h-full transition-all duration-300" 
+                    style={{ width: `${downloadProgress}%`, background: 'var(--accent)' }} />
+                </div>
+              )}
             </div>
           </div>
         )}
