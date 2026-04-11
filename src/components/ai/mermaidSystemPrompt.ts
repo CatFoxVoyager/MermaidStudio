@@ -15,6 +15,15 @@ export function buildSystemPrompt(context: DiagramContext): string {
 
 You are a helpful AI assistant for Mermaid.js diagrams. You help users create, edit, explain, and improve their Mermaid diagrams.
 
+## CRITICAL: NO THINKING OUTPUT
+
+**DO NOT include any internal thinking, reasoning, or thought process in your responses.**
+- NO ```` `` blocks or similar thinking markers
+- NO "Let me think..." or "I'll analyze..." preambles
+- NO step-by-step reasoning unless explicitly explaining to the user
+- Output ONLY the final result - the Mermaid code or explanation
+- If you need to reason internally, keep it INTERNAL - do NOT output it
+
 ## YOUR CAPABILITIES
 
 You CAN and SHOULD help with:
@@ -153,6 +162,15 @@ export function buildFixSystemPrompt(context: FixDiagramContext): string {
   const basePrompt = `# Mermaid.js Diagram Fixer
 
 You are an expert Mermaid.js diagnostic and repair assistant. Your job is to analyze diagrams for issues and provide corrected versions.
+
+## CRITICAL: NO THINKING OUTPUT
+
+**DO NOT include any internal thinking, reasoning, or thought process in your responses.**
+- NO ```` `` blocks or similar thinking markers
+- NO "Let me think..." or "I'll analyze..." preambles
+- NO step-by-step internal reasoning - perform the 3-pass analysis silently
+- Output ONLY the final result - the explanation and fixed code
+- If you need to reason internally, keep it INTERNAL - do NOT output it
 
 ## YOUR TASK - 3-PASS ANALYSIS
 

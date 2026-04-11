@@ -113,6 +113,50 @@ function validateAIResponse(response: string, providerName: string): void {
   }
 }
 
+/**
+ * Filter out thinking/reasoning patterns from AI model responses
+ * Some models (Qwen, DeepSeek-R1, etc.) output internal thinking that should be removed
+ */
+function filterThinkingPatterns(response: string): string {
+  let filtered = response;
+
+  // Remove thinking blocks with various markers
+  const thinkingPatterns = [
+    // ```thinking ``` or ```thought ``` blocks
+    /```(?:thinking|thought|reasoning)(?:\n[\s\S]*?)?```[\s\S]*?```/gi,
+    // <thinking>...</thinking> XML-style tags
+    /<thinking>[\s\S]*?<\/thinking>/gi,
+    // <thought>...</thought> XML-style tags
+    /<thought>[\s\S]*?<\/thought>/gi,
+    // <reasoning>...</reasoning> XML-style tags
+    /<reasoning>[\s\S]*?<\/reasoning>/gi,
+  ];
+
+  for (const pattern of thinkingPatterns) {
+    filtered = filtered.replace(pattern, '');
+  }
+
+  // Remove lines starting with common thinking prefixes
+  const thinkingPrefixPatterns = [
+    /^(Thinking|Thought|Reasoning|Analysis|Let me think|Let me analyze|I'll analyze|I'll think).*$/gim,
+    /^(Step \d+|First|Second|Third|Next|Then|Finally).*?:.*$/gim,
+  ];
+
+  for (const pattern of thinkingPrefixPatterns) {
+    filtered = filtered.replace(pattern, '');
+  }
+
+  // Clean up multiple consecutive blank lines
+  filtered = filtered.replace(/\n{3,}/g, '\n\n');
+
+  const trimmed = filtered.trim();
+  if (trimmed !== response) {
+    log.debug('Filtered thinking patterns from response');
+  }
+
+  return trimmed;
+}
+
 interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -170,7 +214,8 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
     }
 
     const data = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-    const response = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    let response = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+    response = filterThinkingPatterns(response);
 
     validateAIResponse(response, 'Gemini');
     return response;
@@ -210,7 +255,8 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
     }
 
     const data = await res.json() as { content?: Array<{ text?: string }> };
-    const response = data.content?.[0]?.text ?? '';
+    let response = data.content?.[0]?.text ?? '';
+    response = filterThinkingPatterns(response);
 
     validateAIResponse(response, 'Claude');
     return response;
@@ -248,10 +294,9 @@ export async function callAI(config: AIProviderConfig, messages: ChatMessage[]):
 
   // Some models (like GLM) put content in reasoning_content field
   const choice = data.choices?.[0];
-  const response =
-    choice?.message?.reasoning_content ?? // Reasoning models (GLM, DeepSeek-R1)
-    choice?.message?.content ??           // Standard OpenAI format
-    '';
+  const reasoningContent = choice?.message?.reasoning_content?.trim() || '';
+  let response = reasoningContent || choice?.message?.content || '';
+  response = filterThinkingPatterns(response);
 
   validateAIResponse(response, 'OpenAI-compatible');
   return response;
