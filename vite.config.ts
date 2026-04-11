@@ -19,11 +19,15 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   optimizeDeps: {
-    exclude: ['lucide-react'],
+    exclude: ['lucide-react', '@wllama/wllama'],
   },
   server: {
     port: 5173,
     strictPort: false,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
   },
   build: {
     // Enable better minification (use default for compatibility)
