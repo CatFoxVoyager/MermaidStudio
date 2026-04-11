@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { getSettings } from '@/services/storage/database';
 import { callAI } from '@/services/ai/providers';
-import { buildSystemPrompt, buildFixSystemPrompt } from '@/components/ai/mermaidSystemPrompt';
+import { buildSystemPrompt, buildFixSystemPrompt, buildCompactRAGPrompt } from '@/components/ai/mermaidSystemPrompt';
 import { logger } from '@/utils/logger';
 import type { AIMessage } from '@/types';
 
@@ -51,6 +51,7 @@ interface UseAISendParams {
  */
 export function useAISend({ currentContent, messages, addMessage, isConfigured }: UseAISendParams) {
   const [loading, setLoading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
 
   const send = useCallback(async (text: string, t: (key: string, params?: unknown) => string) => {
     if (!text.trim() || loading) {
@@ -58,6 +59,7 @@ export function useAISend({ currentContent, messages, addMessage, isConfigured }
     }
 
     setLoading(true);
+    setDownloadProgress(null);
 
     try {
       const currentSettings = await getSettings();
@@ -65,12 +67,22 @@ export function useAISend({ currentContent, messages, addMessage, isConfigured }
       if (isConfigured) {
         const hasDiagram = currentContent.trim().length > 0;
         const diagramType = detectDiagramTypeFromContent(currentContent);
+        const modelName = (currentSettings.ai_model ?? '').toLowerCase();
+        
+        // Use compact RAG prompt for ultra-light models
+        const isSmallModel = modelName.includes('0.5b') || 
+                            modelName.includes('1.2b') || 
+                            modelName.includes('1.5b') ||
+                            modelName.includes('liquid') ||
+                            currentSettings.ai_provider === 'embedded';
 
-        const systemPrompt = buildSystemPrompt({
-          currentContent,
-          hasDiagram,
-          diagramType,
-        });
+        const systemPrompt = isSmallModel 
+          ? buildCompactRAGPrompt({ currentContent, hasDiagram })
+          : buildSystemPrompt({
+              currentContent,
+              hasDiagram,
+              diagramType,
+            });
 
         const chatHistory = messages.slice(-6).map(m => ({
           role: m.role as 'user' | 'assistant',
@@ -98,7 +110,11 @@ export function useAISend({ currentContent, messages, addMessage, isConfigured }
           apiKey: currentSettings.ai_api_key ?? '',
           baseUrl: currentSettings.ai_base_url ?? '',
           model: currentSettings.ai_model ?? '',
-        }, allMessages);
+        }, allMessages, (progress) => {
+          setDownloadProgress(progress);
+        });
+
+        setDownloadProgress(null);
 
         log.debug('Received AI response', {
           replyLength: reply?.length ?? 0,

@@ -1,7 +1,7 @@
 // src/types/ai.ts
 // AI-related types extracted from types/index.ts
 
-export type AIProvider = 'ollama' | 'lmstudio' | 'openai' | 'gemini' | 'claude' | 'custom';
+export type AIProvider = 'ollama' | 'ollama-cpu' | 'lmstudio' | 'openai' | 'gemini' | 'claude' | 'custom' | 'embedded';
 
 export interface AIProviderConfig {
   provider: AIProvider;
