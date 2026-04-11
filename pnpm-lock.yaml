@@ -50,6 +50,9 @@ importers:
       '@vercel/speed-insights':
         specifier: ^2.0.0
         version: 2.0.0(react@19.2.4)
+      '@wllama/wllama':
+        specifier: ^1.16.0
+        version: 1.17.1
       codemirror:
         specifier: ^6.0.2
         version: 6.0.2
@@ -1710,6 +1713,9 @@ packages:
 
   '@vitest/utils@4.1.2':
     resolution: {integrity: sha512-xw2/TiX82lQHA06cgbqRKFb5lCAy3axQ4H4SoUFhUsg+wztiet+co86IAMDtF6Vm1hc7J6j09oh/rgDn+JdKIQ==}
+
+  '@wllama/wllama@1.17.1':
+    resolution: {integrity: sha512-qQt4/f0w3vnS+fSNM1p1ewP5YG9YQTT6BYJptU7uotDfC3EgVAjqMCbbKxtnrZoPZM4q51UddHngJCAJtcqc5Q==}
 
   accepts@1.3.8:
     resolution: {integrity: sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==}
@@ -6147,6 +6153,8 @@ snapshots:
       '@vitest/pretty-format': 4.1.2
       convert-source-map: 2.0.0
       tinyrainbow: 3.1.0
+
+  '@wllama/wllama@1.17.1': {}
 
   accepts@1.3.8:
     dependencies:
