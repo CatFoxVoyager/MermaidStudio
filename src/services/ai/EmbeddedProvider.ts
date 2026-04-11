@@ -20,9 +20,9 @@ const log = logger.scope('Embedded AI');
 
 // Configuration for embedded models
 const MODEL_CONFIGS: Record<string, { url: string; size: string }> = {
-  'lfm2.5-1.2b-instruct-q4_k_m': {
-    url: 'https://huggingface.co/LiquidAI/LFM2.5-1.2B-Instruct-GGUF/resolve/main/LFM2.5-1.2B-Instruct-Q4_K_M.gguf',
-    size: '731MB'
+  'qwen2.5-1.5b-instruct-q4_k_m': {
+    url: 'https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf',
+    size: '1.1GB'
   },
   'smollm2-360m-q8_0': {
     url: 'https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct-GGUF/resolve/main/smollm2-360m-instruct-q8_0.gguf',
@@ -87,7 +87,6 @@ export async function loadEmbeddedModel(modelId: string, onProgress?: (progress:
     await wllama.loadModelFromUrl(config.url, {
       progressCallback: ({ loaded, total }) => {
         const progress = Math.round((loaded / total) * 100);
-        console.log(`Wllama Progress: ${progress}% (${loaded}/${total})`);
         if (onProgress) {
           onProgress(progress);
         }

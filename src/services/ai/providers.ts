@@ -33,8 +33,9 @@ export const PROVIDER_PRESETS: ProviderPreset[] = [
     id: 'embedded',
     label: 'In-Browser (CPU Only)',
     baseUrl: '',
-    defaultModel: 'llama-3.2-1b-q4_k_m',
+    defaultModel: 'qwen2.5-1.5b-instruct-q4_k_m',
     models: [
+      'qwen2.5-1.5b-instruct-q4_k_m',
       'smollm2-360m-q8_0',
       'llama-3.2-1b-q4_k_m',
       'qwen2.5-0.5b-instruct-q8_0',
