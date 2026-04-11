@@ -50,6 +50,11 @@ export default function App() {
 
   // Fix mode state for AI panel
   const [aiFixMode, setAiFixMode] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+
+  const handlePreviewError = useCallback((error: string | null) => {
+    setPreviewError(error);
+  }, []);
 
   // Handler for opening AI panel with mode option
   const handleOpenAIPanel = useCallback((options?: { mode?: 'chat' | 'fix' }) => {
@@ -138,12 +143,15 @@ export default function App() {
         onAIOpenSettings={modalOpen('showAISettings')}
         onOpenAIPanel={handleOpenAIPanel}
         aiFixMode={aiFixMode}
+        onPreviewError={handlePreviewError}
+        previewError={previewError}
         onDiagramColorsClose={modalClose('showDiagramColors')}
         onAdvancedStyleClose={modalClose('showAdvancedStyle')}
         focusMode={appState.focusMode}
         renderTimeMs={appState.renderTimeMs}
         onRenderTime={appState.setRenderTimeMs}
         refreshKey={appState.refreshKey}
+        aiSettingsKey={appState.aiSettingsKey}
       />
       <ModalProvider
         {...modals}

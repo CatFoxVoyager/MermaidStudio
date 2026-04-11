@@ -163,6 +163,7 @@
     "fixDiagramTitle": "AI Diagram Fix",
     "fixDiagramButton": "Fix with AI",
     "analyzing": "Analyzing diagram...",
+    "fixingDiagram": "Fixing diagram...",
     "downloadingModel": "Downloading Model",
     "noIssuesFound": "No issues found! Your diagram looks great.",
     "fixErrorPrefix": "Fix error: {{msg}}",

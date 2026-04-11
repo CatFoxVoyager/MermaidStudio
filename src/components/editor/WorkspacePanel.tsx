@@ -38,6 +38,7 @@ interface Props {
   /** Diagram-specific theme ID from the active tab */
   themeId?: string;
   onOpenAIPanel?: (options?: { mode?: 'chat' | 'fix' }) => void;
+  onPreviewError?: (error: string | null) => void;
 }
 
 export function WorkspacePanel({
@@ -46,7 +47,7 @@ export function WorkspacePanel({
   onShowHistory, onShowExport, onToggleAI, onFullscreen, onSaveTemplate,
   onNewDiagram, onShowTemplates, onShowPalette, onShowDiagramColors, onShowAdvancedStyle,
   onDiagramColorsClose, onAdvancedStyleClose, showDiagramColors, showAdvancedStyle,
-  showAI, renderTimeMs, onRenderTime, themeId, onOpenAIPanel,
+  showAI, renderTimeMs, onRenderTime, themeId, onOpenAIPanel, onPreviewError,
 }: Props) {
   const { t } = useTranslation();
   const [splitPos, setSplitPos] = useState(40);
@@ -270,6 +271,7 @@ export function WorkspacePanel({
               onNodeSelect={handleNodeSelect}
               onSelectionOpen={() => { onDiagramColorsClose(); onAdvancedStyleClose(); }}
               externalPanelOpen={showDiagramColors || showAdvancedStyle}
+              onError={onPreviewError}
             />
           </div>
         </div>
