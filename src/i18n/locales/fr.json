@@ -163,6 +163,7 @@
     "fixDiagramTitle": "Réparation IA de diagramme",
     "fixDiagramButton": "Réparer avec IA",
     "analyzing": "Analyse du diagramme...",
+    "fixingDiagram": "Correction du diagramme...",
     "downloadingModel": "Téléchargement du modèle",
     "noIssuesFound": "Aucun problème trouvé ! Votre diagramme est parfait.",
     "fixErrorPrefix": "Erreur de réparation : {{msg}}",

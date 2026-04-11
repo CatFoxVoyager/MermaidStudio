@@ -65,6 +65,9 @@ interface AppLayoutProps {
   renderTimeMs: number | null;
   onRenderTime: (ms: number) => void;
   refreshKey: number;
+  aiSettingsKey: number;
+  onPreviewError?: (error: string | null) => void;
+  previewError?: string | null;
 }
 
 export function AppLayout({
@@ -114,6 +117,9 @@ export function AppLayout({
   renderTimeMs,
   onRenderTime,
   refreshKey,
+  aiSettingsKey,
+  onPreviewError,
+  previewError,
 }: AppLayoutProps) {
   return (
     <div className={`flex flex-col h-screen overflow-hidden ${theme === 'dark' ? 'dark' : ''}`}
@@ -175,6 +181,7 @@ export function AppLayout({
             showAdvancedStyle={showAdvancedStyle}
             onRenderTime={onRenderTime}
             onOpenAIPanel={onOpenAIPanel}
+            onPreviewError={onPreviewError}
           />
 
           <div className="shrink-0 overflow-hidden transition-all duration-200"
@@ -220,9 +227,10 @@ export function AppLayout({
                   onApply={onAIApply}
                   onClose={onAIClose}
                   onOpenSettings={onAIOpenSettings}
-                  settingsKey={0} // This would need to be passed separately
+                  settingsKey={aiSettingsKey}
                   fixMode={aiFixMode}
                   onEnterFixMode={() => {}}
+                  previewError={previewError}
                 />
               </Suspense>
             )}

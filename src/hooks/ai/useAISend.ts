@@ -43,13 +43,14 @@ interface UseAISendParams {
   messages: AIMessage[];
   addMessage: (role: AIMessage['role'], content: string) => AIMessage;
   isConfigured: boolean;
+  previewError?: string | null;
 }
 
 /**
  * Hook for handling AI message sending logic
  * Manages loading state and communication with AI providers
  */
-export function useAISend({ currentContent, messages, addMessage, isConfigured }: UseAISendParams) {
+export function useAISend({ currentContent, messages, addMessage, isConfigured, previewError }: UseAISendParams) {
   const [loading, setLoading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
 
@@ -180,10 +181,15 @@ export function useAISend({ currentContent, messages, addMessage, isConfigured }
           diagramType,
         });
 
+        // Use preview error if available to help AI
+        const userPrompt = previewError 
+          ? `Please fix this diagram. The renderer reported the following error:\n\n${previewError}\n\nPlease provide the corrected Mermaid code.`
+          : 'Please analyze this diagram for syntax, semantic, and style issues. Provide the fixed version.';
+
         // Build fix request message
         const allMessages = [
           { role: 'system' as const, content: systemPrompt },
-          { role: 'user' as const, content: 'Please analyze this diagram for syntax, semantic, and style issues. Provide the fixed version.' },
+          { role: 'user' as const, content: userPrompt },
         ];
 
         log.debug('Sending fix request', {

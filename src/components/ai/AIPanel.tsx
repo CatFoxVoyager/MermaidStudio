@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X, Send, Bot, User, Sparkles, Copy, Check, RotateCcw, Settings2, AlertCircle } from 'lucide-react';
+import { X, Send, Bot, User, Sparkles, Copy, Check, RotateCcw, Settings2, AlertCircle, RotateCw, Wrench } from 'lucide-react';
 import type { AIMessage } from '@/types';
 import { useAIChat } from '@/hooks/ai/useAIChat';
 import { useAISend } from '@/hooks/ai/useAISend';
@@ -15,6 +15,7 @@ interface Props {
   settingsKey?: number; // Add this to force reload when settings change
   fixMode?: boolean;           // ADD THIS
   onEnterFixMode?: () => void; // ADD THIS
+  previewError?: string | null;
 }
 
 function CodeBlock({ lang, code, onApply }: { lang: string; code: string; onApply?: (c: string) => void }) {
@@ -175,7 +176,7 @@ function ProviderBadge({ provider }: { provider: string }) {
   );
 }
 
-export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, settingsKey, fixMode, onEnterFixMode }: Props) {
+export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, settingsKey, fixMode, onEnterFixMode, previewError }: Props) {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
 
@@ -187,6 +188,7 @@ export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, sett
     messages,
     addMessage,
     isConfigured,
+    previewError,
   });
 
   // Trigger fix request when entering fix mode
@@ -289,9 +291,9 @@ export function AIPanel({ currentContent, onApply, onClose, onOpenSettings, sett
             <div className="w-6 h-6 rounded-full flex items-center justify-center border" style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
               <Bot size={11} style={{ color: 'var(--accent)' }} />
             </div>
-            <div className="flex items-center gap-1 px-3 py-2 rounded-xl" style={{ background: 'var(--surface-floating)' }}>
-              <div className="w-1.5 h-1.5 rounded-full animate-pulse-dot" style={{ background: 'var(--accent)' }} />
-              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('ai.analyzing')}</span>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: 'var(--surface-floating)' }}>
+              <RotateCw size={12} className="animate-spin" style={{ color: 'var(--accent)' }} />
+              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('ai.fixingDiagram')}</span>
             </div>
           </div>
         )}

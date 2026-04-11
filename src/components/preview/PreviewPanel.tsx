@@ -367,12 +367,18 @@ interface Props {
   onSelectionOpen?: () => void;
   /** When true, clears any local selection (e.g. diagram colors panel opened) */
   externalPanelOpen?: boolean;
+  onError?: (error: string | null) => void;
 }
 
-function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRenderTime, onFullscreen, onNodeSelect, onSelectionOpen, externalPanelOpen }: Props) {
+function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRenderTime, onFullscreen, onNodeSelect, onSelectionOpen, externalPanelOpen, onError }: Props) {
   const { t } = useTranslation();
   const [svg, setSvg] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // Remonter l'erreur au parent
+  useEffect(() => {
+    onError?.(error);
+  }, [error, onError]);
   const [loading, setLoading] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [copied, setCopied] = useState(false);
