@@ -1,13 +1,87 @@
 import { useState, useCallback } from 'react';
 import { getSettings } from '@/services/storage/database';
 import { callAI } from '@/services/ai/providers';
-import { buildSystemPrompt, buildFixSystemPrompt, buildCompactRAGPrompt } from '@/components/ai/mermaidSystemPrompt';
 import { logger } from '@/utils/logger';
-import type { AIMessage } from '@/types';
+import type { AIMessage, MachineSize } from '@/types';
 
 const log = logger.scope('AI Send');
 
-// Diagram type detection (extracted from AIPanel)
+const MERMAID_DIAGRAM_STARTS = [
+  'flowchart', 'graph', 'sequencediagram', 'classdiagram',
+  'statediagram', 'statediagram-v2', 'erdiagram', 'gantt',
+  'mindmap', 'gitgraph', 'journey', 'timeline', 'pie',
+  'quadrantchart', 'block', 'kanban', 'c4', 'architecture',
+  'sankey', 'xychart', 'radar', 'requirement',
+];
+
+function isMermaidStart(line: string): boolean {
+  const lower = line.trim().toLowerCase();
+  if (MERMAID_DIAGRAM_STARTS.some(k => lower.startsWith(k))) return true;
+  if (/^class\s+\w+\s*\{/.test(line.trim())) return true;
+  if (/^\w+\s*(-->|->|==>|\.\.>|--|---)\s*\w+/.test(line.trim())) return true;
+  return false;
+}
+
+export function extractMermaidCode(text: string): string {
+  let cleaned = text.trim();
+  if (!cleaned) return cleaned;
+
+  cleaned = cleaned.replace(/```(?:thinking|thought|reasoning)\n?[\s\S]*?\n?```/gi, '');
+  cleaned = cleaned.replace(/```mermaid\n?([\s\S]*?)\n?```/g, '$1');
+  cleaned = cleaned.replace(/```\n?([\s\S]*?)\n?```/g, '$1');
+  cleaned = cleaned.trim();
+
+  const lines = cleaned.split('\n');
+  let codeStartIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (isMermaidStart(lines[i].trim())) {
+      codeStartIndex = i;
+      break;
+    }
+  }
+
+  if (codeStartIndex > 0) {
+    return lines.slice(codeStartIndex).join('\n').trim();
+  }
+
+  return cleaned;
+}
+
+function wrapMermaidInFences(reply: string): string {
+  const withoutThinking = reply.replace(/```(?:thinking|thought|reasoning)\n?[\s\S]*?\n?```/gi, '');
+  const withoutThinkTags = withoutThinking.replace(/<\/?think\}>/gi, '');
+
+  if (withoutThinkTags.includes('```')) return withoutThinkTags;
+
+  const trimmed = withoutThinkTags.trim();
+  if (!trimmed) return withoutThinkTags;
+
+  const lines = trimmed.split('\n');
+
+  let codeStartIndex = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (isMermaidStart(lines[i])) {
+      codeStartIndex = i;
+      break;
+    }
+  }
+
+  if (codeStartIndex === -1) return withoutThinking;
+
+  const textBefore = lines.slice(0, codeStartIndex).join('\n').trim();
+  let mermaidCode = lines.slice(codeStartIndex).join('\n').trim();
+
+  if (/^class\s+\w+\s*\{/.test(lines[codeStartIndex].trim()) && !mermaidCode.toLowerCase().startsWith('classdiagram')) {
+    mermaidCode = 'classDiagram\n' + mermaidCode;
+  }
+
+  let result = '';
+  if (textBefore) result += textBefore + '\n\n';
+  result += '```mermaid\n' + mermaidCode + '\n```';
+
+  return result;
+}
+
 const DIAGRAM_TYPE_MAP: Record<string, string> = {
   flowchart: 'flowchart',
   graph: 'flowchart',
@@ -46,201 +120,233 @@ interface UseAISendParams {
   previewError?: string | null;
 }
 
-/**
- * Hook for handling AI message sending logic
- * Manages loading state and communication with AI providers
- */
-export function useAISend({ currentContent, messages, addMessage, isConfigured, previewError }: UseAISendParams) {
+export function useAISend({
+  currentContent,
+  messages,
+  addMessage,
+  isConfigured,
+  previewError,
+}: UseAISendParams) {
   const [loading, setLoading] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
 
-  const send = useCallback(async (text: string, t: (key: string, params?: unknown) => string) => {
-    if (!text.trim() || loading) {
-      return;
-    }
-
-    setLoading(true);
-    setDownloadProgress(null);
-
-    try {
-      const currentSettings = await getSettings();
-
-      if (isConfigured) {
-        const hasDiagram = currentContent.trim().length > 0;
-        const diagramType = detectDiagramTypeFromContent(currentContent);
-        const modelName = (currentSettings.ai_model ?? '').toLowerCase();
-        
-        // Use compact RAG prompt for ultra-light models
-        const isSmallModel = modelName.includes('0.5b') || 
-                            modelName.includes('1.2b') || 
-                            modelName.includes('1.5b') ||
-                            modelName.includes('liquid') ||
-                            currentSettings.ai_provider === 'embedded';
-
-        const systemPrompt = isSmallModel 
-          ? buildCompactRAGPrompt({ currentContent, hasDiagram })
-          : buildSystemPrompt({
-              currentContent,
-              hasDiagram,
-              diagramType,
-            });
-
-        const chatHistory = messages.slice(-6).map(m => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content
-        }));
-
-        const allMessages = [
-          { role: 'system' as const, content: systemPrompt },
-          ...chatHistory,
-          { role: 'user' as const, content: text },
-        ];
-
-        log.debug('Sending AI request', {
-          provider: currentSettings.ai_provider ?? 'openai',
-          model: currentSettings.ai_model ?? 'default',
-          hasDiagram,
-          diagramType,
-          contentLength: currentContent.length,
-          userMessageLength: text.length,
-          messageCount: allMessages.length,
-        });
-
-        const reply = await callAI({
-          provider: currentSettings.ai_provider ?? 'openai',
-          apiKey: currentSettings.ai_api_key ?? '',
-          baseUrl: currentSettings.ai_base_url ?? '',
-          model: currentSettings.ai_model ?? '',
-        }, allMessages, (progress) => {
-          setDownloadProgress(progress);
-        });
-
-        setDownloadProgress(null);
-
-        log.debug('Received AI response', {
-          replyLength: reply?.length ?? 0,
-          replyPreview: reply?.substring(0, 100),
-          isEmpty: !reply || reply.trim().length === 0,
-        });
-
-        // Validate response before showing
-        if (!reply || reply.trim().length === 0) {
-          log.warn('Empty response received');
-          addMessage('assistant', t('ai.errorPrefix', { msg: 'Empty response received from AI provider. Please check your settings.' }));
-        } else if (reply.includes('No response from') || reply.includes('error') || reply.includes('Error:')) {
-          log.warn('Error response:', reply);
-          addMessage('assistant', t('ai.errorPrefix', { msg: reply }));
-        } else if (reply.length < 10 && /^\d{1,2}:\d{2}$/.test(reply.trim())) {
-          log.warn('Suspicious timestamp-only response:', reply);
-          addMessage('assistant', t('ai.errorPrefix', { msg: `Received unexpected response: "${reply}". This may indicate an issue with the AI provider. Please check your API key and model settings.` }));
-        } else {
-          addMessage('assistant', reply);
-        }
-      } else {
-        // Not configured - show demo responses
-        await new Promise(r => setTimeout(r, 400));
-        const lower = text.toLowerCase();
-        const type = detectDiagramTypeFromContent(currentContent);
-        if (lower.includes('explain') || lower.includes('what')) {
-          addMessage('assistant', `This is a ${type}. It visualizes the flow and relationships between elements.\n\nEach node represents a step or entity, and edges show connections or transitions.\n\n${t('ai.configureProvider')}`);
-        } else {
-          addMessage('assistant', `I can help with your ${type}!\n\n${t('ai.configureProvider')}`);
-        }
+  const send = useCallback(
+    async (text: string, t: (key: string, params?: unknown) => string) => {
+      if (!text.trim() || loading) {
+        return;
       }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Unknown error';
-      log.error('Error:', e);
-      // F05: Sanitize error messages before displaying to users
-      const safeMsg = msg.replace(/api[_-]?key[^=]*=\s*\S+/gi, '[REDACTED]')
-        .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
-        .replace(/sk-[a-zA-Z0-9]{20,}/g, '[REDACTED_KEY]');
-      addMessage('assistant', t('ai.errorPrefix', { msg: safeMsg }));
-    } finally {
-      setLoading(false);
-    }
-  }, [currentContent, messages, addMessage, isConfigured, loading]);
 
-  const sendFixRequest = useCallback(async (t: (key: string, params?: unknown) => string) => {
-    if (loading) {
-      return;
-    }
+      setLoading(true);
+      setDownloadProgress(null);
 
-    setLoading(true);
+      try {
+        const currentSettings = await getSettings();
+        const machineSize: MachineSize = currentSettings.ai_machine_size ?? 'low';
 
-    try {
-      const currentSettings = await getSettings();
+        if (isConfigured) {
+          const hasDiagram = currentContent.trim().length > 0;
+          const diagramType = detectDiagramTypeFromContent(currentContent);
 
-      if (isConfigured) {
-        const hasDiagram = currentContent.trim().length > 0;
-        const diagramType = detectDiagramTypeFromContent(currentContent);
+          const systemPrompt = `You are a Mermaid.js diagram generator. Output ONLY valid Mermaid code in a \`\`\`mermaid code block.
 
-        // Use the fix-specific system prompt
-        const systemPrompt = buildFixSystemPrompt({
-          currentContent,
-          hasDiagram,
-          diagramType,
-        });
+RULES:
+- Use ONLY standard Mermaid syntax. NO @{shape:...} notation.
+- Use standard node shapes: [box], {diamond}, ([stadium]), ((circle)), [[subroutine]], [(cylinder)], >slant]
+- Use standard edges: -->, ---, --->, -.->, ==>, -->|label|
+- Keep diagrams SMALL and CONCISE. Maximum 15 nodes.
+- Do NOT repeat nodes or edges. Stop after the last node.
+- Do NOT invent fake data. Use the user's request literally.
 
-        // Use preview error if available to help AI
-        const userPrompt = previewError 
-          ? `Please fix this diagram. The renderer reported the following error:\n\n${previewError}\n\nPlease provide the corrected Mermaid code.`
-          : 'Please analyze this diagram for syntax, semantic, and style issues. Provide the fixed version.';
+EXAMPLE of good output:
+\`\`\`mermaid
+flowchart TD
+    A[Toyota] --> B[Corolla]
+    A --> C[Camry]
+    A --> D[RAV4]
+    E[BMW] --> F[Série 3]
+    E --> G[X5]
+    E --> H[Série 7]
+\`\`\`
+${hasDiagram ? `\nCurrent diagram:\n${currentContent}\n\nIMPORTANT: Preserve the original formatting. Do NOT change node shapes, edge styles, colors, classes, styles, config blocks, direction, or any custom formatting unless the user explicitly asks you to. Only modify what the user requests.` : ''}`;
 
-        // Build fix request message
-        const allMessages = [
-          { role: 'system' as const, content: systemPrompt },
-          { role: 'user' as const, content: userPrompt },
-        ];
+          const chatHistory = messages.slice(-6).map(m => ({
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+          }));
 
-        log.debug('Sending fix request', {
-          provider: currentSettings.ai_provider ?? 'openai',
-          model: currentSettings.ai_model ?? 'default',
-          hasDiagram,
-          diagramType,
-        });
+          const allMessages = [
+            { role: 'system' as const, content: systemPrompt },
+            ...chatHistory,
+            { role: 'user' as const, content: text },
+          ];
 
-        const reply = await callAI({
-          provider: currentSettings.ai_provider ?? 'openai',
-          apiKey: currentSettings.ai_api_key ?? '',
-          baseUrl: currentSettings.ai_base_url ?? '',
-          model: currentSettings.ai_model ?? '',
-        }, allMessages);
+          log.debug('Sending AI request', {
+            machineSize,
+            hasDiagram,
+            diagramType,
+            contentLength: currentContent.length,
+            userMessageLength: text.length,
+            messageCount: allMessages.length,
+          });
 
-        log.debug('Received fix response', {
-          replyLength: reply?.length ?? 0,
-          replyPreview: reply?.substring(0, 100),
-        });
+          const reply = await callAI(machineSize, allMessages, progress => {
+            setDownloadProgress(progress);
+          });
 
-        // Handle response
-        if (!reply || reply.trim().length === 0) {
-          log.warn('Empty fix response');
-          addMessage('assistant', t('ai.errorPrefix', { msg: 'Empty response from AI provider. Please check your settings.' }));
-        } else if (reply.includes('No issues found') || reply.includes('looks great')) {
-          // No issues found - positive message
-          addMessage('assistant', reply);
-        } else if (reply.includes('Error:') || (reply.startsWith('Error') && !reply.includes('syntax error'))) {
-          // Error in response (but not "syntax error" which is valid)
-          log.warn('Error in fix response:', reply);
-          addMessage('assistant', t('ai.errorPrefix', { msg: reply }));
+          setDownloadProgress(null);
+
+          log.debug('Received AI response', {
+            replyLength: reply?.length ?? 0,
+            replyPreview: reply?.substring(0, 100),
+            isEmpty: !reply || reply.trim().length === 0,
+          });
+
+          if (!reply || reply.trim().length === 0) {
+            log.warn('Empty response received');
+            addMessage(
+              'assistant',
+              t('ai.errorPrefix', {
+                msg: 'Empty response received from AI model. Please try again.',
+              })
+            );
+          } else if (
+            reply.includes('No response from') ||
+            reply.includes('error') ||
+            reply.includes('Error:')
+          ) {
+            log.warn('Error response:', reply);
+            addMessage('assistant', t('ai.errorPrefix', { msg: reply }));
+          } else {
+            addMessage('assistant', wrapMermaidInFences(reply));
+          }
         } else {
-          // Valid response with fixes
-          addMessage('assistant', reply);
+          await new Promise(r => setTimeout(r, 400));
+          const lower = text.toLowerCase();
+          const type = detectDiagramTypeFromContent(currentContent);
+          if (lower.includes('explain') || lower.includes('what')) {
+            addMessage(
+              'assistant',
+              `This is a ${type}. It visualizes the flow and relationships between elements.\n\nEach node represents a step or entity, and edges show connections or transitions.\n\nPlease configure your AI model in settings.`
+            );
+          } else {
+            addMessage(
+              'assistant',
+              `I can help with your ${type}!\n\nPlease configure your AI model in settings.`
+            );
+          }
         }
-      } else {
-        // Not configured
-        addMessage('assistant', `To use the Fix Diagram feature, please configure your AI provider first.\n\n${t('ai.configureProvider')}`);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Unknown error';
+        log.error('Error:', e);
+        const safeMsg = msg
+          .replace(/api[_-]?key[^=]*=\s*\S+/gi, '[REDACTED]')
+          .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
+          .replace(/sk-[a-zA-Z0-9]{20,}/g, '[REDACTED_KEY]');
+        addMessage('assistant', t('ai.errorPrefix', { msg: safeMsg }));
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Unknown error';
-      log.error('Fix request error:', e);
-      const safeMsg = msg.replace(/api[_-]?key[^=]*=\s*\S+/gi, '[REDACTED]')
-        .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
-        .replace(/sk-[a-zA-Z0-9]{20,}/g, '[REDACTED_KEY]');
-      addMessage('assistant', t('ai.errorPrefix', { msg: safeMsg }));
-    } finally {
-      setLoading(false);
-    }
-  }, [currentContent, addMessage, isConfigured, loading]);
+    },
+    [currentContent, messages, addMessage, isConfigured, loading]
+  );
 
-  return { send, sendFixRequest, loading };
+  const sendFixRequest = useCallback(
+    async (t: (key: string, params?: unknown) => string) => {
+      if (loading) {
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const currentSettings = await getSettings();
+        const machineSize: MachineSize = currentSettings.ai_machine_size ?? 'low';
+
+        if (isConfigured) {
+          const hasDiagram = currentContent.trim().length > 0;
+          const diagramType = detectDiagramTypeFromContent(currentContent);
+
+          const systemPrompt = `You are a Mermaid.js syntax fixer. Output ONLY the fixed Mermaid code. No explanations.
+
+RULES:
+- Use ONLY standard Mermaid syntax. NO @{shape:...} notation.
+- Standard shapes: [box], {diamond}, ([stadium]), ((circle)), [(cylinder)]
+- Standard edges: -->, ---, -.->, ==>, -->|label|
+- Do NOT change node shapes, edge styles, colors, classes, styles, config, direction, or labels.
+- ONLY fix the syntax error. Keep everything else identical.
+${hasDiagram ? `\nDiagram to fix:\n${currentContent}` : ''}`;
+
+          const userPrompt = previewError
+            ? `Fix the syntax error that prevents rendering.\n\nERROR MESSAGE:\n${previewError}\n\nFix ONLY the error. Output the full diagram with the fix applied, keeping all formatting, shapes, styles, colors, and labels exactly as they are.`
+            : 'Check for syntax errors only. If found, fix them while keeping all formatting identical. If no errors, respond with the original code unchanged.';
+
+          const allMessages = [
+            { role: 'system' as const, content: systemPrompt },
+            { role: 'user' as const, content: userPrompt },
+          ];
+
+          log.debug('Sending fix request', { machineSize, hasDiagram, diagramType });
+
+          const reply = await callAI(machineSize, allMessages, progress => {
+            setDownloadProgress(progress);
+          });
+
+          setDownloadProgress(null);
+
+          log.debug('Received fix response', {
+            replyLength: reply?.length ?? 0,
+            replyPreview: reply?.substring(0, 100),
+          });
+
+          if (!reply || reply.trim().length === 0) {
+            log.warn('Empty fix response');
+            addMessage(
+              'assistant',
+              t('ai.errorPrefix', { msg: 'Empty response from AI model. Please try again.' })
+            );
+          } else if (
+            (reply.includes('No issues found') || reply.includes('looks great')) &&
+            !previewError
+          ) {
+            addMessage('assistant', reply);
+          } else if (
+            (reply.includes('No issues found') || reply.includes('looks great')) &&
+            previewError
+          ) {
+            log.warn('AI ignored renderer error');
+            addMessage(
+              'assistant',
+              `The AI couldn't automatically identify the issue, but the renderer still reports an error: "${previewError.split('\n')[0]}". Please check your syntax manually around that line.`
+            );
+          } else if (
+            reply.includes('Error:') ||
+            (reply.startsWith('Error') && !reply.includes('syntax error'))
+          ) {
+            log.warn('Error in fix response:', reply);
+            addMessage('assistant', t('ai.errorPrefix', { msg: reply }));
+          } else {
+            addMessage('assistant', wrapMermaidInFences(reply));
+          }
+        } else {
+          addMessage(
+            'assistant',
+            `To use the Fix Diagram feature, please configure your AI model first.`
+          );
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Unknown error';
+        log.error('Fix request error:', e);
+        const safeMsg = msg
+          .replace(/api[_-]?key[^=]*=\s*\S+/gi, '[REDACTED]')
+          .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
+          .replace(/sk-[a-zA-Z0-9]{20,}/g, '[REDACTED_KEY]');
+        addMessage('assistant', t('ai.errorPrefix', { msg: safeMsg }));
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentContent, addMessage, isConfigured, loading, previewError]
+  );
+
+  return { send, sendFixRequest, loading, downloadProgress };
 }

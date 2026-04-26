@@ -79,10 +79,10 @@ describe('Database API Key Encryption', () => {
         settings: {
           theme: 'light', // Different from default to ensure migration
           language: 'en',
-          ai_api_key: testApiKey, // Plaintext (legacy)
-          ai_provider: 'openai',
+          ai_api_key: testApiKey,
+          ai_machine_size: 'low',
           ai_base_url: 'https://api.openai.com',
-          ai_model: 'gpt-5.3-instant'
+          ai_model: 'gpt-5.3-instant',
         },
         userTemplates: [],
       };
@@ -209,14 +209,14 @@ describe('Database API Key Encryption', () => {
 
     it('should update multiple settings', async () => {
       await updateSettings({
-        ai_provider: 'ollama',
+        ai_machine_size: 'low',
         ai_base_url: 'http://localhost:11434',
         ai_model: 'llama3',
       });
 
       const settings = await getSettings();
 
-      expect(settings.ai_provider).toBe('ollama');
+      expect(settings.ai_machine_size).toBe('low');
       expect(settings.ai_base_url).toBe('http://localhost:11434');
       expect(settings.ai_model).toBe('llama3');
     });
@@ -224,7 +224,7 @@ describe('Database API Key Encryption', () => {
     it('should preserve other settings when updating API key', async () => {
       // Set initial settings
       await updateSettings({
-        ai_provider: 'openai',
+        ai_machine_size: 'low',
         ai_base_url: 'https://api.openai.com',
         ai_model: 'gpt-5.3-instant',
         theme: 'dark',
@@ -235,11 +235,8 @@ describe('Database API Key Encryption', () => {
 
       const settings = await getSettings();
 
-      // API key should be updated
       expect(settings.ai_api_key).toBe('sk-new-key');
-
-      // Other settings should be preserved
-      expect(settings.ai_provider).toBe('openai');
+      expect(settings.ai_machine_size).toBe('low');
       expect(settings.ai_base_url).toBe('https://api.openai.com');
       expect(settings.ai_model).toBe('gpt-5.3-instant');
       expect(settings.theme).toBe('dark');
@@ -405,7 +402,11 @@ describe('Database API Key Encryption', () => {
 
     it('should set folder_id to null when deleting folder', async () => {
       const folder = await createFolder('Test Folder');
-      const diagram = await createDiagram('Diagram in Folder', 'flowchart TD\n  A --> B', folder.id);
+      const diagram = await createDiagram(
+        'Diagram in Folder',
+        'flowchart TD\n  A --> B',
+        folder.id
+      );
 
       await deleteFolder(folder.id);
 
@@ -496,8 +497,7 @@ describe('Database API Key Encryption', () => {
   });
 
   describe('Backup and Import', () => {
-    it('should export all data including encrypted API key', async () => {
-      // Set up some data
+    it('should export all data excluding sensitive fields', async () => {
       const folder = await createFolder('Backup Folder');
       const diagram = await createDiagram('Backup Diagram', 'flowchart TD\n  A --> B', folder.id);
       const tag = await createTag('backup-tag', '#00ff00');
@@ -505,10 +505,8 @@ describe('Database API Key Encryption', () => {
 
       await updateSettings({ ai_api_key: 'sk-backup-test-key' });
 
-      // Export backup
       const backup = await exportBackup();
 
-      // Verify structure
       expect(backup.version).toBe(1);
       expect(backup.exported_at).toBeDefined();
       expect(backup.folders.length).toBeGreaterThan(0);
@@ -516,10 +514,9 @@ describe('Database API Key Encryption', () => {
       expect(backup.tags.length).toBeGreaterThan(0);
       expect(backup.diagramTags.length).toBeGreaterThan(0);
 
-      // Should include settings with encrypted API key
       expect(backup.settings).toBeDefined();
       if (backup.settings) {
-        expect(backup.settings._encryptedKey).toBeDefined();
+        expect(backup.settings._encryptedKey).toBeUndefined();
         expect(backup.settings.theme).toBeDefined();
       }
     });
@@ -538,7 +535,7 @@ describe('Database API Key Encryption', () => {
       await updateSettings({
         theme: 'dark',
         language: 'en',
-        ai_provider: 'openai',
+        ai_machine_size: 'low',
       });
 
       // Create backup with different settings
@@ -557,23 +554,17 @@ describe('Database API Key Encryption', () => {
       expect(settings.language).toBe('fr');
     });
 
-    it('should include encrypted API key in backup', async () => {
+    it('should exclude encrypted API key from backup', async () => {
       const testKey = `sk-backup-test-${Date.now()}`;
 
-      // Set API key
       await updateSettings({ ai_api_key: testKey });
 
-      // Export backup
       const backup = await exportBackup();
 
-      // Verify encrypted key is in backup
       if (backup.settings) {
-        expect(backup.settings._encryptedKey).toBeDefined();
-
-        // Verify plaintext API key is NOT in backup
+        expect(backup.settings._encryptedKey).toBeUndefined();
         expect('ai_api_key' in backup.settings).toBe(false);
 
-        // Verify other settings are in backup
         expect(backup.settings.theme).toBeDefined();
         expect(backup.settings.language).toBeDefined();
       }
@@ -740,7 +731,7 @@ describe('Database API Key Encryption', () => {
       const settings = await getSettings();
       expect(settings.theme).toBe('dark');
       expect(settings.language).toBe('en'); // Default
-      expect(settings.ai_provider).toBe('openai'); // Default
+      expect(settings.ai_machine_size).toBe('low'); // Default
     });
   });
 
@@ -928,14 +919,16 @@ describe('Database API Key Encryption', () => {
       const backup = await exportBackup();
 
       // Add a user template to backup
-      backup.userTemplates = [{
-        id: 'template-backup-1',
-        title: 'Backup Template',
-        description: 'From backup',
-        content: 'flowchart TD\n  A --> B',
-        category: 'flowchart',
-        created_at: new Date().toISOString(),
-      }];
+      backup.userTemplates = [
+        {
+          id: 'template-backup-1',
+          title: 'Backup Template',
+          description: 'From backup',
+          content: 'flowchart TD\n  A --> B',
+          category: 'flowchart',
+          created_at: new Date().toISOString(),
+        },
+      ];
 
       await importBackup(backup);
 

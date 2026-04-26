@@ -11,16 +11,13 @@ import type { BackupData } from '@/types';
  */
 export function sanitizeSVG(html: string): string {
   return DOMPurify.sanitize(html, {
-    USE_PROFILES: { svg: true, svgFilters: true },
+    USE_PROFILES: { html: true, svg: true, svgFilters: true },
     ADD_TAGS: [
-      'foreignObject', // Mermaid uses this for HTML labels in flowcharts
-      // HTML elements used inside foreignObject for labels
+      'foreignObject',
       'div', 'span', 'p', 'a'
     ],
     ADD_ATTR: [
-      // ForeignObject specific attributes
       'requiredFeatures', 'overflow',
-      // E2E test attributes
       'data-rendered', 'data-testid'
     ]
   });
@@ -107,69 +104,32 @@ export function validateBackupData(raw: unknown): BackupData {
 }
 
 /**
- * DOMPurify configuration for sanitizing Mermaid SVG output.
- * Explicit allowlist approach — more restrictive than USE_PROFILES.
- */
-export const MERMAID_SVG_CONFIG = {
-  ALLOWED_TAGS: [
-    // Basic SVG structure
-    'svg', 'g',
-    // Shapes
-    'path', 'rect', 'circle', 'ellipse', 'polygon', 'polyline', 'line',
-    // Text elements (critical for Mermaid labels)
-    'text', 'tspan',
-    // foreignObject allows HTML content inside SVG - Mermaid uses this for rich labels
-    'foreignObject',
-    // HTML elements inside foreignObject (used by Mermaid for labels)
-    'span', 'div', 'p',
-    // Markers and definitions (arrowheads, gradients, etc.)
-    'marker', 'defs', 'use', 'style',
-    // Other SVG features
-    'clipPath', 'pattern', 'mask', 'symbol',
-  ],
-  ALLOWED_ATTR: [
-    // Core SVG attributes
-    'xmlns', 'viewBox', 'preserveAspectRatio',
-    // Positioning and sizing
-    'x', 'y', 'width', 'height', 'cx', 'cy', 'r', 'rx', 'ry',
-    // Line coordinates
-    'x1', 'y1', 'x2', 'y2',
-    // Sizing for foreignObject
-    'requiredFeatures', 'overflow',
-    // Styling
-    'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin',
-    'opacity', 'fill-opacity', 'stroke-opacity',
-    // Text attributes
-    'text-anchor', 'font-family', 'font-size', 'font-weight', 'dominant-baseline', 'alignment-baseline',
-    'dy', 'dx', 'letter-spacing', 'word-spacing',
-    // Inline styles for dynamic content
-    'style',
-    // Path and shape data
-    'd', 'points', 'transform', 'pathLength', 'transform-origin',
-    // References
-    'id', 'class', 'href', 'xlink:href', 'marker-start', 'marker-end', 'marker-mid',
-    // Marker definition attributes (arrowheads, etc.)
-    'refX', 'refY', 'markerWidth', 'markerHeight', 'orient', 'markerUnits',
-    // Accessibility
-    'role', 'aria-label', 'aria-roledescription', 'tabindex',
-    // Filters and clipping
-    'filter', 'clip-path',
-    // Display and rendering hints
-    'visibility', 'display', 'shape-rendering', 'text-rendering', 'pointer-events',
-    // HTML attributes for foreignObject content
-    'xmlns:xlink', 'xmlns:xhtml',
-    // ForeignObject specific
-    'xlink:type',
-  ],
-  // Allow data URIs for images
-  ALLOW_DATA_URI: true,
-  // Disallow unknown attributes for security
-  ALLOW_UNKNOWN_ATTRS: false,
-} satisfies { ALLOWED_TAGS: string[]; ALLOWED_ATTR: string[]; ALLOW_DATA_URI: boolean; ALLOW_UNKNOWN_ATTRS: boolean };
-
-/**
- * Sanitize Mermaid SVG output using the restrictive allowlist config.
+ * Sanitize Mermaid SVG output while preserving foreignObject HTML content.
+ * DOMPurify strips HTML content inside foreignObject because it doesn't
+ * handle SVG↔HTML namespace switching. We work around this by extracting
+ * foreignObject content before sanitization, then restoring it after.
  */
 export function sanitizeMermaidSVG(svg: string): string {
-  return DOMPurify.sanitize(svg, MERMAID_SVG_CONFIG);
+  const foContents: string[] = [];
+  const placeholder = '%%MMPRESERVE';
+  const withPlaceholders = svg.replace(
+    /<foreignObject([^>]*)>([\s\S]*?)<\/foreignObject>/g,
+    (_, attrs, content) => {
+      foContents.push(content);
+      return `<foreignObject${attrs}>${placeholder}${foContents.length - 1}%%</foreignObject>`;
+    }
+  );
+
+  const forbiddenTags = ['iframe', 'form', 'input', 'textarea', 'select', 'button', 'script', 'object', 'embed', 'applet'];
+  const sanitized = DOMPurify.sanitize(withPlaceholders, {
+    USE_PROFILES: { html: true, svg: true, svgFilters: true },
+    ADD_TAGS: ['foreignObject'],
+    FORBID_TAGS: Object.fromEntries(forbiddenTags.map(t => [t, true])),
+    FORBID_ATTR: { onerror: true, onload: true, onclick: true, onmouseover: true },
+  });
+
+  return sanitized.replace(
+    new RegExp(`${placeholder}(\\d+)%%`, 'g'),
+    (_, idx) => foContents[parseInt(idx)]
+  );
 }

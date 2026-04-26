@@ -35,9 +35,19 @@ MermaidStudio is an open-source, self-hosted Mermaid diagram editor that runs en
 
 > **⚠️ Experimental** - AI features are under development. May not work as expected.
 
+#### WebGPU In-Browser AI (Private, Free, No Server)
+
+Run AI models directly in your browser via WebGPU — no API keys, no server, complete privacy.
+
+- 🧠 **Qwen3.5-0.8B** (~400MB) — Fine-tuned for Mermaid diagram generation. Best for most diagrams.
+- 🧠 **Qwen3.5-2B** (~700MB) — Larger model for complex diagrams.
+
+Models are downloaded once and cached. Works offline after initial load.
+
 #### Supported Providers
 
 **Local AI (Private and Free):**
+- ⚡ **WebGPU** — In-browser inference via @mlc-ai/web-llm (no server needed)
 - 🦙 **Ollama** - Recommended models:
   - `qwen2.5:4b` - Qwen3.5-4B
   - `ministral-3b-instruct-2512` - Ministral 3B Instruct
@@ -55,6 +65,8 @@ MermaidStudio is an open-source, self-hosted Mermaid diagram editor that runs en
 - ✨ **Diagram Generation** - Create diagrams from natural language prompts
 - 🔧 **AI Fix Diagram** - Automatically detect and repair syntax errors, semantic issues, and style problems with a single click
 - 💡 **Diagram Enhancement** - Refine your diagrams with suggestions and improvements
+- 🧠 **Reasoning Model Support** - Compatible with thinking/reasoning models (filters `<thinking>` blocks automatically)
+- 📊 **Download Progress** - Real-time model download percentage for WebGPU models
 
 ### 📄 Data Management
 - 💾 **Local Storage** - Persistent storage with browser localStorage
@@ -324,6 +336,8 @@ npm run test:e2e       # Playwright E2E tests
 | **Vite** | 8.0.2 | Ultra-fast build and dev server |
 | **Tailwind CSS** | 4.2.2 | Utility-first CSS framework |
 | **Mermaid** | 11.13.0 | Diagram rendering |
+| **@mlc-ai/web-llm** | - | In-browser WebGPU inference |
+| **@huggingface/transformers** | 4.2.0 | ONNX/Transformer models in browser |
 | **Node.js** | ≥24.0.0 | Required runtime |
 
 ---
@@ -509,6 +523,9 @@ This project is licensed under MIT - see the [LICENSE](LICENSE) file for details
 - [Tailwind CSS](https://tailwindcss.com/) - CSS framework
 - [Ollama](https://ollama.ai/) - Open-source local AI
 - [LM Studio](https://lmstudio.ai/) - Local model interface
+- [MLC Web-LLM](https://github.com/anthropics/mlc-llm) - In-browser WebGPU inference
+- [Qwen3.5 Fine-Tuned Models](https://huggingface.co/SpongeBOB9684) - Custom Mermaid models
+- [Mermaid Text-to-Diagram Dataset](https://huggingface.co/datasets/SpongeBOB9684/mermaid-text-to-diagram)
 
 ---
 

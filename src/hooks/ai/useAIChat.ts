@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { AIMessage } from '@/types';
+import { generateSecureId } from '@/utils/crypto';
 
 /**
  * Hook for managing AI chat messages
@@ -22,7 +23,7 @@ export function useAIChat() {
    */
   const addMessage = useCallback((role: AIMessage['role'], content: string): AIMessage => {
     const msg: AIMessage = {
-      id: crypto.randomUUID(),
+      id: generateSecureId('msg'),
       role,
       content,
       timestamp: new Date().toISOString()

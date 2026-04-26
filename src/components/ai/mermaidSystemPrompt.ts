@@ -2,10 +2,48 @@
  * Comprehensive system prompt for Mermaid.js AI assistant
  */
 
+import { getMermaidContext, detectDiagramType } from '@/services/ai/MermaidRAGService';
+
 export interface DiagramContext {
   currentContent: string;
   hasDiagram: boolean;
   diagramType?: string;
+}
+
+/**
+ * Compact high-density prompt for small LLMs (sub-2B)
+ * Injects RAG documentation from MermaidRAGService
+ */
+export function buildCompactRAGPrompt(context: DiagramContext): string {
+  const { currentContent, hasDiagram } = context;
+  const diagramType = hasDiagram ? detectDiagramType(currentContent) : 'flowchart';
+  const ragDocs = getMermaidContext(diagramType);
+
+  return `You are a Mermaid.js code generator.
+${ragDocs}
+
+## TASK:
+Transform the input into a VALID Mermaid diagram.
+
+## RULES:
+1. START your response with \`\`\`mermaid
+2. END your response with \`\`\`
+3. NO text before or after the code block.
+4. NO Markdown tables. ONLY Mermaid syntax.
+5. Use "gantt" keyword for Gantt charts.
+
+## CONTEXT:
+${hasDiagram ? `Current Diagram:\n${currentContent}` : 'Create new diagram.'}
+
+## OUTPUT FORMAT EXAMPLE:
+\`\`\`mermaid
+gantt
+    title A Gantt Diagram
+    section Section
+    Task :a1, 2024-01-01, 30d
+\`\`\`
+
+Response:`;
 }
 
 export function buildSystemPrompt(context: DiagramContext): string {
@@ -18,7 +56,7 @@ You are a helpful AI assistant for Mermaid.js diagrams. You help users create, e
 ## CRITICAL: NO THINKING OUTPUT
 
 **DO NOT include any internal thinking, reasoning, or thought process in your responses.**
-- NO ```` `` blocks or similar thinking markers
+- NO thinking code blocks (like \`\`\`thinking or \`\`\`thought)
 - NO "Let me think..." or "I'll analyze..." preambles
 - NO step-by-step reasoning unless explicitly explaining to the user
 - Output ONLY the final result - the Mermaid code or explanation
@@ -166,7 +204,7 @@ You are an expert Mermaid.js diagnostic and repair assistant. Your job is to ana
 ## CRITICAL: NO THINKING OUTPUT
 
 **DO NOT include any internal thinking, reasoning, or thought process in your responses.**
-- NO ```` `` blocks or similar thinking markers
+- NO thinking code blocks (like \`\`\`thinking or \`\`\`thought)
 - NO "Let me think..." or "I'll analyze..." preambles
 - NO step-by-step internal reasoning - perform the 3-pass analysis silently
 - Output ONLY the final result - the explanation and fixed code
@@ -210,8 +248,11 @@ CRITICAL: Follow this exact format:
 
 ## SPECIAL CASES
 
+**Renderer Error Provided:**
+If the user provides a specific renderer error message, you MUST fix it. Do NOT claim the diagram is fine if a renderer error is present. Prioritize resolving this specific error above all else.
+
 **No issues found:**
-If the diagram is already valid, respond with:
+If the diagram is already valid AND no renderer error is provided, respond with:
 "This diagram looks great! No syntax, semantic, or style issues detected."
 
 **Critical errors only:**

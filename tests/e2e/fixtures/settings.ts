@@ -4,11 +4,11 @@ export function createSettings(overrides: Partial<AppSettings> = {}): AppSetting
   return {
     theme: 'light',
     language: 'en',
-    ai_provider: 'openai',
-    ai_base_url: 'https://api.openai.com',
-    ai_model: 'gpt-4',
+    ai_machine_size: 'low',
+    ai_base_url: '',
+    ai_model: '',
     ai_api_key: '',
-    lastOpenDiagramId: null,
-    ...overrides
+    lastOpenDiagramId: undefined,
+    ...overrides,
   };
 }

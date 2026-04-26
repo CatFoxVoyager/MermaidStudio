@@ -85,8 +85,8 @@ describe('ThemeEditorPanel', () => {
     expect(getByText(/Theme Editor/i)).toBeTruthy();
   });
 
-  it('shows save, cancel, and reset buttons', () => {
-    const { getByText } = render(
+  it('shows save, reset, and close buttons', () => {
+    const { container, getByText } = render(
       <ThemeEditorPanel
         isOpen={true}
         onClose={() => {}}
@@ -96,9 +96,9 @@ describe('ThemeEditorPanel', () => {
       />,
       { wrapper }
     );
-    expect(getByText(/Save Theme/i)).toBeTruthy();
-    expect(getByText(/Cancel/i)).toBeTruthy();
-    expect(getByText(/Reset to Default/i)).toBeTruthy();
+    expect(getByText('Save')).toBeTruthy();
+    expect(container.querySelector('[title="Reset to Default"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="close-theme-editor"]')).toBeTruthy();
   });
 
   it('does not render when isOpen is false', () => {

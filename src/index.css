@@ -335,3 +335,37 @@ body.offline::before {
   0%, 100% { opacity: 0.3; transform: scale(0.8); }
   50%       { opacity: 1;   transform: scale(1); }
 }
+
+/* ─── AI Bubble Markdown ─────────────────────────────────────── */
+.ai-bubble p { margin: 0; }
+.ai-bubble p + p { margin-top: 0.5em; }
+.ai-bubble strong { font-weight: 600; }
+.ai-bubble em { font-style: italic; }
+.ai-bubble ul, .ai-bubble ol { margin: 0.25em 0; padding-left: 1.25em; }
+.ai-bubble li { margin: 0.15em 0; }
+.ai-bubble li::marker { color: var(--text-tertiary); }
+.ai-bubble code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(var(--accent-rgb), 0.12);
+}
+.ai-bubble h1, .ai-bubble h2, .ai-bubble h3 {
+  font-weight: 600;
+  margin: 0.5em 0 0.25em;
+}
+.ai-bubble h1 { font-size: 1.1em; }
+.ai-bubble h2 { font-size: 1.05em; }
+.ai-bubble h3 { font-size: 1em; }
+.ai-bubble hr {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 0.5em 0;
+}
+.ai-bubble blockquote {
+  border-left: 3px solid var(--accent);
+  margin: 0.4em 0;
+  padding-left: 0.6em;
+  opacity: 0.85;
+}

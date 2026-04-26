@@ -160,6 +160,7 @@
     "providerSettings": "AI Provider Settings",
     "errorPrefix": "Failed to get a response: {{msg}}\n\nCheck your provider settings and try again.",
     "fixDiagram": "Fix Diagram",
+    "noErrors": "No errors to fix",
     "fixDiagramTitle": "AI Diagram Fix",
     "fixDiagramButton": "Fix with AI",
     "analyzing": "Analyzing diagram...",

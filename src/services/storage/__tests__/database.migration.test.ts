@@ -1,21 +1,8 @@
-/**
- * Tests for localStorage to IndexedDB migration
- *
- * Note: Due to IndexedDB persistence between test runs in the test environment,
- * these tests focus on migration logic and error handling rather than
- * testing the exact data migration.
- */
-
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import {
-  getSettings,
-  getDiagrams,
-  clearCache,
-} from '../database';
+import { getSettings, getDiagrams, clearCache } from '../database';
 
 describe('Database Migration (localStorage to IndexedDB)', () => {
   beforeEach(async () => {
-    // Clear cache and localStorage before each test
     clearCache();
     localStorage.clear();
   });
@@ -28,18 +15,12 @@ describe('Database Migration (localStorage to IndexedDB)', () => {
 
   describe('Migration error handling', () => {
     it('should handle empty localStorage gracefully', async () => {
-      // No localStorage data
       const diagrams = await getDiagrams();
-
-      // Should create fresh data with welcome diagram
       expect(diagrams.length).toBeGreaterThanOrEqual(1);
     });
 
     it('should handle malformed localStorage data', async () => {
-      // Store invalid JSON
       localStorage.setItem('mermaid_studio_v1', 'invalid-json');
-
-      // Should not throw, should fall back to fresh data
       const diagrams = await getDiagrams();
       expect(diagrams.length).toBeGreaterThanOrEqual(1);
     });
@@ -49,7 +30,6 @@ describe('Database Migration (localStorage to IndexedDB)', () => {
         folders: [],
         diagrams: [
           {
-            // Missing required fields
             id: 'incomplete-diag',
           },
         ],
@@ -57,8 +37,6 @@ describe('Database Migration (localStorage to IndexedDB)', () => {
       };
 
       localStorage.setItem('mermaid_studio_v1', JSON.stringify(incompleteData));
-
-      // Should not throw
       const diagrams = await getDiagrams();
       expect(Array.isArray(diagrams)).toBe(true);
     });
@@ -66,13 +44,11 @@ describe('Database Migration (localStorage to IndexedDB)', () => {
 
   describe('Fallback behavior', () => {
     it('should handle IndexedDB failure gracefully on first access', async () => {
-      // Mock IndexedDB to fail
       const openSpy = vi.spyOn(indexedDB, 'open').mockImplementation(() => {
         throw new Error('QuotaExceededError');
       });
 
       try {
-        // Should not throw, should create fresh data
         const diagrams = await getDiagrams();
         expect(Array.isArray(diagrams)).toBe(true);
       } finally {
@@ -83,7 +59,6 @@ describe('Database Migration (localStorage to IndexedDB)', () => {
 
   describe('Data transformations', () => {
     it('should apply default migrations to settings when values are missing', async () => {
-      // This test runs first before IndexedDB is populated
       const legacyData = {
         folders: [],
         diagrams: [],
@@ -93,21 +68,13 @@ describe('Database Migration (localStorage to IndexedDB)', () => {
         settings: {
           theme: 'dark',
           language: 'en',
-          // Missing AI provider values - should get defaults
         },
-        userTemplates: [
-          { id: 'old-template', name: 'Old Template' },
-        ],
+        userTemplates: [{ id: 'old-template', name: 'Old Template' }],
       };
 
       localStorage.setItem('mermaid_studio_v1', JSON.stringify(legacyData));
-
       const settings = await getSettings();
-
-      // Should apply defaults for missing values
-      expect(settings.ai_provider).toBe('openai');
-      expect(settings.ai_base_url).toBe('https://api.openai.com');
-      expect(settings.ai_model).toBe('gpt-5.3-instant');
+      expect(settings.ai_machine_size).toBe('low');
     });
 
     it('should preserve existing settings values', async () => {
@@ -120,8 +87,7 @@ describe('Database Migration (localStorage to IndexedDB)', () => {
         settings: {
           theme: 'dark',
           language: 'en',
-          // Existing values - should be preserved
-          ai_provider: 'existing-provider',
+          ai_machine_size: 'low',
           ai_base_url: 'https://existing.url',
           ai_model: 'existing-model',
         },
@@ -129,11 +95,8 @@ describe('Database Migration (localStorage to IndexedDB)', () => {
       };
 
       localStorage.setItem('mermaid_studio_v1', JSON.stringify(legacyData));
-
       const settings = await getSettings();
-
-      // Should preserve existing values
-      expect(settings.ai_provider).toBe('existing-provider');
+      expect(settings.ai_machine_size).toBe('low');
       expect(settings.ai_base_url).toBe('https://existing.url');
       expect(settings.ai_model).toBe('existing-model');
     });

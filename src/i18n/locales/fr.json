@@ -160,6 +160,7 @@
     "providerSettings": "Paramètres du fournisseur IA",
     "errorPrefix": "Échec de la réponse : {{msg}}\n\nVérifiez vos paramètres de fournisseur et réessayez.",
     "fixDiagram": "Réparer le diagramme",
+    "noErrors": "Aucune erreur à corriger",
     "fixDiagramTitle": "Réparation IA de diagramme",
     "fixDiagramButton": "Réparer avec IA",
     "analyzing": "Analyse du diagramme...",

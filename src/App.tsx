@@ -50,6 +50,7 @@ export default function App() {
 
   // Fix mode state for AI panel
   const [aiFixMode, setAiFixMode] = useState(false);
+  const [aiFixTrigger, setAiFixTrigger] = useState(0);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
   const handlePreviewError = useCallback((error: string | null) => {
@@ -61,6 +62,7 @@ export default function App() {
     openModal('showAI');
     if (options?.mode === 'fix') {
       setAiFixMode(true);
+      setAiFixTrigger(prev => prev + 1);
     } else {
       setAiFixMode(false);
     }
@@ -143,6 +145,7 @@ export default function App() {
         onAIOpenSettings={modalOpen('showAISettings')}
         onOpenAIPanel={handleOpenAIPanel}
         aiFixMode={aiFixMode}
+        aiFixTrigger={aiFixTrigger}
         onPreviewError={handlePreviewError}
         previewError={previewError}
         onDiagramColorsClose={modalClose('showDiagramColors')}

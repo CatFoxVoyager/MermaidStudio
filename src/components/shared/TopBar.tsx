@@ -46,7 +46,7 @@ export function TopBar({
             </svg>
           </div>
           <h1 className="text-sm font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-            Mermaid<span style={{ color: 'var(--accent)' }}>Studio</span> <span className="text-xs font-normal" style={{ color: 'var(--text-secondary)' }}>v0.4.1</span>
+            Mermaid<span style={{ color: 'var(--accent)' }}>Studio</span> <span className="text-xs font-normal" style={{ color: 'var(--text-secondary)' }}>v0.5.0</span>
           </h1>
         </div>
       </div>
