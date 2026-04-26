@@ -114,19 +114,19 @@ describe('EdgeStylePanel', () => {
   it('should call onStyleChange when stroke width changes', () => {
     render(<EdgeStylePanel {...defaultProps} />);
 
-    const rangeInput = screen.getByDisplayValue('2');
+    const rangeInput = screen.getByRole('slider');
     fireEvent.change(rangeInput, { target: { value: '4' } });
 
-    expect(defaultProps.onStyleChange).toHaveBeenCalledWith(0, { strokeWidth: '4px' });
+    expect(defaultProps.onStyleChange).toHaveBeenCalledWith(0, { strokeWidth: '4.0px' });
   });
 
-  it('should call onStyleChange when opacity changes', () => {
+  it('should call onStyleChange when stroke style changes', () => {
     render(<EdgeStylePanel {...defaultProps} />);
 
-    const opacityInput = screen.getByDisplayValue('1');
-    fireEvent.change(opacityInput, { target: { value: '0.5' } });
+    const dashedButton = screen.getByText('Dashed');
+    fireEvent.click(dashedButton);
 
-    expect(defaultProps.onStyleChange).toHaveBeenCalledWith(0, { opacity: '0.5' });
+    expect(defaultProps.onStyleChange).toHaveBeenCalledWith(0, { strokeDasharray: '5 5' });
   });
 
   it('should call onReset when reset button clicked', () => {
@@ -161,10 +161,10 @@ describe('EdgeStylePanel', () => {
   });
 
   it('should render with existing edge style values', () => {
-    const edgeStyle = { stroke: 'red', strokeWidth: '3px', opacity: '0.5' };
+    const edgeStyle = { stroke: 'red', strokeWidth: '3px', strokeDasharray: '5 5' };
     render(<EdgeStylePanel {...defaultProps} edgeStyle={edgeStyle} />);
 
-    expect(screen.getByDisplayValue('3')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('0.5')).toBeInTheDocument();
+    expect(screen.getByRole('slider')).toHaveValue('3');
+    expect(screen.getByText('Dashed').closest('button')).toHaveStyle({ borderWidth: '2px' });
   });
 });

@@ -5,7 +5,15 @@
  * Automatically migrates data from localStorage on first load
  */
 
-import type { Diagram, DiagramVersion, Folder, Tag, AppSettings, UserTemplate, BackupData } from '@/types';
+import type {
+  Diagram,
+  DiagramVersion,
+  Folder,
+  Tag,
+  AppSettings,
+  UserTemplate,
+  BackupData,
+} from '@/types';
 import { encrypt, decrypt } from '@/utils/encryption';
 import { generateSecureId } from '@/utils/crypto';
 import { logger } from '@/utils/logger';
@@ -34,7 +42,9 @@ let dataCache: DBData | null = null;
  * Open or create the IndexedDB database
  */
 function openDB(): Promise<IDBDatabase> {
-  if (dbCache) {return Promise.resolve(dbCache);}
+  if (dbCache) {
+    return Promise.resolve(dbCache);
+  }
 
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -45,7 +55,7 @@ function openDB(): Promise<IDBDatabase> {
       resolve(dbCache);
     };
 
-    request.onupgradeneeded = (event) => {
+    request.onupgradeneeded = event => {
       const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(STORE_DATA)) {
         db.createObjectStore(STORE_DATA);
@@ -58,7 +68,9 @@ function openDB(): Promise<IDBDatabase> {
  * Get data from IndexedDB, migrating from localStorage if needed
  */
 async function load(): Promise<DBData> {
-  if (dataCache) {return dataCache;}
+  if (dataCache) {
+    return dataCache;
+  }
 
   try {
     const db = await openDB();
@@ -81,7 +93,6 @@ async function load(): Promise<DBData> {
     dataCache = migrated;
     await save(migrated);
     return migrated;
-
   } catch (error) {
     log.error('IndexedDB error, falling back to localStorage:', error);
     // Fallback to localStorage if IndexedDB fails
@@ -133,9 +144,9 @@ async function migrateFromLocalStorage(): Promise<DBData> {
           theme: parsed.settings?.theme ?? 'light',
           language: parsed.settings?.language ?? 'en',
           ai_api_key: parsed.settings?.ai_api_key ?? '',
-          ai_provider: parsed.settings?.ai_provider ?? 'openai',
-          ai_base_url: parsed.settings?.ai_base_url ?? 'https://api.openai.com',
-          ai_model: parsed.settings?.ai_model ?? 'gpt-5.3-instant',
+          ai_machine_size: parsed.settings?.ai_machine_size ?? 'low',
+          ai_base_url: parsed.settings?.ai_base_url ?? '',
+          ai_model: parsed.settings?.ai_model ?? 'qwen3.5-0.8b-mermaid',
           _encryptedKey: parsed.settings?._encryptedKey,
         },
         userTemplates: parsed.userTemplates ?? [],
@@ -168,9 +179,9 @@ async function getFromLocalStorageFallback(): Promise<DBData> {
           theme: parsed.settings?.theme ?? 'light',
           language: parsed.settings?.language ?? 'en',
           ai_api_key: parsed.settings?.ai_api_key ?? '',
-          ai_provider: parsed.settings?.ai_provider ?? 'openai',
-          ai_base_url: parsed.settings?.ai_base_url ?? 'https://api.openai.com',
-          ai_model: parsed.settings?.ai_model ?? 'gpt-5.3-instant',
+          ai_machine_size: parsed.settings?.ai_machine_size ?? 'low',
+          ai_base_url: parsed.settings?.ai_base_url ?? '',
+          ai_model: parsed.settings?.ai_model ?? 'qwen3.5-0.8b-mermaid',
           _encryptedKey: parsed.settings?._encryptedKey,
         },
         userTemplates: parsed.userTemplates ?? [],
@@ -199,10 +210,11 @@ function saveToLocalStorageFallback(data: DBData): void {
 function createFreshData(): DBData {
   return {
     folders: [],
-    diagrams: [{
-      id: generateSecureId(),
-      title: 'Welcome Diagram',
-      content: `---
+    diagrams: [
+      {
+        id: generateSecureId(),
+        title: 'Welcome Diagram',
+        content: `---
 config:
   theme: base
 ---
@@ -212,10 +224,11 @@ flowchart TD
     B -->|No| D[Debug it]
     D --> B
     C --> E([End])`,
-      folder_id: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }],
+        folder_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ],
     versions: [],
     tags: [
       { id: generateSecureId(), name: 'architecture', color: '#3b82f6' },
@@ -227,9 +240,9 @@ flowchart TD
       theme: 'light',
       language: 'en',
       ai_api_key: '',
-      ai_provider: 'openai',
-      ai_base_url: 'https://api.openai.com',
-      ai_model: 'gpt-5.3-instant'
+      ai_machine_size: 'low',
+      ai_base_url: '',
+      ai_model: 'qwen3.5-0.8b-mermaid',
     },
     userTemplates: [],
   };
@@ -259,13 +272,16 @@ export async function createFolder(name: string, parent_id: string | null = null
 export async function updateFolder(id: string, name: string): Promise<void> {
   const data = await load();
   const f = data.folders.find(f => f.id === id);
-  if (f) { f.name = name; await save(data); }
+  if (f) {
+    f.name = name;
+    await save(data);
+  }
 }
 
 export async function deleteFolder(id: string): Promise<void> {
   const data = await load();
   data.folders = data.folders.filter(f => f.id !== id && f.parent_id !== id);
-  data.diagrams = data.diagrams.map(d => d.folder_id === id ? { ...d, folder_id: null } : d);
+  data.diagrams = data.diagrams.map(d => (d.folder_id === id ? { ...d, folder_id: null } : d));
   await save(data);
 }
 
@@ -278,12 +294,23 @@ export async function getDiagram(id: string): Promise<Diagram | undefined> {
   return (await load()).diagrams.find(d => d.id === id);
 }
 
-export async function createDiagram(title: string, content = `flowchart TD
-    A --> B`, folder_id: string | null = null): Promise<Diagram> {
+export async function createDiagram(
+  title: string,
+  content = `flowchart TD
+    A --> B`,
+  folder_id: string | null = null
+): Promise<Diagram> {
   const data = await load();
   // Don't add theme: base frontmatter - let templates use Mermaid's default theme
   // which has better support for all diagram types (ER, state, journey, etc.)
-  const d: Diagram = { id: uid(), title, content, folder_id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  const d: Diagram = {
+    id: uid(),
+    title,
+    content,
+    folder_id,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
   data.diagrams.push(d);
   await save(data);
   return d;
@@ -292,7 +319,10 @@ export async function createDiagram(title: string, content = `flowchart TD
 export async function updateDiagram(id: string, updates: Partial<Diagram>): Promise<void> {
   const data = await load();
   const d = data.diagrams.find(d => d.id === id);
-  if (d) { Object.assign(d, updates, { updated_at: new Date().toISOString() }); await save(data); }
+  if (d) {
+    Object.assign(d, updates, { updated_at: new Date().toISOString() });
+    await save(data);
+  }
 }
 
 export async function deleteDiagram(id: string): Promise<void> {
@@ -311,7 +341,10 @@ export async function deleteDiagrams(ids: string[]): Promise<void> {
   await save(data);
 }
 
-export async function moveDiagramsToFolder(diagramIds: string[], folderId: string | null): Promise<void> {
+export async function moveDiagramsToFolder(
+  diagramIds: string[],
+  folderId: string | null
+): Promise<void> {
   const data = await load();
 
   diagramIds.forEach(id => {
@@ -328,17 +361,30 @@ export async function moveDiagramsToFolder(diagramIds: string[], folderId: strin
 // ===== Versions =====
 export async function getVersions(diagram_id: string): Promise<DiagramVersion[]> {
   const data = await load();
-  return data.versions.filter(v => v.diagram_id === diagram_id)
+  return data.versions
+    .filter(v => v.diagram_id === diagram_id)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
-export async function saveVersion(diagram_id: string, content: string, label = ''): Promise<DiagramVersion> {
+export async function saveVersion(
+  diagram_id: string,
+  content: string,
+  label = ''
+): Promise<DiagramVersion> {
   const data = await load();
-  const v: DiagramVersion = { id: uid(), diagram_id, content, label, created_at: new Date().toISOString() };
+  const v: DiagramVersion = {
+    id: uid(),
+    diagram_id,
+    content,
+    label,
+    created_at: new Date().toISOString(),
+  };
   data.versions.push(v);
   const all = data.versions.filter(x => x.diagram_id === diagram_id);
   if (all.length > 50) {
-    const oldest = all.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
+    const oldest = all.sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )[0];
     data.versions = data.versions.filter(x => x.id !== oldest.id);
   }
   await save(data);
@@ -358,9 +404,14 @@ export async function getDiagramTags(diagram_id: string): Promise<Tag[]> {
 
 export async function toggleDiagramTag(diagram_id: string, tag_id: string): Promise<void> {
   const data = await load();
-  const idx = data.diagramTags.findIndex(dt => dt.diagram_id === diagram_id && dt.tag_id === tag_id);
-  if (idx >= 0) {data.diagramTags.splice(idx, 1);}
-  else {data.diagramTags.push({ diagram_id, tag_id });}
+  const idx = data.diagramTags.findIndex(
+    dt => dt.diagram_id === diagram_id && dt.tag_id === tag_id
+  );
+  if (idx >= 0) {
+    data.diagramTags.splice(idx, 1);
+  } else {
+    data.diagramTags.push({ diagram_id, tag_id });
+  }
   await save(data);
 }
 
@@ -388,7 +439,9 @@ export async function getUserTemplates(): Promise<UserTemplate[]> {
   return (await load()).userTemplates;
 }
 
-export async function saveUserTemplate(t: Omit<UserTemplate, 'id' | 'created_at'>): Promise<UserTemplate> {
+export async function saveUserTemplate(
+  t: Omit<UserTemplate, 'id' | 'created_at'>
+): Promise<UserTemplate> {
   const data = await load();
   const ut: UserTemplate = { ...t, id: uid(), created_at: new Date().toISOString() };
   data.userTemplates.push(ut);
@@ -406,6 +459,14 @@ export async function deleteUserTemplate(id: string): Promise<void> {
 export async function getSettings(): Promise<AppSettings> {
   const db = await load();
   const settings = { ...db.settings };
+
+  // Migrate legacy ai_provider to ai_machine_size
+  if ((settings as any).ai_provider !== undefined) {
+    log.info('Migrating legacy ai_provider to ai_machine_size');
+    db.settings.ai_machine_size = 'low';
+    delete (settings as any).ai_provider;
+    await save(db);
+  }
 
   // Migrate legacy plaintext API key if present
   if (settings.ai_api_key && !settings._encryptedKey) {
@@ -427,7 +488,6 @@ export async function getSettings(): Promise<AppSettings> {
     delete settings._encryptedKey;
   }
 
-   
   const { _encryptedKey, ...cleanSettings } = settings;
   return cleanSettings;
 }
@@ -441,7 +501,7 @@ export async function updateSettings(updates: Partial<AppSettings>): Promise<voi
   }
 
   // Apply all updates EXCEPT ai_api_key (which should only be stored as _encryptedKey)
-   
+
   const { ai_api_key, ...safeUpdates } = updates;
   Object.assign(db.settings, safeUpdates);
 
@@ -471,7 +531,9 @@ export async function exportBackup(): Promise<BackupData> {
   };
 }
 
-export async function importBackup(data: BackupData): Promise<{ diagrams: number; folders: number }> {
+export async function importBackup(
+  data: BackupData
+): Promise<{ diagrams: number; folders: number }> {
   const db = await load();
   const existingDiagramIds = new Set(db.diagrams.map(d => d.id));
   const existingFolderIds = new Set(db.folders.map(f => f.id));
@@ -530,9 +592,9 @@ export async function importBackup(data: BackupData): Promise<{ diagrams: number
     // Import other settings
     db.settings.theme = data.settings.theme;
     db.settings.language = data.settings.language;
-    db.settings.ai_provider = data.settings.ai_provider;
-    db.settings.ai_base_url = data.settings.ai_base_url;
-    db.settings.ai_model = data.settings.ai_model;
+    db.settings.ai_machine_size = data.settings.ai_machine_size ?? 'low';
+    db.settings.ai_base_url = data.settings.ai_base_url ?? '';
+    db.settings.ai_model = data.settings.ai_model ?? '';
   }
 
   await save(db);

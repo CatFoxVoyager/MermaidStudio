@@ -1,130 +1,120 @@
-import { useState, useEffect, useRef } from 'react';
-import { Check, Loader2, ChevronDown, Eye, EyeOff, Wifi, WifiOff, Server, Globe, RefreshCw } from 'lucide-react';
-import { PROVIDER_PRESETS, getPreset, testConnection, fetchModels } from '@/services/ai/providers';
+import { useState, useEffect } from 'react';
+import { Check, Loader2, Cpu, Download, Trash2, Wifi, WifiOff, Lock } from 'lucide-react';
+import {
+  getMachineOptions,
+  checkWebGPUSupport,
+  isModelLoaded,
+  loadModel,
+  unloadModel,
+  testConnection,
+} from '@/services/ai/providers';
 import { getSettings, updateSettings } from '@/services/storage/database';
 import { Modal } from '@/components/shared/Modal';
-import type { AIProvider } from '@/types';
+import type { MachineSize } from '@/types';
 
 interface Props {
   onClose: () => void;
 }
 
 export function AISettingsModal({ onClose }: Props) {
-  const [provider, setProvider] = useState<AIProvider>('openai');
-  const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
-  const [model, setModel] = useState('');
-  const [showKey, setShowKey] = useState(false);
-  const [modelDropOpen, setModelDropOpen] = useState(false);
+  const [machineSize, setMachineSize] = useState<MachineSize>('low');
+  const [loading, setLoading] = useState(true);
+  const [webgpuStatus, setWebgpuStatus] = useState<
+    'checking' | 'supported' | 'unsupported' | 'loaded' | 'loading'
+  >('checking');
+  const [webgpuLoadProgress, setWebgpuLoadProgress] = useState(0);
+  const [webgpuMessage, setWebgpuMessage] = useState('');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [fetchingModels, setFetchingModels] = useState(false);
-  const [fetchedModels, setFetchedModels] = useState<string[] | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  const preset = getPreset(provider);
-  const modelInputRef = useRef<HTMLDivElement>(null);
-  const [dropRect, setDropRect] = useState<DOMRect | null>(null);
-  const previousProviderRef = useRef<AIProvider | null>(null);
-  const isInitialLoadRef = useRef(true);
-
-  // Load settings asynchronously
   useEffect(() => {
-    // Reset on component mount
-    isInitialLoadRef.current = true;
-    previousProviderRef.current = null;
-
     getSettings().then(settings => {
-      const loadedProvider = settings.ai_provider ?? 'openai';
-      setProvider(loadedProvider);
-      setApiKey(settings.ai_api_key ?? '');
-      setBaseUrl(settings.ai_base_url ?? '');
-      setModel(settings.ai_model ?? '');
+      setMachineSize(settings.ai_machine_size ?? 'low');
       setLoading(false);
-      // Mark initial load complete and set previous provider
-      isInitialLoadRef.current = false;
-      previousProviderRef.current = loadedProvider;
+    });
+
+    checkWebGPUSupport().then(result => {
+      if (result.supported) {
+        setWebgpuStatus(isModelLoaded() ? 'loaded' : 'supported');
+      } else {
+        setWebgpuStatus('unsupported');
+        setWebgpuMessage(result.reason ?? '');
+      }
     });
   }, []);
 
-  useEffect(() => {
-    // Skip during initial load or if provider hasn't actually changed
-    if (isInitialLoadRef.current || previousProviderRef.current === provider) {
-      previousProviderRef.current = provider;
-      return;
-    }
-
-    const p = getPreset(provider);
-    setBaseUrl(p.baseUrl);
-    setModel(p.defaultModel);
-    setTestResult(null);
-    setFetchedModels(null);
-    previousProviderRef.current = provider;
-  }, [provider]);
-
-  async function handleFetchModels() {
-    setFetchingModels(true);
-    setTestResult(null);
+  async function handleLoad() {
+    if (webgpuStatus === 'loading') return;
+    setWebgpuStatus('loading');
+    setWebgpuLoadProgress(0);
     try {
-      const models = await fetchModels(provider, baseUrl);
-      setFetchedModels(models);
-      if (models.length > 0) {
-        if (!models.includes(model)) {
-          setModel(models[0]);
-        }
-        // Auto-open dropdown to show fetched models
-        const rect = modelInputRef.current?.getBoundingClientRect() ?? null;
-        setDropRect(rect);
-        setModelDropOpen(true);
-        setTestResult({ ok: true, message: `Found ${models.length} model${models.length > 1 ? 's' : ''}` });
-      } else {
-        setTestResult({ ok: false, message: 'No models found' });
-      }
-    } catch (error) {
-      setTestResult({ ok: false, message: error instanceof Error ? error.message : 'Failed to fetch models' });
-    } finally {
-      setFetchingModels(false);
+      await loadModel(machineSize, p => {
+        setWebgpuLoadProgress(Math.round(p.progress * 100));
+        setWebgpuMessage(p.text);
+      });
+      setWebgpuStatus('loaded');
+      setWebgpuMessage('');
+    } catch (e) {
+      setWebgpuStatus('supported');
+      setWebgpuMessage(e instanceof Error ? e.message : 'Failed to load model');
     }
   }
 
-  function handleProviderChange(p: AIProvider) {
-    setProvider(p);
-    setTestResult(null);
+  function handleUnload() {
+    unloadModel();
+    setWebgpuStatus('supported');
+    setWebgpuMessage('');
   }
 
   async function handleTest() {
     setTesting(true);
     setTestResult(null);
-    const result = await testConnection({ provider, apiKey, baseUrl, model });
+    const result = await testConnection(machineSize);
     setTestResult(result);
     setTesting(false);
   }
 
   async function handleSave() {
-    await updateSettings({ ai_provider: provider, ai_api_key: apiKey, ai_base_url: baseUrl, ai_model: model });
+    await updateSettings({
+      ai_machine_size: machineSize,
+    });
     onClose();
   }
 
+  const machineOptions = getMachineOptions();
+
   const footer = (
     <div className="flex items-center justify-between gap-3">
-      <button onClick={handleTest} disabled={testing}
+      <button
+        onClick={handleTest}
+        disabled={testing}
         className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-all duration-150 disabled:opacity-50"
-        style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}>
-        {testing
-          ? <Loader2 size={12} className="animate-spin" />
-          : <Wifi size={12} />
-        }
-        {testing ? 'Testing...' : 'Test Connection'}
+        style={{
+          background: 'var(--surface-base)',
+          borderColor: 'var(--border-subtle)',
+          color: 'var(--text-primary)',
+        }}
+      >
+        {testing ? <Loader2 size={12} className="animate-spin" /> : <Wifi size={12} />}
+        {testing ? 'Checking...' : 'Check WebGPU'}
       </button>
       <div className="flex items-center gap-2">
-        <button onClick={onClose}
+        <button
+          onClick={onClose}
           className="px-4 py-2 rounded-lg text-xs font-medium border transition-all"
-          style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+          style={{
+            background: 'var(--surface-base)',
+            borderColor: 'var(--border-subtle)',
+            color: 'var(--text-secondary)',
+          }}
+        >
           Cancel
         </button>
-        <button onClick={handleSave}
+        <button
+          onClick={handleSave}
           className="px-4 py-2 rounded-lg text-xs font-semibold text-white transition-all hover:opacity-90"
-          style={{ background: 'var(--accent)' }}>
+          style={{ background: 'var(--accent)' }}
+        >
           Save Settings
         </button>
       </div>
@@ -132,7 +122,14 @@ export function AISettingsModal({ onClose }: Props) {
   );
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="AI Provider Settings" subtitle="Configure your AI model provider — settings are saved in your browser" size="lg" footer={footer}>
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title="AI Model Settings"
+      subtitle="Choose a model that runs locally in your browser via WebGPU"
+      size="lg"
+      footer={footer}
+    >
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 size={32} className="animate-spin" style={{ color: 'var(--accent)' }} />
@@ -140,176 +137,175 @@ export function AISettingsModal({ onClose }: Props) {
       ) : (
         <div className="p-5 space-y-5 overflow-y-auto overflow-x-visible max-h-[calc(100vh-200px)]">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider mb-2.5"
-              style={{ color: 'var(--text-tertiary)' }}>Provider</p>
-            <div className="grid grid-cols-3 gap-2">
-              {PROVIDER_PRESETS.map(p => (
-                <button key={p.id} onClick={() => handleProviderChange(p.id)}
-                  className="relative flex flex-col items-start gap-1 px-3 py-2.5 rounded-xl border text-left transition-all duration-150"
+            <p
+              className="text-[11px] font-semibold uppercase tracking-wider mb-2.5"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              Machine Size
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {machineOptions.map(opt => (
+                <button
+                  key={opt.size}
+                  onClick={() => {
+                    if (opt.available && opt.size !== machineSize) {
+                      unloadModel();
+                      setWebgpuStatus('supported');
+                      setWebgpuMessage('');
+                      setMachineSize(opt.size);
+                      setTestResult(null);
+                    }
+                  }}
+                  className="relative flex flex-col items-start gap-1.5 px-4 py-3.5 rounded-xl border text-left transition-all duration-150"
                   style={{
-                    background: provider === p.id ? 'var(--accent-dim)' : 'var(--surface-base)',
-                    borderColor: provider === p.id ? 'var(--accent)' : 'var(--border-subtle)',
+                    background:
+                      machineSize === opt.size ? 'var(--accent-dim)' : 'var(--surface-base)',
+                    borderColor:
+                      machineSize === opt.size ? 'var(--accent)' : 'var(--border-subtle)',
                     color: 'var(--text-primary)',
-                  }}>
+                    opacity: opt.available ? 1 : 0.5,
+                    cursor: opt.available ? 'pointer' : 'not-allowed',
+                  }}
+                >
                   <div className="flex items-center gap-1.5 w-full">
-                    <span className="text-xs font-medium leading-tight">{p.label}</span>
-                    {!p.requiresKey && (
-                      <span className="ml-auto text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
-                        style={{ background: 'var(--success-dim, rgba(34,197,94,0.15))', color: '#22c55e' }}>
-                        Local
+                    <Cpu size={13} style={{ color: 'var(--accent)' }} />
+                    <span className="text-xs font-semibold leading-tight">{opt.label}</span>
+                    {!opt.available && (
+                      <span
+                        className="ml-auto flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                        style={{ background: 'rgba(107,114,128,0.15)', color: '#9ca3af' }}
+                      >
+                        <Lock size={8} />
+                        Coming Soon
                       </span>
                     )}
+                    {opt.available && machineSize === opt.size && (
+                      <div
+                        className="ml-auto w-4 h-4 rounded-full flex items-center justify-center"
+                        style={{ background: 'var(--accent)' }}
+                      >
+                        <Check size={9} className="text-white" />
+                      </div>
+                    )}
                   </div>
-                  <span className="text-[10px] leading-tight line-clamp-2" style={{ color: 'var(--text-tertiary)' }}>
-                    {p.description}
+                  <span
+                    className="text-[10px] leading-relaxed"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    {opt.description}
                   </span>
-                  {provider === p.id && (
-                    <div className="absolute top-2 right-2 w-4 h-4 rounded-full flex items-center justify-center"
-                      style={{ background: 'var(--accent)' }}>
-                      <Check size={9} className="text-white" />
-                    </div>
-                  )}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5"
-                style={{ color: 'var(--text-tertiary)' }}>
-                <span className="flex items-center gap-1.5">
-                  <Globe size={11} /> Base URL
+          <div
+            className="rounded-xl border p-3.5 space-y-2.5"
+            style={{
+              background:
+                webgpuStatus === 'unsupported' ? 'rgba(239,68,68,0.05)' : 'var(--surface-base)',
+              borderColor:
+                webgpuStatus === 'unsupported' ? 'rgba(239,68,68,0.2)' : 'var(--border-subtle)',
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>
+                WebGPU Model Status
+              </span>
+              {webgpuStatus === 'loaded' && (
+                <span
+                  className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                  style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}
+                >
+                  Loaded & Ready
                 </span>
-              </label>
-              <input
-                type="text"
-                value={baseUrl}
-                onChange={e => { setBaseUrl(e.target.value); setTestResult(null); }}
-                placeholder={preset.baseUrl}
-                className="w-full px-3 py-2 text-xs rounded-lg border outline-hidden font-mono transition-colors"
-                style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
-                onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
-                onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')}
-              />
-            </div>
-
-            <div className="col-span-2">
-              <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5"
-                style={{ color: 'var(--text-tertiary)' }}>
-                <span className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Server size={11} /> Model
-                  </span>
-                  <button
-                    onClick={handleFetchModels}
-                    disabled={fetchingModels}
-                    className="flex items-center gap-1 text-[10px] font-medium transition-colors disabled:opacity-50 hover:text-white/80"
-                    style={{ color: 'var(--accent)' }}
-                    title="Fetch available models from API">
-                    {fetchingModels
-                      ? <Loader2 size={10} className="animate-spin" />
-                      : <RefreshCw size={10} />
-                    }
-                    {fetchingModels ? 'Fetching...' : 'Fetch Models'}
-                  </button>
-                </span>
-              </label>
-              {(provider === 'lmstudio' || provider === 'ollama') && (
-                <p className="text-[9px] mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                  💡 If fetch doesn't work due to CORS, type your model name manually (e.g., <code className="px-1 py-0.5 rounded-sm" style={{ background: 'var(--surface-base)' }}>lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF</code>)
-                </p>
               )}
-              <div className="relative" ref={modelInputRef}>
-                <input
-                  type="text"
-                  value={model}
-                  onChange={e => { setModel(e.target.value); setTestResult(null); }}
-                  placeholder={preset.defaultModel}
-                  className="w-full px-3 py-2 text-xs rounded-lg border outline-hidden font-mono transition-colors pr-8"
-                  style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
-                  onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
-                  onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')}
+              {webgpuStatus === 'supported' && (
+                <span
+                  className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                  style={{ background: 'rgba(59,130,246,0.15)', color: '#3b82f6' }}
+                >
+                  Ready to Load
+                </span>
+              )}
+              {webgpuStatus === 'loading' && (
+                <span
+                  className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                  style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}
+                >
+                  Loading... {webgpuLoadProgress}%
+                </span>
+              )}
+              {webgpuStatus === 'checking' && (
+                <Loader2
+                  size={12}
+                  className="animate-spin"
+                  style={{ color: 'var(--text-tertiary)' }}
                 />
-                {(preset.models.length > 0 || (fetchedModels && fetchedModels.length > 0)) && (
-                  <button
-                    onClick={() => {
-                      const rect = modelInputRef.current?.getBoundingClientRect() ?? null;
-                      setDropRect(rect);
-                      setModelDropOpen(v => !v);
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-sm transition-colors hover:bg-white/10"
-                    style={{ color: 'var(--text-tertiary)' }}>
-                    <ChevronDown size={12} className={`transition-transform ${modelDropOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                )}
-                {modelDropOpen && (preset.models.length > 0 || (fetchedModels && fetchedModels.length > 0)) && dropRect && (
-                  <div
-                    className="fixed rounded-xl border shadow-xl z-200 overflow-hidden"
-                    style={{
-                      background: 'var(--surface-floating)',
-                      borderColor: 'var(--border-subtle)',
-                      top: dropRect.bottom + 4,
-                      left: dropRect.left,
-                      width: dropRect.width,
-                      maxHeight: 220,
-                      overflowY: 'auto',
-                    }}>
-                    {(fetchedModels ?? preset.models).map(m => (
-                      <button key={m} onClick={() => { setModel(m); setModelDropOpen(false); setTestResult(null); }}
-                        className="w-full px-3 py-2 text-left text-xs font-mono transition-colors hover:bg-white/8 flex items-center justify-between"
-                        style={{ color: 'var(--text-primary)' }}>
-                        {m}
-                        {model === m && <Check size={11} style={{ color: 'var(--accent)' }} />}
-                      </button>
-                    ))}
-                    {fetchedModels && fetchedModels.length > 0 && (
-                      <div className="border-t px-3 py-1.5 text-[9px] text-center" style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}>
-                        {fetchedModels.length} models from API
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
-            {preset.requiresKey && (
-              <div className="col-span-2">
-                <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5"
-                  style={{ color: 'var(--text-tertiary)' }}>API Key</label>
-                <div className="relative flex items-center">
-                  <input
-                    type={showKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={e => { setApiKey(e.target.value); setTestResult(null); }}
-                    placeholder={preset.keyPlaceholder}
-                    className="w-full px-3 py-2 text-xs rounded-lg border outline-hidden font-mono transition-colors pr-9"
-                    style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
-                    onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
-                    onBlur={e => (e.target.style.borderColor = 'var(--border-subtle)')}
-                  />
-                  <button onClick={() => setShowKey(v => !v)}
-                    className="absolute right-2.5 p-0.5 rounded-sm transition-colors hover:bg-white/10"
-                    style={{ color: 'var(--text-tertiary)' }}>
-                    {showKey ? <EyeOff size={12} /> : <Eye size={12} />}
-                  </button>
-                </div>
+            {webgpuStatus === 'loading' && (
+              <div
+                className="w-full h-1.5 rounded-full overflow-hidden"
+                style={{ background: 'var(--surface-floating)' }}
+              >
+                <div
+                  className="h-full transition-all duration-300 rounded-full"
+                  style={{ width: `${webgpuLoadProgress}%`, background: 'var(--accent)' }}
+                />
               </div>
             )}
+
+            {webgpuMessage && webgpuStatus !== 'loaded' && (
+              <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+                {webgpuMessage}
+              </p>
+            )}
+
+            {webgpuStatus === 'unsupported' && (
+              <p className="text-[10px] leading-relaxed" style={{ color: '#ef4444' }}>
+                {webgpuMessage}
+              </p>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              {webgpuStatus === 'supported' && (
+                <button
+                  onClick={handleLoad}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-medium text-white transition-all hover:opacity-90"
+                  style={{ background: 'var(--accent)' }}
+                >
+                  <Download size={10} />
+                  Load Model
+                </button>
+              )}
+              {webgpuStatus === 'loaded' && (
+                <button
+                  onClick={handleUnload}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-medium border transition-all"
+                  style={{
+                    background: 'var(--surface-floating)',
+                    borderColor: 'var(--border-subtle)',
+                    color: 'var(--text-secondary)',
+                  }}
+                >
+                  <Trash2 size={10} />
+                  Unload Model
+                </button>
+              )}
+            </div>
           </div>
 
           {testResult && (
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs"
+            <div
+              className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs"
               style={{
-                background: testResult.ok
-                  ? 'rgba(34,197,94,0.1)'
-                  : 'rgba(239,68,68,0.1)',
+                background: testResult.ok ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
                 color: testResult.ok ? '#22c55e' : '#ef4444',
-              }}>
-              {testResult.ok
-                ? <Wifi size={13} />
-                : <WifiOff size={13} />
-              }
+              }}
+            >
+              {testResult.ok ? <Wifi size={13} /> : <WifiOff size={13} />}
               {testResult.message}
             </div>
           )}

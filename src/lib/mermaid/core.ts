@@ -152,7 +152,6 @@ export async function renderDiagram(
   try {
     let { svg } = await mermaid.render(safeId, content);
 
-    // Always sanitize SVG output for defense-in-depth
     svg = sanitizeMermaidSVG(svg);
 
     if (hasCustomTheme) {
@@ -168,7 +167,41 @@ export async function renderDiagram(
     // Without this, subsequent renders may fail silently after a parse error.
     const el = document.getElementById(safeId);
     if (el) el.remove();
-    return { svg: '', error: e instanceof Error ? e.message : String(e) };
+
+    const originalError = e instanceof Error ? e.message : String(e);
+    
+    // Adjust line numbers if frontmatter is present
+    // Mermaid often starts counting lines after the frontmatter block
+    if (content.trimStart().startsWith('---')) {
+      const lines = content.split('\n');
+      let frontmatterEndLine = -1;
+      let dashCount = 0;
+      
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === '---') {
+          dashCount++;
+          if (dashCount === 2) {
+            frontmatterEndLine = i + 1;
+            break;
+          }
+        }
+      }
+
+      if (frontmatterEndLine !== -1) {
+        // Find "line X" or "line:X" patterns and adjust them
+        // Mermaid reports line numbers relative to the start of the diagram body (after frontmatter)
+        // We add the frontmatter line count to get the absolute line in the editor
+        const adjustedError = originalError.replace(/(?:line|Line)\s*:?\s*(\d+)/g, (match, lineNum) => {
+          const absoluteLine = parseInt(lineNum, 10) + frontmatterEndLine;
+          return `line ${absoluteLine} (absolute)`;
+        });
+        
+        console.debug('[Mermaid Core] Adjusted error lines:', { original: originalError, adjusted: adjustedError, offset: frontmatterEndLine });
+        return { svg: '', error: adjustedError };
+      }
+    }
+
+    return { svg: '', error: originalError };
   }
 }
 

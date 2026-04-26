@@ -633,15 +633,6 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     shadowCSS += `g.edgeLabel rect.background, g.edgeLabel rect { fill-opacity: 1 !important; opacity: 1 !important; stroke: none !important; }\n`;
     shadowCSS += `g.edgeLabel .label div, g.edgeLabel .label span { background-color: inherit; opacity: 1 !important; }\n`;
 
-    // Create style element with theme variables
-    const styleEl = document.createElement('style');
-    styleEl.textContent = shadowCSS;
-    shadowRoot.appendChild(styleEl);
-
-    // Create container for SVG — apply edge and node font styles via SVG post-processing
-    const svgContainer = document.createElement('div');
-    svgContainer.className = 'mermaid';
-
     // Extract font-related node styles for post-processing
     const nodeFontStyles = new Map<string, { fontSize?: string; fontWeight?: string; color?: string }>();
     parsedStyles.forEach((style, nodeId) => {
@@ -654,11 +645,13 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       }
     });
 
-    svgContainer.innerHTML = applyNodeFontStyles(
-      applyEdgeFontStyles(fixDiagramLabels(sanitizeSVG(svg)), parsedLinkStyles, parsedEdges),
+    const processedSvg = applyNodeFontStyles(
+      applyEdgeFontStyles(fixDiagramLabels(svg), parsedLinkStyles, parsedEdges),
       nodeFontStyles
     );
-    shadowRoot.appendChild(svgContainer);
+
+    shadowRoot.innerHTML = `<style>${shadowCSS}</style><div class="mermaid">${processedSvg}</div>`;
+    const svgContainer = shadowRoot.querySelector('.mermaid');
 
     // Store reference for size calculations (pointing to SVG container in Shadow DOM)
     svgContainerRef.current = svgContainer as unknown as HTMLDivElement;
@@ -1281,8 +1274,8 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
               <AlertTriangle size={18} className="text-red-400" />
             </div>
             <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>{t('preview.parseError')}</p>
-            <p className="text-xs font-mono max-w-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              {error.split('\n')[0]}
+            <p className="text-xs font-mono max-w-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
+              {error}
             </p>
           </div>
         ) : !svg && !loading ? (

@@ -39,6 +39,7 @@ interface Props {
   themeId?: string;
   onOpenAIPanel?: (options?: { mode?: 'chat' | 'fix' }) => void;
   onPreviewError?: (error: string | null) => void;
+  previewError?: string | null;
 }
 
 export function WorkspacePanel({
@@ -47,7 +48,7 @@ export function WorkspacePanel({
   onShowHistory, onShowExport, onToggleAI, onFullscreen, onSaveTemplate,
   onNewDiagram, onShowTemplates, onShowPalette, onShowDiagramColors, onShowAdvancedStyle,
   onDiagramColorsClose, onAdvancedStyleClose, showDiagramColors, showAdvancedStyle,
-  showAI, renderTimeMs, onRenderTime, themeId, onOpenAIPanel, onPreviewError,
+  showAI, renderTimeMs, onRenderTime, themeId, onOpenAIPanel, onPreviewError, previewError,
 }: Props) {
   const { t } = useTranslation();
   const [splitPos, setSplitPos] = useState(40);
@@ -218,7 +219,8 @@ export function WorkspacePanel({
             label="Fix"
             showLabel={showLabels}
             onClick={() => onOpenAIPanel?.({ mode: 'fix' })}
-            title={t('ai.fixDiagram')} />
+            disabled={!previewError}
+            title={previewError ? t('ai.fixDiagram') : t('ai.noErrors')} />
           <ToolbarButton icon={<Palette size={13} />} label={t('editor.diagramColors')} showLabel={showLabels}
             onClick={onShowDiagramColors} title={t('editor.diagramColors')} />
           <ToolbarButton icon={<SlidersHorizontal size={13} />} label={t('editor.advancedStyling')} showLabel={showLabels}
@@ -355,7 +357,7 @@ function EmptyState({ onNewDiagram, onShowTemplates, onShowPalette }: {
             </svg>
           </div>
           <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>MermaidStudio</span>
-          <span className="text-sm font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-floating)', color: 'var(--text-secondary)' }}>v0.4.1</span>
+          <span className="text-sm font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-floating)', color: 'var(--text-secondary)' }}>v0.5.0</span>
         </div>
         <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
           {t('editor.openOrCreate')}

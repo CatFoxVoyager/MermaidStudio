@@ -1,14 +1,8 @@
-/**
- * Characterization tests for AIPanel component
- * Documents existing behavior before refactoring
- */
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AIPanel } from '../AIPanel';
 
-// Mock i18next
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, params?: { msg?: string }) => {
@@ -27,10 +21,7 @@ vi.mock('react-i18next', () => ({
         'ai.suggestion4': 'Fix the syntax',
         'ai.suggestion5': 'Optimize the layout',
         'ai.suggestion6': 'Add styling',
-        'ai.apiKeyRequired': 'API Key Required',
-        'ai.apiKeyMessage': 'Please configure your API key for {{ provider }}.',
         'ai.openSettings': 'Open Settings',
-        'ai.switchProviderHint': 'or switch to a different provider',
         'ai.configureProvider': 'Configure your AI provider in settings.',
         'ai.errorPrefix': 'Error: {{msg}}',
       };
@@ -38,59 +29,50 @@ vi.mock('react-i18next', () => ({
       if (params?.msg) {
         result = result.replace('{{msg}}', params.msg);
       }
-      if (params?.provider) {
-        result = result.replace('{{provider}}', params.provider);
-      }
       return result;
     },
   }),
 }));
 
-// Mock dependencies with importOriginal to preserve exports
-vi.mock('@/services/storage/database', async (importOriginal) => {
+vi.mock('@/services/storage/database', async importOriginal => {
   const actual = await importOriginal<typeof import('@/services/storage/database')>();
   return {
     ...actual,
-    getSettings: vi.fn(() => Promise.resolve({
-      ai_provider: 'openai',
-      ai_api_key: 'test-key',
-      ai_model: 'gpt-4',
-      ai_base_url: '',
-      theme: 'base',
-      language: 'en',
-    })),
+    getSettings: vi.fn(() =>
+      Promise.resolve({
+        ai_machine_size: 'low',
+        ai_api_key: '',
+        ai_model: '',
+        ai_base_url: '',
+        theme: 'dark',
+        language: 'en',
+      })
+    ),
   };
 });
 
 const mockCallAI = vi.fn(() => Promise.resolve('flowchart LR\n  A-->B'));
 
-vi.mock('@/services/ai/providers', async (importOriginal) => {
+vi.mock('@/services/ai/providers', async importOriginal => {
   const actual = await importOriginal<typeof import('@/services/ai/providers')>();
   return {
     ...actual,
     callAI: () => mockCallAI(),
-    getPreset: vi.fn((provider: string) => {
-      const presets: Record<string, { label: string; requiresKey: boolean }> = {
-        openai: { label: 'OpenAI', requiresKey: true },
-        ollama: { label: 'Ollama', requiresKey: false },
-        anthropic: { label: 'Anthropic', requiresKey: true },
-      };
-      return presets[provider] || { label: provider, requiresKey: true };
-    }),
-    buildSystemPrompt: vi.fn(() => 'Mock system prompt'),
+    getMachineConfig: vi.fn(() => ({
+      id: 'qwen3.5-0.8b-mermaid',
+      label: 'Low Memory',
+    })),
+    isMachineAvailable: vi.fn(() => true),
   };
 });
 
-// Mock clipboard API
 const mockClipboard = {
   writeText: vi.fn(() => Promise.resolve()),
 };
 global.navigator.clipboard = mockClipboard as any;
 
-// Mock scrollIntoView
 Element.prototype.scrollIntoView = vi.fn();
 
-// Mock crypto.randomUUID
 Object.defineProperty(global, 'crypto', {
   value: {
     randomUUID: vi.fn(() => `test-${Math.random()}`),
@@ -146,21 +128,21 @@ describe('AIPanel - Characterization Tests', () => {
   });
 
   describe('2. Settings Loading on Mount', () => {
-    it('should load settings on mount and display provider', async () => {
+    it('should load settings on mount and display machine label', async () => {
       render(<AIPanel {...mockProps} />);
 
       await waitFor(() => {
-        expect(screen.getByText('OpenAI')).toBeInTheDocument();
+        expect(screen.getByText('Low Memory')).toBeInTheDocument();
       });
     });
   });
 
-  describe('3. Provider Badge Display', () => {
-    it('should display OpenAI badge for OpenAI provider', async () => {
+  describe('3. Machine Badge Display', () => {
+    it('should display Low Memory badge', async () => {
       render(<AIPanel {...mockProps} />);
 
       await waitFor(() => {
-        expect(screen.getByText('OpenAI')).toBeInTheDocument();
+        expect(screen.getByText('Low Memory')).toBeInTheDocument();
       });
     });
   });
@@ -255,7 +237,7 @@ describe('AIPanel - Characterization Tests', () => {
       });
     });
 
-    it('should handle suspicious timestamp-only responses', async () => {
+    it('should pass through timestamp-like responses as-is', async () => {
       mockCallAI.mockResolvedValueOnce('17:04');
 
       render(<AIPanel {...mockProps} />);
@@ -267,7 +249,7 @@ describe('AIPanel - Characterization Tests', () => {
       await userEvent.click(sendButton);
 
       await waitFor(() => {
-        expect(screen.getByText(/unexpected response/i)).toBeInTheDocument();
+        expect(screen.getByText('17:04')).toBeInTheDocument();
       });
     });
   });
@@ -295,7 +277,6 @@ describe('AIPanel - Characterization Tests', () => {
 
       render(<AIPanel {...mockProps} />);
 
-      // Send a message
       const input = screen.getByTestId('ai-input');
       await userEvent.type(input, 'Test');
       const sendButton = screen.getByTestId('ai-send');
@@ -305,7 +286,6 @@ describe('AIPanel - Characterization Tests', () => {
         expect(screen.getByTestId('ai-message-user')).toBeInTheDocument();
       });
 
-      // Click reset
       const resetButton = screen.getByTitle(/reset chat/i);
       await userEvent.click(resetButton);
 
@@ -319,17 +299,6 @@ describe('AIPanel - Characterization Tests', () => {
 
       const resetButton = document.querySelector('[title="Reset chat"]');
       expect(resetButton).not.toBeInTheDocument();
-    });
-  });
-
-  describe('7. API Key Required Warning', () => {
-    it('should not show warning when API key is configured', async () => {
-      render(<AIPanel {...mockProps} />);
-
-      // With default mock that has API key, warning should not show
-      await waitFor(() => {
-        expect(screen.queryByText(/api key required/i)).not.toBeInTheDocument();
-      });
     });
   });
 

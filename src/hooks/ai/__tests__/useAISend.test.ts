@@ -1,37 +1,34 @@
-/**
- * Tests for useAISend hook
- * Tests AI message sending logic with validation, error handling, and demo mode
- */
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useAISend } from '../useAISend';
 import type { AIMessage } from '@/types';
 
-// Mock dependencies with importOriginal to preserve exports
-vi.mock('@/services/storage/database', async (importOriginal) => {
+vi.mock('@/services/storage/database', async importOriginal => {
   const actual = await importOriginal<typeof import('@/services/storage/database')>();
   return {
     ...actual,
-    getSettings: vi.fn(() => Promise.resolve({
-      ai_provider: 'openai',
-      ai_api_key: 'test-key',
-      ai_base_url: '',
-      ai_model: 'gpt-4',
-    })),
+    getSettings: vi.fn(() =>
+      Promise.resolve({
+        ai_machine_size: 'low' as const,
+        ai_api_key: '',
+        ai_base_url: '',
+        ai_model: '',
+      })
+    ),
   };
 });
 
-vi.mock('@/services/ai/providers', async (importOriginal) => {
+vi.mock('@/services/ai/providers', async importOriginal => {
   const actual = await importOriginal<typeof import('@/services/ai/providers')>();
   return {
     ...actual,
-    callAI: vi.fn(() => Promise.resolve('This is a response with ```mermaid\ngraph TD\n  A-->B\n```')),
-    buildSystemPrompt: vi.fn(() => 'System prompt'),
+    callAI: vi.fn(() =>
+      Promise.resolve('This is a response with ```mermaid\ngraph TD\n  A-->B\n```')
+    ),
   };
 });
 
-vi.mock('@/utils/logger', async (importOriginal) => {
+vi.mock('@/utils/logger', async importOriginal => {
   const actual = await importOriginal<typeof import('@/utils/logger')>();
   return {
     ...actual,
@@ -66,7 +63,6 @@ describe('useAISend', () => {
       return key;
     });
 
-    // Clear all mocks
     vi.clearAllMocks();
   });
 
@@ -86,6 +82,98 @@ describe('useAISend', () => {
       });
 
       expect(mockAddMessage).toHaveBeenCalledWith('assistant', expect.stringContaining('graph TD'));
+    });
+
+    it('should wrap unfenced mermaid code in fences', async () => {
+      const { callAI } = await import('@/services/ai/providers');
+      vi.mocked(callAI).mockResolvedValueOnce('sequenceDiagram\n    participant A\n    participant B\n    A->>B: Hello');
+
+      const { result } = renderHook(() =>
+        useAISend({
+          currentContent: 'graph TD\n  A-->B',
+          messages: mockMessages,
+          addMessage: mockAddMessage,
+          isConfigured: true,
+        })
+      );
+
+      await act(async () => {
+        await result.current.send('Create a sequence diagram', mockT);
+      });
+
+      expect(mockAddMessage).toHaveBeenCalledWith(
+        'assistant',
+        '```mermaid\nsequenceDiagram\n    participant A\n    participant B\n    A->>B: Hello\n```'
+      );
+    });
+
+    it('should wrap mermaid code with preceding text in fences', async () => {
+      const { callAI } = await import('@/services/ai/providers');
+      vi.mocked(callAI).mockResolvedValueOnce('Convert to sequence diagram\n\nsequenceDiagram\n    participant A\n    A->>B: Hi');
+
+      const { result } = renderHook(() =>
+        useAISend({
+          currentContent: 'graph TD\n  A-->B',
+          messages: mockMessages,
+          addMessage: mockAddMessage,
+          isConfigured: true,
+        })
+      );
+
+      await act(async () => {
+        await result.current.send('Convert to sequence', mockT);
+      });
+
+      expect(mockAddMessage).toHaveBeenCalledWith(
+        'assistant',
+        'Convert to sequence diagram\n\n```mermaid\nsequenceDiagram\n    participant A\n    A->>B: Hi\n```'
+      );
+    });
+
+    it('should pass through already-fenced responses unchanged', async () => {
+      const { callAI } = await import('@/services/ai/providers');
+      vi.mocked(callAI).mockResolvedValueOnce('```mermaid\nflowchart TD\n    A --> B\n```');
+
+      const { result } = renderHook(() =>
+        useAISend({
+          currentContent: 'graph TD\n  A-->B',
+          messages: mockMessages,
+          addMessage: mockAddMessage,
+          isConfigured: true,
+        })
+      );
+
+      await act(async () => {
+        await result.current.send('Test', mockT);
+      });
+
+      expect(mockAddMessage).toHaveBeenCalledWith(
+        'assistant',
+        '```mermaid\nflowchart TD\n    A --> B\n```'
+      );
+    });
+
+    it('should pass through non-mermaid text unchanged', async () => {
+      const { callAI } = await import('@/services/ai/providers');
+      vi.mocked(callAI).mockResolvedValueOnce('This is just a plain text response without any diagram code.');
+
+      const { result } = renderHook(() =>
+        useAISend({
+          currentContent: 'graph TD\n  A-->B',
+          messages: mockMessages,
+          addMessage: mockAddMessage,
+          isConfigured: true,
+        })
+      );
+
+      await act(async () => {
+        await result.current.send('Explain', mockT);
+      });
+
+      expect(mockAddMessage).toHaveBeenCalledWith(
+        'assistant',
+        'This is just a plain text response without any diagram code.'
+      );
     });
 
     it('should set loading to false after completion', async () => {
@@ -203,7 +291,7 @@ describe('useAISend', () => {
   });
 
   describe('Handling suspicious timestamp-only responses', () => {
-    it('should detect timestamp-only responses (e.g., "17:04")', async () => {
+    it('should pass through short responses like timestamps as-is', async () => {
       const { callAI } = await import('@/services/ai/providers');
       vi.mocked(callAI).mockResolvedValueOnce('17:04');
 
@@ -220,15 +308,12 @@ describe('useAISend', () => {
         await result.current.send('Test', mockT);
       });
 
-      expect(mockAddMessage).toHaveBeenCalledWith(
-        'assistant',
-        expect.stringContaining('unexpected response')
-      );
+      expect(mockAddMessage).toHaveBeenCalledWith('assistant', '17:04');
     });
 
     it('should accept short valid responses that are not timestamps', async () => {
       const { callAI } = await import('@/services/ai/providers');
-      vi.mocked(callAI).mockResolvedValueOnce('OK'); // Less than 10 chars but not timestamp
+      vi.mocked(callAI).mockResolvedValueOnce('OK');
 
       const { result } = renderHook(() =>
         useAISend({
@@ -306,10 +391,7 @@ describe('useAISend', () => {
         await result.current.send('Create something', mockT);
       });
 
-      expect(mockAddMessage).toHaveBeenCalledWith(
-        'assistant',
-        expect.stringContaining('help')
-      );
+      expect(mockAddMessage).toHaveBeenCalledWith('assistant', expect.stringContaining('help'));
     });
   });
 
@@ -402,7 +484,7 @@ describe('useAISend', () => {
       let resolveCallAI: (value: string) => void;
       const { callAI } = await import('@/services/ai/providers');
       vi.mocked(callAI).mockImplementationOnce(() => {
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
           resolveCallAI = resolve;
         });
       });
@@ -416,21 +498,17 @@ describe('useAISend', () => {
         })
       );
 
-      // Start the send - it will hang until we resolve
       const sendPromise = result.current.send('Test', mockT);
 
-      // Wait for loading state to update
       await waitFor(() => {
         expect(result.current.loading).toBe(true);
       });
 
-      // Resolve the AI call
       await act(async () => {
         resolveCallAI!('Response');
         await sendPromise;
       });
 
-      // Loading should be false now
       expect(result.current.loading).toBe(false);
     });
 
@@ -438,7 +516,7 @@ describe('useAISend', () => {
       let resolveCallAI: (value: string) => void;
       const { callAI } = await import('@/services/ai/providers');
       vi.mocked(callAI).mockImplementationOnce(() => {
-        return new Promise((resolve) => {
+        return new Promise(resolve => {
           resolveCallAI = resolve;
         });
       });
@@ -452,26 +530,21 @@ describe('useAISend', () => {
         })
       );
 
-      // Start first send
       const firstSend = result.current.send('First', mockT);
 
-      // Wait for loading to be true
       await waitFor(() => {
         expect(result.current.loading).toBe(true);
       });
 
-      // Try to send again while loading
       await act(async () => {
         await result.current.send('Second', mockT);
       });
 
-      // Complete the first send
       await act(async () => {
         resolveCallAI!('Response');
         await firstSend;
       });
 
-      // Should only call addMessage once (the first message)
       expect(mockAddMessage).toHaveBeenCalledTimes(1);
     });
   });

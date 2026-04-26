@@ -5,7 +5,7 @@ export interface AppSettings {
   theme: 'dark' | 'light';
   language: 'en' | 'fr';
   ai_api_key?: string;
-  ai_provider: import('./ai').AIProvider;
+  ai_machine_size: import('./ai').MachineSize;
   ai_base_url: string;
   ai_model: string;
   /** ID of the last opened diagram to restore on page reload */
