@@ -39,8 +39,8 @@ importers:
         specifier: ^0.2.1
         version: 0.2.1(mermaid@11.14.0)
       '@mlc-ai/web-llm':
-        specifier: file:D:/code/web-llm
-        version: file:../web-llm
+        specifier: ^0.2.82
+        version: 0.2.82
       '@radix-ui/react-context-menu':
         specifier: ^2.2.16
         version: 2.2.16(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -760,8 +760,8 @@ packages:
   '@mermaid-js/parser@1.1.0':
     resolution: {integrity: sha512-gxK9ZX2+Fex5zu8LhRQoMeMPEHbc73UKZ0FQ54YrQtUxE1VVhMwzeNtKRPAu5aXks4FasbMe4xB4bWrmq6Jlxw==}
 
-  '@mlc-ai/web-llm@file:../web-llm':
-    resolution: {directory: ../web-llm, type: directory}
+  '@mlc-ai/web-llm@0.2.82':
+    resolution: {integrity: sha512-ONhW+28PPVSUI1m0RkJcm7suwc47b65i5b/rTEIADq5I22p1+9uf/CBbDPRkkjj1WJB9s8oFp0ywAW0NY1G6fg==}
 
   '@napi-rs/wasm-runtime@1.1.4':
     resolution: {integrity: sha512-3NQNNgA1YSlJb/kMH1ildASP9HW7/7kYnRI2szWJaofaS1hWmbGI4H+d3+22aGzXXN9IJ+n+GiFVcGipJP18ow==}
@@ -5626,7 +5626,7 @@ snapshots:
     dependencies:
       langium: 4.2.1
 
-  '@mlc-ai/web-llm@file:../web-llm':
+  '@mlc-ai/web-llm@0.2.82':
     dependencies:
       loglevel: 1.9.2
 
