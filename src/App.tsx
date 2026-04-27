@@ -3,7 +3,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppLayout } from '@/components/AppLayout';
 import { ModalProvider } from '@/components/ModalProvider';
-import { useKeyboardShortcuts, useDiagramActions, useAppShortcuts } from '@/hooks';
+import { useKeyboardShortcuts, useDiagramActions, useAppShortcuts, useToast } from '@/hooks';
 import { useAppState } from './hooks/app/useAppState';
 import { useModalState } from './hooks/app/useModalState';
 import { SUPPORTED_GOOGLE_FONTS } from '@/constants/fonts';
@@ -25,6 +25,7 @@ export default function App() {
 
   // Get app state (theme, tabs, UI state)
   const appState = useAppState(false);
+  const { show: showToast, toasts, dismiss } = useToast();
 
   // Get modal state with mutual exclusion logic
   const {
@@ -41,7 +42,7 @@ export default function App() {
     theme: appState.theme,
     updateTabContent: appState.updateTabContent,
     saveTab: appState.saveTab,
-    showToast: appState.show,
+    showToast: showToast,
     setFocusMode: appState.setFocusMode,
     setSidebarOpen: appState.setSidebarOpen,
     openDiagram: appState.openDiagram,
@@ -78,7 +79,7 @@ export default function App() {
   const { newDiagram, handleTemplateSelect, handleNewFolder } = useDiagramActions({
     openDiagram: appState.openDiagram,
     refresh: appState.refresh,
-    showToast: appState.show,
+    showToast: showToast,
     closeModal: modalHandlers.closeModal,
   });
 
@@ -181,9 +182,9 @@ export default function App() {
         aiSettingsKey={appState.aiSettingsKey}
         setAiSettingsKey={appState.setAiSettingsKey}
         refresh={appState.refresh}
-        showToast={appState.show}
-        toasts={appState.toasts}
-        dismiss={appState.dismiss}
+        showToast={showToast}
+        toasts={toasts}
+        dismiss={dismiss}
       />
     </>
   );
