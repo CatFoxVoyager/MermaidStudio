@@ -147,27 +147,65 @@ export function useAISend({
           const hasDiagram = currentContent.trim().length > 0;
           const diagramType = detectDiagramTypeFromContent(currentContent);
 
-          const systemPrompt = `You are a Mermaid.js diagram generator. Output ONLY valid Mermaid code in a \`\`\`mermaid code block.
+          const lower = text.toLowerCase();
+          const wantsExplanation =
+            lower.includes('explain') ||
+            lower.includes('what does') ||
+            lower.includes('describe') ||
+            lower.includes('what is');
+          const wantsCreation =
+            lower.includes('create') ||
+            lower.includes('generate') ||
+            lower.includes('make') ||
+            lower.includes('draw') ||
+            lower.includes('build');
+          const wantsModification =
+            hasDiagram &&
+            (lower.includes('add') ||
+              lower.includes('remove') ||
+              lower.includes('change') ||
+              lower.includes('modify') ||
+              lower.includes('update') ||
+              lower.includes('convert') ||
+              lower.includes('simplify') ||
+              lower.includes('improve') ||
+              lower.includes('fix'));
+
+          let systemPrompt: string;
+
+          if (wantsExplanation) {
+            systemPrompt = `You are a diagram assistant. The user wants to understand their diagram. Explain what the diagram shows in plain language. Be concise and helpful.
+${hasDiagram ? `\nThe user's diagram:\n${currentContent}\n\nExplain this ${diagramType} clearly. Describe the flow, relationships, and key elements.` : ''}`;
+          } else if (wantsCreation && !wantsModification) {
+            systemPrompt = `You are a Mermaid.js diagram generator. Output ONLY valid Mermaid code in a \`\`\`mermaid code block. No explanations, no markdown outside the code block.
 
 RULES:
 - Use ONLY standard Mermaid syntax. NO @{shape:...} notation.
 - Use standard node shapes: [box], {diamond}, ([stadium]), ((circle)), [[subroutine]], [(cylinder)], >slant]
 - Use standard edges: -->, ---, --->, -.->, ==>, -->|label|
-- Keep diagrams SMALL and CONCISE. Maximum 15 nodes.
-- Do NOT repeat nodes or edges. Stop after the last node.
-- Do NOT invent fake data. Use the user's request literally.
+- Keep diagrams SMALL and CONCISE. Maximum 12 nodes.
+- Do NOT repeat nodes or edges.
+- Use the exact data the user requests. Do NOT invent content.
 
-EXAMPLE of good output:
+EXAMPLE:
 \`\`\`mermaid
-flowchart TD
-    A[Toyota] --> B[Corolla]
-    A --> C[Camry]
-    A --> D[RAV4]
-    E[BMW] --> F[Série 3]
-    E --> G[X5]
-    E --> H[Série 7]
-\`\`\`
-${hasDiagram ? `\nCurrent diagram:\n${currentContent}\n\nIMPORTANT: Preserve the original formatting. Do NOT change node shapes, edge styles, colors, classes, styles, config blocks, direction, or any custom formatting unless the user explicitly asks you to. Only modify what the user requests.` : ''}`;
+flowchart LR
+    A[Start] --> B{Decision}
+    B -->|Yes| C[Result]
+    B -->|No| D[Retry]
+\`\`\``;
+          } else {
+            systemPrompt = `You are a Mermaid.js diagram editor. The user wants to modify their existing diagram. Output ONLY the modified Mermaid code in a \`\`\`mermaid code block.
+
+RULES:
+- Use ONLY standard Mermaid syntax. NO @{shape:...} notation.
+- Use standard node shapes: [box], {diamond}, ([stadium]), ((circle)), [[subroutine]], [(cylinder)], >slant]
+- Use standard edges: -->, ---, --->, -.->, ==>, -->|label|
+- Preserve ALL original formatting, shapes, styles, colors, classes, config blocks, and direction.
+- ONLY change what the user explicitly requests.
+- Keep diagrams SMALL. Maximum 12 nodes.
+${hasDiagram ? `\nCurrent diagram:\n${currentContent}` : ''}`;
+          }
 
           const chatHistory = messages.slice(-6).map(m => ({
             role: m.role as 'user' | 'assistant',
@@ -266,7 +304,7 @@ ${hasDiagram ? `\nCurrent diagram:\n${currentContent}\n\nIMPORTANT: Preserve the
           const hasDiagram = currentContent.trim().length > 0;
           const diagramType = detectDiagramTypeFromContent(currentContent);
 
-          const systemPrompt = `You are a Mermaid.js syntax fixer. Output ONLY the fixed Mermaid code. No explanations.
+          const systemPrompt = `You are a Mermaid.js syntax fixer. Output ONLY the fixed Mermaid code in a \`\`\`mermaid code block. No explanations.
 
 RULES:
 - Use ONLY standard Mermaid syntax. NO @{shape:...} notation.

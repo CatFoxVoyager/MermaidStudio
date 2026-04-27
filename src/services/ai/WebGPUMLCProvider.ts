@@ -114,7 +114,7 @@ export function getLoadedMachineSize(): MachineSize | null {
   return currentSize;
 }
 
-export function unloadModel(): void {
+export async function unloadModel(): Promise<void> {
   if (engine) {
     try {
       engine.unload();
@@ -123,7 +123,8 @@ export function unloadModel(): void {
     }
     engine = null;
     currentSize = null;
-    log.info('Model unloaded');
+    log.info('Model unloaded, waiting for GPU cleanup...');
+    await new Promise(resolve => setTimeout(resolve, 500));
   }
 }
 
@@ -145,7 +146,7 @@ export async function loadModel(
   }
 
   if (engine && currentSize !== size) {
-    unloadModel();
+    await unloadModel();
   }
 
   if (isLoading) {
@@ -209,9 +210,6 @@ export function stripMermaidFences(text: string): string {
     '<|think_end|>',
     '<|tool_start|>',
     '<|tool_end|>',
-    'User:',
-    'Question:',
-    'Explanation:',
   ];
 
   let earliestIndex = cleaned.length;
@@ -275,17 +273,26 @@ export async function generate(
     return cleaned;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    if (msg.includes('VectorInt') || msg.includes('BindingError') || msg.includes('Context lost')) {
-      log.warn('WASM binding error detected, unloading and retrying with fresh engine...');
-      unloadModel();
-      await loadModel(size, p => {
-        if (onProgress) {
-          onProgress(Math.round(p.progress * 100));
-        }
-      });
+    const isRecoverable =
+      msg.includes('VectorInt') ||
+      msg.includes('BindingError') ||
+      msg.includes('Context lost') ||
+      msg.includes('Device was lost');
+
+    if (isRecoverable) {
+      log.warn('GPU error detected, unloading and retrying with fresh engine...', { error: msg });
+      await unloadModel();
 
       if (!engine) {
-        throw new Error('WebGPU engine failed to reload after binding error', { cause: error });
+        await loadModel(size, p => {
+          if (onProgress) {
+            onProgress(Math.round(p.progress * 100));
+          }
+        });
+      }
+
+      if (!engine) {
+        throw new Error('WebGPU engine failed to reload after GPU error', { cause: error });
       }
 
       const reply = await engine.chat.completions.create({
