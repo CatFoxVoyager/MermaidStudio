@@ -3,6 +3,9 @@ import type { MachineSize } from '@/types';
 
 const log = logger.scope('WebGPU MLC');
 
+const MLC_MODEL_LIB_PREFIX =
+  'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_83/base';
+
 interface ModelConfig {
   id: string;
   label: string;
@@ -19,8 +22,7 @@ const MODELS: Record<MachineSize, ModelConfig> = {
     description: 'Qwen3.5-0.8B fine-tuned for Mermaid. ~400MB download. Best for most diagrams.',
     weightsUrl:
       'https://huggingface.co/SpongeBOB9684/qwen3.5-0.8b-mermaid-generator-mlc/resolve/main/q4f16-v2/',
-    wasmUrl:
-      'https://raw.githubusercontent.com/akaashrp/mlc-binaries/main/Qwen3.5-0.8B-q4f16_1-webgpu-mlc.wasm',
+    wasmUrl: `${MLC_MODEL_LIB_PREFIX}/Qwen3.5-0.8B-q4f16_1_cs1k-webgpu.wasm`,
     maxTokens: 512,
   },
   high: {
@@ -29,8 +31,7 @@ const MODELS: Record<MachineSize, ModelConfig> = {
     description: 'Qwen3.5-2B fine-tuned for Mermaid. ~700MB download. Better for complex diagrams.',
     weightsUrl:
       'https://huggingface.co/SpongeBOB9684/qwen3.5-2b-mermaid-generator-mlc/resolve/main/q4f16-v2/',
-    wasmUrl:
-      'https://raw.githubusercontent.com/akaashrp/mlc-binaries/main/Qwen3.5-2B-q4f16_1-webgpu-mlc.wasm',
+    wasmUrl: `${MLC_MODEL_LIB_PREFIX}/Qwen3.5-2B-q4f16_1_cs1k-webgpu.wasm`,
     maxTokens: 1024,
   },
 };
@@ -43,6 +44,10 @@ function getAppConfig(model: ModelConfig) {
         model_id: model.id,
         model_lib: model.wasmUrl,
         required_features: ['shader-f16'],
+        overrides: {
+          context_window_size: 4096,
+          max_history_size: 1,
+        },
       },
     ],
   };
