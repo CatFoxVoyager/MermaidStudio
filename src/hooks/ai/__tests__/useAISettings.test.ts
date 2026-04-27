@@ -22,7 +22,7 @@ vi.mock('@/services/ai/providers', async importOriginal => {
   return {
     ...actual,
     getMachineConfig: vi.fn((size: string) => ({
-      id: size === 'low' ? 'qwen3.5-0.8b-mermaid' : 'qwen2.5-1.5b-mermaid',
+      id: size === 'low' ? 'qwen3.5-0.8b-mermaid' : 'qwen3.5-2b-mermaid',
       label: size === 'low' ? 'Low Memory' : 'High Memory',
     })),
   };
