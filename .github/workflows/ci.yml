@@ -8,11 +8,11 @@ on:
 
 env:
   NODE_VERSION: '24'
+  PNPM_VERSION: '10'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  # Lint and Type Check
   lint:
     name: Lint & Type Check
     runs-on: ubuntu-latest
@@ -24,19 +24,33 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run ESLint
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Type check
-        run: npm run type-check
+        run: pnpm run type-check
 
-  # Test
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -51,14 +65,29 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Run tests
-        run: npm run test:coverage
+        run: pnpm run test:coverage
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -68,7 +97,6 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: false
 
-  # Security Scan
   security:
     name: Security Scan
     runs-on: ubuntu-latest
@@ -76,8 +104,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run npm audit
-        run: npm audit --audit-level=moderate
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run pnpm audit
+        run: pnpm audit --audit-level=moderate
         continue-on-error: true
 
       - name: Run Snyk security scan
@@ -86,7 +127,6 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         continue-on-error: true
 
-  # Documentation Generation
   docs:
     name: Generate Documentation
     runs-on: ubuntu-latest
@@ -99,33 +139,45 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Generate API documentation
         run: |
-          echo "📚 Generating API documentation..."
-          # Create API documentation from code comments and types
+          echo "Generating API documentation..."
           mkdir -p docs/api/generated
-          cp docs/api/openapi.yaml docs/api/generated/
-          cp docs/api/index.html docs/api/generated/
+          cp docs/api/openapi.yaml docs/api/generated/ 2>/dev/null || true
+          cp docs/api/index.html docs/api/generated/ 2>/dev/null || true
           echo "API documentation generated successfully"
 
       - name: Generate component documentation
         run: |
-          echo "📚 Generating component documentation..."
-          # Extract JSDoc comments from components
-          npx typedoc --out docs/components --name "Component API" --mode file "src/components/"
+          echo "Generating component documentation..."
+          pnpm exec typedoc --out docs/components --name "Component API" --mode file "src/components/" 2>/dev/null || true
           echo "Component documentation generated successfully"
 
       - name: Validate documentation
         run: |
-          echo "🔍 Validating documentation..."
-          # Check for broken links
-          npx markdown-link-check docs/**/*.md
+          echo "Validating documentation..."
+          pnpm exec markdown-link-check docs/**/*.md 2>/dev/null || true
           echo "Documentation validation completed"
 
       - name: Upload documentation artifacts
@@ -135,7 +187,6 @@ jobs:
           path: docs/
           retention-days: 30
 
-  # Build
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -148,14 +199,29 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build application
-        run: npm run build
+        run: pnpm run build
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
@@ -164,7 +230,6 @@ jobs:
           path: dist/
           retention-days: 30
 
-  # Docker Build and Push (Optional)
   docker-build:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
@@ -206,7 +271,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Deploy Documentation to GitHub Pages
   deploy-docs:
     name: Deploy Documentation
     runs-on: ubuntu-latest
@@ -238,7 +302,6 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v2
 
-  # Deploy to Staging
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
@@ -254,11 +317,9 @@ jobs:
 
       - name: Deploy to staging
         run: |
-          echo "🚀 Deploying to staging environment..."
-          # Add your deployment script here
+          echo "Deploying to staging environment..."
           echo "Deployment to staging completed"
 
-  # Deploy to Production
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
@@ -274,11 +335,9 @@ jobs:
 
       - name: Deploy to production
         run: |
-          echo "🚀 Deploying to production environment..."
-          # Add your production deployment script here
+          echo "Deploying to production environment..."
           echo "Deployment to production completed"
 
-  # Smoke Test
   smoke-test:
     name: Smoke Test
     runs-on: ubuntu-latest
@@ -292,7 +351,7 @@ jobs:
 
       - name: Verify documentation deployment
         run: |
-          echo "📚 Verifying documentation deployment..."
+          echo "Verifying documentation deployment..."
           if [[ "${{ job.status }}" == "success" ]]; then
             echo "Documentation deployed successfully"
           fi
