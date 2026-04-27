@@ -28,7 +28,7 @@ const MODELS: Record<MachineSize, ModelConfig> = {
     label: 'High memory GPU (Qwen3.5 2B)',
     description: 'Qwen3.5-2B fine-tuned for Mermaid. ~700MB download. Better for complex diagrams.',
     weightsUrl:
-      'https://huggingface.co/SpongeBOB9684/qwen3.5-2b-mermaid-generator-mlc/resolve/main/',
+      'https://huggingface.co/SpongeBOB9684/qwen3.5-2b-mermaid-generator-mlc/resolve/main/q4f16-v2/',
     wasmUrl:
       'https://raw.githubusercontent.com/akaashrp/mlc-binaries/main/Qwen3.5-2B-q4f16_1-webgpu-mlc.wasm',
     maxTokens: 1024,
