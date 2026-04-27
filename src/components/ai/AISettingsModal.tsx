@@ -60,8 +60,8 @@ export function AISettingsModal({ onClose }: Props) {
     }
   }
 
-  function handleUnload() {
-    unloadModel();
+  async function handleUnload() {
+    await unloadModel();
     setWebgpuStatus('supported');
     setWebgpuMessage('');
   }
@@ -147,9 +147,9 @@ export function AISettingsModal({ onClose }: Props) {
               {machineOptions.map(opt => (
                 <button
                   key={opt.size}
-                  onClick={() => {
+                  onClick={async () => {
                     if (opt.available && opt.size !== machineSize) {
-                      unloadModel();
+                      await unloadModel();
                       setWebgpuStatus('supported');
                       setWebgpuMessage('');
                       setMachineSize(opt.size);
