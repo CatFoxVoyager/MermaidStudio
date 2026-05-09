@@ -246,7 +246,18 @@ function fixNodeLabels(doc: Document, svg: SVGSVGElement, fontFamily: string): b
  */
 export function fixDiagramLabels(svgString: string): string {
   const parser = new DOMParser();
-  const doc = parser.parseFromString(svgString, 'image/svg+xml');
+  let doc = parser.parseFromString(svgString, 'image/svg+xml');
+
+  // Mermaid's foreignObject may contain unclosed HTML void elements (<br>, <hr>, etc.)
+  // that cause XML parsing to fail. Fall back to the forgiving HTML parser to normalize.
+  if (doc.querySelector('parsererror')) {
+    const htmlDoc = parser.parseFromString(svgString, 'text/html');
+    const svgEl = htmlDoc.querySelector('svg');
+    if (svgEl) {
+      svgString = new XMLSerializer().serializeToString(svgEl);
+      doc = parser.parseFromString(svgString, 'image/svg+xml');
+    }
+  }
   let changed = false;
 
   const svg = doc.querySelector('svg');

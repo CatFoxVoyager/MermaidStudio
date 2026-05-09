@@ -255,3 +255,4 @@ src/utils/__tests__/edgeLabelBackground.test.ts
 tests/e2e/tests/visual/
 .cert/
 start-dev.bat
+/.nyxstrike_data

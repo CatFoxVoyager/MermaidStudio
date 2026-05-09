@@ -241,6 +241,18 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
 
       // Use a data URL for the image to avoid cross-origin issues
       const img = new Image();
+      // Ensure valid XML for SVG image loading.
+      // Mermaid's foreignObject may contain unclosed HTML void elements (<br>, <hr>, etc.)
+      // that break XML parsing when loaded as an SVG image.
+      // Parse through DOMParser's forgiving HTML mode, then re-serialize with
+      // XMLSerializer which produces properly self-closed XHTML tags.
+      try {
+        const htmlDoc = new DOMParser().parseFromString(cleanSvg, 'text/html');
+        const svgEl = htmlDoc.querySelector('svg');
+        if (svgEl) {
+          cleanSvg = new XMLSerializer().serializeToString(svgEl);
+        }
+      } catch { /* fall through with original cleanSvg */ }
       // Encode SVG as base64 data URL (more reliable than blob URL for canvas)
       const svgBase64 = btoa(unescape(encodeURIComponent(cleanSvg)));
       const url = `data:image/svg+xml;base64,${svgBase64}`;
