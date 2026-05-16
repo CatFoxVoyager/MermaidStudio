@@ -65,7 +65,7 @@ describe('WorkspacePanel - Fix Diagram Button', () => {
 
   it('should call onOpenAIPanel with fix mode when clicked', () => {
     const mockOpenAIPanel = vi.fn();
-    render(<WorkspacePanel {...mockProps} onOpenAIPanel={mockOpenAIPanel} />);
+    render(<WorkspacePanel {...mockProps} onOpenAIPanel={mockOpenAIPanel} previewError="Syntax error" />);
     const fixButton = screen.getByTestId('fix-diagram-button');
     fixButton.click();
     expect(mockOpenAIPanel).toHaveBeenCalledWith({ mode: 'fix' });

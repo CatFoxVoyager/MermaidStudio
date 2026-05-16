@@ -76,6 +76,10 @@ Element.prototype.scrollIntoView = vi.fn();
 Object.defineProperty(global, 'crypto', {
   value: {
     randomUUID: vi.fn(() => `test-${Math.random()}`),
+    getRandomValues: vi.fn((arr: Uint8Array) => {
+      for (let i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256);
+      return arr;
+    }),
   },
   writable: true,
 });

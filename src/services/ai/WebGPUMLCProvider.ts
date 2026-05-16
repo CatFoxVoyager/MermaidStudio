@@ -210,6 +210,7 @@ export function stripMermaidFences(text: string): string {
     '<|think_end|>',
     '<|tool_start|>',
     '<|tool_end|>',
+    '\nUser:',
   ];
 
   let earliestIndex = cleaned.length;
