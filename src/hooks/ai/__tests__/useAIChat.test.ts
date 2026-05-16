@@ -2,10 +2,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useAIChat } from '../useAIChat';
 
-// Mock crypto.randomUUID
+// Mock crypto
 Object.defineProperty(global, 'crypto', {
   value: {
     randomUUID: vi.fn(() => `test-uuid-${Math.random()}`),
+    getRandomValues: vi.fn((arr: Uint8Array) => {
+      for (let i = 0; i < arr.length; i++) arr[i] = Math.floor(Math.random() * 256);
+      return arr;
+    }),
   },
   writable: true,
 });
