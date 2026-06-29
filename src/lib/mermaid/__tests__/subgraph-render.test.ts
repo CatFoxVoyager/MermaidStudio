@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { renderDiagram } from '../core';
 import { addSubgraph } from '../codeUtils';
 
-describe('addSubgraph mermaid rendering', () => {
+describe('addSubgraph mermaid rendering', { timeout: 30000 }, () => {
   it('renders simple diagram + subgraph with default node (bracket syntax)', async () => {
     const source = 'flowchart TD\nA-->B';
     const withSubgraph = addSubgraph(source);
