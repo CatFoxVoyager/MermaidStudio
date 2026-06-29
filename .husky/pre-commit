@@ -1,3 +1,4 @@
 pnpm run lint
 pnpm run type-check
-pnpm run test
+# Run the test suite once (not watch mode) so the hook completes.
+pnpm exec vitest run

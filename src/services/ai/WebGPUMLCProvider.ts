@@ -76,30 +76,59 @@ export async function checkWebGPUSupport(): Promise<{ supported: boolean; reason
     };
   }
 
+  let adapter;
   try {
-    const adapter = await navigator.gpu.requestAdapter();
-    if (!adapter) {
-      return {
-        supported: false,
-        reason: 'No WebGPU adapter found. Your GPU may not support WebGPU.',
-      };
-    }
-
-    const features = adapter.features as Set<string>;
-    if (!features.has('shader-f16')) {
-      return {
-        supported: false,
-        reason: 'Your GPU does not support shader-f16, which is required for this model.',
-      };
-    }
-
-    return { supported: true };
+    adapter = await navigator.gpu.requestAdapter();
   } catch (e) {
     return {
       supported: false,
       reason: `WebGPU error: ${e instanceof Error ? e.message : 'Unknown'}`,
     };
   }
+
+  if (!adapter) {
+    return {
+      supported: false,
+      reason: 'No WebGPU adapter found. Your GPU may not support WebGPU.',
+    };
+  }
+
+  if (adapter.isFallbackAdapter) {
+    return {
+      supported: false,
+      reason:
+        'Only a software (fallback) WebGPU adapter is available. In-browser AI needs a real hardware GPU adapter.',
+    };
+  }
+
+  const features = adapter.features as Set<string>;
+  if (!features.has('shader-f16')) {
+    return {
+      supported: false,
+      reason: 'Your GPU does not support shader-f16, which is required for this model.',
+    };
+  }
+
+  // The web-llm runtime (Apache TVM) requests a device with
+  // maxStorageBuffersPerShaderStage=10. Many older / integrated GPUs only
+  // expose 8 (the WebGPU guaranteed minimum), which crashes runtime init
+  // with: "Cannot initialize runtime because of requested
+  // maxStorageBuffersPerShaderStage exceeds limit. requested=10, limit=8."
+  // (web-llm issue #662). Detect it up front so we don't download 400-700MB
+  // only to fail cryptically at init.
+  const limits = adapter.limits;
+  const MIN_STORAGE_BUFFERS_PER_STAGE = 10;
+  if (limits.maxStorageBuffersPerShaderStage < MIN_STORAGE_BUFFERS_PER_STAGE) {
+    return {
+      supported: false,
+      reason:
+        `Your GPU's maxStorageBuffersPerShaderStage limit (${limits.maxStorageBuffersPerShaderStage}) is below the ` +
+        `minimum (${MIN_STORAGE_BUFFERS_PER_STAGE}) required for in-browser AI. Update your browser and GPU ` +
+        `drivers, or use a device with a more recent GPU.`,
+    };
+  }
+
+  return { supported: true };
 }
 
 export function isModelLoaded(): boolean {
@@ -184,6 +213,15 @@ export async function loadModel(
     engine = null;
     currentSize = null;
     log.error('Failed to load model:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg.includes('exceeds limit') || msg.includes('Cannot initialize runtime')) {
+      throw new Error(
+        'Your GPU does not meet the minimum WebGPU requirements for in-browser AI ' +
+          '(a device limit is too low, e.g. maxStorageBuffersPerShaderStage). ' +
+          'Update your browser and GPU drivers, or use a device with a more recent GPU.',
+        { cause: error }
+      );
+    }
     throw error;
   } finally {
     isLoading = false;
