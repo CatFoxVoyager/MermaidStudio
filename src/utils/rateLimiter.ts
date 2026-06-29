@@ -164,6 +164,14 @@ export class RateLimiter {
     this.cleanupInterval = setInterval(() => {
       this.cleanup();
     }, 60000);
+    // Don't keep the Node.js event loop alive just for cleanup. This matters
+    // because the module-level `aiRateLimiter` singleton starts an interval on
+    // import; without unref, that interval prevents Vitest workers (and any
+    // Node host) from exiting after tests finish. Browsers have no unref, so
+    // guard it.
+    if (typeof (this.cleanupInterval as NodeJS.Timeout).unref === 'function') {
+      (this.cleanupInterval as NodeJS.Timeout).unref();
+    }
   }
 
   /**
