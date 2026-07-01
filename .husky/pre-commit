@@ -1,4 +1,5 @@
 pnpm run lint
 pnpm run type-check
-# Run the test suite once (not watch mode) so the hook completes.
-pnpm exec vitest run
+# Full unit suite is run in CI (ci.yml `test:coverage` job). It is intentionally
+# NOT run here: vitest's fork pool hangs at teardown in this project (worker
+# crash), which made the hook unable to complete. Keep the hook fast (~10s).
