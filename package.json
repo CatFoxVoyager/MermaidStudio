@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "build:analyze": "vite build",
     "preview": "vite preview",
-    "benchmark": "node scripts/benchmark.mjs",
+    "benchmark": "node scripts/build/benchmark.mjs",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
@@ -24,11 +24,11 @@
     "format": "prettier --write src/**/*.{ts,tsx}",
     "format:check": "prettier --check src/**/*.{ts,tsx}",
     "prepare": "husky install",
-    "docs": "node scripts/generate-docs.cjs",
-    "docs:check": "node scripts/check-doc-quality.cjs",
-    "docs:test": "node scripts/test-docs.cjs",
+    "docs": "node scripts/docs/generate-docs.cjs",
+    "docs:check": "node scripts/docs/check-doc-quality.cjs",
+    "docs:test": "node scripts/docs/test-docs.cjs",
     "e2e:install": "npx playwright install",
-    "e2e:report": "node scripts/generate-e2e-report.js"
+    "e2e:report": "node scripts/e2e/generate-e2e-report.js"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

@@ -6,7 +6,7 @@
  * This script builds the app, starts a preview server, runs Lighthouse audits,
  * and generates performance reports.
  *
- * Usage: node scripts/benchmark.mjs
+ * Usage: node scripts/build/benchmark.mjs
  */
 
 import { execFileSync } from 'child_process';
@@ -19,7 +19,7 @@ import * as chromeLauncher from 'chrome-launcher';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const rootDir = join(__dirname, '..');
+const rootDir = join(__dirname, '..', '..');
 
 // ANSI color codes for console output
 const colors = {
