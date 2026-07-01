@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
 import { inject } from '@vercel/analytics';
 import App from './App.tsx';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import i18n from './i18n/config.ts';
 import './index.css';
 
