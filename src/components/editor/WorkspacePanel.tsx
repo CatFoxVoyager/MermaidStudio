@@ -8,6 +8,7 @@ import { StatusBar } from './StatusBar';
 import { DiffView } from './DiffView';
 import { TabBar } from './TabBar';
 import type { Tab } from '@/types';
+import { APP_VERSION } from '@/constants/app';
 
 interface Props {
   tabs: Tab[];
@@ -357,7 +358,7 @@ function EmptyState({ onNewDiagram, onShowTemplates, onShowPalette }: {
             </svg>
           </div>
           <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>MermaidStudio</span>
-          <span className="text-sm font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-floating)', color: 'var(--text-secondary)' }}>v0.5.1</span>
+          <span className="text-sm font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-floating)', color: 'var(--text-secondary)' }}>v{APP_VERSION}</span>
         </div>
         <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
           {t('editor.openOrCreate')}
