@@ -80,7 +80,7 @@ export default function App() {
     openDiagram: appState.openDiagram,
     refresh: appState.refresh,
     showToast: showToast,
-    closeModal: modalHandlers.closeModal,
+    closeModal: closeModal,
   });
 
   // Keyboard shortcuts
