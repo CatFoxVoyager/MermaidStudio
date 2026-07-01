@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useModalManager } from './useModalManager';
+import { useModalManager } from '../useModalManager';
 import { useAppHandlers } from './useAppHandlers';
 import type { Tab } from '@/types';
 
