@@ -191,8 +191,10 @@ DEPENDENCY_AUDIT_REPORT.md
 # =============================================================================
 # DEBUG & OUTPUT FILES
 # =============================================================================
-*.txt
-!*.txt.license
+# Scope txt ignores to the repo root so legit nested assets (e.g.
+# public/robots.txt) are tracked. Root debug logs below are still ignored.
+/*.txt
+!/*.txt.license
 !src/**/*.txt
 final_output.txt
 full_output.txt
