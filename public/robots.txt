@@ -1,0 +1,10 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Disallow certain paths if needed
+# Disallow: /api/
+# Disallow: /private/
+
+# Sitemap location
+Sitemap: https://mermaidstudio.app/sitemap.xml
