@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import { AppLayout } from '@/components/AppLayout';
-import { ModalProvider } from '@/components/ModalProvider';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { ModalProvider } from '@/components/layout/ModalProvider';
 import { useKeyboardShortcuts, useDiagramActions, useAppShortcuts, useToast } from '@/hooks';
 import { useAppState } from './hooks/app/useAppState';
 import { useModalState } from './hooks/app/useModalState';
