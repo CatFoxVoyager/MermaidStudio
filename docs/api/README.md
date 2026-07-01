@@ -9,36 +9,6 @@ This document provides a comprehensive overview of the MermaidStudio API and int
 
 ---
 
-### useUseAppHandlers
-
-* Hook for UI event handlers
-* Extracted from App.tsx to reduce complexity
-
-**Functions:**
-- useAppHandlers(): UseAppHandlersReturn
-
----
-
-### useUseAppShortcuts
-
-* Hook for application keyboard shortcuts
-* Extracted from App.tsx to reduce complexity
-
-**Functions:**
-- useAppShortcuts(): Shortcut[]
-
----
-
-### useUseDiagramActions
-
-* Hook for diagram CRUD operations
-* Extracted from App.tsx to reduce complexity
-
-**Functions:**
-- useDiagramActions(): UseDiagramActionsReturn
-
----
-
 ### useUseKeyboardShortcuts
 
 * Custom hook for managing keyboard shortcuts in React components.
@@ -106,16 +76,6 @@ This document provides a comprehensive overview of the MermaidStudio API and int
 
 ---
 
-### useUseModalProviderProps
-
-* Hook that builds the props object for ModalProvider
-* Consolidates modal state management, app handlers, and active tab calculation
-
-**Functions:**
-- useModalProviderProps(): void
-
----
-
 ### useUseTabs
 
 
@@ -144,7 +104,15 @@ This document provides a comprehensive overview of the MermaidStudio API and int
 
 ### Ai Service
 
+#### MermaidRAGService
+
+* MermaidRAGService - Comprehensive context-aware documentation for Mermaid.js
+* Optimized for CPU-based Micro LLMs (sub-2B parameters)
+
 #### providers
+
+
+#### WebGPUMLCProvider
 
 
 ### Storage Service
@@ -160,7 +128,7 @@ This document provides a comprehensive overview of the MermaidStudio API and int
 
 ### ai
 
-- export type AIProvider
+- export type MachineSize
 - export interface AIProviderConfig
 - export interface AIMessage
 
@@ -170,10 +138,15 @@ This document provides a comprehensive overview of the MermaidStudio API and int
 ### mermaid
 
 - export type DiagramType
-- export interface ColorPalette
 - export interface Template
 - export type LayoutEngine
+- export type DiagramDirection
+- export interface BaseStyleOptions
+- export interface FlowchartStyleOptions
+- export interface SequenceStyleOptions
+- export interface GanttStyleOptions
 - export interface DiagramStyleOptions
+- export interface StylingCapabilities
 
 ### storage
 
@@ -183,10 +156,18 @@ This document provides a comprehensive overview of the MermaidStudio API and int
 - export interface Tag
 - export interface Tab
 
+### theme
+
+- export interface ThemeCoreColors
+- export interface MermaidTheme
+- export interface ThemeSlotGroup
+- export interface ThemeSlotDef
+- export interface StoredThemeData
+
 ### ui
 
 - export interface AppSettings
 - export interface UserTemplate
 - export interface BackupData
 
-*Last updated: 2026-03-25*
+*Last updated: 2026-07-01*
