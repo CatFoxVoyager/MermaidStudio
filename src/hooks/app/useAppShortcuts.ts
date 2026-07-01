@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Shortcut } from './useKeyboardShortcuts';
+import type { Shortcut } from '../useKeyboardShortcuts';
 
 interface UseAppShortcutsParams {
   openModal: (name: string) => void;
