@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
-import { useMobileShell } from '@/hooks/useMobileShell';
+import { useMobileShellContext } from '@/hooks/useMobileShell';
 import { CommandPalette } from '@/components/modals/tools/CommandPalette';
 import { BackupPanel } from '@/components/modals/tools/BackupPanel';
 import { SaveTemplateModal } from '@/components/modals/diagram/SaveTemplateModal';
@@ -94,7 +94,7 @@ export function ModalProvider({
 }: ModalProviderProps) {
   // Phase 17: Mobile detection for style panel drawer integration
   const isMobile = useMediaQuery('(max-width: 767.98px)');
-  const mobileShell = useMobileShell();
+  const mobileShell = useMobileShellContext();
 
   // Create onOpenStylePanel callback for mobile (optional for desktop)
   const onOpenStylePanel = isMobile ? (id: 'colors' | 'advanced') => {

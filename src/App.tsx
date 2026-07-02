@@ -3,6 +3,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ModalProvider } from '@/components/layout/ModalProvider';
+import { MobileShellProvider } from '@/hooks/useMobileShell';
 import { useKeyboardShortcuts, useDiagramActions, useAppShortcuts, useToast } from '@/hooks';
 import { useAppState } from './hooks/app/useAppState';
 import { useModalState } from './hooks/app/useModalState';
@@ -105,87 +106,89 @@ export default function App() {
     <>
       <Analytics />
       <SpeedInsights />
-      <AppLayout
-        theme={appState.theme}
-        toggleTheme={appState.toggleTheme}
-        defaultTheme={appState.defaultTheme}
-        setDefaultTheme={appState.setDefaultTheme}
-        language={appState.language}
-        onChangeLanguage={appState.setLanguage}
-        sidebarOpen={appState.sidebarOpen}
-        onToggleSidebar={() => appState.setSidebarOpen(v => !v)}
-        onOpenDiagram={appState.openDiagram}
-        onRefreshSidebar={appState.refresh}
-        onDiagramDeleted={appState.closeTabsByDiagramIds}
-        tabs={appState.tabs}
-        activeTabId={appState.activeTabId}
-        activeTab={appState.activeTab}
-        onSelectTab={appState.setActiveTabId}
-        onCloseTab={appState.closeTab}
-        onContentChange={appState.updateTabContent}
-        onSave={modalHandlers.handleSave}
-        onShowHistory={modalOpen('showHistory')}
-        onShowExport={modalOpen('showExport')}
-        onToggleAI={modalToggle('showAI')}
-        onFullscreen={modalOpen('showFullscreen')}
-        onSaveTemplate={modalOpen('showSaveTemplate')}
-        onNewDiagram={newDiagram}
-        onShowTemplates={modalOpen('showTemplates')}
-        onShowPalette={modalOpen('showPalette')}
-        onShowDiagramColors={openDiagramColors}
-        onShowAdvancedStyle={openAdvancedStyle}
-        onOpenCommandPalette={modalOpen('showPalette')}
-        onOpenBackup={modalOpen('showBackup')}
-        onFocusMode={modalHandlers.toggleFocusMode}
-        onThemeIdChange={appState.activeTab ? (themeId: string | null) => appState.updateTabTheme(appState.activeTab.id, themeId) : undefined}
-        showAI={modals.showAI}
-        showDiagramColors={modals.showDiagramColors}
-        showAdvancedStyle={modals.showAdvancedStyle}
-        onAIApply={modalHandlers.handleAIApply}
-        onAIClose={handleCloseAIPanel}
-        onAIOpenSettings={modalOpen('showAISettings')}
-        onOpenAIPanel={handleOpenAIPanel}
-        aiFixMode={aiFixMode}
-        aiFixTrigger={aiFixTrigger}
-        onPreviewError={handlePreviewError}
-        previewError={previewError}
-        onDiagramColorsClose={modalClose('showDiagramColors')}
-        onAdvancedStyleClose={modalClose('showAdvancedStyle')}
-        focusMode={appState.focusMode}
-        renderTimeMs={appState.renderTimeMs}
-        onRenderTime={appState.setRenderTimeMs}
-        refreshKey={appState.refreshKey}
-        aiSettingsKey={appState.aiSettingsKey}
-      />
-      <ModalProvider
-        {...modals}
-        onCloseTemplates={modalClose('showTemplates')}
-        onCloseHistory={modalClose('showHistory')}
-        onCloseExport={modalClose('showExport')}
-        onClosePalette={modalClose('showPalette')}
-        onCloseBackup={modalClose('showBackup')}
-        onCloseSaveTemplate={modalClose('showSaveTemplate')}
-        onCloseAISettings={modalClose('showAISettings')}
-        onCloseHelp={modalClose('showHelp')}
-        onCloseFullscreen={modalClose('showFullscreen')}
-        activeTab={appState.activeTab}
-        handleTemplateSelect={handleTemplateSelect}
-        handleRestore={modalHandlers.handleRestore}
-        handleCopyLink={modalHandlers.handleCopyLink}
-        newDiagram={newDiagram}
-        handleNewFolder={handleNewFolder}
-        diagrams={appState.diagrams}
-        onOpenDiagram={appState.openDiagram}
-        toggleAI={modalToggle('showAI')}
-        toggleTheme={appState.toggleTheme}
-        theme={appState.theme as 'light' | 'dark'}
-        aiSettingsKey={appState.aiSettingsKey}
-        setAiSettingsKey={appState.setAiSettingsKey}
-        refresh={appState.refresh}
-        showToast={showToast}
-        toasts={toasts}
-        dismiss={dismiss}
-      />
+      <MobileShellProvider>
+        <AppLayout
+          theme={appState.theme}
+          toggleTheme={appState.toggleTheme}
+          defaultTheme={appState.defaultTheme}
+          setDefaultTheme={appState.setDefaultTheme}
+          language={appState.language}
+          onChangeLanguage={appState.setLanguage}
+          sidebarOpen={appState.sidebarOpen}
+          onToggleSidebar={() => appState.setSidebarOpen(v => !v)}
+          onOpenDiagram={appState.openDiagram}
+          onRefreshSidebar={appState.refresh}
+          onDiagramDeleted={appState.closeTabsByDiagramIds}
+          tabs={appState.tabs}
+          activeTabId={appState.activeTabId}
+          activeTab={appState.activeTab}
+          onSelectTab={appState.setActiveTabId}
+          onCloseTab={appState.closeTab}
+          onContentChange={appState.updateTabContent}
+          onSave={modalHandlers.handleSave}
+          onShowHistory={modalOpen('showHistory')}
+          onShowExport={modalOpen('showExport')}
+          onToggleAI={modalToggle('showAI')}
+          onFullscreen={modalOpen('showFullscreen')}
+          onSaveTemplate={modalOpen('showSaveTemplate')}
+          onNewDiagram={newDiagram}
+          onShowTemplates={modalOpen('showTemplates')}
+          onShowPalette={modalOpen('showPalette')}
+          onShowDiagramColors={openDiagramColors}
+          onShowAdvancedStyle={openAdvancedStyle}
+          onOpenCommandPalette={modalOpen('showPalette')}
+          onOpenBackup={modalOpen('showBackup')}
+          onFocusMode={modalHandlers.toggleFocusMode}
+          onThemeIdChange={appState.activeTab ? (themeId: string | null) => appState.updateTabTheme(appState.activeTab.id, themeId) : undefined}
+          showAI={modals.showAI}
+          showDiagramColors={modals.showDiagramColors}
+          showAdvancedStyle={modals.showAdvancedStyle}
+          onAIApply={modalHandlers.handleAIApply}
+          onAIClose={handleCloseAIPanel}
+          onAIOpenSettings={modalOpen('showAISettings')}
+          onOpenAIPanel={handleOpenAIPanel}
+          aiFixMode={aiFixMode}
+          aiFixTrigger={aiFixTrigger}
+          onPreviewError={handlePreviewError}
+          previewError={previewError}
+          onDiagramColorsClose={modalClose('showDiagramColors')}
+          onAdvancedStyleClose={modalClose('showAdvancedStyle')}
+          focusMode={appState.focusMode}
+          renderTimeMs={appState.renderTimeMs}
+          onRenderTime={appState.setRenderTimeMs}
+          refreshKey={appState.refreshKey}
+          aiSettingsKey={appState.aiSettingsKey}
+        />
+        <ModalProvider
+          {...modals}
+          onCloseTemplates={modalClose('showTemplates')}
+          onCloseHistory={modalClose('showHistory')}
+          onCloseExport={modalClose('showExport')}
+          onClosePalette={modalClose('showPalette')}
+          onCloseBackup={modalClose('showBackup')}
+          onCloseSaveTemplate={modalClose('showSaveTemplate')}
+          onCloseAISettings={modalClose('showAISettings')}
+          onCloseHelp={modalClose('showHelp')}
+          onCloseFullscreen={modalClose('showFullscreen')}
+          activeTab={appState.activeTab}
+          handleTemplateSelect={handleTemplateSelect}
+          handleRestore={modalHandlers.handleRestore}
+          handleCopyLink={modalHandlers.handleCopyLink}
+          newDiagram={newDiagram}
+          handleNewFolder={handleNewFolder}
+          diagrams={appState.diagrams}
+          onOpenDiagram={appState.openDiagram}
+          toggleAI={modalToggle('showAI')}
+          toggleTheme={appState.toggleTheme}
+          theme={appState.theme as 'light' | 'dark'}
+          aiSettingsKey={appState.aiSettingsKey}
+          setAiSettingsKey={appState.setAiSettingsKey}
+          refresh={appState.refresh}
+          showToast={showToast}
+          toasts={toasts}
+          dismiss={dismiss}
+        />
+      </MobileShellProvider>
     </>
   );
 }

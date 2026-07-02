@@ -2,7 +2,7 @@ import { lazy, Suspense, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { MobileTopBar } from '@/components/mobile/MobileTopBar';
 import { MobileBottomNav } from '@/components/mobile/MobileBottomNav';
-import { useMobileShell, type MobileShellApi } from '@/hooks/useMobileShell';
+import { useMobileShellContext, type MobileShellApi } from '@/hooks/useMobileShell';
 import { Modal } from '@/components/shared/Modal';
 import { Sidebar } from '@/sidebar/Sidebar';
 import { MobileWorkspace } from '@/components/layout/MobileWorkspace';
@@ -73,7 +73,7 @@ export function MobileLayout({
   onThemeIdChange,
 }: MobileLayoutProps): ReactNode {
   const { t } = useTranslation();
-  const { activeView, openDrawer, setActiveView, setActiveDrawer, closeDrawer } = useMobileShell();
+  const { activeView, openDrawer, setActiveView, setActiveDrawer, closeDrawer } = useMobileShellContext();
 
   return (
     <div
