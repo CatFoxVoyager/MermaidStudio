@@ -288,8 +288,9 @@ describe('MobileLayout', () => {
       await user.click(screen.getByTestId('mobile-nav-ai'));
 
       // Should still be only one dialog (mutual exclusion)
-      const dialogs = screen.getAllByRole('dialog');
-      expect(dialogs).toHaveLength(1);
+      // Wait for the AI drawer to appear
+      const dialog = await screen.findByRole('dialog');
+      expect(dialog).toBeInTheDocument();
 
       // AI panel should now be visible
       expect(screen.getByTestId('ai-panel-stub')).toBeInTheDocument();

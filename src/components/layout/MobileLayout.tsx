@@ -50,7 +50,7 @@ export function MobileLayout({
   previewError,
 }: MobileLayoutProps): ReactNode {
   const { t } = useTranslation();
-  const { activeView, openDrawer, setActiveView, closeDrawer } = useMobileShell();
+  const { activeView, openDrawer, setActiveView, setActiveDrawer, closeDrawer } = useMobileShell();
 
   return (
     <div
@@ -82,7 +82,7 @@ export function MobileLayout({
         className="safe-bottom z-[var(--z-bottom-nav)]"
         data-testid="mobile-bottomnav-slot"
       >
-        <MobileBottomNav activeView={activeView} setActiveView={setActiveView} />
+        <MobileBottomNav activeView={activeView} setActiveView={setActiveView} setActiveDrawer={setActiveDrawer} />
       </div>
 
       {/* Files drawer - Sidebar in Modal position=right */}
