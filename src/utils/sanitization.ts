@@ -128,8 +128,34 @@ export function sanitizeMermaidSVG(svg: string): string {
     FORBID_ATTR: { onerror: true, onload: true, onclick: true, onmouseover: true },
   });
 
-  return sanitized.replace(
+  const restored = sanitized.replace(
     new RegExp(`${placeholder}(\\d+)%%`, 'g'),
     (_, idx) => foContents[parseInt(idx)]
   );
+
+  return stripDegeneratePaths(restored);
+}
+
+/**
+ * Mermaid's Sankey (and occasionally other) layouts can emit edge <path>
+ * elements with NaN coordinates (e.g. `d="M10,NaNC300,NaN,..."`) when rendered
+ * into the off-screen measuring container. Such paths render nothing but the
+ * browser logs a console error for each one. Drop them so template previews
+ * and rendered output stay quiet.
+ */
+function stripDegeneratePaths(svg: string): string {
+  if (!svg.includes('NaN')) return svg;
+  try {
+    const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+    let removed = false;
+    doc.querySelectorAll('path[d]').forEach(p => {
+      if (/NaN/i.test(p.getAttribute('d') || '')) {
+        p.remove();
+        removed = true;
+      }
+    });
+    return removed ? (doc.documentElement?.outerHTML ?? svg) : svg;
+  } catch {
+    return svg;
+  }
 }

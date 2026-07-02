@@ -7,7 +7,7 @@ const mockCloseModal = vi.fn();
 const mockHandleSave = vi.fn();
 const mockHandleAIApply = vi.fn();
 
-vi.mock('@/hooks/useModalProviderProps', () => ({
+vi.mock('@/hooks/app/useModalProviderProps', () => ({
   useModalProviderProps: vi.fn((params) => ({
     modals: { showDiagramColors: false, showAdvancedStyle: false },
     openModal: mockOpenModal,

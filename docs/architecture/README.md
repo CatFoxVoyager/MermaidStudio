@@ -45,4 +45,4 @@ All diagram content is sanitized before rendering using DOMPurify to prevent XSS
 - **Output Sanitization**: SVG output is sanitized
 - **API Key Storage**: API keys are stored in localStorage (user-controlled)
 - **CSP Headers**: Content Security Policy for production
-*Last updated: 2026-03-25*
+*Last updated: 2026-07-01*

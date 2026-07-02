@@ -47,7 +47,7 @@ vi.mock('@/lib/mermaid/core', () => ({
 }));
 
 // Mock AppLayout and ModalProvider components
-vi.mock('@/components/AppLayout', () => ({
+vi.mock('@/components/layout/AppLayout', () => ({
   AppLayout: ({ theme, children, showAI, showDiagramColors, showAdvancedStyle, ...props }: any) => (
     <div className={`flex flex-col h-screen overflow-hidden ${theme === 'dark' ? 'dark' : ''}`} data-testid="app-layout">
       <header data-testid="topbar">
@@ -66,7 +66,7 @@ vi.mock('@/components/AppLayout', () => ({
   ),
 }));
 
-vi.mock('@/components/ModalProvider', () => ({
+vi.mock('@/components/layout/ModalProvider', () => ({
   ModalProvider: ({ toasts, dismiss }: any) => (
     <>
       <div data-testid="modal-provider">Modals</div>

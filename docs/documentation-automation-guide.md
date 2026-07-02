@@ -12,7 +12,7 @@ The documentation system is fully automated and includes:
 
 ## Scripts
 
-### 1. `scripts/generate-docs.cjs` - Main Documentation Generator
+### 1. `scripts/docs/generate-docs.cjs` - Main Documentation Generator
 
 **Purpose**: Generates comprehensive documentation from source code.
 
@@ -27,10 +27,10 @@ The documentation system is fully automated and includes:
 ```bash
 npm run docs
 # or
-node scripts/generate-docs.cjs
+node scripts/docs/generate-docs.cjs
 ```
 
-### 2. `scripts/check-doc-quality.cjs` - Quality Checker
+### 2. `scripts/docs/check-doc-quality.cjs` - Quality Checker
 
 **Purpose**: Validates documentation quality and generates reports.
 
@@ -44,10 +44,10 @@ node scripts/generate-docs.cjs
 ```bash
 npm run docs:check
 # or
-node scripts/check-doc-quality.cjs
+node scripts/docs/check-doc-quality.cjs
 ```
 
-### 3. `scripts/test-docs.cjs` - Test Suite
+### 3. `scripts/docs/test-docs.cjs` - Test Suite
 
 **Purpose**: Runs comprehensive tests of the documentation system.
 
@@ -60,7 +60,7 @@ node scripts/check-doc-quality.cjs
 ```bash
 npm run docs:test
 # or
-node scripts/test-docs.cjs
+node scripts/docs/test-docs.cjs
 ```
 
 ## CI/CD Integration
@@ -145,13 +145,13 @@ The system tracks several quality metrics:
 
 ```bash
 # Test documentation generation
-node scripts/generate-docs.cjs
+node scripts/docs/generate-docs.cjs
 
 # Check specific file
-node scripts/check-doc-quality.cjs
+node scripts/docs/check-doc-quality.cjs
 
 # Run tests
-node scripts/test-docs.cjs
+node scripts/docs/test-docs.cjs
 ```
 
 ## Future Enhancements

@@ -9,8 +9,8 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
-const DOC_ROOT = path.join(__dirname, '..', 'docs');
-const SRC_ROOT = path.join(__dirname, '..', 'src');
+const DOC_ROOT = path.join(__dirname, '..', '..', 'docs');
+const SRC_ROOT = path.join(__dirname, '..', '..', 'src');
 
 // Test configuration
 const tests = [
@@ -59,7 +59,7 @@ const tests = [
   {
     name: 'Package.json Documentation Script',
     test: () => {
-      const packageJsonPath = path.join(__dirname, '..', 'package.json');
+      const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
       return {
@@ -73,7 +73,7 @@ const tests = [
   {
     name: 'CI/CD Documentation Integration',
     test: () => {
-      const ciYamlPath = path.join(__dirname, '..', '.github', 'workflows', 'ci.yml');
+      const ciYamlPath = path.join(__dirname, '..', '..', '.github', 'workflows', 'ci.yml');
       const ciYaml = fs.readFileSync(ciYamlPath, 'utf8');
 
       return {
@@ -87,7 +87,7 @@ const tests = [
   {
     name: 'Documentation Maintenance Workflow',
     test: () => {
-      const docsYamlPath = path.join(__dirname, '..', '.github', 'workflows', 'docs.yml');
+      const docsYamlPath = path.join(__dirname, '..', '..', '.github', 'workflows', 'docs.yml');
       return {
         passed: fs.existsSync(docsYamlPath),
         message: fs.existsSync(docsYamlPath)
