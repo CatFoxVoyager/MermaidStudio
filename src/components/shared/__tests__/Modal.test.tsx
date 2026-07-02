@@ -280,4 +280,172 @@ describe('Modal Component', () => {
       expect(overlay).toHaveClass('backdrop-blur-sm');
     });
   });
+
+  describe('Phase 17 mobile responsiveness (MDRW-03)', () => {
+    // Mock matchMedia per file
+    const mockMatchMedia = (matches: boolean) => {
+      Object.defineProperty(window, 'matchMedia', {
+        writable: true,
+        value: vi.fn().mockImplementation(query => ({
+          matches,
+          media: query,
+          onchange: null,
+          addListener: vi.fn(), // Deprecated
+          removeListener: vi.fn(), // Deprecated
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        })),
+      });
+    };
+
+    describe('Mobile viewport (max-width: 767.98px)', () => {
+      beforeEach(() => {
+        mockMatchMedia(true); // Mobile viewport
+      });
+
+      it('should apply max-md:w-full to right-positioned modal', () => {
+        const { container } = render(
+          <Modal isOpen={true} onClose={mockOnClose} title="Test" position="right">
+            Content
+          </Modal>
+        );
+        const modal = container.querySelector('[data-testid="modal"]');
+        expect(modal).toHaveClass('max-md:w-full');
+        // Desktop base class should still be present
+        expect(modal).toHaveClass('w-[380px]');
+      });
+
+      it('should apply max-md:border-l-0 to right-positioned modal', () => {
+        const { container } = render(
+          <Modal isOpen={true} onClose={mockOnClose} title="Test" position="right">
+            Content
+          </Modal>
+        );
+        const modal = container.querySelector('[data-testid="modal"]');
+        expect(modal).toHaveClass('max-md:border-l-0');
+      });
+
+      it('should apply max-md:max-w-full to center-positioned modal', () => {
+        const { container } = render(
+          <Modal isOpen={true} onClose={mockOnClose} title="Test" position="center" size="md">
+            Content
+          </Modal>
+        );
+        const modal = container.querySelector('[data-testid="modal"]');
+        expect(modal).toHaveClass('max-md:max-w-full');
+        // Desktop base class should still be present
+        expect(modal).toHaveClass('max-w-md');
+      });
+
+      it('should apply max-md:w-full and max-md:h-full to center-positioned modal', () => {
+        const { container } = render(
+          <Modal isOpen={true} onClose={mockOnClose} title="Test" position="center" size="md">
+            Content
+          </Modal>
+        );
+        const modal = container.querySelector('[data-testid="modal"]');
+        expect(modal).toHaveClass('max-md:w-full');
+        expect(modal).toHaveClass('max-md:h-full');
+      });
+
+      it('should apply max-md:rounded-none to center-positioned modal', () => {
+        const { container } = render(
+          <Modal isOpen={true} onClose={mockOnClose} title="Test" position="center" size="md">
+            Content
+          </Modal>
+        );
+        const modal = container.querySelector('[data-testid="modal"]');
+        expect(modal).toHaveClass('max-md:rounded-none');
+        // Desktop base class should still be present
+        expect(modal).toHaveClass('rounded-2xl');
+      });
+
+      it('should have close button with >=44px tap target on mobile', () => {
+        const { container } = render(
+          <Modal isOpen={true} onClose={mockOnClose} title="Test">
+            Content
+          </Modal>
+        );
+        const closeButton = container.querySelector('button[aria-label="Close modal"]');
+        expect(closeButton).toHaveClass('max-md:p-2');
+        expect(closeButton).toHaveClass('min-w-[44px]');
+        expect(closeButton).toHaveClass('min-h-[44px]');
+      });
+    });
+
+    describe('Desktop viewport (>768px)', () => {
+      beforeEach(() => {
+        mockMatchMedia(false); // Desktop viewport
+      });
+
+      it('should preserve desktop w-[380px] base class for right-positioned modal', () => {
+        const { container } = render(
+          <Modal isOpen={true} onClose={mockOnClose} title="Test" position="right">
+            Content
+          </Modal>
+        );
+        const modal = container.querySelector('[data-testid="modal"]');
+        expect(modal).toHaveClass('w-[380px]');
+      });
+
+      it('should preserve desktop max-w-md size class for center-positioned modal', () => {
+        const { container } = render(
+          <Modal isOpen={true} onClose={mockOnClose} title="Test" position="center" size="md">
+            Content
+          </Modal>
+        );
+        const modal = container.querySelector('[data-testid="modal"]');
+        expect(modal).toHaveClass('max-w-md');
+      });
+
+      it('should preserve desktop rounded-2xl for center-positioned modal', () => {
+        const { container } = render(
+          <Modal isOpen={true} onClose={mockOnClose} title="Test" position="center" size="md">
+            Content
+          </Modal>
+        );
+        const modal = container.querySelector('[data-testid="modal"]');
+        expect(modal).toHaveClass('rounded-2xl');
+      });
+    });
+
+    describe('Backdrop and Esc dismiss (regression guard)', () => {
+      it('should still dismiss on backdrop click on mobile', () => {
+        mockMatchMedia(true);
+        render(
+          <Modal isOpen={true} onClose={mockOnClose} title="Test">
+            Content
+          </Modal>
+        );
+        const overlay = screen.getByTestId('modal-overlay');
+        fireEvent.click(overlay);
+        expect(mockOnClose).toHaveBeenCalledTimes(1);
+      });
+
+      it('should still dismiss on Esc key on mobile', () => {
+        mockMatchMedia(true);
+        const { container } = render(
+          <Modal isOpen={true} onClose={mockOnClose} title="Test">
+            Content
+          </Modal>
+        );
+        const modalWrapper = container.querySelector('.fixed.inset-0.z-50');
+        fireEvent.keyDown(modalWrapper!, { key: 'Escape', code: 'Escape' });
+        expect(mockOnClose).toHaveBeenCalledTimes(1);
+      });
+
+      it('should still dismiss on backdrop click on desktop', () => {
+        mockMatchMedia(false);
+        render(
+          <Modal isOpen={true} onClose={mockOnClose} title="Test">
+            Content
+          </Modal>
+        );
+        const overlay = screen.getByTestId('modal-overlay');
+        fireEvent.click(overlay);
+        expect(mockOnClose).toHaveBeenCalledTimes(1);
+      });
+    });
+  });
 });
