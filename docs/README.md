@@ -23,4 +23,4 @@ Welcome to the MermaidStudio documentation!
 - [GitHub Repository](https://github.com/your-username/mermaid-studio)
 - [Issues](https://github.com/your-username/mermaid-studio/issues)
 
-*Last updated: 2026-03-25*
+*Last updated: 2026-07-01*

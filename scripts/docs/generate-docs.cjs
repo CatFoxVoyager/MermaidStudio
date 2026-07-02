@@ -8,8 +8,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const DOC_ROOT = path.join(__dirname, '..', 'docs');
-const SRC_ROOT = path.join(__dirname, '..', 'src');
+const DOC_ROOT = path.join(__dirname, '..', '..', 'docs');
+const SRC_ROOT = path.join(__dirname, '..', '..', 'src');
 
 // Ensure docs directory exists
 if (!fs.existsSync(DOC_ROOT)) {

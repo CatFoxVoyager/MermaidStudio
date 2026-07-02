@@ -4,7 +4,7 @@ import { useModalProviderProps } from '../useModalProviderProps';
 import type { Tab } from '@/types';
 
 // Mock the hooks that useModalProviderProps depends on
-vi.mock('../useModalManager', () => ({
+vi.mock('../../useModalManager', () => ({
   useModalManager: vi.fn(() => ({
     modals: {
       showAI: false,

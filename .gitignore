@@ -155,8 +155,8 @@ vite.config.ts.timestamp*
 # =============================================================================
 # DOCKER
 # =============================================================================
-.dockerignore
-Dockerfile.dev
+/.dockerignore
+/Dockerfile.dev
 
 # =============================================================================
 # GENERATED FILES
@@ -191,8 +191,10 @@ DEPENDENCY_AUDIT_REPORT.md
 # =============================================================================
 # DEBUG & OUTPUT FILES
 # =============================================================================
-*.txt
-!*.txt.license
+# Scope txt ignores to the repo root so legit nested assets (e.g.
+# public/robots.txt) are tracked. Root debug logs below are still ignored.
+/*.txt
+!/*.txt.license
 !src/**/*.txt
 final_output.txt
 full_output.txt
@@ -214,7 +216,6 @@ debug-*.test.ts
 lighthouse-reports/*.json
 lighthouse-reports/*.html
 dist/stats.html
-CLAUDE.md
 
 # =============================================================================
 # ROOT DEBUG/TEST FILES
@@ -248,11 +249,12 @@ codebase_analysis.md
 screenshots/
 .backup/
 
-# Experimental source files
-src/lib/mermaid/__tests__/parseLinkStyles.test.ts
-src/utils/__tests__/edgeFontStyles.test.ts
-src/utils/__tests__/edgeLabelBackground.test.ts
+# Local-only source experiments (debug E2E scratch specs)
 tests/e2e/tests/visual/
+
+# Local dev cert + convenience scripts
 .cert/
 start-dev.bat
+
+# Local agent/tool workspaces
 /.nyxstrike_data

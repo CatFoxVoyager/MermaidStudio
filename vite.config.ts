@@ -6,6 +6,20 @@ import fs from 'fs';
 
 const emptyModule = 'data:text/javascript,export default {}';
 
+// Single source of truth for the app version. Read from package.json and
+// injected both as a JS compile-time constant (__APP_VERSION__) and into
+// index.html via the %APP_VERSION% placeholder so the version never has to be
+// hardcoded in more than one place.
+const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+const APP_VERSION: string = pkg.version;
+
+const appVersionHtmlPlugin = {
+  name: 'app-version-html',
+  transformIndexHtml(html: string) {
+    return html.replaceAll('%APP_VERSION%', APP_VERSION);
+  },
+};
+
 const ignoreModulesPlugin = {
   name: 'ignore-modules',
   setup(build: any) {
@@ -25,6 +39,7 @@ const ignoreModulesPlugin = {
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
+    appVersionHtmlPlugin,
     react(),
     visualizer({
       filename: 'dist/stats.html',
@@ -36,6 +51,9 @@ export default defineConfig({
   ],
   resolve: {
     tsconfigPaths: true,
+  },
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
   },
   optimizeDeps: {
     rolldownOptions: {

@@ -19,8 +19,8 @@ async function checkMarkdownLinkCheckAvailable() {
   }
 }
 
-const DOC_ROOT = path.join(__dirname, '..', 'docs');
-const SRC_ROOT = path.join(__dirname, '..', 'src');
+const DOC_ROOT = path.join(__dirname, '..', '..', 'docs');
+const SRC_ROOT = path.join(__dirname, '..', '..', 'src');
 
 // Helper functions
 function readFile(filePath) {
