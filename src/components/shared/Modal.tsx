@@ -41,6 +41,13 @@ export function Modal({
   const positionClass = positionClasses[position];
   const isRightPanel = position === 'right';
 
+  // Handle Esc key press
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onClose();
+    }
+  };
+
   return (
     <div
       className={`fixed inset-0 z-50 flex ${positionClass}`}
@@ -48,6 +55,7 @@ export function Modal({
         // Close if clicking on the wrapper (overlay area)
         if (e.target === e.currentTarget) {onClose();}
       }}
+      onKeyDown={handleKeyDown}
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
@@ -59,7 +67,7 @@ export function Modal({
       />
       <div
         data-testid="modal"
-        className={`relative z-50 ${isRightPanel ? 'w-[380px] h-full border-l rounded-none' : `w-full ${sizeClass} rounded-2xl`} overflow-hidden ${isRightPanel ? 'animate-slide-in-right' : 'animate-slide-up'} border shadow-2xl flex flex-col ${isRightPanel ? '' : 'max-h-[90vh]'}`}
+        className={`relative z-50 ${isRightPanel ? 'w-[380px] h-full border-l rounded-none max-md:w-full max-md:border-l-0' : `w-full ${sizeClass} rounded-2xl max-md:max-w-full max-md:w-full max-md:h-full max-md:rounded-none max-md:max-h-[100dvh]`} overflow-hidden ${isRightPanel ? 'animate-slide-in-right' : 'animate-slide-up'} border shadow-2xl flex flex-col ${isRightPanel ? '' : 'max-h-[90vh]'}`}
         style={{
           background: 'var(--surface-raised)',
           borderColor: 'var(--border-subtle)',
@@ -85,7 +93,7 @@ export function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg transition-colors hover:bg-white/8"
+            className="p-1.5 rounded-lg transition-colors hover:bg-white/8 max-md:p-2 min-w-[44px] min-h-[44px] flex items-center justify-center"
             style={{ color: 'var(--text-secondary)' }}
             aria-label="Close modal"
           >
