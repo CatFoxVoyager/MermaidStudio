@@ -12,6 +12,9 @@ afterEach(() => {
   cleanup();
 });
 
+// Mock Vite define constants
+(global as any).__APP_VERSION__ = '0.5.1';
+
 // Mock react-i18next globally
 vi.mock('react-i18next', () => {
   const t = (key: string) => {
