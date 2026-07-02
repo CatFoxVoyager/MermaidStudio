@@ -465,4 +465,483 @@ describe('VisualEditorCanvas - Pointer Events', () => {
       });
     });
   });
+
+  describe('Pinch-to-zoom gestures', () => {
+    const defaultProps = {
+      content: 'graph TD\n  A[Start]',
+      theme: 'light' as const,
+      onChange: vi.fn(),
+    };
+
+    it('should not zoom with single pointer movement', async () => {
+      const onChange = vi.fn();
+      const { container } = render(<VisualEditorCanvas {...defaultProps} onChange={onChange} />);
+
+      await waitFor(() => {
+        const canvasArea = container.querySelector('.preview-grid');
+        expect(canvasArea).toBeInTheDocument();
+      });
+
+      const canvasArea = container.querySelector('.preview-grid') as HTMLElement;
+
+      // Single pointer down
+      fireEvent.pointerDown(canvasArea, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 100,
+        clientY: 100,
+        shiftKey: false,
+      });
+
+      // Single pointer move (should not trigger zoom)
+      fireEvent.pointerMove(canvasArea, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 150,
+        clientY: 150,
+        shiftKey: false,
+      });
+
+      // Zoom should remain at default (1.0)
+      await waitFor(() => {
+        const zoomLabel = container.textContent;
+        expect(zoomLabel).toContain('100%');
+      });
+
+      // Clean up
+      fireEvent.pointerUp(canvasArea, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 0,
+        clientX: 150,
+        clientY: 150,
+        shiftKey: false,
+      });
+    });
+
+    it('should zoom in with two-pointer pinch (distance increase)', async () => {
+      const onChange = vi.fn();
+      const { container } = render(<VisualEditorCanvas {...defaultProps} onChange={onChange} />);
+
+      await waitFor(() => {
+        const canvasArea = container.querySelector('.preview-grid');
+        expect(canvasArea).toBeInTheDocument();
+      });
+
+      const canvasArea = container.querySelector('.preview-grid') as HTMLElement;
+
+      // First pointer down
+      fireEvent.pointerDown(canvasArea, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 100,
+        clientY: 100,
+        shiftKey: false,
+      });
+
+      // Second pointer down (pinch starts)
+      fireEvent.pointerDown(canvasArea, {
+        pointerId: 2,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 200,
+        clientY: 200,
+        shiftKey: false,
+      });
+
+      // Move pointers apart (zoom in)
+      fireEvent.pointerMove(canvasArea, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 50,
+        clientY: 50,
+        shiftKey: false,
+      });
+
+      fireEvent.pointerMove(canvasArea, {
+        pointerId: 2,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 250,
+        clientY: 250,
+        shiftKey: false,
+      });
+
+      // Zoom should increase (above 100%)
+      await waitFor(() => {
+        const zoomLabel = container.textContent;
+        expect(zoomLabel).toContain('%');
+        // Should be > 100% since we moved pointers apart
+        const zoomMatch = zoomLabel?.match(/(\d+)%/);
+        expect(zoomMatch).toBeTruthy();
+        const zoomPercent = parseInt(zoomMatch?.[1] || '100');
+        expect(zoomPercent).toBeGreaterThan(100);
+      });
+
+      // Clean up both pointers
+      fireEvent.pointerUp(canvasArea, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 0,
+        clientX: 50,
+        clientY: 50,
+        shiftKey: false,
+      });
+
+      fireEvent.pointerUp(canvasArea, {
+        pointerId: 2,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 0,
+        clientX: 250,
+        clientY: 250,
+        shiftKey: false,
+      });
+    });
+
+    it('should zoom out with two-pointer pinch (distance decrease)', async () => {
+      const onChange = vi.fn();
+      const { container } = render(<VisualEditorCanvas {...defaultProps} onChange={onChange} />);
+
+      await waitFor(() => {
+        const canvasArea = container.querySelector('.preview-grid');
+        expect(canvasArea).toBeInTheDocument();
+      });
+
+      const canvasArea = container.querySelector('.preview-grid') as HTMLElement;
+
+      // First pointer down
+      fireEvent.pointerDown(canvasArea, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 50,
+        clientY: 50,
+        shiftKey: false,
+      });
+
+      // Second pointer down (pinch starts)
+      fireEvent.pointerDown(canvasArea, {
+        pointerId: 2,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 250,
+        clientY: 250,
+        shiftKey: false,
+      });
+
+      // Move pointers together (zoom out)
+      fireEvent.pointerMove(canvasArea, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 100,
+        clientY: 100,
+        shiftKey: false,
+      });
+
+      fireEvent.pointerMove(canvasArea, {
+        pointerId: 2,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 200,
+        clientY: 200,
+        shiftKey: false,
+      });
+
+      // Zoom should decrease (below 100%)
+      await waitFor(() => {
+        const zoomLabel = container.textContent;
+        expect(zoomLabel).toContain('%');
+        // Should be < 100% since we moved pointers together
+        const zoomMatch = zoomLabel?.match(/(\d+)%/);
+        expect(zoomMatch).toBeTruthy();
+        const zoomPercent = parseInt(zoomMatch?.[1] || '100');
+        expect(zoomPercent).toBeLessThan(100);
+      });
+
+      // Clean up both pointers
+      fireEvent.pointerUp(canvasArea, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 0,
+        clientX: 100,
+        clientY: 100,
+        shiftKey: false,
+      });
+
+      fireEvent.pointerUp(canvasArea, {
+        pointerId: 2,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 0,
+        clientX: 200,
+        clientY: 200,
+        shiftKey: false,
+      });
+    });
+
+    it('should clamp zoom between 0.25 (25%) and 3 (300%)', async () => {
+      const onChange = vi.fn();
+      const { container } = render(<VisualEditorCanvas {...defaultProps} onChange={onChange} />);
+
+      await waitFor(() => {
+        const canvasArea = container.querySelector('.preview-grid');
+        expect(canvasArea).toBeInTheDocument();
+      });
+
+      const canvasArea = container.querySelector('.preview-grid') as HTMLElement;
+
+      // First pointer down
+      fireEvent.pointerDown(canvasArea, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 100,
+        clientY: 100,
+        shiftKey: false,
+      });
+
+      // Second pointer down
+      fireEvent.pointerDown(canvasArea, {
+        pointerId: 2,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 200,
+        clientY: 200,
+        shiftKey: false,
+      });
+
+      // Try to zoom in beyond 300% (extreme pinch out)
+      for (let i = 0; i < 5; i++) {
+        fireEvent.pointerMove(canvasArea, {
+          pointerId: 1,
+          pointerType: 'touch',
+          button: 0,
+          buttons: 1,
+          clientX: 100 - i * 50,
+          clientY: 100 - i * 50,
+          shiftKey: false,
+        });
+
+        fireEvent.pointerMove(canvasArea, {
+          pointerId: 2,
+          pointerType: 'touch',
+          button: 0,
+          buttons: 1,
+          clientX: 200 + i * 50,
+          clientY: 200 + i * 50,
+          shiftKey: false,
+        });
+      }
+
+      // Should clamp at 300%
+      await waitFor(() => {
+        const zoomLabel = container.textContent;
+        expect(zoomLabel).toContain('300%');
+      });
+
+      // Reset and try to zoom out below 25% (extreme pinch in)
+      fireEvent.pointerUp(canvasArea, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 0,
+        clientX: -50,
+        clientY: -50,
+        shiftKey: false,
+      });
+
+      fireEvent.pointerUp(canvasArea, {
+        pointerId: 2,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 0,
+        clientX: 450,
+        clientY: 450,
+        shiftKey: false,
+      });
+
+      // New pinch attempt for zoom out
+      fireEvent.pointerDown(canvasArea, {
+        pointerId: 3,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 100,
+        clientY: 100,
+        shiftKey: false,
+      });
+
+      fireEvent.pointerDown(canvasArea, {
+        pointerId: 4,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 110,
+        clientY: 110,
+        shiftKey: false,
+      });
+
+      // Try to zoom out extremely (pinch in)
+      for (let i = 0; i < 5; i++) {
+        fireEvent.pointerMove(canvasArea, {
+          pointerId: 3,
+          pointerType: 'touch',
+          button: 0,
+          buttons: 1,
+          clientX: 100 + i * 20,
+          clientY: 100 + i * 20,
+          shiftKey: false,
+        });
+
+        fireEvent.pointerMove(canvasArea, {
+          pointerId: 4,
+          pointerType: 'touch',
+          button: 0,
+          buttons: 1,
+          clientX: 110 - i * 20,
+          clientY: 110 - i * 20,
+          shiftKey: false,
+        });
+      }
+
+      // Should clamp at 25%
+      await waitFor(() => {
+        const zoomLabel = container.textContent;
+        expect(zoomLabel).toContain('25%');
+      });
+
+      // Clean up
+      fireEvent.pointerUp(canvasArea, {
+        pointerId: 3,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 0,
+        clientX: 200,
+        clientY: 200,
+        shiftKey: false,
+      });
+
+      fireEvent.pointerUp(canvasArea, {
+        pointerId: 4,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 0,
+        clientX: 10,
+        clientY: 10,
+        shiftKey: false,
+      });
+    });
+
+    it('should handle releasing one pointer during pinch', async () => {
+      const onChange = vi.fn();
+      const { container } = render(<VisualEditorCanvas {...defaultProps} onChange={onChange} />);
+
+      await waitFor(() => {
+        const canvasArea = container.querySelector('.preview-grid');
+        expect(canvasArea).toBeInTheDocument();
+      });
+
+      const canvasArea = container.querySelector('.preview-grid') as HTMLElement;
+
+      // First pointer down
+      fireEvent.pointerDown(canvasArea, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 100,
+        clientY: 100,
+        shiftKey: false,
+      });
+
+      // Second pointer down
+      fireEvent.pointerDown(canvasArea, {
+        pointerId: 2,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 200,
+        clientY: 200,
+        shiftKey: false,
+      });
+
+      // Move pointers (zoom in)
+      fireEvent.pointerMove(canvasArea, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 50,
+        clientY: 50,
+        shiftKey: false,
+      });
+
+      fireEvent.pointerMove(canvasArea, {
+        pointerId: 2,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 250,
+        clientY: 250,
+        shiftKey: false,
+      });
+
+      // Release first pointer
+      fireEvent.pointerUp(canvasArea, {
+        pointerId: 1,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 0,
+        clientX: 50,
+        clientY: 50,
+        shiftKey: false,
+      });
+
+      // Remaining pointer move should not crash or cause issues
+      fireEvent.pointerMove(canvasArea, {
+        pointerId: 2,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 1,
+        clientX: 300,
+        clientY: 300,
+        shiftKey: false,
+      });
+
+      // Should still be functional
+      expect(canvasArea).toBeInTheDocument();
+
+      // Clean up remaining pointer
+      fireEvent.pointerUp(canvasArea, {
+        pointerId: 2,
+        pointerType: 'touch',
+        button: 0,
+        buttons: 0,
+        clientX: 300,
+        clientY: 300,
+        shiftKey: false,
+      });
+    });
+  });
 });
