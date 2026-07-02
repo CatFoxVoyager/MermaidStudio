@@ -23,6 +23,11 @@
     "focusMode": "Focus mode",
     "toggleTheme": "Toggle theme"
   },
+  "nav": {
+    "files": "Files",
+    "edit": "Edit",
+    "ai": "AI"
+  },
   "commands": {
     "newDiagram": "New Diagram",
     "newFolder": "New Folder",
