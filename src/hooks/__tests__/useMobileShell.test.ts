@@ -130,6 +130,189 @@ describe('useMobileShell', () => {
     });
   });
 
+  describe('Phase 17 style-panel drawer extension (MDRW-02)', () => {
+    it('should open colors drawer when setActiveDrawer is called with "colors"', () => {
+      const { result } = renderHook(() => useMobileShell());
+
+      act(() => {
+        // @ts-expect-error - Testing that colors becomes valid after type extension
+        result.current.setActiveDrawer('colors');
+      });
+
+      // @ts-expect-error - Testing that colors becomes valid after type extension
+      expect(result.current.openDrawer).toBe('colors');
+    });
+
+    it('should accept all style-panel drawer ids', () => {
+      const { result } = renderHook(() => useMobileShell());
+      const stylePanelIds = ['colors', 'advanced', 'node', 'edge', 'subgraph'] as const;
+
+      stylePanelIds.forEach((drawerId) => {
+        act(() => {
+          // @ts-expect-error - Testing that style panel ids become valid after type extension
+          result.current.setActiveDrawer(drawerId);
+        });
+        // @ts-expect-error - Testing that style panel ids become valid after type extension
+        expect(result.current.openDrawer).toBe(drawerId);
+
+        // Close it for next iteration
+        act(() => {
+          result.current.closeDrawer();
+        });
+      });
+    });
+
+    it('should enforce mutual exclusion across all 7 drawer types', () => {
+      const { result } = renderHook(() => useMobileShell());
+
+      // Open files drawer
+      act(() => {
+        result.current.setActiveDrawer('files');
+      });
+      expect(result.current.openDrawer).toBe('files');
+
+      // Open colors drawer (should close files drawer)
+      act(() => {
+        // @ts-expect-error - Testing that colors becomes valid after type extension
+        result.current.setActiveDrawer('colors');
+      });
+      // @ts-expect-error - Testing that colors becomes valid after type extension
+      expect(result.current.openDrawer).toBe('colors');
+
+      // Open advanced drawer (should close colors drawer)
+      act(() => {
+        // @ts-expect-error - Testing that advanced becomes valid after type extension
+        result.current.setActiveDrawer('advanced');
+      });
+      // @ts-expect-error - Testing that advanced becomes valid after type extension
+      expect(result.current.openDrawer).toBe('advanced');
+
+      // Open ai drawer (should close advanced drawer)
+      act(() => {
+        result.current.setActiveDrawer('ai');
+      });
+      expect(result.current.openDrawer).toBe('ai');
+    });
+
+    it('should toggle style-panel drawer when same drawer is opened twice', () => {
+      const { result } = renderHook(() => useMobileShell());
+
+      // Open node drawer
+      act(() => {
+        // @ts-expect-error - Testing that node becomes valid after type extension
+        result.current.setActiveDrawer('node');
+      });
+      // @ts-expect-error - Testing that node becomes valid after type extension
+      expect(result.current.openDrawer).toBe('node');
+
+      // Click node again (should close)
+      act(() => {
+        // @ts-expect-error - Testing that node becomes valid after type extension
+        result.current.setActiveDrawer('node');
+      });
+      expect(result.current.openDrawer).toBeNull();
+    });
+
+    it('should close any style-panel drawer with closeDrawer()', () => {
+      const { result } = renderHook(() => useMobileShell());
+
+      const stylePanelIds = ['colors', 'advanced', 'node', 'edge', 'subgraph'] as const;
+
+      stylePanelIds.forEach((drawerId) => {
+        act(() => {
+          // @ts-expect-error - Testing that style panel ids become valid after type extension
+          result.current.setActiveDrawer(drawerId);
+        });
+        // @ts-expect-error - Testing that style panel ids become valid after type extension
+        expect(result.current.openDrawer).toBe(drawerId);
+
+        act(() => {
+          result.current.closeDrawer();
+        });
+        expect(result.current.openDrawer).toBeNull();
+      });
+    });
+
+    it('should reset style-panel drawers on viewport transition to desktop', () => {
+      let changeCallback: (() => void) | null = null;
+
+      const mqlMock = {
+        matches: true, // Start in mobile mode
+        media: '',
+        onchange: null,
+        addEventListener: vi.fn((event: string, callback: () => void) => {
+          if (event === 'change') {
+            changeCallback = callback;
+          }
+        }),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      };
+
+      window.matchMedia = vi.fn().mockImplementation((query: string) => {
+        mqlMock.media = query;
+        return mqlMock;
+      });
+
+      const { result } = renderHook(() => useMobileShell());
+
+      // Open a style-panel drawer in mobile mode
+      act(() => {
+        // @ts-expect-error - Testing that edge becomes valid after type extension
+        result.current.setActiveDrawer('edge');
+      });
+      // @ts-expect-error - Testing that edge becomes valid after type extension
+      expect(result.current.openDrawer).toBe('edge');
+
+      // Simulate viewport transition to desktop
+      act(() => {
+        mqlMock.matches = false;
+        if (changeCallback) {
+          changeCallback();
+        }
+      });
+
+      // Style-panel drawer should be reset
+      expect(result.current.openDrawer).toBeNull();
+      expect(result.current.activeView).toBe('edit');
+    });
+
+    it('should preserve existing files and ai drawer behavior (regression guard)', () => {
+      const { result } = renderHook(() => useMobileShell());
+
+      // Test files drawer still works
+      act(() => {
+        result.current.setActiveDrawer('files');
+      });
+      expect(result.current.openDrawer).toBe('files');
+
+      // Test ai drawer still works
+      act(() => {
+        result.current.setActiveDrawer('ai');
+      });
+      expect(result.current.openDrawer).toBe('ai');
+
+      // Test toggle still works
+      act(() => {
+        result.current.setActiveDrawer('ai');
+      });
+      expect(result.current.openDrawer).toBeNull();
+
+      // Test closeDrawer still works
+      act(() => {
+        result.current.setActiveDrawer('files');
+      });
+      expect(result.current.openDrawer).toBe('files');
+
+      act(() => {
+        result.current.closeDrawer();
+      });
+      expect(result.current.openDrawer).toBeNull();
+    });
+  });
+
   describe('NON-PERSISTENT state reset on viewport change (MSHL-03 keystone)', () => {
     it('should reset state to defaults when isMobile transitions to false (mobile->desktop)', () => {
       // Track the callback that gets registered
