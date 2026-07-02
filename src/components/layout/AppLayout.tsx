@@ -128,7 +128,26 @@ export function AppLayout({
   // Phase 14: Mobile detection and early branch
   const isMobile = useMediaQuery('(max-width: 767.98px)');
   if (isMobile) {
-    return <MobileLayout theme={theme} />;
+    return (
+      <MobileLayout
+        theme={theme}
+        onNewDiagram={onNewDiagram}
+        onSave={() => activeTab && onSave(activeTab.id)}
+        onOpenCommandPalette={onOpenCommandPalette}
+        onOpenDiagram={onOpenDiagram}
+        activeDiagramId={activeTab?.diagram_id ?? null}
+        onRefresh={onRefreshSidebar}
+        onDiagramDeleted={onDiagramDeleted}
+        refreshKey={refreshKey}
+        currentContent={activeTab?.content ?? ''}
+        onApply={onAIApply}
+        onOpenSettings={onAIOpenSettings}
+        settingsKey={aiSettingsKey}
+        fixMode={aiFixMode}
+        fixTrigger={aiFixTrigger}
+        previewError={previewError}
+      />
+    );
   }
 
   // Desktop tree (unchanged from pre-Phase-14)

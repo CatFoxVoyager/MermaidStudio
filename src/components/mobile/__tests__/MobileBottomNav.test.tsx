@@ -6,13 +6,15 @@ import type { MobileView } from '@/hooks/useMobileShell';
 
 describe('MobileBottomNav', () => {
   const mockSetActiveView = vi.fn();
+  const mockSetActiveDrawer = vi.fn();
 
   beforeEach(() => {
     mockSetActiveView.mockClear();
+    mockSetActiveDrawer.mockClear();
   });
 
   it('renders exactly 3 buttons with correct testids', () => {
-    render(<MobileBottomNav activeView="edit" setActiveView={mockSetActiveView} />);
+    render(<MobileBottomNav activeView="edit" setActiveView={mockSetActiveView} setActiveDrawer={mockSetActiveDrawer} />);
 
     expect(screen.getByTestId('mobile-nav-files')).toBeInTheDocument();
     expect(screen.getByTestId('mobile-nav-edit')).toBeInTheDocument();
@@ -20,7 +22,7 @@ describe('MobileBottomNav', () => {
   });
 
   it('renders correct i18n labels', () => {
-    render(<MobileBottomNav activeView="edit" setActiveView={mockSetActiveView} />);
+    render(<MobileBottomNav activeView="edit" setActiveView={mockSetActiveView} setActiveDrawer={mockSetActiveDrawer} />);
 
     // i18n returns the key in test environment
     expect(screen.getByText('nav.files')).toBeInTheDocument();
@@ -30,7 +32,7 @@ describe('MobileBottomNav', () => {
 
   it('calls setActiveView with correct id when Files button is clicked', async () => {
     const user = userEvent.setup();
-    render(<MobileBottomNav activeView="edit" setActiveView={mockSetActiveView} />);
+    render(<MobileBottomNav activeView="edit" setActiveView={mockSetActiveView} setActiveDrawer={mockSetActiveDrawer} />);
 
     await user.click(screen.getByTestId('mobile-nav-files'));
     expect(mockSetActiveView).toHaveBeenCalledWith('files');
@@ -39,7 +41,7 @@ describe('MobileBottomNav', () => {
 
   it('calls setActiveView with correct id when Edit button is clicked', async () => {
     const user = userEvent.setup();
-    render(<MobileBottomNav activeView="files" setActiveView={mockSetActiveView} />);
+    render(<MobileBottomNav activeView="files" setActiveView={mockSetActiveView} setActiveDrawer={mockSetActiveDrawer} />);
 
     await user.click(screen.getByTestId('mobile-nav-edit'));
     expect(mockSetActiveView).toHaveBeenCalledWith('edit');
@@ -48,7 +50,7 @@ describe('MobileBottomNav', () => {
 
   it('calls setActiveView with correct id when AI button is clicked', async () => {
     const user = userEvent.setup();
-    render(<MobileBottomNav activeView="edit" setActiveView={mockSetActiveView} />);
+    render(<MobileBottomNav activeView="edit" setActiveView={mockSetActiveView} setActiveDrawer={mockSetActiveDrawer} />);
 
     await user.click(screen.getByTestId('mobile-nav-ai'));
     expect(mockSetActiveView).toHaveBeenCalledWith('ai');
@@ -57,7 +59,7 @@ describe('MobileBottomNav', () => {
 
   it('applies active styling to files button when activeView is files', () => {
     const { container } = render(
-      <MobileBottomNav activeView="files" setActiveView={mockSetActiveView} />
+      <MobileBottomNav activeView="files" setActiveView={mockSetActiveView} setActiveDrawer={mockSetActiveDrawer} />
     );
 
     const filesButton = screen.getByTestId('mobile-nav-files');
@@ -69,7 +71,7 @@ describe('MobileBottomNav', () => {
 
   it('applies inactive styling to edit and ai buttons when activeView is files', () => {
     const { container } = render(
-      <MobileBottomNav activeView="files" setActiveView={mockSetActiveView} />
+      <MobileBottomNav activeView="files" setActiveView={mockSetActiveView} setActiveDrawer={mockSetActiveDrawer} />
     );
 
     const editButton = screen.getByTestId('mobile-nav-edit');
@@ -84,7 +86,7 @@ describe('MobileBottomNav', () => {
 
   it('applies active styling to edit button when activeView is edit', () => {
     const { container } = render(
-      <MobileBottomNav activeView="edit" setActiveView={mockSetActiveView} />
+      <MobileBottomNav activeView="edit" setActiveView={mockSetActiveView} setActiveDrawer={mockSetActiveDrawer} />
     );
 
     const editButton = screen.getByTestId('mobile-nav-edit');
@@ -94,7 +96,7 @@ describe('MobileBottomNav', () => {
 
   it('applies active styling to ai button when activeView is ai', () => {
     const { container } = render(
-      <MobileBottomNav activeView="ai" setActiveView={mockSetActiveView} />
+      <MobileBottomNav activeView="ai" setActiveView={mockSetActiveView} setActiveDrawer={mockSetActiveDrawer} />
     );
 
     const aiButton = screen.getByTestId('mobile-nav-ai');
@@ -104,7 +106,7 @@ describe('MobileBottomNav', () => {
 
   it('moves active styling when activeView changes from files to ai', () => {
     const { rerender } = render(
-      <MobileBottomNav activeView="files" setActiveView={mockSetActiveView} />
+      <MobileBottomNav activeView="files" setActiveView={mockSetActiveView} setActiveDrawer={mockSetActiveDrawer} />
     );
 
     // Initially files is active

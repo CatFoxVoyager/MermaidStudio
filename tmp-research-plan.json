@@ -1,0 +1,41 @@
+{
+  "ecosystem": "npm",
+  "config": {
+    "exa_search": false,
+    "brave_search": false,
+    "firecrawl": false,
+    "tavily_search": false
+  },
+  "questions": [
+    {
+      "text": "How to create useMediaQuery hook in React 19 for mobile breakpoint detection",
+      "kind": "docs",
+      "library": "react",
+      "version": "19.2.7"
+    },
+    {
+      "text": "Tailwind CSS 4 mobile responsive breakpoints and @variant syntax",
+      "kind": "docs",
+      "library": "tailwindcss",
+      "version": "4.3.2"
+    },
+    {
+      "text": "CodeMirror 6 mobile touch support and keyboard handling",
+      "kind": "docs",
+      "library": "codemirror",
+      "version": "6.0.2"
+    },
+    {
+      "text": "CSS safe area insets iOS notch handling env() 2026",
+      "kind": "web"
+    },
+    {
+      "text": "Viewport meta tag mobile HTML5 best practices 2026",
+      "kind": "web"
+    },
+    {
+      "text": "React 19 touch gesture handling swipe drawer libraries",
+      "kind": "web"
+    }
+  ]
+}
