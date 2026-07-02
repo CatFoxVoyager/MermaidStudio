@@ -22,6 +22,8 @@ layer(base);
   --font-sans: Inter, system-ui, sans-serif;
   --font-mono: JetBrains Mono, Fira Code, monospace;
 
+  --breakpoint-mobile-split: 37.5rem;
+
   --animate-fade-in: fadeIn 0.15s ease-out;
   --animate-slide-up: slideUp 0.2s ease-out;
   --animate-slide-in-right: slideInRight 0.2s ease-out;
