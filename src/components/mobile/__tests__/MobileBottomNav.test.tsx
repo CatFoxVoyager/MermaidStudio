@@ -22,9 +22,10 @@ describe('MobileBottomNav', () => {
   it('renders correct i18n labels', () => {
     render(<MobileBottomNav activeView="edit" setActiveView={mockSetActiveView} />);
 
-    expect(screen.getByText('Files')).toBeInTheDocument();
-    expect(screen.getByText('Edit')).toBeInTheDocument();
-    expect(screen.getByText('AI')).toBeInTheDocument();
+    // i18n returns the key in test environment
+    expect(screen.getByText('nav.files')).toBeInTheDocument();
+    expect(screen.getByText('nav.edit')).toBeInTheDocument();
+    expect(screen.getByText('nav.ai')).toBeInTheDocument();
   });
 
   it('calls setActiveView with correct id when Files button is clicked', async () => {
