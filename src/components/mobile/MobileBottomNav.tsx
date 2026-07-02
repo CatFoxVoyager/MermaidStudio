@@ -5,15 +5,16 @@ import type { MobileView } from '@/hooks/useMobileShell';
 export interface MobileBottomNavProps {
   activeView: MobileView;
   setActiveView: (view: MobileView) => void;
+  setActiveDrawer: (drawer: 'files' | 'ai') => void;
 }
 
-export function MobileBottomNav({ activeView, setActiveView }: MobileBottomNavProps) {
+export function MobileBottomNav({ activeView, setActiveView, setActiveDrawer }: MobileBottomNavProps) {
   const { t } = useTranslation();
 
   const navItems = [
-    { id: 'files' as const, icon: Files, label: t('nav.files') },
-    { id: 'edit' as const, icon: Edit, label: t('nav.edit') },
-    { id: 'ai' as const, icon: Bot, label: t('nav.ai') },
+    { id: 'files' as const, icon: Files, label: t('nav.files'), drawer: 'files' as const },
+    { id: 'edit' as const, icon: Edit, label: t('nav.edit'), drawer: null },
+    { id: 'ai' as const, icon: Bot, label: t('nav.ai'), drawer: 'ai' as const },
   ];
 
   return (
@@ -28,7 +29,12 @@ export function MobileBottomNav({ activeView, setActiveView }: MobileBottomNavPr
           <button
             key={item.id}
             data-testid={`mobile-nav-${item.id}`}
-            onClick={() => setActiveView(item.id)}
+            onClick={() => {
+              setActiveView(item.id);
+              if (item.drawer) {
+                setActiveDrawer(item.drawer);
+              }
+            }}
             className={`flex flex-col items-center justify-center flex-1 gap-1 transition-colors ${
               isActive ? 'text-[var(--accent)] font-semibold' : 'text-[var(--text-secondary)]'
             }`}

@@ -13,7 +13,7 @@ vi.mock('@/sidebar/Sidebar', () => ({
 }));
 
 vi.mock('@/ai/AIPanel', () => ({
-  AIPanel: ({ currentContent, onApply }: { currentContent: string; onApply: (c: string) => void }) => (
+  AIPanel: ({ currentContent, onApply, onClose }: { currentContent: string; onApply: (c: string) => void; onClose?: () => void }) => (
     <div data-testid="ai-panel-stub" data-content={currentContent} onClick={() => onApply?.('test-content')}>
       AI Panel Stub
     </div>
@@ -39,8 +39,6 @@ describe('MobileLayout', () => {
       removeListener: vi.fn(), // deprecated Safari
       dispatchEvent: vi.fn(),
     }));
-  });
-
   });
 
   afterEach(() => {
