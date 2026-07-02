@@ -5,6 +5,19 @@ layer(base);
 
 @custom-variant dark (&:is(.dark *));
 
+@utility safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+@utility safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+@utility safe-left {
+  padding-left: env(safe-area-inset-left);
+}
+@utility safe-right {
+  padding-right: env(safe-area-inset-right);
+}
+
 @theme {
   --font-sans: Inter, system-ui, sans-serif;
   --font-mono: JetBrains Mono, Fira Code, monospace;
@@ -86,6 +99,16 @@ layer(base);
   --accent: #0d7377;
   --accent-dim: rgba(13,115,119,0.1);
   --accent-rgb: 13,115,119;
+
+  /* ─── Z-index layering (Phase 14, MFDN-04) ─── */
+  --z-base: 0;
+  --z-visual-overlay: 10;
+  --z-top-bar: 20;
+  --z-panel: 30;
+  --z-bottom-nav: 30;
+  --z-modal: 50;
+  --z-drawer: 60;       /* ABOVE modals — intentional per ROADMAP */
+  --z-toast: 70;
 }
 
 .dark {
