@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, FilePlus, FolderPlus, LayoutGrid as Layout, Clock, Download, Sun, Moon, Sparkles, Command, FileText, ChevronRight } from 'lucide-react';
+import { Search, FilePlus, FolderPlus, LayoutGrid as Layout, Clock, Download, Sun, Moon, Sparkles, Command, FileText, ChevronRight, Palette, SlidersHorizontal } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
 
 interface Cmd {
@@ -20,12 +20,13 @@ interface Props {
   theme: 'dark' | 'light';
   diagrams: { id: string; title: string }[];
   onOpenDiagram: (id: string) => void;
+  onOpenStylePanel?: (id: 'colors' | 'advanced') => void;
 }
 
 export function CommandPalette({
   onClose, onNewDiagram, onNewFolder, onOpenTemplates,
   onToggleHistory, onToggleAI, onToggleTheme,
-  theme, diagrams, onOpenDiagram,
+  theme, diagrams, onOpenDiagram, onOpenStylePanel,
 }: Props) {
   const { t } = useTranslation();
   const [q, setQ] = useState('');
@@ -41,6 +42,10 @@ export function CommandPalette({
     { id: 'tmpl', label: t('commands.templateLibrary'), description: 'Browse diagram templates', icon: <Layout size={14} />, category: t('commands.categoryActions'), action: () => { onOpenTemplates(); onClose(); } },
     { id: 'hist', label: t('commands.versionHistory'), description: 'View and restore versions', icon: <Clock size={14} />, category: t('commands.categoryActions'), action: () => { onToggleHistory(); onClose(); } },
     { id: 'ai', label: t('commands.aiAssistant'), description: 'Open AI diagram helper', icon: <Sparkles size={14} />, category: t('commands.categoryActions'), action: () => { onToggleAI(); onClose(); } },
+    ...(onOpenStylePanel ? [
+      { id: 'style-colors', label: t('editor.diagramColors'), description: 'Edit diagram colors and themes', icon: <Palette size={14} />, category: t('commands.categoryPanels'), action: () => { onOpenStylePanel('colors'); onClose(); } },
+      { id: 'style-advanced', label: t('editor.advancedStyling'), description: 'Advanced diagram styling options', icon: <SlidersHorizontal size={14} />, category: t('commands.categoryPanels'), action: () => { onOpenStylePanel('advanced'); onClose(); } },
+    ] : []),
     { id: 'theme', label: `${theme === 'dark' ? 'Light' : 'Dark'} Mode`, description: 'Toggle color theme', icon: theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />, category: t('commands.categorySettings'), action: () => { onToggleTheme(); onClose(); } },
     ...diagrams.slice(0, 20).map(d => ({ id: `d_${d.id}`, label: d.title, description: 'Open diagram', icon: <FileText size={14} />, category: t('commands.categoryDiagrams'), action: () => { onOpenDiagram(d.id); onClose(); } })),
   ];

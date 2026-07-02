@@ -48,7 +48,8 @@
     "help": "Aide",
     "categoryActions": "Actions",
     "categorySettings": "Paramètres",
-    "categoryDiagrams": "Diagrammes"
+    "categoryDiagrams": "Diagrammes",
+    "categoryPanels": "Panneaux"
   },
   "shortcuts": {
     "title": "Raccourcis clavier",

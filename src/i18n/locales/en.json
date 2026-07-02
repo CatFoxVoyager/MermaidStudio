@@ -48,7 +48,8 @@
     "help": "Help",
     "categoryActions": "Actions",
     "categorySettings": "Settings",
-    "categoryDiagrams": "Diagrams"
+    "categoryDiagrams": "Diagrams",
+    "categoryPanels": "Panels"
   },
   "shortcuts": {
     "title": "Keyboard Shortcuts",
