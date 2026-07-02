@@ -167,4 +167,113 @@ describe('EdgeStylePanel', () => {
     expect(screen.getByRole('slider')).toHaveValue('3');
     expect(screen.getByText('Dashed').closest('button')).toHaveStyle({ borderWidth: '2px' });
   });
+
+  describe('Phase 17 mobile responsiveness (MDRW-02)', () => {
+    // Mock matchMedia per file
+    const mockMatchMedia = (matches: boolean) => {
+      Object.defineProperty(window, 'matchMedia', {
+        writable: true,
+        value: vi.fn().mockImplementation(query => ({
+          matches,
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        })),
+      });
+    };
+
+    describe('Mobile viewport (max-width: 767.98px)', () => {
+      beforeEach(() => {
+        mockMatchMedia(true); // Mobile viewport
+      });
+
+      it('should apply max-md:w-full to outer container', () => {
+        const { container } = render(<EdgeStylePanel {...defaultProps} />);
+        const panel = container.querySelector('.animate-slide-in-right');
+        expect(panel).toHaveClass('max-md:w-full');
+        // Desktop base class should still be present
+        expect(panel).toHaveClass('w-[280px]');
+      });
+
+      it('should apply max-md:right-0 to outer container', () => {
+        const { container } = render(<EdgeStylePanel {...defaultProps} />);
+        const panel = container.querySelector('.animate-slide-in-right');
+        expect(panel).toHaveClass('max-md:right-0');
+      });
+
+      it('should apply max-md:top-0 to outer container', () => {
+        const { container } = render(<EdgeStylePanel {...defaultProps} />);
+        const panel = container.querySelector('.animate-slide-in-right');
+        expect(panel).toHaveClass('max-md:top-0');
+      });
+
+      it('should apply max-md:bottom-0 to outer container', () => {
+        const { container } = render(<EdgeStylePanel {...defaultProps} />);
+        const panel = container.querySelector('.animate-slide-in-right');
+        expect(panel).toHaveClass('max-md:bottom-0');
+      });
+
+      it('should apply max-md:rounded-none to outer container', () => {
+        const { container } = render(<EdgeStylePanel {...defaultProps} />);
+        const panel = container.querySelector('.animate-slide-in-right');
+        expect(panel).toHaveClass('max-md:rounded-none');
+      });
+
+      it('should apply max-md:h-full to outer container', () => {
+        const { container } = render(<EdgeStylePanel {...defaultProps} />);
+        const panel = container.querySelector('.animate-slide-in-right');
+        expect(panel).toHaveClass('max-md:h-full');
+      });
+
+      it('should have close button with >=44px tap target on mobile', () => {
+        const { container } = render(<EdgeStylePanel {...defaultProps} />);
+        const closeButton = container.querySelector('button[aria-label="Close"]');
+        expect(closeButton).toHaveClass('max-md:min-w-[44px]');
+        expect(closeButton).toHaveClass('max-md:min-h-[44px]');
+      });
+    });
+
+    describe('Desktop viewport (>768px)', () => {
+      beforeEach(() => {
+        mockMatchMedia(false); // Desktop viewport
+      });
+
+      it('should preserve desktop w-[280px] base class', () => {
+        const { container } = render(<EdgeStylePanel {...defaultProps} />);
+        const panel = container.querySelector('.animate-slide-in-right');
+        expect(panel).toHaveClass('w-[280px]');
+      });
+
+      it('should preserve desktop positioning classes', () => {
+        const { container } = render(<EdgeStylePanel {...defaultProps} />);
+        const panel = container.querySelector('.animate-slide-in-right');
+        expect(panel).toHaveClass('absolute');
+        expect(panel).toHaveClass('top-0');
+        expect(panel).toHaveClass('right-0');
+        expect(panel).toHaveClass('h-full');
+      });
+    });
+
+    describe('Functionality preserved (regression guard)', () => {
+      it('should still call onClose when close button clicked on mobile', () => {
+        mockMatchMedia(true);
+        render(<EdgeStylePanel {...defaultProps} />);
+        const closeButton = screen.getByLabelText('Close');
+        fireEvent.click(closeButton);
+        expect(defaultProps.onClose).toHaveBeenCalled();
+      });
+
+      it('should still call onStyleChange when style changes on mobile', () => {
+        mockMatchMedia(true);
+        render(<EdgeStylePanel {...defaultProps} />);
+        const dashedButton = screen.getByText('Dashed');
+        fireEvent.click(dashedButton);
+        expect(defaultProps.onStyleChange).toHaveBeenCalledWith(0, { strokeDasharray: '5 5' });
+      });
+    });
+  });
 });
