@@ -56,7 +56,7 @@ describe('useMobileShell', () => {
 
       // First open a drawer
       act(() => {
-        result.current.openDrawer('files');
+        result.current.setActiveDrawer('files');
       });
       expect(result.current.openDrawer).toBe('files');
 
@@ -75,7 +75,7 @@ describe('useMobileShell', () => {
       const { result } = renderHook(() => useMobileShell());
 
       act(() => {
-        result.current.openDrawer('files');
+        result.current.setActiveDrawer('files');
       });
 
       expect(result.current.openDrawer).toBe('files');
@@ -86,13 +86,13 @@ describe('useMobileShell', () => {
 
       // Open files drawer
       act(() => {
-        result.current.openDrawer('files');
+        result.current.setActiveDrawer('files');
       });
       expect(result.current.openDrawer).toBe('files');
 
       // Open ai drawer (should close files drawer)
       act(() => {
-        result.current.openDrawer('ai');
+        result.current.setActiveDrawer('ai');
       });
       expect(result.current.openDrawer).toBe('ai');
     });
@@ -102,13 +102,13 @@ describe('useMobileShell', () => {
 
       // Open files drawer
       act(() => {
-        result.current.openDrawer('files');
+        result.current.setActiveDrawer('files');
       });
       expect(result.current.openDrawer).toBe('files');
 
       // Click files again (should close)
       act(() => {
-        result.current.openDrawer('files');
+        result.current.setActiveDrawer('files');
       });
       expect(result.current.openDrawer).toBeNull();
     });
@@ -119,7 +119,7 @@ describe('useMobileShell', () => {
       const { result } = renderHook(() => useMobileShell());
 
       act(() => {
-        result.current.openDrawer('files');
+        result.current.setActiveDrawer('files');
       });
       expect(result.current.openDrawer).toBe('files');
 
@@ -162,7 +162,7 @@ describe('useMobileShell', () => {
       // Set some state in mobile mode
       act(() => {
         result.current.setActiveView('files');
-        result.current.openDrawer('ai');
+        result.current.setActiveDrawer('ai');
       });
 
       expect(result.current.activeView).toBe('files');
