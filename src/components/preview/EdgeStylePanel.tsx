@@ -70,7 +70,7 @@ export function EdgeStylePanel({
 
   return (
     <div
-      className="absolute top-0 right-0 h-full w-[280px] z-30 animate-slide-in-right rounded-l-xl border-l shadow-xl overflow-y-auto"
+      className="absolute top-0 right-0 h-full w-[280px] z-30 animate-slide-in-right rounded-l-xl border-l shadow-xl overflow-y-auto max-md:w-full max-md:right-0 max-md:top-0 max-md:bottom-0 max-md:rounded-none max-md:h-full"
       style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}
       onClick={e => e.stopPropagation()}
       onMouseDown={e => e.stopPropagation()}
@@ -92,7 +92,7 @@ export function EdgeStylePanel({
         <button
           onClick={onClose}
           aria-label="Close"
-          className="flex items-center justify-center w-6 h-6 rounded-md transition-colors hover:bg-white/10 shrink-0"
+          className="flex items-center justify-center w-6 h-6 rounded-md transition-colors hover:bg-white/10 shrink-0 max-md:min-w-[44px] max-md:min-h-[44px]"
           style={{ color: 'var(--text-tertiary)' }}
         >
           <X size={14} />
