@@ -10,6 +10,10 @@ import { MobileWorkspace } from '@/components/layout/MobileWorkspace';
 // Lazy load AIPanel to preserve chunk-split strategy (matches desktop pattern)
 const LazyAIPanel = lazy(() => import('@/ai/AIPanel').then(m => ({ default: m.AIPanel })));
 
+// Lazy load style panels to preserve chunk-split strategy (Phase 17)
+const LazyDiagramColorsPanel = lazy(() => import('@/components/modals/settings/DiagramColorsPanel').then(m => ({ default: m.DiagramColorsPanel })));
+const LazyAdvancedStylePanel = lazy(() => import('@/components/modals/settings/AdvancedStylePanel').then(m => ({ default: m.AdvancedStylePanel })));
+
 interface MobileLayoutProps {
   theme: 'light' | 'dark';
   // TopBar actions
@@ -36,6 +40,10 @@ interface MobileLayoutProps {
   onSaveTab: () => void;
   themeId?: string;
   onPreviewError?: (error: string | null) => void;
+  // Phase 17 style panel props
+  defaultThemeId?: string;
+  onSetDefaultTheme?: (theme: any) => void;
+  onThemeIdChange?: (themeId: string | null) => void;
 }
 
 export function MobileLayout({
@@ -60,6 +68,9 @@ export function MobileLayout({
   onSaveTab,
   themeId,
   onPreviewError,
+  defaultThemeId,
+  onSetDefaultTheme,
+  onThemeIdChange,
 }: MobileLayoutProps): ReactNode {
   const { t } = useTranslation();
   const { activeView, openDrawer, setActiveView, setActiveDrawer, closeDrawer } = useMobileShell();
@@ -135,6 +146,50 @@ export function MobileLayout({
               fixMode={fixMode}
               fixTrigger={fixTrigger}
               previewError={previewError}
+            />
+          </Modal>
+        </Suspense>
+      )}
+
+      {/* Colors drawer - DiagramColorsPanel in Modal position=right (Phase 17) */}
+      {openDrawer === 'colors' && (
+        <Suspense fallback={null}>
+          <Modal
+            isOpen={openDrawer === 'colors'}
+            onClose={closeDrawer}
+            title={t('editor.diagramColors')}
+            position="right"
+          >
+            <LazyDiagramColorsPanel
+              isOpen
+              onClose={closeDrawer}
+              currentContent={value}
+              onContentChange={onContentChange}
+              theme={theme}
+              currentThemeId={themeId}
+              onThemeIdChange={onThemeIdChange}
+              defaultThemeId={defaultThemeId}
+              onSetDefaultTheme={onSetDefaultTheme}
+            />
+          </Modal>
+        </Suspense>
+      )}
+
+      {/* AdvancedStyle drawer - AdvancedStylePanel in Modal position=right (Phase 17) */}
+      {openDrawer === 'advanced' && (
+        <Suspense fallback={null}>
+          <Modal
+            isOpen={openDrawer === 'advanced'}
+            onClose={closeDrawer}
+            title={t('editor.advancedStyling')}
+            position="right"
+          >
+            <LazyAdvancedStylePanel
+              isOpen
+              onClose={closeDrawer}
+              currentContent={value}
+              onContentChange={onContentChange}
+              theme={theme}
             />
           </Modal>
         </Suspense>
