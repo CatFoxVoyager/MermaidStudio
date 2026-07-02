@@ -146,6 +146,15 @@ export function AppLayout({
         fixMode={aiFixMode}
         fixTrigger={aiFixTrigger}
         previewError={previewError}
+        value={activeTab?.content ?? ''}
+        onContentChange={(content: string) => {
+          if (activeTab) onContentChange(activeTab.id, content);
+        }}
+        onSaveTab={() => {
+          if (activeTab) onSave(activeTab.id);
+        }}
+        themeId={activeTab?.themeId}
+        onPreviewError={onPreviewError}
       />
     );
   }
