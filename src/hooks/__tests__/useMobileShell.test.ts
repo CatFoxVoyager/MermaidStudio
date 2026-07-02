@@ -135,11 +135,9 @@ describe('useMobileShell', () => {
       const { result } = renderHook(() => useMobileShell());
 
       act(() => {
-        // @ts-expect-error - Testing that colors becomes valid after type extension
         result.current.setActiveDrawer('colors');
       });
 
-      // @ts-expect-error - Testing that colors becomes valid after type extension
       expect(result.current.openDrawer).toBe('colors');
     });
 
@@ -149,10 +147,8 @@ describe('useMobileShell', () => {
 
       stylePanelIds.forEach((drawerId) => {
         act(() => {
-          // @ts-expect-error - Testing that style panel ids become valid after type extension
           result.current.setActiveDrawer(drawerId);
         });
-        // @ts-expect-error - Testing that style panel ids become valid after type extension
         expect(result.current.openDrawer).toBe(drawerId);
 
         // Close it for next iteration
@@ -173,18 +169,14 @@ describe('useMobileShell', () => {
 
       // Open colors drawer (should close files drawer)
       act(() => {
-        // @ts-expect-error - Testing that colors becomes valid after type extension
         result.current.setActiveDrawer('colors');
       });
-      // @ts-expect-error - Testing that colors becomes valid after type extension
       expect(result.current.openDrawer).toBe('colors');
 
       // Open advanced drawer (should close colors drawer)
       act(() => {
-        // @ts-expect-error - Testing that advanced becomes valid after type extension
         result.current.setActiveDrawer('advanced');
       });
-      // @ts-expect-error - Testing that advanced becomes valid after type extension
       expect(result.current.openDrawer).toBe('advanced');
 
       // Open ai drawer (should close advanced drawer)
@@ -199,15 +191,12 @@ describe('useMobileShell', () => {
 
       // Open node drawer
       act(() => {
-        // @ts-expect-error - Testing that node becomes valid after type extension
         result.current.setActiveDrawer('node');
       });
-      // @ts-expect-error - Testing that node becomes valid after type extension
       expect(result.current.openDrawer).toBe('node');
 
       // Click node again (should close)
       act(() => {
-        // @ts-expect-error - Testing that node becomes valid after type extension
         result.current.setActiveDrawer('node');
       });
       expect(result.current.openDrawer).toBeNull();
@@ -220,10 +209,8 @@ describe('useMobileShell', () => {
 
       stylePanelIds.forEach((drawerId) => {
         act(() => {
-          // @ts-expect-error - Testing that style panel ids become valid after type extension
           result.current.setActiveDrawer(drawerId);
         });
-        // @ts-expect-error - Testing that style panel ids become valid after type extension
         expect(result.current.openDrawer).toBe(drawerId);
 
         act(() => {
@@ -260,10 +247,8 @@ describe('useMobileShell', () => {
 
       // Open a style-panel drawer in mobile mode
       act(() => {
-        // @ts-expect-error - Testing that edge becomes valid after type extension
         result.current.setActiveDrawer('edge');
       });
-      // @ts-expect-error - Testing that edge becomes valid after type extension
       expect(result.current.openDrawer).toBe('edge');
 
       // Simulate viewport transition to desktop
