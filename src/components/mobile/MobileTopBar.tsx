@@ -46,7 +46,7 @@ export function MobileTopBar({
           <button
             data-testid="mobile-topbar-new"
             onClick={onNewDiagram}
-            className="p-2 rounded-lg transition-colors hover:bg-white/8"
+            className="p-3 rounded-lg transition-colors hover:bg-white/8 active:bg-white/15 min-w-[44px] min-h-[44px] flex items-center justify-center"
             style={{ color: 'var(--text-secondary)' }}
             aria-label={t('header.newDiagram')}
             title={t('header.newDiagram')}
@@ -57,7 +57,7 @@ export function MobileTopBar({
         <button
           data-testid="mobile-topbar-save"
           onClick={onSave}
-          className="p-2 rounded-lg transition-colors hover:bg-white/8"
+          className="p-3 rounded-lg transition-colors hover:bg-white/8 active:bg-white/15 min-w-[44px] min-h-[44px] flex items-center justify-center"
           style={{ color: 'var(--text-secondary)' }}
           aria-label={t('common.save')}
           title={t('common.save')}
@@ -67,7 +67,7 @@ export function MobileTopBar({
         <button
           data-testid="mobile-topbar-overflow"
           onClick={onOpenCommandPalette}
-          className="p-2 rounded-lg transition-colors hover:bg-white/8"
+          className="p-3 rounded-lg transition-colors hover:bg-white/8 active:bg-white/15 min-w-[44px] min-h-[44px] flex items-center justify-center"
           style={{ color: 'var(--text-secondary)' }}
           aria-label={t('header.commandPalette')}
           title={t('header.commandPalette')}
