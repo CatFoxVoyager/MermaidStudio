@@ -3,6 +3,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 /**
  * Mobile view types for the mobile shell navigation.
+ * These are the main navigation views in the mobile layout.
  * - 'files': File browser sidebar
  * - 'edit': Workspace editor (default)
  * - 'ai': AI assistant panel
@@ -10,12 +11,23 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 export type MobileView = 'files' | 'edit' | 'ai';
 
 /**
+ * Individual drawer IDs for type-safe drawer references.
+ * Exported for consumer components (MobileLayout, CommandPalette, etc.).
+ */
+export type MobileDrawerId = 'files' | 'ai' | 'colors' | 'advanced' | 'node' | 'edge' | 'subgraph';
+
+/**
  * Mobile drawer state - mutually exclusive drawer management.
  * - null: No drawer open
  * - 'files': Sidebar drawer open
  * - 'ai': AI panel drawer open
+ * - 'colors': Diagram colors panel drawer open (Phase 17)
+ * - 'advanced': Advanced style panel drawer open (Phase 17)
+ * - 'node': Node style panel drawer open (Phase 17)
+ * - 'edge': Edge style panel drawer open (Phase 17)
+ * - 'subgraph': Subgraph style panel drawer open (Phase 17)
  */
-export type MobileDrawer = null | 'files' | 'ai';
+export type MobileDrawer = null | MobileDrawerId;
 
 /**
  * API surface for the useMobileShell hook.
@@ -29,7 +41,7 @@ export interface MobileShellApi {
   /** Set the active view and close any open drawer */
   setActiveView: (view: MobileView) => void;
   /** Open a drawer (mutual exclusion - closes other drawers; toggles if same drawer) */
-  setActiveDrawer: (drawer: 'files' | 'ai') => void;
+  setActiveDrawer: (drawer: MobileDrawerId) => void;
   /** Close the currently open drawer */
   closeDrawer: () => void;
 }
@@ -76,7 +88,7 @@ export function useMobileShell(): MobileShellApi {
   // Open drawer with mutual exclusion and same-drawer toggle
   // - If the same drawer is clicked, close it
   // - If a different drawer is clicked, switch to it (mutual exclusion)
-  const setActiveDrawer = useCallback((drawer: 'files' | 'ai') => {
+  const setActiveDrawer = useCallback((drawer: MobileDrawerId) => {
     setOpenDrawerState((prev) => (prev === drawer ? null : drawer));
   }, []);
 
