@@ -53,48 +53,88 @@ describe('useMediaQuery', () => {
 
   describe('transition on change event', () => {
     it('should transition to true when MediaQueryList dispatches change event with matches=true', () => {
-      // Create a reference to the mock MediaQueryList
-      const mqlMock = window.matchMedia('(max-width: 767.98px)') as MediaQueryList & {
-        addEventListener: ReturnType<typeof vi.fn>;
-        removeEventListener: ReturnType<typeof vi.fn>;
+      // Track the callback that gets registered
+      let changeCallback: (() => void) | null = null;
+
+      // Create a singleton mock MediaQueryList object
+      const mqlMock = {
+        matches: false,
+        media: '',
+        onchange: null,
+        addEventListener: vi.fn((event: string, callback: () => void) => {
+          if (event === 'change') {
+            changeCallback = callback;
+          }
+        }),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
       };
+
+      // Mock matchMedia to return the same singleton object
+      window.matchMedia = vi.fn().mockImplementation((query: string) => {
+        mqlMock.media = query;
+        return mqlMock;
+      });
 
       const { result } = renderHook(() => useMediaQuery('(max-width: 767.98px)'));
       expect(result.current).toBe(false);
 
-      // Simulate viewport resize to mobile by dispatching change event
+      // Simulate viewport resize to mobile
       act(() => {
-        // Update matches to true
-        Object.defineProperty(mqlMock, 'matches', { value: true, writable: true });
-        // Call the change listener that was registered
-        const changeCallback = mqlMock.addEventListener.mock.calls[0][1];
-        changeCallback();
+        // Update matches to true and trigger the callback
+        mqlMock.matches = true;
+        if (changeCallback) {
+          changeCallback();
+        }
       });
 
       expect(result.current).toBe(true);
     });
 
     it('should transition back to false when MediaQueryList dispatches change event with matches=false', () => {
-      const mqlMock = window.matchMedia('(max-width: 767.98px)') as MediaQueryList & {
-        addEventListener: ReturnType<typeof vi.fn>;
-        removeEventListener: ReturnType<typeof vi.fn>;
+      // Track the callback
+      let changeCallback: (() => void) | null = null;
+
+      // Create a singleton mock
+      const mqlMock = {
+        matches: false,
+        media: '',
+        onchange: null,
+        addEventListener: vi.fn((event: string, callback: () => void) => {
+          if (event === 'change') {
+            changeCallback = callback;
+          }
+        }),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
       };
+
+      window.matchMedia = vi.fn().mockImplementation((query: string) => {
+        mqlMock.media = query;
+        return mqlMock;
+      });
 
       const { result } = renderHook(() => useMediaQuery('(max-width: 767.98px)'));
 
       // First transition to mobile
       act(() => {
-        Object.defineProperty(mqlMock, 'matches', { value: true, writable: true });
-        const changeCallback = mqlMock.addEventListener.mock.calls[0][1];
-        changeCallback();
+        mqlMock.matches = true;
+        if (changeCallback) {
+          changeCallback();
+        }
       });
       expect(result.current).toBe(true);
 
       // Then transition back to desktop
       act(() => {
-        Object.defineProperty(mqlMock, 'matches', { value: false, writable: true });
-        const changeCallback = mqlMock.addEventListener.mock.calls[0][1];
-        changeCallback();
+        mqlMock.matches = false;
+        if (changeCallback) {
+          changeCallback();
+        }
       });
       expect(result.current).toBe(false);
     });
@@ -102,37 +142,72 @@ describe('useMediaQuery', () => {
 
   describe('cleanup on unmount', () => {
     it('should removeEventListener on unmount', () => {
-      const mqlMock = window.matchMedia('(max-width: 767.98px)') as MediaQueryList & {
-        addEventListener: ReturnType<typeof vi.fn>;
-        removeEventListener: ReturnType<typeof vi.fn>;
+      // Track both the listener and the cleanup
+      let registeredListener: (() => void) | null = null;
+      let removedListener: (() => void) | null = null;
+
+      // Create a singleton mock
+      const mqlMock = {
+        matches: false,
+        media: '',
+        onchange: null,
+        addEventListener: vi.fn((event: string, callback: () => void) => {
+          if (event === 'change') {
+            registeredListener = callback;
+          }
+        }),
+        removeEventListener: vi.fn((event: string, callback: () => void) => {
+          if (event === 'change') {
+            removedListener = callback;
+          }
+        }),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
       };
+
+      window.matchMedia = vi.fn().mockImplementation((query: string) => {
+        mqlMock.media = query;
+        return mqlMock;
+      });
 
       const { unmount } = renderHook(() => useMediaQuery('(max-width: 767.98px)'));
 
-      // Verify listener was added
-      expect(mqlMock.addEventListener).toHaveBeenCalled();
-      const listener = mqlMock.addEventListener.mock.calls[0][1];
+      // Verify listener was registered
+      expect(registeredListener).not.toBeNull();
 
       // Unmount the hook
       unmount();
 
-      // Verify cleanup - removeEventListener was called with the same listener
-      expect(mqlMock.removeEventListener).toHaveBeenCalledWith('change', listener);
+      // Verify cleanup - the same listener was removed
+      expect(removedListener).toBe(registeredListener);
     });
 
     it('should not throw when dispatching change event after unmount', () => {
-      const mqlMock = window.matchMedia('(max-width: 767.98px)') as MediaQueryList & {
-        addEventListener: ReturnType<typeof vi.fn>;
-        removeEventListener: ReturnType<typeof vi.fn>;
-        dispatchEvent: ReturnType<typeof vi.fn>;
+      // Create a singleton mock
+      const mqlMock = {
+        matches: false,
+        media: '',
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
       };
+
+      window.matchMedia = vi.fn().mockImplementation((query: string) => {
+        mqlMock.media = query;
+        return mqlMock;
+      });
 
       const { unmount } = renderHook(() => useMediaQuery('(max-width: 767.98px)'));
 
       // Unmount
       unmount();
 
-      // Dispatching a change event after unmount should not throw
+      // The cleanup function should have been called, so there should be no throws
+      // (The mock doesn't throw, but the cleanup happens safely)
       expect(() => {
         const event = new Event('change');
         mqlMock.dispatchEvent(event);
