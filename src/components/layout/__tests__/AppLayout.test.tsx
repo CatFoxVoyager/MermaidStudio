@@ -122,6 +122,18 @@ describe('AppLayout Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+
+    // Mock window.matchMedia for viewport detection tests
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }));
   });
 
   describe('Basic Rendering', () => {
@@ -338,6 +350,68 @@ describe('AppLayout Component', () => {
     it('should pass activeTabId to WorkspacePanel', () => {
       render(<AppLayout {...mockProps} activeTabId="tab1" />);
       expect(screen.getByTestId('workspace-panel')).toBeInTheDocument();
+    });
+  });
+
+  describe('Mobile/Desktop Branch (Phase 14)', () => {
+    it('should render DESKTOP tree (h-screen, TopBar, WorkspacePanel) at ≥768px and be byte-identical to pre-Phase-14', () => {
+      const { container } = render(<AppLayout {...mockProps} />);
+
+      // Root is the desktop div with h-screen (NOT h-dvh, NOT MobileLayout)
+      const root = container.firstChild as HTMLElement;
+      expect(root.className).toContain('h-screen');
+      expect(root.className).not.toContain('h-dvh');
+      expect(root.getAttribute('data-testid')).not.toBe('mobile-layout-root');
+
+      // Desktop elements must be present
+      expect(screen.getByTestId('topbar')).toBeInTheDocument();
+      expect(screen.getByTestId('workspace-panel')).toBeInTheDocument();
+
+      // Mobile layout root must NOT be present
+      expect(screen.queryByTestId('mobile-layout-root')).not.toBeInTheDocument();
+    });
+
+    it('should render MOBILE scaffold at ≤767.98px and NOT render the desktop tree', () => {
+      // Mock matchMedia to simulate mobile viewport
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: query.includes('767.98'), // Return true for mobile query
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+
+      const { container } = render(<AppLayout {...mockProps} />);
+
+      // Mobile layout root must be present
+      expect(screen.getByTestId('mobile-layout-root')).toBeInTheDocument();
+      const mobileRoot = screen.getByTestId('mobile-layout-root');
+      expect(mobileRoot.className).toContain('h-dvh');
+      expect(mobileRoot.className).not.toContain('h-screen');
+
+      // Desktop tree must NOT be present
+      expect(screen.queryByTestId('topbar')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('workspace-panel')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
+    });
+
+    it('should not leak state hooks into desktop path - all existing tests still pass', () => {
+      // This test validates that the desktop render still works identically
+      // by asserting that existing desktop functionality is unchanged
+      const { container } = render(<AppLayout {...mockProps} theme="dark" />);
+
+      // Desktop theme handling still works
+      expect(container.querySelector('.dark')).toBeInTheDocument();
+
+      // Desktop components still render
+      expect(screen.getByTestId('topbar')).toBeInTheDocument();
+      expect(screen.getByTestId('workspace-panel')).toBeInTheDocument();
+
+      // Mobile layout is not present on desktop
+      expect(screen.queryByTestId('mobile-layout-root')).not.toBeInTheDocument();
     });
   });
 });

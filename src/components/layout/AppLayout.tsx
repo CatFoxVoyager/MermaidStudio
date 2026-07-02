@@ -2,6 +2,8 @@ import { lazy, Suspense } from 'react';
 import { TopBar } from '@/components/shared/TopBar';
 import { Sidebar } from '@/sidebar/Sidebar';
 import { WorkspacePanel } from '@/editor/WorkspacePanel';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { MobileLayout } from './MobileLayout';
 import type { Tab, MermaidTheme } from '@/types';
 
 // Lazy load heavy panel components
@@ -123,6 +125,13 @@ export function AppLayout({
   onPreviewError,
   previewError,
 }: AppLayoutProps) {
+  // Phase 14: Mobile detection and early branch
+  const isMobile = useMediaQuery('(max-width: 767.98px)');
+  if (isMobile) {
+    return <MobileLayout theme={theme} />;
+  }
+
+  // Desktop tree (unchanged from pre-Phase-14)
   return (
     <div className={`flex flex-col h-screen overflow-hidden ${theme === 'dark' ? 'dark' : ''}`}
       style={{ background: 'var(--surface-base)', color: 'var(--text-primary)' }}>
