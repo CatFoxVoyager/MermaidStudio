@@ -1266,6 +1266,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         onMouseDown={handlePanMouseDown}
         onDragOver={e => e.preventDefault()}
         onDrop={handleDropOnCanvas}
+        style={{ touchAction: isPanning ? 'none' : 'pan-x pan-y pinch-zoom' }}
       >
         {error ? (
           <div className="flex flex-col items-center justify-center h-full p-8 text-center" data-testid="error-message">
