@@ -5,6 +5,7 @@ import { MobileBottomNav } from '@/components/mobile/MobileBottomNav';
 import { useMobileShell } from '@/hooks/useMobileShell';
 import { Modal } from '@/components/shared/Modal';
 import { Sidebar } from '@/sidebar/Sidebar';
+import { MobileWorkspace } from '@/components/layout/MobileWorkspace';
 
 // Lazy load AIPanel to preserve chunk-split strategy (matches desktop pattern)
 const LazyAIPanel = lazy(() => import('@/ai/AIPanel').then(m => ({ default: m.AIPanel })));
@@ -29,6 +30,12 @@ interface MobileLayoutProps {
   fixMode?: boolean;
   fixTrigger?: number;
   previewError?: string | null;
+  // Workspace props (Phase 16 integration)
+  value: string;
+  onContentChange: (content: string) => void;
+  onSaveTab: () => void;
+  themeId?: string;
+  onPreviewError?: (error: string | null) => void;
 }
 
 export function MobileLayout({
@@ -48,6 +55,11 @@ export function MobileLayout({
   fixMode,
   fixTrigger,
   previewError,
+  value,
+  onContentChange,
+  onSaveTab,
+  themeId,
+  onPreviewError,
 }: MobileLayoutProps): ReactNode {
   const { t } = useTranslation();
   const { activeView, openDrawer, setActiveView, setActiveDrawer, closeDrawer } = useMobileShell();
@@ -68,13 +80,15 @@ export function MobileLayout({
       </div>
 
       {/* Workspace slot - flexible middle area (Phase 16 fills this) */}
-      <div
-        className="m-2 flex flex-1 items-center justify-center rounded border-2 border-dashed"
-        style={{ borderColor: 'var(--accent)', color: 'var(--text-secondary)', opacity: 0.7 }}
-        data-testid="mobile-workspace-slot"
-      >
-        {/* Workspace slot - Phase 16 fills this (MWRK-01 Code/Preview toggle) */}
-        <span className="text-sm">Workspace slot</span>
+      <div className="flex-1 min-h-0" data-testid="mobile-workspace-slot">
+        <MobileWorkspace
+          value={value}
+          onChange={onContentChange}
+          theme={theme}
+          themeId={themeId}
+          onSave={onSaveTab}
+          onPreviewError={onPreviewError}
+        />
       </div>
 
       {/* Bottom nav slot - safe-area + z-index token (Phase 15 fills this) */}
