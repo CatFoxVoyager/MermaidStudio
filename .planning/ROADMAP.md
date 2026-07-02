@@ -198,7 +198,7 @@ Plans:
 ## Phase 18: Touch Optimization & Visual Editor
 
 **Goal:** Users can interact with all controls and the visual editor by touch.
-**Status:** Planned
+**Status:** Executing
 **Depends on:** Phase 17
 **Requirements:** MTCH-01, MTCH-02, MTCH-03
 **Success Criteria:**
@@ -208,13 +208,13 @@ Plans:
 3. In the visual drag-and-drop editor, users can drag/select nodes and trigger AI modifications by touch.
 4. Pinch-to-zoom and pan the visual-editor canvas works on mobile without breaking desktop mouse behavior.
 
-**Plans:** 2/2 plans ready
+**Plans:** 1/2 plans complete
 
 Plans:
 
 **Wave 1** *(parallel — zero file overlap between plans)*
 
-- [ ] [18-01-PLAN.md](./phases/18-touch-optimization-visual-editor/18-01-PLAN.md) — MTCH-01/MTCH-02: raise mobile-shell tap targets to ≥44px (MobileTopBar p-3 + min-w/min-h-[44px], MobileBottomNav active:), add preview CSS touch-action (pan-x pan-y pinch-zoom), Wave-0 E2E specs
+- [x] [18-01-PLAN.md](./phases/18-touch-optimization-visual-editor/18-01-PLAN.md) — MTCH-01/MTCH-02: raise mobile-shell tap targets to ≥44px (MobileTopBar p-3 + min-w/min-h-[44px], MobileBottomNav active:), add preview CSS touch-action (pan-x pan-y pinch-zoom), Wave-0 E2E specs ✅
 - [ ] [18-02-PLAN.md](./phases/18-touch-optimization-visual-editor/18-02-PLAN.md) — MTCH-03 keystone: migrate VisualEditorCanvas mouse→Pointer Events (unified, not forked), add multi-touch pinch-zoom via pointerId map, desktop non-regression E2E, real-device human checkpoint
 
 ---
