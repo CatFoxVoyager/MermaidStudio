@@ -35,7 +35,7 @@ export function MobileBottomNav({ activeView, setActiveView, setActiveDrawer }: 
                 setActiveDrawer(item.drawer);
               }
             }}
-            className={`flex flex-col items-center justify-center flex-1 gap-1 transition-colors ${
+            className={`flex flex-col items-center justify-center flex-1 gap-1 transition-colors hover:bg-white/5 active:bg-white/10 ${
               isActive ? 'text-[var(--accent)] font-semibold' : 'text-[var(--text-secondary)]'
             }`}
             style={{
