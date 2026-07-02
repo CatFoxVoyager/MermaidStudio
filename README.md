@@ -1,9 +1,10 @@
 # MermaidStudio
 
+[![Version](https://img.shields.io/github/package-json/v/CatFoxVoyager/MermaidStudio?label=version&color=blue)](https://github.com/CatFoxVoyager/MermaidStudio/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/typescript-5.9.3-blue.svg)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/vite-8.0.2-green.svg)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/tailwind-4.2.2-cyan.svg)](https://tailwindcss.com/)
+[![TypeScript](https://img.shields.io/badge/typescript-6.0.3-blue.svg)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/vite-8.1.2-green.svg)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/tailwind-4.3.2-cyan.svg)](https://tailwindcss.com/)
 [![Node](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org/)
 [![Ko-Fi](https://img.shields.io/badge/Ko--Fi-Support%20Me-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/jeremie93407)
 
