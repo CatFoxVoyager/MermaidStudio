@@ -155,6 +155,9 @@ export function AppLayout({
         }}
         themeId={activeTab?.themeId}
         onPreviewError={onPreviewError}
+        defaultThemeId={defaultTheme?.id}
+        onSetDefaultTheme={setDefaultTheme}
+        onThemeIdChange={onThemeIdChange}
       />
     );
   }
