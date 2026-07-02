@@ -75,6 +75,8 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const renderIdRef = useRef(0);
   const debounceRef = useRef<number>(0);
   const capturedPointerIdsRef = useRef<Set<number>>(new Set());
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchPrevDistanceRef = useRef<number | null>(null);
 
   const render = useCallback(async () => {
     const id = ++renderIdRef.current;
@@ -205,11 +207,55 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     target.setPointerCapture(e.pointerId);
     capturedPointerIdsRef.current.add(e.pointerId);
 
+    // Record pointer for pinch detection
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    // If we now have 2 pointers, initialize pinch gesture
+    if (activePointersRef.current.size === 2) {
+      const pointers = Array.from(activePointersRef.current.values());
+      const p1 = pointers[0];
+      const p2 = pointers[1];
+      const distance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      pinchPrevDistanceRef.current = distance;
+
+      // Skip normal canvas behavior when pinch starts
+      return;
+    }
+
+    // Normal single-pointer behavior
     if (toolMode === 'connect') {
       setConnectFirst(null);
       return;
     }
     setSelection({ nodeIds: [], edgeKey: null });
+  }
+
+  function handleCanvasPointerMove(e: React.PointerEvent) {
+    // Only process moves for tracked pointers
+    if (!activePointersRef.current.has(e.pointerId)) return;
+
+    // Update pointer position
+    activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    // Handle pinch-zoom when exactly 2 pointers are active
+    if (activePointersRef.current.size === 2 && pinchPrevDistanceRef.current !== null) {
+      const pointers = Array.from(activePointersRef.current.values());
+      const p1 = pointers[0];
+      const p2 = pointers[1];
+      const currentDistance = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+
+      // Calculate zoom delta from distance change
+      const zoomDelta = currentDistance / pinchPrevDistanceRef.current;
+
+      // Apply zoom with existing clamp (0.25..3)
+      setZoom(z => Math.max(0.25, Math.min(3, z * zoomDelta)));
+
+      // Update previous distance for next frame
+      pinchPrevDistanceRef.current = currentDistance;
+
+      // Prevent default during active pinch (avoid browser zoom competition)
+      e.preventDefault();
+    }
   }
 
   function handleCanvasPointerUp(e: React.PointerEvent) {
@@ -220,6 +266,14 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
       target.releasePointerCapture(e.pointerId);
       capturedPointerIdsRef.current.delete(e.pointerId);
     }
+
+    // Remove pointer from active tracking
+    activePointersRef.current.delete(e.pointerId);
+
+    // Reset pinch state when we drop below 2 pointers
+    if (activePointersRef.current.size < 2) {
+      pinchPrevDistanceRef.current = null;
+    }
   }
 
   function handleCanvasPointerCancel(e: React.PointerEvent) {
@@ -229,6 +283,14 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     if (capturedPointerIdsRef.current.has(e.pointerId)) {
       target.releasePointerCapture(e.pointerId);
       capturedPointerIdsRef.current.delete(e.pointerId);
+    }
+
+    // Remove pointer from active tracking
+    activePointersRef.current.delete(e.pointerId);
+
+    // Reset pinch state when we drop below 2 pointers
+    if (activePointersRef.current.size < 2) {
+      pinchPrevDistanceRef.current = null;
     }
   }
 
@@ -350,11 +412,12 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
           ref={containerRef}
           className="flex-1 relative overflow-auto preview-grid"
           onPointerDown={handleCanvasPointerDown}
+          onPointerMove={handleCanvasPointerMove}
           onPointerUp={handleCanvasPointerUp}
           onPointerCancel={handleCanvasPointerCancel}
           onDragOver={e => e.preventDefault()}
           onDrop={handleDropOnCanvas}
-          style={{ cursor: toolMode === 'connect' ? 'crosshair' : 'default' }}>
+          style={{ cursor: toolMode === 'connect' ? 'crosshair' : 'default', touchAction: 'none' }}>
 
           <div className="absolute top-2 right-2 z-10 flex items-center gap-1 px-2 py-1 rounded-lg border shadow-xs"
             style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
