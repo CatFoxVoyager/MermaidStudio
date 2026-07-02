@@ -28,6 +28,12 @@
     "edit": "Éditer",
     "ai": "IA"
   },
+  "workspace": {
+    "toggle": {
+      "code": "Code",
+      "preview": "Aperçu"
+    }
+  },
   "commands": {
     "newDiagram": "Nouveau diagramme",
     "newFolder": "Nouveau dossier",
