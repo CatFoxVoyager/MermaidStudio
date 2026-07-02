@@ -68,11 +68,13 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const [toolMode, setToolMode] = useState<ToolMode>('select');
   const [connectFirst, setConnectFirst] = useState<string | null>(null);
   const [dragShape, setDragShape] = useState<NodeShape | null>(null);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
   const renderIdRef = useRef(0);
   const debounceRef = useRef<number>(0);
+  const capturedPointerIdsRef = useRef<Set<number>>(new Set());
 
   const render = useCallback(async () => {
     const id = ++renderIdRef.current;
@@ -132,8 +134,14 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     return edge ? { source: edge.source, target: edge.target, arrowType: edge.arrowType, label: edge.label } : null;
   })();
 
-  function handleNodeClick(e: React.MouseEvent, nodeId: string) {
+  function handleNodePointerDown(e: React.PointerEvent, nodeId: string) {
     e.stopPropagation();
+
+    // Capture pointer for reliable gesture tracking
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+    capturedPointerIdsRef.current.add(e.pointerId);
+
     if (toolMode === 'connect') {
       if (!connectFirst) {
         setConnectFirst(nodeId);
@@ -146,22 +154,82 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
       setToolMode('select');
       return;
     }
-    if (e.shiftKey) {
+
+    // Start long-press timer for touch multi-select (500ms)
+    if (e.pointerType === 'touch') {
+      const timer = setTimeout(() => {
+        setSelection(s => ({
+          nodeIds: s.nodeIds.includes(nodeId) ? s.nodeIds.filter(id => id !== nodeId) : [...s.nodeIds, nodeId],
+          edgeKey: null,
+        }));
+      }, 500);
+      setLongPressTimer(timer);
+    }
+
+    // Handle multi-select on Shift key (mouse) or immediate select for non-touch
+    if (e.shiftKey && e.pointerType === 'mouse') {
       setSelection(s => ({
         nodeIds: s.nodeIds.includes(nodeId) ? s.nodeIds.filter(id => id !== nodeId) : [...s.nodeIds, nodeId],
         edgeKey: null,
       }));
-    } else {
+    } else if (e.pointerType === 'mouse') {
       setSelection({ nodeIds: [nodeId], edgeKey: null });
+    }
+    // For touch, wait to see if it becomes a long-press (multi-select) or tap (single-select)
+  }
+
+  function handleNodePointerUp(e: React.PointerEvent, nodeId: string) {
+    const target = e.currentTarget as HTMLElement;
+
+    // Release pointer capture
+    if (capturedPointerIdsRef.current.has(e.pointerId)) {
+      target.releasePointerCapture(e.pointerId);
+      capturedPointerIdsRef.current.delete(e.pointerId);
+    }
+
+    // Clear long-press timer if still active (means it was a tap, not long-press)
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+
+      // For touch, if timer was cleared it means it was a short tap - single select
+      if (e.pointerType === 'touch') {
+        setSelection({ nodeIds: [nodeId], edgeKey: null });
+      }
     }
   }
 
-  function handleCanvasClick() {
+  function handleCanvasPointerDown(e: React.PointerEvent) {
+    // Capture pointer for reliable gesture tracking
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+    capturedPointerIdsRef.current.add(e.pointerId);
+
     if (toolMode === 'connect') {
       setConnectFirst(null);
       return;
     }
     setSelection({ nodeIds: [], edgeKey: null });
+  }
+
+  function handleCanvasPointerUp(e: React.PointerEvent) {
+    const target = e.currentTarget as HTMLElement;
+
+    // Release pointer capture
+    if (capturedPointerIdsRef.current.has(e.pointerId)) {
+      target.releasePointerCapture(e.pointerId);
+      capturedPointerIdsRef.current.delete(e.pointerId);
+    }
+  }
+
+  function handleCanvasPointerCancel(e: React.PointerEvent) {
+    const target = e.currentTarget as HTMLElement;
+
+    // Release pointer capture on cancel
+    if (capturedPointerIdsRef.current.has(e.pointerId)) {
+      target.releasePointerCapture(e.pointerId);
+      capturedPointerIdsRef.current.delete(e.pointerId);
+    }
   }
 
   function handleAddShape(shape: NodeShape) {
@@ -281,7 +349,9 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
         <div
           ref={containerRef}
           className="flex-1 relative overflow-auto preview-grid"
-          onClick={handleCanvasClick}
+          onPointerDown={handleCanvasPointerDown}
+          onPointerUp={handleCanvasPointerUp}
+          onPointerCancel={handleCanvasPointerCancel}
           onDragOver={e => e.preventDefault()}
           onDrop={handleDropOnCanvas}
           style={{ cursor: toolMode === 'connect' ? 'crosshair' : 'default' }}>
@@ -340,7 +410,8 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
                   return (
                     <div
                       key={overlay.id}
-                      onClick={e => handleNodeClick(e, overlay.id)}
+                      onPointerDown={e => handleNodePointerDown(e, overlay.id)}
+                      onPointerUp={e => handleNodePointerUp(e, overlay.id)}
                       className={`visual-node-overlay ${isSelected ? 'selected' : ''} ${isConnectSource ? 'connect-source' : ''}`}
                       style={{
                         position: 'absolute',
