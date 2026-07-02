@@ -89,9 +89,10 @@ describe('MobileWorkspace', () => {
       render(<MobileWorkspace {...defaultProps} />);
       const previewPane = screen.getByTestId('preview-panel');
 
-      // Preview pane should be in DOM but hidden
+      // Preview pane should be in DOM but its container should be hidden
       expect(previewPane).toBeInTheDocument();
-      expect(previewPane).toHaveClass('hidden');
+      const previewContainer = previewPane.closest('div.absolute');
+      expect(previewContainer).toHaveClass('hidden');
     });
   });
 
@@ -137,8 +138,8 @@ describe('MobileWorkspace', () => {
     it('preserves scroll position when toggling between panes', () => {
       render(<MobileWorkspace {...defaultProps} />);
 
-      // Get the code container ref
-      const codeContainer = screen.getByTestId('code-editor').closest('div[style*="overflow"]');
+      // Get the code container (the div with overflow-auto)
+      const codeContainer = screen.getByTestId('code-editor').closest('div.overflow-auto');
       if (!codeContainer) throw new Error('Code container not found');
 
       // Set initial scroll position
@@ -147,14 +148,15 @@ describe('MobileWorkspace', () => {
         value: 100,
         configurable: true,
       });
+      codeContainer.scrollTop = 100;
 
       const previewTab = screen.getByTestId('mobile-workspace-tab-preview');
       const codeTab = screen.getByTestId('mobile-workspace-tab-code');
 
-      // Switch to preview
+      // Switch to preview (this triggers save scroll in useEffect)
       fireEvent.click(previewTab);
 
-      // Switch back to code
+      // Switch back to code (this triggers restore scroll in useEffect)
       fireEvent.click(codeTab);
 
       // Scroll should be restored (this tests the useEffect scroll restoration)
