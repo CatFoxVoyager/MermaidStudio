@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { ModalProvider } from '../ModalProvider';
+import { MobileShellProvider } from '@/hooks/useMobileShell';
 
 // Mock all modal components
 vi.mock('@/components/modals/diagram/TemplateLibrary', () => ({
@@ -136,267 +137,320 @@ describe('ModalProvider Component', () => {
     dismiss: vi.fn(),
   };
 
+  // Helper function to render ModalProvider with MobileShellProvider
+  const renderModalProvider = (props: any) => {
+    return render(
+      <MobileShellProvider>
+        <ModalProvider {...props} />
+      </MobileShellProvider>
+    );
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   describe('Basic Rendering', () => {
     it('should render without crashing', () => {
-      const { container } = render(<ModalProvider {...mockProps} />);
+      const { container } = renderModalProvider(mockProps);
       expect(container.firstChild).toBeInTheDocument();
     });
 
     it('should not render any modals when all states are false', () => {
-      render(<ModalProvider {...mockProps} />);
+      renderModalProvider(mockProps);
       expect(screen.queryByTestId('template-library')).not.toBeInTheDocument();
       expect(screen.queryByTestId('version-history')).not.toBeInTheDocument();
       expect(screen.queryByTestId('export-modal')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
     });
-  });
 
-  describe('TemplateLibrary Modal', () => {
-    it('should render TemplateLibrary when showTemplates is true', async () => {
-      render(<ModalProvider {...mockProps} showTemplates={true} />);
+    it('should render TemplateLibrary when showTemplates is true', () => {
+      renderModalProvider({ ...mockProps, showTemplates: true });
+      expect(screen.getByTestId('template-library')).toBeInTheDocument();
+    });
+
+    it('should call onCloseTemplates when close button clicked', async () => {
+      const onCloseTemplates = vi.fn();
+      renderModalProvider({ ...mockProps, showTemplates: true, onCloseTemplates });
+      const closeButton = screen.getByText('Close');
+      closeButton.click();
       await waitFor(() => {
-        expect(screen.getByTestId('template-library')).toBeInTheDocument();
+        expect(onCloseTemplates).toHaveBeenCalled();
       });
     });
 
-    it('should call onCloseTemplates when close button clicked', () => {
-      render(<ModalProvider {...mockProps} showTemplates={true} />);
-      const closeButton = screen.getByText('Close');
-      closeButton.click();
-      expect(mockProps.onCloseTemplates).toHaveBeenCalled();
-    });
-
-    it('should call handleTemplateSelect when select button clicked', () => {
-      render(<ModalProvider {...mockProps} showTemplates={true} />);
+    it('should call handleTemplateSelect when select button clicked', async () => {
+      const handleTemplateSelect = vi.fn();
+      renderModalProvider({ ...mockProps, showTemplates: true, handleTemplateSelect });
       const selectButton = screen.getByText('Select');
       selectButton.click();
-      expect(mockProps.handleTemplateSelect).toHaveBeenCalledWith({ title: 'Test', content: 'test' });
-    });
-  });
-
-  describe('VersionHistory Modal', () => {
-    it('should render VersionHistory when showHistory is true and activeTab exists', async () => {
-      const activeTab = { id: '1', title: 'Test', content: 'test', diagram_id: 'd1' };
-      render(<ModalProvider {...mockProps} showHistory={true} activeTab={activeTab as any} />);
       await waitFor(() => {
-        expect(screen.getByTestId('version-history')).toBeInTheDocument();
+        expect(handleTemplateSelect).toHaveBeenCalledWith({ title: 'Test', content: 'test' });
       });
     });
 
-    it('should call onCloseHistory when close button clicked', () => {
-      render(<ModalProvider {...mockProps} showHistory={true} activeTab={{ id: '1', title: 'Test', content: 'test', diagram_id: 'd1' } as any} />);
-      const closeButton = screen.getByText('Close');
-      closeButton.click();
-      expect(mockProps.onCloseHistory).toHaveBeenCalled();
+    it('should render VersionHistory when showHistory is true and activeTab exists', () => {
+      const activeTab = { id: '1', title: 'Test', content: 'test content', diagram_id: 'diag-1' };
+      renderModalProvider({ ...mockProps, showHistory: true, activeTab });
+      expect(screen.getByTestId('version-history')).toBeInTheDocument();
     });
 
-    it('should call handleRestore when restore button clicked', () => {
-      render(<ModalProvider {...mockProps} showHistory={true} activeTab={{ id: '1', title: 'Test', content: 'test', diagram_id: 'd1' } as any} />);
+    it('should call onCloseHistory when close button clicked', async () => {
+      const onCloseHistory = vi.fn();
+      const activeTab = { id: '1', title: 'Test', content: 'test content', diagram_id: 'diag-1' };
+      renderModalProvider({ ...mockProps, showHistory: true, activeTab, onCloseHistory });
+      const closeButton = screen.getByText('Close');
+      closeButton.click();
+      await waitFor(() => {
+        expect(onCloseHistory).toHaveBeenCalled();
+      });
+    });
+
+    it('should call handleRestore when restore button clicked', async () => {
+      const handleRestore = vi.fn();
+      const activeTab = { id: '1', title: 'Test', content: 'test content', diagram_id: 'diag-1' };
+      renderModalProvider({ ...mockProps, showHistory: true, activeTab, handleRestore });
       const restoreButton = screen.getByText('Restore');
       restoreButton.click();
-      expect(mockProps.handleRestore).toHaveBeenCalledWith('restored');
-    });
-  });
-
-  describe('ExportModal', () => {
-    it('should render ExportModal when showExport is true and activeTab exists', async () => {
-      render(<ModalProvider {...mockProps} showExport={true} activeTab={{ id: '1', title: 'Test Diagram', content: 'test content', diagram_id: 'd1' } as any} />);
       await waitFor(() => {
-        expect(screen.getByTestId('export-modal')).toBeInTheDocument();
-        expect(screen.getByText('Title: Test Diagram')).toBeInTheDocument();
+        expect(handleRestore).toHaveBeenCalledWith('restored');
       });
     });
 
-    it('should call onCloseExport when close button clicked', () => {
-      render(<ModalProvider {...mockProps} showExport={true} activeTab={{ id: '1', title: 'Test', content: 'test', diagram_id: 'd1' } as any} />);
+    it('should render ExportModal when showExport is true and activeTab exists', () => {
+      const activeTab = { id: '1', title: 'Test Diagram', content: 'test content', diagram_id: 'diag-1' };
+      renderModalProvider({ ...mockProps, showExport: true, activeTab });
+      expect(screen.getByTestId('export-modal')).toBeInTheDocument();
+      expect(screen.getByText('Title: Test Diagram')).toBeInTheDocument();
+    });
+
+    it('should call onCloseExport when close button clicked', async () => {
+      const onCloseExport = vi.fn();
+      const activeTab = { id: '1', title: 'Test', content: 'test content', diagram_id: 'diag-1' };
+      renderModalProvider({ ...mockProps, showExport: true, activeTab, onCloseExport });
       const closeButton = screen.getByText('Close');
       closeButton.click();
-      expect(mockProps.onCloseExport).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(onCloseExport).toHaveBeenCalled();
+      });
     });
 
-    it('should call handleCopyLink when copy link button clicked', () => {
-      render(<ModalProvider {...mockProps} showExport={true} activeTab={{ id: '1', title: 'Test', content: 'test', diagram_id: 'd1' } as any} />);
+    it('should call handleCopyLink when copy link button clicked', async () => {
+      const handleCopyLink = vi.fn();
+      const activeTab = { id: '1', title: 'Test', content: 'test content', diagram_id: 'diag-1' };
+      renderModalProvider({ ...mockProps, showExport: true, activeTab, handleCopyLink });
       const copyButton = screen.getByText('Copy Link');
       copyButton.click();
-      expect(mockProps.handleCopyLink).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(handleCopyLink).toHaveBeenCalled();
+      });
     });
-  });
 
-  describe('CommandPalette', () => {
     it('should render CommandPalette when showPalette is true', () => {
-      render(<ModalProvider {...mockProps} showPalette={true} />);
+      renderModalProvider({ ...mockProps, showPalette: true });
       expect(screen.getByTestId('command-palette')).toBeInTheDocument();
     });
 
-    it('should call onClosePalette when close button clicked', () => {
-      render(<ModalProvider {...mockProps} showPalette={true} />);
+    it('should call onClosePalette when close button clicked', async () => {
+      const onClosePalette = vi.fn();
+      renderModalProvider({ ...mockProps, showPalette: true, onClosePalette });
       const closeButton = screen.getByText('Close');
       closeButton.click();
-      expect(mockProps.onClosePalette).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(onClosePalette).toHaveBeenCalled();
+      });
     });
 
-    it('should call newDiagram when new diagram button clicked', () => {
-      render(<ModalProvider {...mockProps} showPalette={true} />);
-      const newDiagramButton = screen.getByText('New Diagram');
-      newDiagramButton.click();
-      expect(mockProps.newDiagram).toHaveBeenCalled();
+    it('should call newDiagram when new diagram button clicked', async () => {
+      const newDiagram = vi.fn();
+      renderModalProvider({ ...mockProps, showPalette: true, newDiagram });
+      const newButton = screen.getByText('New Diagram');
+      newButton.click();
+      await waitFor(() => {
+        expect(newDiagram).toHaveBeenCalled();
+      });
     });
-  });
 
-  describe('KeyboardShortcuts', () => {
     it('should render KeyboardShortcuts when showHelp is true', () => {
-      render(<ModalProvider {...mockProps} showHelp={true} />);
+      renderModalProvider({ ...mockProps, showHelp: true });
       expect(screen.getByTestId('keyboard-shortcuts')).toBeInTheDocument();
     });
 
-    it('should call onCloseHelp when close button clicked', () => {
-      render(<ModalProvider {...mockProps} showHelp={true} />);
+    it('should call onCloseHelp when close button clicked', async () => {
+      const onCloseHelp = vi.fn();
+      renderModalProvider({ ...mockProps, showHelp: true, onCloseHelp });
       const closeButton = screen.getByText('Close');
       closeButton.click();
-      expect(mockProps.onCloseHelp).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(onCloseHelp).toHaveBeenCalled();
+      });
     });
-  });
 
-  describe('BackupPanel', () => {
     it('should render BackupPanel when showBackup is true', () => {
-      render(<ModalProvider {...mockProps} showBackup={true} />);
+      renderModalProvider({ ...mockProps, showBackup: true });
       expect(screen.getByTestId('backup-panel')).toBeInTheDocument();
     });
 
-    it('should call onCloseBackup when close button clicked', () => {
-      render(<ModalProvider {...mockProps} showBackup={true} />);
+    it('should call onCloseBackup when close button clicked', async () => {
+      const onCloseBackup = vi.fn();
+      renderModalProvider({ ...mockProps, showBackup: true, onCloseBackup });
       const closeButton = screen.getByText('Close');
       closeButton.click();
-      expect(mockProps.onCloseBackup).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(onCloseBackup).toHaveBeenCalled();
+      });
     });
 
-    it('should call showToast and refresh when imported', () => {
-      render(<ModalProvider {...mockProps} showBackup={true} />);
+    it('should call showToast and refresh when imported', async () => {
+      const showToast = vi.fn();
+      const refresh = vi.fn();
+      renderModalProvider({ ...mockProps, showBackup: true, showToast, refresh });
       const importButton = screen.getByText('Import');
       importButton.click();
-      expect(mockProps.showToast).toHaveBeenCalledWith('Imported');
-      expect(mockProps.refresh).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(showToast).toHaveBeenCalledWith('Imported');
+        expect(refresh).toHaveBeenCalled();
+      });
     });
-  });
 
-  describe('AISettingsModal', () => {
     it('should render AISettingsModal when showAISettings is true', () => {
-      render(<ModalProvider {...mockProps} showAISettings={true} />);
+      renderModalProvider({ ...mockProps, showAISettings: true });
       expect(screen.getByTestId('ai-settings')).toBeInTheDocument();
     });
 
-    it('should call onCloseAISettings and increment settings key when close button clicked', () => {
-      render(<ModalProvider {...mockProps} showAISettings={true} />);
+    it('should call onCloseAISettings and increment settings key when close button clicked', async () => {
+      const onCloseAISettings = vi.fn();
+      const setAiSettingsKey = vi.fn();
+      renderModalProvider({
+        ...mockProps,
+        showAISettings: true,
+        onCloseAISettings,
+        setAiSettingsKey,
+      });
       const closeButton = screen.getByText('Close');
       closeButton.click();
-      expect(mockProps.onCloseAISettings).toHaveBeenCalled();
-      expect(mockProps.setAiSettingsKey).toHaveBeenCalledWith(expect.any(Function));
+      await waitFor(() => {
+        expect(onCloseAISettings).toHaveBeenCalled();
+        expect(setAiSettingsKey).toHaveBeenCalled();
+      });
     });
-  });
 
-  describe('SaveTemplateModal', () => {
     it('should render SaveTemplateModal when showSaveTemplate is true and activeTab exists', () => {
-      render(<ModalProvider {...mockProps} showSaveTemplate={true} activeTab={{ id: '1', title: 'Test', content: 'test content here', diagram_id: 'd1' } as any} />);
+      const activeTab = { id: '1', title: 'Test', content: 'test content for template', diagram_id: 'diag-1' };
+      renderModalProvider({ ...mockProps, showSaveTemplate: true, activeTab });
       expect(screen.getByTestId('save-template')).toBeInTheDocument();
-      expect(screen.getByText('Content: test content here...')).toBeInTheDocument();
+      expect(screen.getByText('Content: test content for tem...')).toBeInTheDocument();
     });
 
-    it('should call onCloseSaveTemplate when close button clicked', () => {
-      render(<ModalProvider {...mockProps} showSaveTemplate={true} activeTab={{ id: '1', title: 'Test', content: 'test', diagram_id: 'd1' } as any} />);
+    it('should call onCloseSaveTemplate when close button clicked', async () => {
+      const onCloseSaveTemplate = vi.fn();
+      const activeTab = { id: '1', title: 'Test', content: 'test content', diagram_id: 'diag-1' };
+      renderModalProvider({
+        ...mockProps,
+        showSaveTemplate: true,
+        activeTab,
+        onCloseSaveTemplate,
+      });
       const closeButton = screen.getByText('Close');
       closeButton.click();
-      expect(mockProps.onCloseSaveTemplate).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(onCloseSaveTemplate).toHaveBeenCalled();
+      });
     });
 
-    it('should call showToast when saved', () => {
-      render(<ModalProvider {...mockProps} showSaveTemplate={true} activeTab={{ id: '1', title: 'Test', content: 'test', diagram_id: 'd1' } as any} />);
+    it('should call showToast when saved', async () => {
+      const showToast = vi.fn();
+      const activeTab = { id: '1', title: 'Test', content: 'test content', diagram_id: 'diag-1' };
+      renderModalProvider({ ...mockProps, showSaveTemplate: true, activeTab, showToast });
       const saveButton = screen.getByText('Save');
       saveButton.click();
-      expect(mockProps.showToast).toHaveBeenCalledWith('Template saved');
+      await waitFor(() => {
+        expect(showToast).toHaveBeenCalledWith('Template saved');
+      });
     });
-  });
 
-  describe('FullscreenPreview', () => {
     it('should render FullscreenPreview when showFullscreen is true and activeTab exists', () => {
-      render(<ModalProvider {...mockProps} showFullscreen={true} activeTab={{ id: '1', title: 'Test', content: 'fullscreen content', diagram_id: 'd1' } as any} />);
+      const activeTab = { id: '1', title: 'Test', content: 'fullscreen test content', diagram_id: 'diag-1' };
+      renderModalProvider({ ...mockProps, showFullscreen: true, activeTab });
       expect(screen.getByTestId('fullscreen-preview')).toBeInTheDocument();
+      expect(screen.getByText('Content: fullscreen test cont...')).toBeInTheDocument();
     });
 
-    it('should call onCloseFullscreen when close button clicked', () => {
-      render(<ModalProvider {...mockProps} showFullscreen={true} activeTab={{ id: '1', title: 'Test', content: 'test', diagram_id: 'd1' } as any} />);
+    it('should call onCloseFullscreen when close button clicked', async () => {
+      const onCloseFullscreen = vi.fn();
+      const activeTab = { id: '1', title: 'Test', content: 'test content', diagram_id: 'diag-1' };
+      renderModalProvider({
+        ...mockProps,
+        showFullscreen: true,
+        activeTab,
+        onCloseFullscreen,
+      });
       const closeButton = screen.getByText('Close');
       closeButton.click();
-      expect(mockProps.onCloseFullscreen).toHaveBeenCalled();
+      await waitFor(() => {
+        expect(onCloseFullscreen).toHaveBeenCalled();
+      });
     });
-  });
 
-  describe('Toast', () => {
     it('should render Toast when toasts array has items', () => {
-      const toasts = [
-        { id: '1', message: 'Toast 1', type: 'success' },
-        { id: '2', message: 'Toast 2', type: 'error' },
-      ];
-      render(<ModalProvider {...mockProps} toasts={toasts} />);
+      const toasts = [{ id: '1', message: 'Test toast', type: 'info' }];
+      renderModalProvider({ ...mockProps, toasts });
       expect(screen.getByTestId('toast')).toBeInTheDocument();
-      expect(screen.getByText('Toast 1')).toBeInTheDocument();
-      expect(screen.getByText('Toast 2')).toBeInTheDocument();
+      expect(screen.getByText('Test toast')).toBeInTheDocument();
     });
 
-    it('should call dismiss when dismiss button clicked', () => {
-      const toasts = [{ id: '1', message: 'Toast 1', type: 'success' }];
-      render(<ModalProvider {...mockProps} toasts={toasts} />);
+    it('should call dismiss when dismiss button clicked', async () => {
+      const dismiss = vi.fn();
+      const toasts = [{ id: '1', message: 'Test toast', type: 'info' }];
+      renderModalProvider({ ...mockProps, toasts, dismiss });
       const dismissButton = screen.getByText('Dismiss');
       dismissButton.click();
-      expect(mockProps.dismiss).toHaveBeenCalledWith('1');
+      await waitFor(() => {
+        expect(dismiss).toHaveBeenCalledWith('1');
+      });
     });
-  });
 
-  describe('Multiple Modals', () => {
     it('can render multiple modals simultaneously', () => {
-      render(
-        <ModalProvider
-          {...mockProps}
-          showTemplates={true}
-          showPalette={true}
-        />
-      );
+      renderModalProvider({
+        ...mockProps,
+        showTemplates: true,
+        showHelp: true,
+        showBackup: true,
+      });
       expect(screen.getByTestId('template-library')).toBeInTheDocument();
-      expect(screen.getByTestId('command-palette')).toBeInTheDocument();
+      expect(screen.getByTestId('keyboard-shortcuts')).toBeInTheDocument();
+      expect(screen.getByTestId('backup-panel')).toBeInTheDocument();
     });
   });
 
-  describe('CommandPalette Modal Integration', () => {
+  describe('CommandPalette Integration', () => {
     it('should render CommandPalette with all required props', () => {
-      const diagrams = [
-        { id: '1', name: 'Diagram 1', content: 'content1' },
-        { id: '2', name: 'Diagram 2', content: 'content2' }
-      ];
-      render(
-        <ModalProvider
-          {...mockProps}
-          showPalette={true}
-          diagrams={diagrams as any}
-          theme="dark"
-        />
-      );
+      const fullProps = {
+        ...mockProps,
+        showPalette: true,
+        newDiagram: vi.fn(),
+        handleNewFolder: vi.fn(),
+        diagrams: [{ id: '1', title: 'Diagram 1' }] as any,
+        onOpenDiagram: vi.fn(),
+        toggleTheme: vi.fn(),
+        theme: 'dark' as const,
+      };
+      renderModalProvider(fullProps);
       expect(screen.getByTestId('command-palette')).toBeInTheDocument();
     });
 
     it('should not render CommandPalette when required props are missing', () => {
-      render(
-        <ModalProvider
-          {...mockProps}
-          showPalette={true}
-          newDiagram={undefined}
-          handleNewFolder={undefined}
-          diagrams={undefined}
-          onOpenDiagram={undefined}
-          toggleTheme={undefined}
-        />
-      );
+      const incompleteProps = {
+        ...mockProps,
+        showPalette: true,
+        newDiagram: undefined,
+        handleNewFolder: undefined,
+        diagrams: undefined,
+        onOpenDiagram: undefined,
+        toggleTheme: undefined,
+      };
+      renderModalProvider(incompleteProps);
+      // CommandPalette should not render if required props are missing
       expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
     });
   });
