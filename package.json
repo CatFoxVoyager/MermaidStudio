@@ -1,7 +1,7 @@
 {
   "name": "mermaid-studio",
   "private": true,
-  "version": "0.5.1",
+  "version": "0.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -23,7 +23,7 @@
     "type-check": "tsc --noEmit",
     "format": "prettier --write src/**/*.{ts,tsx}",
     "format:check": "prettier --check src/**/*.{ts,tsx}",
-    "prepare": "husky install",
+    "prepare": "husky",
     "docs": "node scripts/docs/generate-docs.cjs",
     "docs:check": "node scripts/docs/check-doc-quality.cjs",
     "docs:test": "node scripts/docs/test-docs.cjs",
