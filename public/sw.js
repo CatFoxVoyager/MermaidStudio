@@ -1,5 +1,5 @@
-const CACHE_NAME = 'mermaidstudio-v1';
-const CACHE_VERSION = '2024-03-30';
+const CACHE_NAME = 'mermaidstudio-v2';
+const CACHE_VERSION = '2026-07-03';
 
 // Core assets to cache immediately
 const CORE_ASSETS = [
@@ -16,6 +16,7 @@ self.addEventListener('install', (event) => {
       return cache.addAll(CORE_ASSETS);
     })
   );
+  self.skipWaiting(); // activate the new SW immediately (don't wait for all tabs to close)
 });
 
 // Nettoyer les anciens caches
@@ -29,6 +30,7 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
+  self.clients.claim(); // take control of open tabs immediately
 });
 
 // Verify response origin matches expected origin
@@ -69,6 +71,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Navigation documents (index.html): NETWORK-FIRST.
+  // Always fetch the latest HTML so it references the CURRENT Vite chunks.
+  // Vercel replaces /assets/* on every deploy; a stale cached index would
+  // reference chunks that no longer exist → 404 → blank screen.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(request).then((cached) => cached || caches.match('/offline.html'))
+        )
+    );
+    return;
+  }
+
+  // Static assets (hashed JS/CSS — immutable per vercel.json): cache-first.
   event.respondWith(
     caches.match(request).then((cached) => {
       // Cache hit → retourner le cache

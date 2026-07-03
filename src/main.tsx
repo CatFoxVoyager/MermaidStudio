@@ -17,6 +17,15 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
       // SW registration failed silently
     });
 
+    // When a new SW takes control (skipWaiting + clients.claim), reload once
+    // so the page picks up the latest assets instead of the stale cached ones.
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+
     // Listen for sync complete events with origin validation
     navigator.serviceWorker.addEventListener('message', (event) => {
       if (event.origin !== window.location.origin) return;
