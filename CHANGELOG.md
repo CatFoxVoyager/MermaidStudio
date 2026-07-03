@@ -1,9 +1,42 @@
 # Changelog
 
-All notable changes to MermaidStudio will be documented in this file.
+All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.6.0] - unreleased
+
+### Added
+- **Mobile responsive layout** - Dedicated mobile UI for viewports ≤768px (mobile shell with TopBar + overflow menu + bottom navigation: Files/Edit/AI)
+- **Mobile workspace** - Segmented Code↔Preview toggle below 600px viewport (replaces desktop split-view on mobile)
+- **Mobile drawers** - File browser (Sidebar), AI assistant, and style panels (DiagramColors, AdvancedStyle) open as slide-over drawers with mutual exclusion
+- **Visual editor on mobile** - Visual drag-and-drop editor accessible via Code/Preview/Visual toggle on mobile devices
+- **Touch interaction support** - Pointer events migration for unified mouse/touch handling in visual editor with pinch-to-zoom and pan
+- **Safe-area inset support** - env() CSS for notch/home-indicator clearance on modern smartphones (viewport-fit=cover meta tag)
+- **Mobile E2E test suite** - Comprehensive Playwright specs for mobile detection, touch targets (≥44px), touch interactions, and visual-editor touch support
+- **E2E infrastructure improvements** - Dev-only Vite launcher script (`scripts/dev-e2e.mjs`) for Windows PATH compatibility + Playwright server reuse configuration
+- **Comprehensive mobile UAT checklist** - `.planning/v1.2-UAT-CHECKLIST.md` for real-device validation (gates 0.6.0 release)
+
+### Changed
+- **Visual editor accessibility** - Existing Visual toggle now works on both desktop and mobile (previously desktop-only)
+- **Workspace responsiveness** - Editor and preview switch from side-by-side to segmented toggle below 600px viewport
+- **Typography and spacing** - Text and UI elements scale responsively on mobile for readability without manual zoom
+- **Touch interaction model** - Hover-only interactions replaced with tap/active states for mobile compatibility
+
+### Fixed
+- **Touch scroll/pan in diagram preview** - Native touch-action CSS (pan-x pan-y pinch-zoom) enables smooth touch scrolling
+- **Active tap states on mobile buttons** - Visual feedback during tap (active:bg-white/15) improves touch responsiveness
+- **Windows E2E test compatibility** - Node PATH issue resolved via absolute-path launcher script (dev-e2e.mjs) + Playwright reuseExistingServer configuration
+
+### Technical Notes
+- **Zero desktop regression** - Desktop layout (≥1280px) remains pixel-perfect; all desktop controls/functionality unchanged
+- **Zero new runtime dependencies** - Mobile UI uses existing React 19, Tailwind CSS 4, and native Touch/Pointer APIs; zero new runtime deps added
+- **Version bump gated** - 0.5.1 → 0.6.0 bump explicitly DEFERRED pending 100% real-device UAT validation (see `.planning/v1.2-UAT-CHECKLIST.md`)
+- **Self-signed cert handling** - HTTPS dev server (`.cert/`) requires manual browser acceptance for real-device testing (documented in UAT checklist)
+- **Playwright server reuse** - Local E2E tests reuse manually-started dev server (`reuseExistingServer: !CI`) to avoid Windows subshell PATH issues
+
+## [0.5.1] - 2026-07-01
 
 ## [0.5.1] - 2026-07-01
 
