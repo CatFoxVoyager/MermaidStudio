@@ -25,12 +25,16 @@ export default defineConfig({
       use: { ...devices['Desktop Safari'] },
     },
   ],
-  // Local development flow: Run `node scripts/dev-e2e.mjs` first, then `npm run test:e2e`.
-  // reuseExistingServer avoids the Windows subshell node-PATH spawn issue.
+  // webServer.command MUST be cross-platform: `npm run dev` works on the Linux
+  // CI runners (node is on PATH there) and locally under PowerShell/cmd.
+  // For the Git Bash local flow (where `npm run dev` hits a node-PATH issue),
+  // start the server manually first with `node scripts/dev-e2e.mjs` —
+  // reuseExistingServer (true when !CI) will reuse it instead of spawning
+  // another. NEVER put an absolute node path here: it breaks the Linux runners.
   webServer: {
-    command: '"C:\\Users\\jerem\\scoop\\apps\\nodejs-lts\\current\\node.exe" scripts/dev-e2e.mjs', // Absolute node path for Windows
+    command: 'npm run dev',
     url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI, // Reuse script-started server in local dev
+    reuseExistingServer: !process.env.CI,
     timeout: 120000,
   },
 });
