@@ -261,7 +261,7 @@ Plans:
 **Status:** Complete ✅ (2/2 plans complete)
 **Depends on:** Phase 19
 **Requirements:** QA-01 (viable E2E / UAT checklist), REL-01 (0.6.0 release CHANGELOG; bump DEFERRED)
-**Plans:** 2 plans
+**Plans:** 2/2 plans complete
 
 Plans:
 
