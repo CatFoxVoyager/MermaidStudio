@@ -1,9 +1,10 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, Clock, Download, Sparkles, AlignLeft, Maximize, GitCompare, BookmarkPlus, FilePlus, LayoutTemplate, Terminal, Palette, SlidersHorizontal, Undo, Copy, Check, RotateCw, Wrench } from 'lucide-react';
+import { Save, Clock, Download, Sparkles, AlignLeft, Maximize, GitCompare, BookmarkPlus, FilePlus, LayoutTemplate, Terminal, Palette, SlidersHorizontal, Undo, Copy, Check, RotateCw, Wrench, Shapes } from 'lucide-react';
 import { CodeEditor } from './CodeEditor';
 import type { CodeEditorRef } from './CodeEditor';
 import { PreviewPanel } from '@/preview/PreviewPanel';
+import { VisualEditorCanvas } from '@/visual/VisualEditorCanvas';
 import { StatusBar } from './StatusBar';
 import { DiffView } from './DiffView';
 import { TabBar } from './TabBar';
@@ -52,6 +53,7 @@ export function WorkspacePanel({
   showAI, renderTimeMs, onRenderTime, themeId, onOpenAIPanel, onPreviewError, previewError,
 }: Props) {
   const { t } = useTranslation();
+  const [viewMode, setViewMode] = useState<'split' | 'visual'>('split');
   const [splitPos, setSplitPos] = useState(40);
   const [dragging, setDragging] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
@@ -231,6 +233,23 @@ export function WorkspacePanel({
           <ToolbarButton icon={<AlignLeft size={13} />} label={t('editor.resetSplit')} showLabel={showLabels}
             onClick={() => setSplitPos(40)} title={t('editor.resetSplit')} />
           <div className="w-px h-4 mx-1.5" style={{ background: 'var(--border-subtle)' }} />
+          <ToolbarButton
+            data-testid="workspace-view-split"
+            icon={<Terminal size={13} />}
+            label={`${t('workspace.toggle.code')} / ${t('workspace.toggle.preview')}`}
+            showLabel={showLabels}
+            onClick={() => setViewMode('split')}
+            title={t('workspace.toggle.code')}
+            active={viewMode === 'split'} />
+          <ToolbarButton
+            data-testid="workspace-view-visual"
+            icon={<Shapes size={13} />}
+            label={t('workspace.toggle.visual')}
+            showLabel={showLabels}
+            onClick={() => setViewMode('visual')}
+            title={t('editor.toggleVisual')}
+            active={viewMode === 'visual'} />
+          <div className="w-px h-4 mx-1.5" style={{ background: 'var(--border-subtle)' }} />
           <button
             onClick={() => setShowLabels(v => !v)}
             title={showLabels ? t('editor.hideLabels') : t('editor.showLabels')}
@@ -250,7 +269,17 @@ export function WorkspacePanel({
         </div>
       </div>
 
-      <div ref={containerRef} className="flex-1 flex overflow-hidden"
+      {viewMode === 'visual' ? (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <VisualEditorCanvas
+            content={activeTab.content}
+            theme={theme}
+            themeId={themeId}
+            onChange={v => onContentChange(activeTab.id, v)}
+          />
+        </div>
+      ) : (
+        <div ref={containerRef} className="flex-1 flex overflow-hidden"
           style={{ userSelect: dragging ? 'none' : undefined }}>
           <div style={{ width: `${splitPos}%` }} className="flex flex-col overflow-hidden">
             {showDiff ? (
@@ -278,6 +307,7 @@ export function WorkspacePanel({
             />
           </div>
         </div>
+      )}
 
       <StatusBar content={activeTab.content} lastSaved={activeTab.is_dirty ? null : lastSaved} renderTimeMs={renderTimeMs} />
     </div>
