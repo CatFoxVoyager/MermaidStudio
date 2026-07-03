@@ -137,6 +137,10 @@ export default defineConfig({
     },
     sourcemap: false,
     reportCompressedSize: true,
-    chunkSizeWarningLimit: 2500,
+    // 7000: the only chunks over the default 2500 kB limit are ai-webgpu (~6 MB,
+    // LAZY — dynamic-imported by WebGPUMLCProvider, not in the initial bundle)
+    // and mermaid-core (~2.9 MB, Mermaid itself — unavoidable). Neither is a real
+    // initial-load problem, so raise the limit instead of over-splitting.
+    chunkSizeWarningLimit: 7000,
   },
 });
