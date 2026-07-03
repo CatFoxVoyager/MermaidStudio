@@ -2,33 +2,33 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Planning Notes
-current_phase: 19
-current_phase_name: Visual Editor Wiring
+current_phase: 20
+current_phase_name: Mobile QA & 0.6.0 Release
 status: executing
-last_updated: "2026-07-03T00:44:16.051Z"
-last_activity: 2026-07-03
-last_activity_desc: Phase 19 execution started
+last_updated: "2026-07-02T21:22:00.000Z"
+last_activity: 2026-07-02
+last_activity_desc: Completed 20-01-PLAN.md (E2E testing infrastructure with dev-only launcher scripts)
 progress:
   total_phases: 2
-  completed_phases: 0
-  total_plans: 2
-  completed_plans: 1
-  percent: 0
+  completed_phases: 1
+  total_plans: 4
+  completed_plans: 3
+  percent: 75
 ---
 
 # STATE: MermaidStudio
 
-**Last Updated:** 2026-07-02T23:15:00Z
-**Last Session:** 2026-07-03T00:44:16.043Z
-**Stopped At:** Completed 18-01-PLAN.md (MTCH-01/02: Mobile tap targets ≥44px + native touch pan)
-**Current Phase:** 19
+**Last Updated:** 2026-07-02T21:22:00Z
+**Last Session:** 2026-07-02T21:22:00.000Z
+**Stopped At:** Completed 20-01-PLAN.md (E2E testing infrastructure + server reuse configuration)
+**Current Phase:** 20
 **Progress:** [█████░░░░░] 50%
 
 ## Project Reference
 
 **Core Value:** Users prefer MermaidStudio over Mermaid Live Editor because of its polished interface, AI assistance, and better editing experience.
 
-**Current Focus:** Phase 19 — Visual Editor Wiring
+**Current Focus:** Phase 20 — Mobile QA & 0.6.0 Release
 
 **Key Constraints:**
 
@@ -40,10 +40,10 @@ progress:
 
 ## Current Position
 
-Phase: 19 (Visual Editor Wiring) — EXECUTING
+Phase: 20 (Mobile QA & 0.6.0 Release) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
-Last activity: 2026-07-03 — Phase 19 execution started
+Status: Executing Phase 20
+Last activity: 2026-07-02 — Completed E2E infrastructure (20-01), ready for UAT checklist + CHANGELOG (20-02)
 
 ### Quick Tasks Completed
 

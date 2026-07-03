@@ -240,10 +240,10 @@ Plans:
 **Status:** Planned
 **Depends on:** Phase 18
 **Requirements:** VIS-03 (visual edits sync to code). *(VIS-01/02 — AI in the visual editor — are explicitly DEFERRED: they depend on the separate, currently-broken AI-integration track, which is its own future milestone, not mobile work.)*
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 - [x] 19-01-PLAN.md
-- [ ] 19-02-PLAN.md
+- [x] 19-02-PLAN.md
 
 - [ ] [19-01-PLAN.md](./phases/19-visual-editor-wiring/19-01-PLAN.md) — Desktop: i18n key + WorkspacePanel 3-way view switch (split vs Visual) with VisualEditorCanvas mount + VIS-03 sync (Wave 1)
 - [ ] [19-02-PLAN.md](./phases/19-visual-editor-wiring/19-02-PLAN.md) — Mobile: MobileWorkspace 3-segment toggle + keep-alive Visual pane + scroll preservation + VIS-03 sync (Wave 2)
@@ -257,10 +257,19 @@ Plans:
 
 ## Phase 20: Mobile QA & 0.6.0 Release
 
-**Goal:** Validate the full mobile experience end-to-end (real-browser + real-device) and ship MermaidStudio **0.6.0**.
-**Status:** Planned
+**Goal:** Validate the full mobile experience end-to-end (real-browser + real-device) and prepare MermaidStudio **0.6.0** (version bump DEFERRED to user, post-100%-UAT).
+**Status:** Executing (1/2 plans complete)
 **Depends on:** Phase 19
-**Requirements:** QA-01 (viable E2E / UAT checklist), REL-01 (0.6.0 release)
+**Requirements:** QA-01 (viable E2E / UAT checklist), REL-01 (0.6.0 release CHANGELOG; bump DEFERRED)
+**Plans:** 2 plans
+
+Plans:
+
+**Wave 1** *(parallel — zero file overlap between plans)*
+
+- [x] [20-01-PLAN.md](./phases/20-mobile-qa-&-0.6.0-release/20-01-PLAN.md) — Viable E2E: dev-only `scripts/dev-e2e.mjs` (node-direct Vite launch) + `playwright.config.ts` reuseExistingServer + prove a mobile spec runs (QA-01) ✅ **Complete**
+- [ ] [20-02-PLAN.md](./phases/20-mobile-qa-&-0.6.0-release/20-02-PLAN.md) — UAT checklist (`.planning/v1.2-UAT-CHECKLIST.md`) + `CHANGELOG.md` 0.6.0 (unreleased); version bump DEFERRED (QA-01, REL-01)
+
 **Success Criteria:**
 
 1. The Playwright E2E suite runs successfully in the dev environment (resolve the node-PATH + HTTPS self-signed-cert constraints — e.g. a dev-server launch script that runs Vite via `node` directly, or `reuseExistingServer` wired to such a server) OR a documented manual UAT checklist covers every mobile flow.
