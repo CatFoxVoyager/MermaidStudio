@@ -208,7 +208,7 @@ Plans:
 3. In the visual drag-and-drop editor, users can drag/select nodes and trigger AI modifications by touch.
 4. Pinch-to-zoom and pan the visual-editor canvas works on mobile without breaking desktop mouse behavior.
 
-**Plans:** 1/2 plans complete
+**Plans:** 2/2 plans complete
 
 Plans:
 
@@ -226,3 +226,43 @@ Plans:
 - **Phase 18 (pointer-events migration of VisualEditorCanvas) is the highest-risk phase** — recommend a research spike during Phase 18 planning.
 - All 5 phases match UI-detection keywords → `/gsd-ui-phase` available for each.
 - **Zero new dependencies** (per research): custom `useMediaQuery`, native Touch API, Tailwind v4 variants, CSS `env()` safe-area.
+
+---
+
+# Milestone v1.2 — Mobile Completion & 0.6.0 Release
+
+**Goal:** Close the remaining gaps for a 100%-validated, fully-shippable mobile experience and release MermaidStudio **0.6.0** (the release marker for the mobile UI integration).
+**Phases:** 2 (19-20) | **Paradigm:** finish the visual-editor integration (the one outstanding orphan from v1.1), then QA the whole mobile milestone end-to-end (real-browser + real-device) and bump the version.
+
+## Phase 19: Visual Editor Wiring
+**Goal:** Wire the existing `VisualEditorCanvas` into the live app (desktop `WorkspacePanel` + mobile `MobileWorkspace`) behind the existing `toggleVisual` affordance, so the visual drag-and-drop editor is reachable and the Phase 18 touch migration is exercised end-to-end.
+**Status:** Planned
+**Depends on:** Phase 18
+**Requirements:** VIS-03 (visual edits sync to code). *(VIS-01/02 — AI in the visual editor — are explicitly DEFERRED: they depend on the separate, currently-broken AI-integration track, which is its own future milestone, not mobile work.)*
+**Plans:** 2/2 plans created
+
+- [ ] [19-01-PLAN.md](./phases/19-visual-editor-wiring/19-01-PLAN.md) — Desktop: i18n key + WorkspacePanel 3-way view switch (split vs Visual) with VisualEditorCanvas mount + VIS-03 sync (Wave 1)
+- [ ] [19-02-PLAN.md](./phases/19-visual-editor-wiring/19-02-PLAN.md) — Mobile: MobileWorkspace 3-segment toggle + keep-alive Visual pane + scroll preservation + VIS-03 sync (Wave 2)
+
+**Success Criteria:**
+1. On desktop, toggling "Visual" mounts `VisualEditorCanvas` in the workspace; the CodeEditor and Preview remain accessible.
+2. On mobile, the visual editor is reachable (a Visual pane/entry) and supports touch drag/select via the Phase 18 pointer-events migration.
+3. Edits in the visual editor sync to the code editor (VIS-03) and the live preview updates.
+4. Desktop + mobile non-regression; existing tests stay green.
+
+## Phase 20: Mobile QA & 0.6.0 Release
+**Goal:** Validate the full mobile experience end-to-end (real-browser + real-device) and ship MermaidStudio **0.6.0**.
+**Status:** Planned
+**Depends on:** Phase 19
+**Requirements:** QA-01 (viable E2E / UAT checklist), REL-01 (0.6.0 release)
+**Success Criteria:**
+1. The Playwright E2E suite runs successfully in the dev environment (resolve the node-PATH + HTTPS self-signed-cert constraints — e.g. a dev-server launch script that runs Vite via `node` directly, or `reuseExistingServer` wired to such a server) OR a documented manual UAT checklist covers every mobile flow.
+2. Real-device validation confirmed: bottom nav, Files/AI/Colors/Advanced drawers (mutual exclusion), Code/Preview toggle (scroll preserved), visual-editor touch + pinch-zoom, safe-area on notched hardware.
+3. Version bumped **0.5.1 → 0.6.0** (`package.json` + `CHANGELOG`) with release notes calling out the mobile UI integration; `v0.6.0` tag.
+4. v1.1 + v1.2 milestones 100% validated.
+
+## v1.2 Planning Notes (for /gsd-plan-phase)
+
+- **Phase 19 is integration work, NOT new features** — `VisualEditorCanvas` already exists (Phase 18 made it touch-ready); it only needs to be mounted. Research the current `WorkspacePanel` view-switching (Code/Preview/Visual toggle) and how the visual editor was historically reached before planning.
+- **VIS-01/02 (AI in visual editor) are explicitly deferred** to a future AI-integration milestone — do not pull them into v1.2.
+- **Phase 20 must NOT bump the version until validation is 100%** — 0.6.0 is the release marker; it ships only when the whole mobile experience (v1.1 + v1.2) is fully validated, including real-device checks.
