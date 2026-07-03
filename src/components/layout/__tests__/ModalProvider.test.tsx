@@ -164,9 +164,9 @@ describe('ModalProvider Component', () => {
       expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
     });
 
-    it('should render TemplateLibrary when showTemplates is true', () => {
+    it('should render TemplateLibrary when showTemplates is true', async () => {
       renderModalProvider({ ...mockProps, showTemplates: true });
-      expect(screen.getByTestId('template-library')).toBeInTheDocument();
+      expect(await screen.findByTestId('template-library')).toBeInTheDocument();
     });
 
     it('should call onCloseTemplates when close button clicked', async () => {
@@ -189,10 +189,10 @@ describe('ModalProvider Component', () => {
       });
     });
 
-    it('should render VersionHistory when showHistory is true and activeTab exists', () => {
+    it('should render VersionHistory when showHistory is true and activeTab exists', async () => {
       const activeTab = { id: '1', title: 'Test', content: 'test content', diagram_id: 'diag-1' };
       renderModalProvider({ ...mockProps, showHistory: true, activeTab });
-      expect(screen.getByTestId('version-history')).toBeInTheDocument();
+      expect(await screen.findByTestId('version-history')).toBeInTheDocument();
     });
 
     it('should call onCloseHistory when close button clicked', async () => {
@@ -217,10 +217,10 @@ describe('ModalProvider Component', () => {
       });
     });
 
-    it('should render ExportModal when showExport is true and activeTab exists', () => {
+    it('should render ExportModal when showExport is true and activeTab exists', async () => {
       const activeTab = { id: '1', title: 'Test Diagram', content: 'test content', diagram_id: 'diag-1' };
       renderModalProvider({ ...mockProps, showExport: true, activeTab });
-      expect(screen.getByTestId('export-modal')).toBeInTheDocument();
+      expect(await screen.findByTestId('export-modal')).toBeInTheDocument();
       expect(screen.getByText('Title: Test Diagram')).toBeInTheDocument();
     });
 

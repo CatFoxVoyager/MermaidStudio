@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { Suspense } from 'react';
 import { AppLayout } from '../AppLayout';
+import { MobileShellProvider } from '@/hooks/useMobileShell';
 
 // Mock child components
 vi.mock('@/components/shared/TopBar', () => ({
@@ -384,7 +385,11 @@ describe('AppLayout Component', () => {
         dispatchEvent: vi.fn(),
       }));
 
-      const { container } = render(<AppLayout {...mockProps} />);
+      const { container } = render(
+        <MobileShellProvider>
+          <AppLayout {...mockProps} />
+        </MobileShellProvider>
+      );
 
       // Mobile layout root must be present
       expect(screen.getByTestId('mobile-layout-root')).toBeInTheDocument();
