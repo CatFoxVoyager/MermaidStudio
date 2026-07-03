@@ -111,5 +111,12 @@
     "lodash": "^4.17.21",
     "lodash-es": "^4.17.21",
     "tmp": "^0.2.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "onnxruntime-node",
+      "protobufjs",
+      "sharp"
+    ]
   }
 }
