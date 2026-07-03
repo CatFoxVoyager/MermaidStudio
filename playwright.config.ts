@@ -25,10 +25,12 @@ export default defineConfig({
       use: { ...devices['Desktop Safari'] },
     },
   ],
+  // Local development flow: Run `node scripts/dev-e2e.mjs` first, then `npm run test:e2e`.
+  // reuseExistingServer avoids the Windows subshell node-PATH spawn issue.
   webServer: {
-    command: 'npm run dev',
+    command: '"C:\\Users\\jerem\\scoop\\apps\\nodejs-lts\\current\\node.exe" scripts/dev-e2e.mjs', // Absolute node path for Windows
     url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !process.env.CI, // Reuse script-started server in local dev
     timeout: 120000,
   },
 });
