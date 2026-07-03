@@ -3,6 +3,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ModalProvider } from '@/components/layout/ModalProvider';
+import { ServiceWorkerUpdateToast } from '@/components/shared/ServiceWorkerUpdateToast';
 import { MobileShellProvider } from '@/hooks/useMobileShell';
 import { useKeyboardShortcuts, useDiagramActions, useAppShortcuts, useToast } from '@/hooks';
 import { useAppState } from './hooks/app/useAppState';
@@ -189,6 +190,7 @@ export default function App() {
           dismiss={dismiss}
         />
       </MobileShellProvider>
+      <ServiceWorkerUpdateToast />
     </>
   );
 }

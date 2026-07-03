@@ -13,18 +13,9 @@ inject();
 // Register Service Worker for PWA/offline support
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      // SW registration failed silently
-    });
-
-    // When a new SW takes control (skipWaiting + clients.claim), reload once
-    // so the page picks up the latest assets instead of the stale cached ones.
-    let refreshing = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (refreshing) return;
-      refreshing = true;
-      window.location.reload();
-    });
+    // Service worker registration + "new version" prompt is owned by
+    // <ServiceWorkerUpdateToast /> (it holds the registration so it can detect
+    // updates and prompt before reloading, avoiding surprise reloads mid-edit).
 
     // Listen for sync complete events with origin validation
     navigator.serviceWorker.addEventListener('message', (event) => {
