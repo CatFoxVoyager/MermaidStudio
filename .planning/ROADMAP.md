@@ -258,7 +258,7 @@ Plans:
 ## Phase 20: Mobile QA & 0.6.0 Release
 
 **Goal:** Validate the full mobile experience end-to-end (real-browser + real-device) and prepare MermaidStudio **0.6.0** (version bump DEFERRED to user, post-100%-UAT).
-**Status:** Executing (1/2 plans complete)
+**Status:** Complete ✅ (2/2 plans complete)
 **Depends on:** Phase 19
 **Requirements:** QA-01 (viable E2E / UAT checklist), REL-01 (0.6.0 release CHANGELOG; bump DEFERRED)
 **Plans:** 2 plans
@@ -268,7 +268,7 @@ Plans:
 **Wave 1** *(parallel — zero file overlap between plans)*
 
 - [x] [20-01-PLAN.md](./phases/20-mobile-qa-&-0.6.0-release/20-01-PLAN.md) — Viable E2E: dev-only `scripts/dev-e2e.mjs` (node-direct Vite launch) + `playwright.config.ts` reuseExistingServer + prove a mobile spec runs (QA-01) ✅ **Complete**
-- [ ] [20-02-PLAN.md](./phases/20-mobile-qa-&-0.6.0-release/20-02-PLAN.md) — UAT checklist (`.planning/v1.2-UAT-CHECKLIST.md`) + `CHANGELOG.md` 0.6.0 (unreleased); version bump DEFERRED (QA-01, REL-01)
+- [x] [20-02-PLAN.md](./phases/20-mobile-qa-&-0.6.0-release/20-02-PLAN.md) — UAT checklist (`.planning/v1.2-UAT-CHECKLIST.md`) + `CHANGELOG.md` 0.6.0 (unreleased); version bump DEFERRED (QA-01, REL-01) ✅ **Complete**
 
 **Success Criteria:**
 
