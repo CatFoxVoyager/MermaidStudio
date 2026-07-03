@@ -46,7 +46,7 @@ Requirements for initial AI-powered release. Each maps to roadmap phases.
 
 - [ ] **VIS-01**: AI suggestions work in visual drag-and-drop editor
 - [ ] **VIS-02**: User can select nodes and request AI modifications
-- [ ] **VIS-03**: Visual edits sync to code editor correctly
+- [x] **VIS-03**: Visual edits sync to code editor correctly
 
 ### Advanced Features
 
@@ -96,7 +96,7 @@ Requirements for mobile responsive design milestone. Each maps to roadmap phases
 
 - [x] **MTCH-01**: All interactive elements meet 44px minimum tap targets with adequate spacing
 - [x] **MTCH-02**: Diagram preview supports touch scroll/pan; hover-only interactions replaced with tap/active states
-- [ ] **MTCH-03**: Visual drag-and-drop editor works on touch (migrated from mouse events to pointer events) with pinch-to-zoom/pan
+- [x] **MTCH-03**: Visual drag-and-drop editor works on touch (migrated from mouse events to pointer events) with pinch-to-zoom/pan
 
 ### Mobile AI
 
@@ -172,7 +172,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-05 | Phase 3 | Pending |
 | VIS-01 | Phase 4 | Pending |
 | VIS-02 | Phase 4 | Pending |
-| VIS-03 | Phase 4 | Pending |
+| VIS-03 | Phase 4 | Complete |
 | ADV-01 | Phase 4 | Pending |
 | ADV-02 | Phase 4 | Pending |
 | ADV-03 | Phase 4 | Pending |
@@ -201,9 +201,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MDRW-03 | Phase 17 | Complete |
 | MDRW-04 | Phase 17 | Complete |
 | MAI-01 | Phase 17 | Complete |
-| MTCH-01 | Phase 18 | Pending |
-| MTCH-02 | Phase 18 | Pending |
-| MTCH-03 | Phase 18 | Pending |
+| MTCH-01 | Phase 18 | Complete |
+| MTCH-02 | Phase 18 | Complete |
+| MTCH-03 | Phase 18 | Complete |
 
 **Coverage:**
 
