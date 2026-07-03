@@ -31,7 +31,8 @@
   "workspace": {
     "toggle": {
       "code": "Code",
-      "preview": "Preview"
+      "preview": "Preview",
+      "visual": "Visual"
     }
   },
   "commands": {
