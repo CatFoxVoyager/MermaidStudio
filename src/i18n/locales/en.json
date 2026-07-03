@@ -1,4 +1,8 @@
 {
+  "update": {
+    "available": "A new version is available.",
+    "reload": "Reload"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

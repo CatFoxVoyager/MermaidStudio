@@ -16,7 +16,9 @@ self.addEventListener('install', (event) => {
       return cache.addAll(CORE_ASSETS);
     })
   );
-  self.skipWaiting(); // activate the new SW immediately (don't wait for all tabs to close)
+  // NOTE: do NOT auto-skipWaiting here — the app prompts the user ("new version,
+  // reload") and sends {type:'SKIP_WAITING'} on click, so an in-progress edit
+  // isn't interrupted by a surprise reload.
 });
 
 // Nettoyer les anciens caches
@@ -144,6 +146,10 @@ self.addEventListener('message', (event) => {
   if (validOrigins.includes(event.origin)) {
     if (event.data?.type === 'SYNC_COMPLETE') {
       // Handle sync complete
+    }
+    if (event.data?.type === 'SKIP_WAITING') {
+      // User accepted the "new version available" prompt — activate now.
+      self.skipWaiting();
     }
   }
 });
