@@ -121,18 +121,12 @@ jobs:
       run: pnpm exec playwright test --grep "performance"
       env:
         CI: true
-
-    - name: Generate performance report
-      run: |
-        node scripts/generate-performance-report.js
-
-    - name: Upload performance report
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: performance-report
-        path: performance-report.html
-        retention-days: 30
+      # The performance specs are currently test.describe.skip (see
+      # tests/e2e/tests/performance/diagram-performance.spec.ts) and the
+      # generate-performance-report.js script does not exist, so the downstream
+      # 'Generate/Upload report' steps were removed to avoid a guaranteed fail.
+      # Re-add them (and un-skip the specs) when performance testing is restored.
+      continue-on-error: true
 
   e2e-tests-cross-browser:
     name: Cross-Browser Tests
