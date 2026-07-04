@@ -64,6 +64,10 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const [loading, setLoading] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [overlays, setOverlays] = useState<NodeOverlay[]>([]);
+  // Bumped whenever the SVG container becomes visible or changes size, so the
+  // overlay-positioning effect re-runs even when the canvas was hidden (e.g.
+  // display:none) at mount time — see the container-observer effect below.
+  const [visibilityTick, setVisibilityTick] = useState(0);
   const [selection, setSelection] = useState<SelectionState>({ nodeIds: [], edgeKey: null });
   const [toolMode, setToolMode] = useState<ToolMode>('select');
   const [connectFirst, setConnectFirst] = useState<string | null>(null);
@@ -103,7 +107,49 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
       setOverlays(nodes);
     }, 80);
     return () => clearTimeout(timer);
-  }, [svg, zoom]);
+  }, [svg, zoom, visibilityTick]);
+
+  // Observe the SVG container for visibility/size changes. When the canvas is
+  // mounted inside a hidden (display:none) pane — as MobileWorkspace does for
+  // inactive tabs — getBoundingClientRect() returns 0×0 and overlays end up
+  // empty. This re-bumps visibilityTick when the pane becomes visible (or
+  // resizes), forcing the overlay-positioning effect above to recompute.
+  useEffect(() => {
+    const container = svgContainerRef.current;
+    if (!container) {return;}
+
+    if (typeof IntersectionObserver === 'undefined' || typeof ResizeObserver === 'undefined') {
+      // jsdom / unsupported environment — skip silently.
+      return;
+    }
+
+    const intersection = new IntersectionObserver(
+      entries => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.boundingClientRect.width > 0 && entry.boundingClientRect.height > 0) {
+            setVisibilityTick(t => t + 1);
+          }
+        }
+      },
+      { threshold: 0 },
+    );
+    intersection.observe(container);
+
+    const resize = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setVisibilityTick(t => t + 1);
+        }
+      }
+    });
+    resize.observe(container);
+
+    return () => {
+      intersection.disconnect();
+      resize.disconnect();
+    };
+  }, [svg]);
 
   const parsed = parseDiagram(content);
 
