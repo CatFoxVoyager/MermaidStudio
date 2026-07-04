@@ -10,6 +10,10 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    // Force exit after tests finish: the suite hangs at teardown (a flaky
+    // timer/handle keeps the worker pool alive), which left the CI 'Test' job
+    // stuck in_progress until its timeout. forceExit lets vitest exit cleanly.
+    forceExit: true,
     environment: 'jsdom',
     setupFiles: ['./tests/vitest.setup.ts'],
     include: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx'],
