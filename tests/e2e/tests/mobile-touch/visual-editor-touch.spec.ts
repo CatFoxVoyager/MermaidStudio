@@ -1,6 +1,33 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import { AppLayoutPage } from '../../support/page-objects/AppLayoutPage';
 import { TestUtils } from '../../support/utils/test-utils';
+
+/**
+ * Switches the workspace into the Visual editor view.
+ *
+ * The visual editor is toggled by different controls depending on layout:
+ *  - Desktop (>=768px): toolbar button `data-testid="workspace-view-visual"`
+ *    (see WorkspacePanel.tsx).
+ *  - Mobile (<768px): segmented toggle `data-testid="mobile-workspace-tab-visual"`
+ *    (see MobileWorkspace.tsx).
+ *
+ * The earlier version of these tests looked for `[data-testid="tab"]:has-text("Visual")`,
+ * which never matched on either layout, so the fallback clicked the wrong
+ * element and `.visual-node-overlay` never rendered.
+ */
+async function switchToVisualView(page: Page) {
+  const desktopBtn = page.locator('[data-testid="workspace-view-visual"]');
+  const mobileBtn = page.locator('[data-testid="mobile-workspace-tab-visual"]');
+  if (await desktopBtn.count() > 0) {
+    await desktopBtn.click();
+  } else {
+    await expect(mobileBtn).toBeVisible();
+    await mobileBtn.click();
+  }
+  // VisualEditorCanvas re-renders the diagram and extracts node overlays
+  // after an 80ms timer once the SVG is in the DOM.
+  await page.waitForTimeout(2500);
+}
 
 test.describe('VisualEditorCanvas - Pointer Events Migration (MTCH-03)', () => {
   test.beforeEach(async ({ page }) => {
@@ -34,22 +61,8 @@ test.describe('VisualEditorCanvas - Pointer Events Migration (MTCH-03)', () => {
       await TestUtils.waitForDiagramRender(page);
       await page.waitForTimeout(2000);
 
-      // Switch to visual editor tab
-      const visualTab = page.locator('[data-testid="tab"]:has-text("Visual")');
-      const visualTabExists = await visualTab.count();
-
-      if (visualTabExists > 0) {
-        await visualTab.click();
-      } else {
-        // Try alternative tab switching
-        const tabs = page.locator('[data-testid="tab"]');
-        const tabCount = await tabs.count();
-        if (tabCount > 1) {
-          await tabs.nth(1).click(); // Assume second tab is visual
-        }
-      }
-
-      await page.waitForTimeout(2000);
+      // Switch to the visual editor via its toolbar button
+      await switchToVisualView(page);
 
       // Test 1: Node overlay should be visible
       const nodeOverlay = page.locator('.visual-node-overlay').first();
@@ -102,21 +115,8 @@ test.describe('VisualEditorCanvas - Pointer Events Migration (MTCH-03)', () => {
       await TestUtils.waitForDiagramRender(page);
       await page.waitForTimeout(2000);
 
-      // Switch to visual editor
-      const visualTab = page.locator('[data-testid="tab"]:has-text("Visual")');
-      const visualTabExists = await visualTab.count();
-
-      if (visualTabExists > 0) {
-        await visualTab.click();
-      } else {
-        const tabs = page.locator('[data-testid="tab"]');
-        const tabCount = await tabs.count();
-        if (tabCount > 1) {
-          await tabs.nth(1).click();
-        }
-      }
-
-      await page.waitForTimeout(2000);
+      // Switch to the visual editor via its toolbar button
+      await switchToVisualView(page);
 
       // Select a node
       const nodeOverlay = page.locator('.visual-node-overlay').first();
@@ -138,8 +138,15 @@ test.describe('VisualEditorCanvas - Pointer Events Migration (MTCH-03)', () => {
     });
   });
 
+  // VisualEditorCanvas now recomputes overlays when its container becomes visible
+  // (IntersectionObserver + ResizeObserver in src/components/visual/VisualEditorCanvas.tsx),
+  // so `.visual-node-overlay` gets real geometry even when the pane was hidden (display:none)
+  // at mount time on MobileWorkspace. These tests guard that fix.
   test.describe('Touch single-tap selection (375×812 with touch emulation)', () => {
-    test.use({ viewport: { width: 375, height: 812 } });
+    // hasTouch must be enabled so locator.tap() dispatches pointer events with
+    // pointerType 'touch'. Without it, Playwright rejects tap() with
+    // "The page does not support tap. Use hasTouch context option".
+    test.use({ viewport: { width: 375, height: 812 }, hasTouch: true });
 
     test('should select nodes via touch tap using unified pointer handler', async ({ page }) => {
       const appLayout = new AppLayoutPage(page);
@@ -158,21 +165,8 @@ test.describe('VisualEditorCanvas - Pointer Events Migration (MTCH-03)', () => {
       await TestUtils.waitForDiagramRender(page);
       await page.waitForTimeout(2000);
 
-      // Switch to visual editor
-      const visualTab = page.locator('[data-testid="tab"]:has-text("Visual")');
-      const visualTabExists = await visualTab.count();
-
-      if (visualTabExists > 0) {
-        await visualTab.click();
-      } else {
-        const tabs = page.locator('[data-testid="tab"]');
-        const tabCount = await tabs.count();
-        if (tabCount > 1) {
-          await tabs.nth(1).click();
-        }
-      }
-
-      await page.waitForTimeout(2000);
+      // Switch to the visual editor via its toolbar button
+      await switchToVisualView(page);
 
       // Test touch tap selection using Playwright's tap() which synthesizes pointer events
       const nodeOverlay = page.locator('.visual-node-overlay').first();
@@ -207,21 +201,8 @@ test.describe('VisualEditorCanvas - Pointer Events Migration (MTCH-03)', () => {
       await TestUtils.waitForDiagramRender(page);
       await page.waitForTimeout(2000);
 
-      // Switch to visual editor
-      const visualTab = page.locator('[data-testid="tab"]:has-text("Visual")');
-      const visualTabExists = await visualTab.count();
-
-      if (visualTabExists > 0) {
-        await visualTab.click();
-      } else {
-        const tabs = page.locator('[data-testid="tab"]');
-        const tabCount = await tabs.count();
-        if (tabCount > 1) {
-          await tabs.nth(1).click();
-        }
-      }
-
-      await page.waitForTimeout(2000);
+      // Switch to the visual editor via its toolbar button
+      await switchToVisualView(page);
 
       // Tap first node
       const firstNode = page.locator('.visual-node-overlay').first();
@@ -265,21 +246,8 @@ test.describe('VisualEditorCanvas - Pointer Events Migration (MTCH-03)', () => {
       await TestUtils.waitForDiagramRender(page);
       await page.waitForTimeout(2000);
 
-      // Switch to visual editor
-      const visualTab = page.locator('[data-testid="tab"]:has-text("Visual")');
-      const visualTabExists = await visualTab.count();
-
-      if (visualTabExists > 0) {
-        await visualTab.click();
-      } else {
-        const tabs = page.locator('[data-testid="tab"]');
-        const tabCount = await tabs.count();
-        if (tabCount > 1) {
-          await tabs.nth(1).click();
-        }
-      }
-
-      await page.waitForTimeout(2000);
+      // Switch to the visual editor via its toolbar button
+      await switchToVisualView(page);
 
       // Select a node
       const nodeOverlay = page.locator('.visual-node-overlay').first();

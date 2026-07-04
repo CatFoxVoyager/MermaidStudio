@@ -60,10 +60,13 @@ test.describe('Mobile foundation — viewport detection (MFDN-01)', () => {
     const newDiagramButton = page.getByTestId('new-diagram-button');
     await expect(newDiagramButton).toBeVisible();
 
-    // Optional: assert desktop root has h-screen class (not h-dvh)
-    // This confirms the desktop tree rendered, not mobile
-    const body = page.locator('body');
-    await expect(body).toHaveClass(/dark|light/, { timeout: 1000 });
+    // Optional: assert desktop root container rendered with h-screen (not mobile's h-dvh).
+    // NOTE: The theme class lives on <html> (document.documentElement) via useTheme
+    // (useTheme.ts adds/removes the `dark` class on documentElement), NOT on <body>.
+    // The desktop AppLayout root div carries the `dark` class conditionally and uses
+    // h-screen, so we assert that container is present to confirm the desktop tree.
+    const desktopRoot = page.locator('div.h-screen').first();
+    await expect(desktopRoot).toBeVisible();
   });
 
   test('should render mobile scaffold at 767px viewport (mobile boundary, exclusive)', async ({ page }) => {

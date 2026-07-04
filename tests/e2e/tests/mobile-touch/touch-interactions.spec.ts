@@ -39,9 +39,15 @@ test.describe('Mobile touch interactions — native pan + active states (MTCH-02
     const previewGrid = page.locator('[data-testid="preview-panel"] .preview-grid');
     await expect(previewGrid).toBeVisible();
 
-    // Check computed touch-action style contains pan-x and pan-y
+    // Read the *authored* inline touch-action value, not the computed one.
+    // Chromium normalizes `pan-x pan-y pinch-zoom` to the computed value
+    // "manipulation" (they are equivalent per spec: pan-x+pan-y disables
+    // double-tap-zoom and allows panning), so getComputedStyle().touchAction
+    // returns "manipulation" even though the inline style says "pan-x pan-y ...".
+    // The production code (PreviewPanel.tsx) sets the inline style to
+    // `pan-x pan-y pinch-zoom` when not panning — assert against that value.
     const touchAction = await previewGrid.evaluate(el => {
-      return window.getComputedStyle(el).touchAction;
+      return (el as HTMLElement).style.touchAction;
     });
 
     // touch-action should include both pan-x and pan-y for native touch scrolling
