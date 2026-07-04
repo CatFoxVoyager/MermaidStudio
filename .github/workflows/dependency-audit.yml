@@ -42,23 +42,34 @@ jobs:
 
     - name: Run pnpm audit
       id: pnpm-audit
+      continue-on-error: true
       run: |
+        # GitHub Actions bash runs with `set -e` by default; pnpm audit exits
+        # non-zero when vulnerabilities are found, which would abort this step
+        # before the if can capture the result. Disable errexit, capture, exit 0.
+        set +e
         pnpm audit --json > pnpm-audit.json 2>&1
-        if [ $? -eq 0 ]; then
+        code=$?
+        if [ $code -eq 0 ]; then
           echo "pnpm-audit-result=success" >> $GITHUB_OUTPUT
         else
           echo "pnpm-audit-result=failure" >> $GITHUB_OUTPUT
         fi
+        exit 0
 
     - name: Run outdated check
       id: pnpm-outdated
+      continue-on-error: true
       run: |
+        set +e
         pnpm outdated --json > pnpm-outdated.json 2>&1
-        if [ $? -eq 0 ]; then
+        code=$?
+        if [ $code -eq 0 ]; then
           echo "pnpm-outdated-result=success" >> $GITHUB_OUTPUT
         else
           echo "pnpm-outdated-result=failure" >> $GITHUB_OUTPUT
         fi
+        exit 0
 
     - name: Check licenses
       id: license-check
