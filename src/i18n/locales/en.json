@@ -530,5 +530,20 @@
       "fontSize": "Font Size",
       "fontSize.description": "Base font size"
     }
+  },
+  "welcome": {
+    "title": "Welcome to MermaidStudio",
+    "intro": "A fast, fully client-side editor for Mermaid diagrams. Your diagrams, settings, and AI models stay in your browser — nothing is sent to a server.",
+    "whatsNew": "What's new in this version",
+    "releaseNotes": {
+      "mobile": "Mobile responsive layout with dedicated UI, drawers, and bottom navigation",
+      "visualMobile": "Visual drag-and-drop editor now works on mobile (Code / Preview / Visual toggle)",
+      "touch": "Touch interaction support: unified pointer events, pinch-to-zoom and pan",
+      "safeArea": "Safe-area inset support for notches and home indicators",
+      "diagramFix": "AI Fix Diagram detects and repairs syntax, semantic, and style issues"
+    },
+    "moreInChangelog": "See the full changelog on GitHub for the complete list.",
+    "github": "View on GitHub",
+    "githubCaption": "Open source — star the project and report issues"
   }
 }

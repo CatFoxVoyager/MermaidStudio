@@ -53,6 +53,14 @@ vi.mock('@/components/modals/tools/KeyboardShortcuts', () => ({
   ),
 }));
 
+vi.mock('@/components/modals/tools/WelcomeModal', () => ({
+  WelcomeModal: ({ onClose }: any) => (
+    <div data-testid="welcome-modal">
+      <button onClick={onClose}>Close</button>
+    </div>
+  ),
+}));
+
 vi.mock('@/components/modals/tools/BackupPanel', () => ({
   BackupPanel: ({ onImported, onClose }: any) => (
     <div data-testid="backup-panel">
@@ -92,7 +100,9 @@ vi.mock('@/preview/FullscreenPreview', () => ({
 vi.mock('@/components/shared/Toast', () => ({
   Toast: ({ toasts, dismiss }: any) => (
     <div data-testid="toast">
-      {toasts?.map((t: any) => <div key={t.id}>{t.message}</div>)}
+      {toasts?.map((t: any) => (
+        <div key={t.id}>{t.message}</div>
+      ))}
       <button onClick={() => dismiss('1')}>Dismiss</button>
     </div>
   ),
@@ -109,6 +119,7 @@ describe('ModalProvider Component', () => {
     showSaveTemplate: false,
     showAISettings: false,
     showFullscreen: false,
+    showWelcome: false,
     onCloseTemplates: vi.fn(),
     onCloseHistory: vi.fn(),
     onCloseExport: vi.fn(),
@@ -118,6 +129,7 @@ describe('ModalProvider Component', () => {
     onCloseSaveTemplate: vi.fn(),
     onCloseAISettings: vi.fn(),
     onCloseFullscreen: vi.fn(),
+    onCloseWelcome: vi.fn(),
     activeTab: null,
     handleTemplateSelect: vi.fn(),
     handleRestore: vi.fn(),
@@ -218,7 +230,12 @@ describe('ModalProvider Component', () => {
     });
 
     it('should render ExportModal when showExport is true and activeTab exists', async () => {
-      const activeTab = { id: '1', title: 'Test Diagram', content: 'test content', diagram_id: 'diag-1' };
+      const activeTab = {
+        id: '1',
+        title: 'Test Diagram',
+        content: 'test content',
+        diagram_id: 'diag-1',
+      };
       renderModalProvider({ ...mockProps, showExport: true, activeTab });
       expect(await screen.findByTestId('export-modal')).toBeInTheDocument();
       expect(screen.getByText('Title: Test Diagram')).toBeInTheDocument();
@@ -336,7 +353,12 @@ describe('ModalProvider Component', () => {
     });
 
     it('should render SaveTemplateModal when showSaveTemplate is true and activeTab exists', () => {
-      const activeTab = { id: '1', title: 'Test', content: 'test content for template', diagram_id: 'diag-1' };
+      const activeTab = {
+        id: '1',
+        title: 'Test',
+        content: 'test content for template',
+        diagram_id: 'diag-1',
+      };
       renderModalProvider({ ...mockProps, showSaveTemplate: true, activeTab });
       expect(screen.getByTestId('save-template')).toBeInTheDocument();
       expect(screen.getByText('Content: test content for tem...')).toBeInTheDocument();
@@ -370,7 +392,12 @@ describe('ModalProvider Component', () => {
     });
 
     it('should render FullscreenPreview when showFullscreen is true and activeTab exists', () => {
-      const activeTab = { id: '1', title: 'Test', content: 'fullscreen test content', diagram_id: 'diag-1' };
+      const activeTab = {
+        id: '1',
+        title: 'Test',
+        content: 'fullscreen test content',
+        diagram_id: 'diag-1',
+      };
       renderModalProvider({ ...mockProps, showFullscreen: true, activeTab });
       expect(screen.getByTestId('fullscreen-preview')).toBeInTheDocument();
       expect(screen.getByText('Content: fullscreen test cont...')).toBeInTheDocument();

@@ -377,7 +377,6 @@
     "solid": "Continu",
     "dashed": "Tirets",
     "dotted": "Pointillés"
-
   },
   "fullscreen": {
     "title": "Aperçu en plein écran",
@@ -531,5 +530,20 @@
       "fontSize": "Taille de Police",
       "fontSize.description": "Taille de police de base"
     }
+  },
+  "welcome": {
+    "title": "Bienvenue sur MermaidStudio",
+    "intro": "Un éditeur de diagrammes Mermaid rapide et entièrement côté client. Vos diagrammes, paramètres et modèles d'IA restent dans votre navigateur — rien n'est envoyé vers un serveur.",
+    "whatsNew": "Nouveautés de cette version",
+    "releaseNotes": {
+      "mobile": "Interface mobile responsive avec UI dédiée, tiroirs et navigation basse",
+      "visualMobile": "L'éditeur visuel glisser-déposer fonctionne désormais sur mobile (bascule Code / Aperçu / Visuel)",
+      "touch": "Prise en charge du tactile : événements pointeur unifiés, zoom pincé et panoramique",
+      "safeArea": "Gestion des zones sécurisées pour les encoches et indicateurs d'accueil",
+      "diagramFix": "Correction IA de diagrammes : détecte et répare les problèmes de syntaxe, sémantique et style"
+    },
+    "moreInChangelog": "Consultez le changelog complet sur GitHub pour la liste complète.",
+    "github": "Voir sur GitHub",
+    "githubCaption": "Open source — mettez une étoile au projet et signalez les problèmes"
   }
 }

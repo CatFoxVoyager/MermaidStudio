@@ -14,6 +14,8 @@ export interface AppSettings {
   _encryptedKey?: string;
   /** Auto-save interval in ms; null = off */
   autoSaveIntervalMs?: number | null;
+  /** Version of the release notes / welcome modal the user has already seen */
+  seenReleaseNotesVersion?: string;
 }
 
 export interface UserTemplate {

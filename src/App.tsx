@@ -9,6 +9,8 @@ import { useKeyboardShortcuts, useDiagramActions, useAppShortcuts, useToast } fr
 import { useAppState } from './hooks/app/useAppState';
 import { useModalState } from './hooks/app/useModalState';
 import { SUPPORTED_GOOGLE_FONTS } from '@/constants/fonts';
+import { APP_VERSION } from '@/constants/app';
+import { getSettings, updateSettings } from '@/services/storage/database';
 
 export default function App() {
   // Pre-load Google Fonts
@@ -61,15 +63,18 @@ export default function App() {
   }, []);
 
   // Handler for opening AI panel with mode option
-  const handleOpenAIPanel = useCallback((options?: { mode?: 'chat' | 'fix' }) => {
-    openModal('showAI');
-    if (options?.mode === 'fix') {
-      setAiFixMode(true);
-      setAiFixTrigger(prev => prev + 1);
-    } else {
-      setAiFixMode(false);
-    }
-  }, [openModal]);
+  const handleOpenAIPanel = useCallback(
+    (options?: { mode?: 'chat' | 'fix' }) => {
+      openModal('showAI');
+      if (options?.mode === 'fix') {
+        setAiFixMode(true);
+        setAiFixTrigger(prev => prev + 1);
+      } else {
+        setAiFixMode(false);
+      }
+    },
+    [openModal]
+  );
 
   // Update handleCloseAIPanel to reset fix mode
   const handleCloseAIPanel = useCallback(() => {
@@ -102,6 +107,29 @@ export default function App() {
   const modalClose = useCallback((n: keyof typeof modals) => () => closeModal(n), [closeModal]);
   const modalOpen = useCallback((n: keyof typeof modals) => () => openModal(n), [openModal]);
   const modalToggle = useCallback((n: keyof typeof modals) => () => toggleModal(n), [toggleModal]);
+
+  // Show the welcome / release-notes modal once per app version
+  useEffect(() => {
+    let cancelled = false;
+    getSettings()
+      .then(s => {
+        if (!cancelled && s.seenReleaseNotesVersion !== APP_VERSION) {
+          openModal('showWelcome');
+        }
+      })
+      .catch(() => {
+        /* ignore — first-run storage read failure is non-fatal */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [openModal]);
+
+  // Closing the welcome modal marks the current version as seen
+  const handleCloseWelcome = useCallback(() => {
+    closeModal('showWelcome');
+    void updateSettings({ seenReleaseNotesVersion: APP_VERSION });
+  }, [closeModal]);
 
   return (
     <>
@@ -140,7 +168,11 @@ export default function App() {
           onOpenCommandPalette={modalOpen('showPalette')}
           onOpenBackup={modalOpen('showBackup')}
           onFocusMode={modalHandlers.toggleFocusMode}
-          onThemeIdChange={appState.activeTab ? (themeId: string | null) => appState.updateTabTheme(appState.activeTab.id, themeId) : undefined}
+          onThemeIdChange={
+            appState.activeTab
+              ? (themeId: string | null) => appState.updateTabTheme(appState.activeTab.id, themeId)
+              : undefined
+          }
           showAI={modals.showAI}
           showDiagramColors={modals.showDiagramColors}
           showAdvancedStyle={modals.showAdvancedStyle}
@@ -171,6 +203,7 @@ export default function App() {
           onCloseAISettings={modalClose('showAISettings')}
           onCloseHelp={modalClose('showHelp')}
           onCloseFullscreen={modalClose('showFullscreen')}
+          onCloseWelcome={handleCloseWelcome}
           activeTab={appState.activeTab}
           handleTemplateSelect={handleTemplateSelect}
           handleRestore={modalHandlers.handleRestore}
