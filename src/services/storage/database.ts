@@ -243,6 +243,7 @@ flowchart TD
       ai_machine_size: 'low',
       ai_base_url: '',
       ai_model: 'qwen3.5-0.8b-mermaid',
+      seenReleaseNotesVersion: undefined,
     },
     userTemplates: [],
   };

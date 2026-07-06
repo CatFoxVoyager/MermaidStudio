@@ -7,13 +7,20 @@ import { SaveTemplateModal } from '@/components/modals/diagram/SaveTemplateModal
 import { FullscreenPreview } from '@/preview/FullscreenPreview';
 import { AISettingsModal } from '@/ai/AISettingsModal';
 import { KeyboardShortcuts } from '@/components/modals/tools/KeyboardShortcuts';
+import { WelcomeModal } from '@/components/modals/tools/WelcomeModal';
 import { Toast } from '@/components/shared/Toast';
 import type { Diagram, Template } from '@/types';
 
 // Lazy load heavy modal components
-const LazyTemplateLibrary = lazy(() => import('@/components/modals/diagram/TemplateLibrary').then(m => ({ default: m.TemplateLibrary })));
-const LazyVersionHistory = lazy(() => import('@/components/modals/diagram/VersionHistory').then(m => ({ default: m.VersionHistory })));
-const LazyExportModal = lazy(() => import('@/components/modals/diagram/ExportModal').then(m => ({ default: m.ExportModal })));
+const LazyTemplateLibrary = lazy(() =>
+  import('@/components/modals/diagram/TemplateLibrary').then(m => ({ default: m.TemplateLibrary }))
+);
+const LazyVersionHistory = lazy(() =>
+  import('@/components/modals/diagram/VersionHistory').then(m => ({ default: m.VersionHistory }))
+);
+const LazyExportModal = lazy(() =>
+  import('@/components/modals/diagram/ExportModal').then(m => ({ default: m.ExportModal }))
+);
 
 interface ModalProviderProps {
   // Modal states
@@ -26,6 +33,7 @@ interface ModalProviderProps {
   showAISettings: boolean;
   showHelp: boolean;
   showFullscreen: boolean;
+  showWelcome: boolean;
   // Callbacks
   onCloseTemplates: () => void;
   onCloseHistory: () => void;
@@ -36,8 +44,15 @@ interface ModalProviderProps {
   onCloseAISettings: () => void;
   onCloseHelp: () => void;
   onCloseFullscreen: () => void;
+  onCloseWelcome: () => void;
   // Modal-specific props
-  activeTab?: { id: string; title: string; content: string; diagram_id: string; themeId?: string } | null;
+  activeTab?: {
+    id: string;
+    title: string;
+    content: string;
+    diagram_id: string;
+    themeId?: string;
+  } | null;
   handleTemplateSelect?: (template: Template) => void;
   handleRestore?: (content: string) => void;
   handleCopyLink?: () => void;
@@ -66,6 +81,7 @@ export function ModalProvider({
   showAISettings,
   showHelp,
   showFullscreen,
+  showWelcome,
   onCloseTemplates,
   onCloseHistory,
   onCloseExport,
@@ -75,6 +91,7 @@ export function ModalProvider({
   onCloseAISettings,
   onCloseHelp,
   onCloseFullscreen,
+  onCloseWelcome,
   activeTab,
   handleTemplateSelect,
   handleRestore,
@@ -97,19 +114,17 @@ export function ModalProvider({
   const mobileShell = useMobileShellContext();
 
   // Create onOpenStylePanel callback for mobile (optional for desktop)
-  const onOpenStylePanel = isMobile ? (id: 'colors' | 'advanced') => {
-    mobileShell.setActiveDrawer(id);
-  } : undefined;
+  const onOpenStylePanel = isMobile
+    ? (id: 'colors' | 'advanced') => {
+        mobileShell.setActiveDrawer(id);
+      }
+    : undefined;
 
   return (
     <>
       {showTemplates && handleTemplateSelect && (
         <Suspense fallback={null}>
-          <LazyTemplateLibrary
-            isOpen
-            onSelect={handleTemplateSelect}
-            onClose={onCloseTemplates}
-          />
+          <LazyTemplateLibrary isOpen onSelect={handleTemplateSelect} onClose={onCloseTemplates} />
         </Suspense>
       )}
       {showHistory && activeTab && handleRestore && (
@@ -127,8 +142,14 @@ export function ModalProvider({
           onClose={onClosePalette}
           onNewDiagram={newDiagram}
           onNewFolder={handleNewFolder}
-          onOpenTemplates={() => { onClosePalette(); onCloseTemplates(); }}
-          onToggleHistory={() => { onClosePalette(); onCloseHistory(); }}
+          onOpenTemplates={() => {
+            onClosePalette();
+            onCloseTemplates();
+          }}
+          onToggleHistory={() => {
+            onClosePalette();
+            onCloseHistory();
+          }}
           onToggleAI={toggleAI}
           onToggleTheme={toggleTheme}
           theme={theme}
@@ -150,19 +171,22 @@ export function ModalProvider({
       )}
       {showAISettings && setAiSettingsKey && (
         <AISettingsModal
-          onClose={() => { onCloseAISettings(); setAiSettingsKey(k => k + 1); }}
+          onClose={() => {
+            onCloseAISettings();
+            setAiSettingsKey(k => k + 1);
+          }}
         />
       )}
-      {showHelp && (
-        <KeyboardShortcuts
-          onClose={onCloseHelp}
-        />
-      )}
+      {showHelp && <KeyboardShortcuts onClose={onCloseHelp} />}
+      {showWelcome && <WelcomeModal onClose={onCloseWelcome} />}
       {showBackup && (
         <BackupPanel
           isOpen
           onClose={onCloseBackup}
-          onImported={(msg) => { showToast?.(msg); refresh?.(); }}
+          onImported={msg => {
+            showToast?.(msg);
+            refresh?.();
+          }}
         />
       )}
       {showSaveTemplate && activeTab && showToast && (
@@ -179,9 +203,7 @@ export function ModalProvider({
           onClose={onCloseFullscreen}
         />
       )}
-      {toasts && dismiss && (
-        <Toast toasts={toasts} dismiss={dismiss} />
-      )}
+      {toasts && dismiss && <Toast toasts={toasts} dismiss={dismiss} />}
     </>
   );
 }

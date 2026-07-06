@@ -53,6 +53,8 @@ export interface ModalState {
   showDiagramColors: boolean;
   /** Advanced style panel visibility */
   showAdvancedStyle: boolean;
+  /** Welcome / release notes modal visibility (first open per version) */
+  showWelcome: boolean;
 }
 
 /**
@@ -76,6 +78,7 @@ const INITIAL_MODAL_STATE: ModalState = {
   showFullscreen: false,
   showDiagramColors: false,
   showAdvancedStyle: false,
+  showWelcome: false,
 };
 
 /**
