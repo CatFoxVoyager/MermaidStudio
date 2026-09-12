@@ -4,25 +4,25 @@ milestone: v1.3
 milestone_name: Migration Mermaid 12
 current_phase: 21
 current_phase_name: Upgrade & Compatibility
-status: executing
+status: verifying
 stopped_at: ROADMAP.md written (Phases 21-24), STATE.md reset for v1.3, REQUIREMENTS.md traceability updated
-last_updated: "2026-09-12T22:04:07.784Z"
+last_updated: "2026-09-12T23:21:19.182Z"
 last_activity: 2026-09-12
 last_activity_desc: Phase 21 execution started
-state_head: 6bf7e8ea3aa18d55b14253fbc6154fea7f333118
+state_head: 6a8bee540468ea5d0795258eb4bdbc2bd78e601d
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 3
   percent: 0
 ---
 
 # STATE: MermaidStudio
 
 **Last Updated:** 2026-09-12
-**Last Session:** 2026-09-12T22:04:07.770Z
-**Stopped At:** Completed 21-02-PLAN.md
+**Last Session:** 2026-09-12T23:21:19.166Z
+**Stopped At:** Completed 21-03-PLAN.md
 **Current Phase:** 21
 **Progress:** [░░░░░░░░░░] 0%
 
@@ -47,7 +47,7 @@ See: .planning/PROJECT.md (updated 2026-09-12)
 Milestone: v1.3 Migration Mermaid 12 (Phases 21-24)
 Phase: 21 (Upgrade & Compatibility) — EXECUTING
 Plan: 3 of 3
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-12 — Phase 21 execution started
 
 Progress: [░░░░░░░░░░] 0%
@@ -74,6 +74,7 @@ Progress: [░░░░░░░░░░] 0%
 |------|----------|-------|-------|
 | Phase 21 P21-01 | 14min | 3 tasks | 3 files |
 | Phase 21 P21-02 | 24min | 3 tasks | 4 files |
+| Phase 21 P21-03 | 54min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - [Phase 21]: mermaid flipped to exact 12.0.0 in atomic commit (manifest+lockfile+core.ts, bf3658e) — git revert restores the 11.17.2 + 0.2.3 known-good pair (VAL-03)
 - [Phase 21]: ELK lazy boundary preserved via manualChunks fall-through guard (mermaid-internal elk-*.mjs adapters + elkjs engine package); mermaid-core carries zero ELK content, verified by org.eclipse.elk marker greps
 - [Phase 21]: User approved mermaid 12.0.0 package-legitimacy checkpoint (blocking-human, never auto-approved): official org, no install scripts, early-adopter risk accepted with VAL-03 revert path
+- [Phase 21]: 21-03: CDN embed exact-pinned to mermaid@12.0.0 (not floating @12) with live-recomputed sha384 SRI; user confirmation queued as end-of-phase UAT
+- [Phase 21]: Windows host invariant: run vitest only from canonical-drive-case cwd (D:/code/mermaidstudio) — lowercase-drive cwd silently un-mocks every alias vi.mock (registry key case mismatch)
 
 ### Roadmap Evolution
 

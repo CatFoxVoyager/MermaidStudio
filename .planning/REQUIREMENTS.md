@@ -112,8 +112,8 @@ Requirements for the mermaid 12 migration milestone. Each maps to roadmap phases
 - [x] **UPG-02**: Legacy defaults pinned in `doInit()` — `layout: 'dagre'` and `look: 'classic'` (theme already explicit) — neutralizing mermaid 12's two silent default flips (ELK layout for 7 types, redux-color/neo for 10 types); harmless under v11, so revert-safe at any point
 - [x] **UPG-03**: `@mermaid-js/layout-elk` removed — package dropped and `registerLayoutLoaders` call deleted from `core.ts`; ELK arrives bundled and auto-registered in mermaid 12
 - [x] **UPG-04**: `vite.config.ts` manualChunks reworked — dead `mermaid-elk` chunk branch removed, ELK verified to arrive inside mermaid's lazy chunk; package-specifier imports only (never `dist/mermaid.esm.min.mjs`)
-- [ ] **UPG-05**: CI Node matrix drops Node 20 (mermaid 12 engines: node >=22.12); matrix covers 22.12+ and 24
-- [ ] **UPG-06**: ExportModal CDN embed snippet bumps `mermaid@11` → `mermaid@12` with a regenerated SRI hash (a stale hash silently breaks every copied embed)
+- [x] **UPG-05**: CI Node matrix drops Node 20 (mermaid 12 engines: node >=22.12); matrix covers 22.12+ and 24
+- [x] **UPG-06**: ExportModal CDN embed snippet bumps `mermaid@11` → `mermaid@12` with a regenerated SRI hash (a stale hash silently breaks every copied embed)
 
 ### SVG Pipeline Verification
 
@@ -264,8 +264,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UPG-02 | Phase 21 | Complete |
 | UPG-03 | Phase 21 | Complete |
 | UPG-04 | Phase 21 | Complete |
-| UPG-05 | Phase 21 | Pending |
-| UPG-06 | Phase 21 | Pending |
+| UPG-05 | Phase 21 | Complete |
+| UPG-06 | Phase 21 | Complete |
 | PIPE-01 | Phase 21 | Complete |
 | PIPE-02 | Phase 22 | Pending |
 | PIPE-03 | Phase 22 | Pending |

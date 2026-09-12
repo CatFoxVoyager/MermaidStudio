@@ -35,7 +35,7 @@ v1.3 migrates the rendering engine from mermaid ^11.17.2 to exact-pinned **12.0.
   4. CI passes on Node 22.12+ and 24 only (Node 20 dropped per mermaid 12 engines requirement)
   5. The embed snippet copied from ExportModal references `mermaid@12` with a valid SRI hash and executes in a standalone HTML page
 
-**Plans**: 2/3 plans executed
+**Plans**: 3/3 plans executed
 
 Plans:
 **Wave 1**
@@ -48,7 +48,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 21-03-PLAN.md — CI Node matrix, CDN embed + SRI, full phase gates (UPG-05, UPG-06)
+- [x] 21-03-PLAN.md — CI Node matrix, CDN embed + SRI, full phase gates (UPG-05, UPG-06)
 
 > **Ordering constraint (PIPE-01):** the golden-fixture capture MUST be the first plan of this phase, executed before the mermaid 12 dependency flip. The default-flip pins (`layout: 'dagre'`, `look: 'classic'`) are harmless under v11, so the upgrade stays revert-safe at every commit.
 
@@ -114,7 +114,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 21. Upgrade & Compatibility | v1.3 | 1/3 | In Progress|  |
+| 21. Upgrade & Compatibility | v1.3 | 3/3 | In Progress|  |
 | 22. SVG Pipeline Verification | v1.3 | — | Not started | - |
 | 23. Themes, Config & Layout Validation | v1.3 | — | Not started | - |
 | 24. Diagram-Type Sweep & Full Verification | v1.3 | — | Not started | - |
