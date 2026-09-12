@@ -6,10 +6,10 @@ current_phase: 21
 current_phase_name: Upgrade & Compatibility
 status: executing
 stopped_at: ROADMAP.md written (Phases 21-24), STATE.md reset for v1.3, REQUIREMENTS.md traceability updated
-last_updated: "2026-09-12T14:25:33.957Z"
+last_updated: "2026-09-12T22:04:07.784Z"
 last_activity: 2026-09-12
 last_activity_desc: Phase 21 execution started
-state_head: 72888958b893bb5a4b8797356289255ec59bac37
+state_head: 6bf7e8ea3aa18d55b14253fbc6154fea7f333118
 progress:
   total_phases: 4
   completed_phases: 0
@@ -21,8 +21,8 @@ progress:
 # STATE: MermaidStudio
 
 **Last Updated:** 2026-09-12
-**Last Session:** 2026-09-12T14:25:20.124Z
-**Stopped At:** Completed 21-01-PLAN.md
+**Last Session:** 2026-09-12T22:04:07.770Z
+**Stopped At:** Completed 21-02-PLAN.md
 **Current Phase:** 21
 **Progress:** [░░░░░░░░░░] 0%
 
@@ -46,7 +46,7 @@ See: .planning/PROJECT.md (updated 2026-09-12)
 
 Milestone: v1.3 Migration Mermaid 12 (Phases 21-24)
 Phase: 21 (Upgrade & Compatibility) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-09-12 — Phase 21 execution started
 
@@ -73,6 +73,7 @@ Progress: [░░░░░░░░░░] 0%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 21 P21-01 | 14min | 3 tasks | 3 files |
+| Phase 21 P21-02 | 24min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - Adoption of mermaid 12's new defaults (ELK layout, redux-color/neo) is out of scope — Future items FR-01/FR-02
 - [Phase 21]: PIPE-01 golden baseline captured on v11 before the flip; rect.background family documented as not-emitted (asserting the observed 0 would false-fail a benign future emission) — PIPE-01 golden baseline captured on v11 before the flip; rect.background family documented as not-emitted (asserting the observed 0 would false-fail a benign future emission)
 - [Phase 21]: Capture correctness: every golden expected value observed from a real 11.17.2 render before being asserted; .root order recorded but not asserted — Capture correctness: every golden expected value observed from a real 11.17.2 render before being asserted; .root order recorded but not asserted
+- [Phase 21]: mermaid flipped to exact 12.0.0 in atomic commit (manifest+lockfile+core.ts, bf3658e) — git revert restores the 11.17.2 + 0.2.3 known-good pair (VAL-03)
+- [Phase 21]: ELK lazy boundary preserved via manualChunks fall-through guard (mermaid-internal elk-*.mjs adapters + elkjs engine package); mermaid-core carries zero ELK content, verified by org.eclipse.elk marker greps
+- [Phase 21]: User approved mermaid 12.0.0 package-legitimacy checkpoint (blocking-human, never auto-approved): official org, no install scripts, early-adopter risk accepted with VAL-03 revert path
 
 ### Roadmap Evolution
 

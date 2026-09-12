@@ -108,10 +108,10 @@ Requirements for the mermaid 12 migration milestone. Each maps to roadmap phases
 
 ### Upgrade & Compatibility
 
-- [ ] **UPG-01**: mermaid upgraded from ^11.17.2 to exact pinned 12.0.0 (no floating range — no 12.0.x point releases exist yet) with lockfile update and production build green
+- [x] **UPG-01**: mermaid upgraded from ^11.17.2 to exact pinned 12.0.0 (no floating range — no 12.0.x point releases exist yet) with lockfile update and production build green
 - [x] **UPG-02**: Legacy defaults pinned in `doInit()` — `layout: 'dagre'` and `look: 'classic'` (theme already explicit) — neutralizing mermaid 12's two silent default flips (ELK layout for 7 types, redux-color/neo for 10 types); harmless under v11, so revert-safe at any point
-- [ ] **UPG-03**: `@mermaid-js/layout-elk` removed — package dropped and `registerLayoutLoaders` call deleted from `core.ts`; ELK arrives bundled and auto-registered in mermaid 12
-- [ ] **UPG-04**: `vite.config.ts` manualChunks reworked — dead `mermaid-elk` chunk branch removed, ELK verified to arrive inside mermaid's lazy chunk; package-specifier imports only (never `dist/mermaid.esm.min.mjs`)
+- [x] **UPG-03**: `@mermaid-js/layout-elk` removed — package dropped and `registerLayoutLoaders` call deleted from `core.ts`; ELK arrives bundled and auto-registered in mermaid 12
+- [x] **UPG-04**: `vite.config.ts` manualChunks reworked — dead `mermaid-elk` chunk branch removed, ELK verified to arrive inside mermaid's lazy chunk; package-specifier imports only (never `dist/mermaid.esm.min.mjs`)
 - [ ] **UPG-05**: CI Node matrix drops Node 20 (mermaid 12 engines: node >=22.12); matrix covers 22.12+ and 24
 - [ ] **UPG-06**: ExportModal CDN embed snippet bumps `mermaid@11` → `mermaid@12` with a regenerated SRI hash (a stale hash silently breaks every copied embed)
 
@@ -260,10 +260,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UPG-01 | Phase 21 | Pending |
+| UPG-01 | Phase 21 | Complete |
 | UPG-02 | Phase 21 | Complete |
-| UPG-03 | Phase 21 | Pending |
-| UPG-04 | Phase 21 | Pending |
+| UPG-03 | Phase 21 | Complete |
+| UPG-04 | Phase 21 | Complete |
 | UPG-05 | Phase 21 | Pending |
 | UPG-06 | Phase 21 | Pending |
 | PIPE-01 | Phase 21 | Complete |

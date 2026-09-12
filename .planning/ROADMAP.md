@@ -35,7 +35,7 @@ v1.3 migrates the rendering engine from mermaid ^11.17.2 to exact-pinned **12.0.
   4. CI passes on Node 22.12+ and 24 only (Node 20 dropped per mermaid 12 engines requirement)
   5. The embed snippet copied from ExportModal references `mermaid@12` with a valid SRI hash and executes in a standalone HTML page
 
-**Plans**: 1/3 plans executed
+**Plans**: 2/3 plans executed
 
 Plans:
 **Wave 1**
@@ -44,7 +44,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 21-02-PLAN.md — atomic mermaid 12.0.0 flip: exact pin, layout-elk removal, chunk rework (UPG-01, UPG-03, UPG-04)
+- [x] 21-02-PLAN.md — atomic mermaid 12.0.0 flip: exact pin, layout-elk removal, chunk rework (UPG-01, UPG-03, UPG-04)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
