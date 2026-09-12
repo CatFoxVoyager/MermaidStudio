@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Migration Mermaid 12
 status: planning
-last_updated: "2026-09-12T10:59:26.505Z"
+last_updated: "2026-09-12T12:00:00.000Z"
 last_activity: 2026-09-12
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -15,244 +15,101 @@ progress:
 
 # STATE: MermaidStudio
 
-**Last Updated:** 2026-07-02T21:22:00Z
-**Last Session:** 2026-07-03T01:30:39.294Z
-**Stopped At:** Completed 20-01-PLAN.md (E2E testing infrastructure + server reuse configuration)
-**Current Phase:** 20
-**Progress:** [██████████] 100%
+**Last Updated:** 2026-09-12
+**Last Session:** 2026-09-12 — v1.3 roadmap created
+**Stopped At:** Roadmap created for milestone v1.3 (Phases 21-24); ready to plan Phase 21
+**Current Phase:** 21
+**Progress:** [░░░░░░░░░░] 0%
 
 ## Project Reference
 
+See: .planning/PROJECT.md (updated 2026-09-12)
+
 **Core Value:** Users prefer MermaidStudio over Mermaid Live Editor because of its polished interface, AI assistance, and better editing experience.
 
-**Current Focus:** Phase 20 — Mobile QA & 0.6.0 Release
+**Current Focus:** Phase 21 — Upgrade & Compatibility (mermaid 11.17.2 → pinned 12.0.0)
 
 **Key Constraints:**
 
-- React + TypeScript stack with Vite build system
-- LocalStorage-first storage (~5-10MB limit)
-- Static hosting only (Vercel, Netlify, GitHub Pages)
-- User-configured API keys for provider flexibility
-- Mermaid version pinned to 11.13.0
+- React + TypeScript + Vite; static hosting only (Vercel/Docker/GH Pages)
+- Mermaid pinned to exact 12.0.0 (no floating range; no 12.0.x point releases exist yet)
+- Zero user-facing regression is the milestone goal — v11 defaults (dagre/classic) pinned in `doInit()`
+- Strict scope: mermaid 12 is the only major bump (TS 7 / Vitest 5 / jsdom 30 deferred)
+- 0.6.0 release (bump + tag) remains user-owned post-UAT, tracked in CHANGELOG.md
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-09-12 — Milestone v1.3 started
+Milestone: v1.3 Migration Mermaid 12 (Phases 21-24)
+Phase: 21 of 24 (Upgrade & Compatibility — first of 4 v1.3 phases)
+Plan: — (not yet planned)
+Status: Ready to plan
+Last activity: 2026-09-12 — v1.3 roadmap created
 
-### Quick Tasks Completed
-
-| # | Description | Date | Commit | Status | Directory |
-|---|-------------|------|--------|--------|-----------|
-| 1 | Fix technical debt and setup pre-commit hooks | 2026-03-23 | 73838af | Verified | [1-fix-technical-debt-and-setup-pre-commit-](./quick/1-fix-technical-debt-and-setup-pre-commit-/) |
-| 260325-lyf | Move node color picker to main PreviewPanel | 2026-03-25 | a00b3d9 | Merged* | [260325-lyf-move-node-color-picker-to-main-previewpa](./quick/260325-lyf-move-node-color-picker-to-main-previewpa/) |
-| 260326-g1z | Port node insertion toolbar from VisualEditorCanvas into PreviewPanel | 2026-03-26 | 8063324 | Verified | [260326-g1z-port-node-insertion-toolbar-from-visuale](./quick/260326-g1z-port-node-insertion-toolbar-from-visuale/) |
-| 260327-b1e | Support diagram colors for non-classDef types | 2026-03-27 | 47889b8 | Verified | [260327-b1e-support-diagram-colors-for-non-classdef-](./quick/260327-b1e-support-diagram-colors-for-non-classdef-/) |
-| 260327-c50 | Fix C4 diagram color palette styling | 2026-03-27 | f4c7b0f | Verified | [260327-c50-audit-all-mermaid-diagram-types-styling-](./quick/260327-c50-audit-all-mermaid-diagram-types-styling-/) |
-| 260327-iwh | Add all missing Mermaid flowchart features ( v11 shapes, icons, markdown, edges) | 2026-03-27 | a7433bd | Verified | [260327-iwh-add-all-missing-mermaid-flowchart-featur](./quick/260327-iwh-add-all-missing-mermaid-flowchart-featur/) |
-| 260327-qfx | Fix theme system: render-time application + 8 color swatches | 2026-03-27 | 1561439 | Verified | [260327-qfx-fix-theme-system-apply-themes-at-render-](./quick/260327-qfx-fix-theme-system-apply-themes-at-render-/) |
-| 260328-34y | Create real themes with proper color schemes (restore full diagram color palettes) | 2026-03-28 | 71907bd | | [260328-34y-create-real-themes-with-proper-color-sch](./quick/260328-34y-create-real-themes-with-proper-color-sch/) |
-| 260407-9g8 | Add open source footer with GitHub link | 2026-04-07 | 8515ecc | Verified | [260407-9g8-add-open-source-footer-with-github-link-](./quick/260407-9g8-add-open-source-footer-with-github-link-/) |
-| 260407-9g8 | Add open source footer with GitHub link at bottom of page | 2026-04-07 | 8515ecc | Verified | [260407-9g8-add-open-source-footer-with-github-link-](./quick/260407-9g8-add-open-source-footer-with-github-link-/) |
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
-**Requirements Coverage:**
+**Velocity:**
+- Total plans completed (this milestone): 0
+- Average duration: —
+- Total execution time: —
 
-- v1 requirements: 36 total
-- Mapped to phases: 36 (100%)
-- Unmapped: 0 ✓
+**By Phase:**
 
-**Phase Distribution:**
-
-- Phase 1: 16 requirements (AI Foundation + Multi-Provider + Security basics)
-- Phase 2: 7 requirements (Core AI Features + encryption)
-- Phase 3: 4 requirements (Enhanced UX)
-- Phase 4: 6 requirements (Visual Editor AI + Advanced Features)
-- Phase 5: 5 requirements (Security & Reliability - cross-cutting concerns)
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 21 | 0 | — | — |
+| 22 | 0 | — | — |
+| 23 | 0 | — | — |
+| 24 | 0 | — | — |
 
 ## Accumulated Context
 
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecting current work:
+
+- Milestone scope (2026-09-12): `@mermaid-js/layout-elk` is REMOVED, not bumped — mermaid 12 bundles + auto-registers ELK; keeping ^1.0.0 would ship ELK twice (~+500 kB gz). Recorded deviation from the original milestone letter
+- mermaid pinned to exact 12.0.0; 12.0.x bumps deferred until point releases exist (VAL-03 tracks them)
+- PIPE-01 golden fixtures MUST be captured on v11 before the dependency flip lands — first plan of Phase 21
+- Adoption of mermaid 12's new defaults (ELK layout, redux-color/neo) is out of scope — Future items FR-01/FR-02
+
 ### Roadmap Evolution
 
-- Phase 1 added: AI Fix Diagram
-- Phase 6 added: please do the refactoring like explained in chat history
-- Phase 7 added: Fix all security issues identified in code analysis
-- Phase 11 added: Node style editing in preview (couleur, border, taille du border, couleur du border, etc.) — mêmes fonctionnalités que Mermaid Live Editor
-- Phase 12 added: Refonte du systeme de palettes et themes Mermaid - migration vers des fichiers theme natifs
-- Phase 13 added: Custom Mermaid themes from color palettes — créer des thèmes custom à partir des palettes de couleurs pour éviter la prolifération de variables CSS, en vérifiant le fonctionnement des thèmes Mermaid natifs et en prenant en compte les différents types de diagrammes
-- Milestone v1.1 started (2026-07-02): Mobile Responsive Design — added Phases 14-18 (Foundation → Shell → Workspace → Drawers → Touch/Visual Editor), 18 requirements (MFDN/MSHL/MWRK/MDRW/MTCH/MAI). Desktop layout preserved; mobile shell activates ≤768px via hybrid paradigm (bottom nav + Code/Preview toggle + slide-over drawers)
+- Milestone v1.3 started (2026-09-12): Migration Mermaid 12 — Phases 21-24 (Upgrade & Compatibility → SVG Pipeline Verification → Themes/Config/Layout → Diagram-Type Sweep & Full Verification), 21 requirements (UPG/PIPE/THM/DIA/VAL), verification-weighted structure
 
-### Key Decisions Made
+### Pending Todos
 
-**2026-03-22 (Roadmap Creation):**
+None yet.
 
-- Chose 5-phase structure based on natural requirement groupings
-- Prioritized fixing AI integration first (critical blocker)
-- Split Visual Editor AI into separate phase (requires major technical debt work)
-- Made Security & Reliability final phase (cross-cutting safeguards)
+### Blockers/Concerns
 
-**2026-03-22 (Phase 6 Context Gathering):**
+- Early-adopter risk: mermaid 12.0.0 is 2 days old — zero community post-mortems, no point releases. Mitigation: exact pin + documented revert path (VAL-03, Phase 24)
+- Whether v12 reports absolute error lines (decides the manual frontmatter offset's fate) is empirical — resolved in Phase 22 (PIPE-04)
+- `elk.stress` survival under bundled ELK is MEDIUM confidence — runtime check in Phase 23 (THM-04)
 
-- Folder structure: By concern (aiProviders→services/ai/, db→services/storage/, mermaid→lib/mermaid/, constants→constants/)
-- Path aliases: Explicit (@/components, @/lib, @/services, @/types, @/hooks, @/constants) with flatter component style (@/ai, @/editor)
-- Migration: All at once, atomic import updates, build+type check validation
-- Types: Split by domain with umbrella barrel export
+## Deferred Items
 
-**2026-03-22 (Plan 06-02C - Constants Folder):**
-
-- Created src/constants/ directory for static configuration data
-- Moved colorPalettes.ts and templates.ts from src/lib/ to src/constants/
-- Preserved git history using git mv
-- Separated immutable definitions from business logic
-
-**2026-03-22 (Plan 06-02A - Services Layer):**
-
-- Created src/services/ai/ and src/services/storage/ directories
-- Moved AI providers from src/lib/aiProviders.ts to src/services/ai/providers.ts
-- Moved database from src/lib/db.ts to src/services/storage/database.ts
-- Preserved git history using git mv
-- Separated external service integrations from utilities
-
-**2026-03-22 (Plan 06-02B - Mermaid Folder):**
-
-- Consolidated all Mermaid utilities in src/lib/mermaid/ folder
-- Files moved: mermaid.ts → core.ts, mermaidAutocomplete.ts → autocomplete.ts, mermaidCodeUtils.ts → codeUtils.ts, mermaidLanguage.ts → language.ts
-- Preserved git history using git mv
-- Created domain-based organization for Mermaid-specific functionality
-
-**2026-03-22 (Plan 06-03A - Type Extraction):**
-
-- Created domain type files: ai.ts, storage.ts, mermaid.ts, ui.ts
-- Extracted type definitions from monolithic index.ts
-- Used import() syntax for cross-domain type references to avoid circular dependencies
-- Two-step strategy: create copies first, replace index.ts in plan 03B
-- Preserved original types in index.ts for verification
-
-**2026-03-22 (Plan 06-03B - Umbrella Barrel Export):**
-
-- Replaced monolithic types/index.ts with umbrella barrel export
-- Converted 145 lines of type definitions to 4 re-export statements
-- Export all domain files: ai, storage, mermaid, ui
-- Provides single import point: `import type { Diagram } from '@/types'`
-- Maintains domain organization for better code structure
-- Type check verified: 0 import errors from types/index.ts
-
-**2026-03-22 (Plan 06-05A - Modal Subdirectories):**
-
-- Created modal subdirectories: settings/, tools/, diagram/
-- Moved 10 modal files from flat structure to functional subdirectories
-- Settings modals: AdvancedStylePanel, DiagramColorsPanel, MermaidConfigModal
-- Tools modals: BackupPanel, CommandPalette, KeyboardShortcuts
-- Diagram modals: ExportModal, SaveTemplateModal, TemplateLibrary, VersionHistory
-- Two-phase strategy: file moves (05A) then import updates (05B)
-- Preserved git history using git mv
-
-**2026-03-22 (Plan 06-05B - Modal Import Updates):**
-
-- Updated all modal import statements to use new subdirectory paths
-- Diagram modals now use `/diagram/` prefix (TemplateLibrary, VersionHistory, ExportModal, SaveTemplateModal)
-- Tools modals now use `/tools/` prefix (CommandPalette, KeyboardShortcuts, BackupPanel)
-- Settings modals already using `/settings/` prefix (no changes needed)
-- Type check verified: 0 import errors
-- Modal reorganization complete
-
-**2026-03-22 (Plan 07-00 - Test Infrastructure Setup):**
-
-- Installed Vitest framework with jsdom environment for DOM testing
-- Configured coverage reporting with 80% thresholds for security utilities
-- Created test stubs for all security utilities following TDD workflow
-- Adopted TDD approach: test stubs created first (RED phase) before implementation
-- Test infrastructure ready for security implementation in subsequent plans
-- Duration: 4 minutes, 3 tasks completed, 8 files modified
-
-**2026-03-22 (Plan 07-04 - Gap Closure):**
-
-- Deleted orphaned sanitization.test.ts file that imported from non-existent module
-- Restored test suite to full passing status (8/8 test files, 88 tests)
-- SVG sanitization coverage maintained in core.test.ts
-- Decision: Delete orphaned test file rather than create sanitization.ts module (implementation already in core.ts)
-- Duration: 28 seconds, 1 task completed, 1 file deleted
-
-**2026-03-23 (Plan 08-01 - Fix Build Infrastructure):**
-
-- Verified ESLint 10.1.0 with @eslint/js integration working correctly
-- Resolved peer dependency conflict with eslint-plugin-react-hooks using canary version
-- Used --legacy-peer-deps to install transitive dependencies
-- npm run lint and npm run typecheck both operational
-- Decision: Use canary build of eslint-plugin-react-hooks for ESLint 10 compatibility
-- Duration: 3 minutes, 4 tasks verified complete, work already done in 08-00
-
-### Architecture Decisions
-
-**From PROJECT.md:**
-
-- Local-first storage (simplicity, privacy, no backend)
-- Multi-provider AI support (user choice, avoid vendor lock-in)
-- CodeMirror 6 for editor (best-in-class code editing)
-- No user accounts (reduce complexity, ship faster)
-
-**From Research:**
-
-- Replace manual fetch with official SDKs (OpenAI, Anthropic)
-- Implement custom hooks for state management (useAIChat, useAIProvider, useAIRetry)
-- Add error boundary for AI features
-- Encrypt API keys with Web Crypto API
-- Fix CORS with backend proxy (Vite proxy for dev, serverless for prod)
-
-### Technical Debt Identified
-
-**From Codebase Audit:**
-
-- AI API connection not working (PRIMARY BLOCKER)
-- LocalStorage quota failures handled silently
-- Performance: unnecessary re-renders, Mermaid renders on every keystroke
-- Visual editor parsing logic fragile (heavy regex, breaks on Mermaid syntax changes)
-- Zero test coverage (critical gap for reliability)
-- TypeScript `as any` assertions throughout codebase
-- Empty catch blocks hiding errors
-
-### Known Issues
-
-**Critical:**
-
-- AI integration completely broken (CORS errors, missing retry logic, no timeouts)
-- API keys stored in plaintext in localStorage (security vulnerability)
-
-**Important:**
-
-- Model names are incorrect (gpt-5.x, claude-4.6 don't exist)
-- Missing AbortController for request cancellation
-- No streaming support (responses wait for completion)
-- Generic error messages (not actionable)
-
-**Nice to have:**
-
-- Code completion not implemented
-- No token/cost tracking
-- Request deduplication missing
+| Category | Item | Status | Deferred At | Milestone |
+|----------|------|--------|-------------|-----------|
+| Mermaid 12 follow-up | FR-01: redux-color/neo opt-in "modern look" | Deferred | 2026-09-12 | v2 |
+| Mermaid 12 follow-up | FR-02: ELK as default layout / picker expansion | Deferred | 2026-09-12 | v2 |
+| Mermaid 12 follow-up | FR-03: dynamic `import('mermaid')` for pre-ES2024 degradation | Deferred | 2026-09-12 | v2 |
+| Mermaid 12 follow-up | FR-04: agentflow diagram type support | Deferred | 2026-09-12 | v2 |
+| Release | 0.6.0 version bump + v0.6.0 tag | User-owned post-UAT | 2026-07-02 | post-v1.2 |
 
 ## Session Continuity
 
-**Resume file:** None
+Last session: 2026-09-12
+Stopped at: ROADMAP.md written (Phases 21-24), STATE.md reset for v1.3, REQUIREMENTS.md traceability updated
+Resume file: None
 
 **If returning after break:**
 
 1. Review current phase status in this STATE.md
 2. Check ROADMAP.md for phase success criteria
 3. Review REQUIREMENTS.md traceability table
-4. Run `/gsd:plan-phase N` where N is current phase number
-
-**Last session stopped at:** Completed 07-00-PLAN.md
-
-**Quick Links:**
-
-1. Review current phase status in this STATE.md
-2. Check ROADMAP.md for phase success criteria
-3. Review REQUIREMENTS.md traceability table
-4. Run `/gsd:plan-phase N` where N is current phase number
+4. Run `/gsd-plan-phase 21`
 
 **Quick Links:**
 
@@ -262,10 +119,4 @@ Last activity: 2026-09-12 — Milestone v1.3 started
 - Project context: `.planning/PROJECT.md`
 
 ---
-*State initialized: 2026-03-22*
-
-## Performance Metrics
-
-| Phase | Plan | Duration | Notes |
-|-------|------|----------|-------|
-| Phase 14 P01 | 273 | 1 tasks | 2 files |
+*State initialized for milestone v1.3: 2026-09-12*

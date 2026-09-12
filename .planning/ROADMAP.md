@@ -1,284 +1,102 @@
-# Roadmap: MermaidStudio v1.0
+# Roadmap: MermaidStudio — Milestone v1.3 "Migration Mermaid 12"
 
-## Phase 06: Refactoring
+## Milestones
 
-**Goal:** Reorganize codebase structure (services, lib, types, modals, constants)
-**Status:** Complete
-**Depends on:** Phases 01-05 (pre-existing)
+- ✅ **v1.0 MVP** - Phases 1-13 (archived: `milestones/v1.0-ROADMAP.md`)
+- ✅ **v1.1 Mobile Responsive Design** - Phases 14-18 (shipped 2026-07-02, archived: `milestones/v1.1-ROADMAP.md`)
+- ✅ **v1.2 Mobile Completion & 0.6.0 Release prep** - Phases 19-20 (code complete; 0.6.0 bump/tag user-owned post-UAT, archived: `milestones/v1.2-ROADMAP.md`)
+- 🚧 **v1.3 Migration Mermaid 12** - Phases 21-24 (current)
 
-## Phase 07: Security Fixes
+## Overview
 
-**Goal:** Fix all security issues identified in code analysis
-**Status:** Complete
-**Depends on:** Phase 06
+v1.3 migrates the rendering engine from mermaid ^11.17.2 to exact-pinned **12.0.0** with a **zero user-facing regression** goal. The code delta is small — `src/lib/mermaid/core.ts` is the only mermaid API call site, and one shared post-processing pipeline (`postProcessDiagramSvg`) serves preview, visual editor, fullscreen, and all exports — but mermaid 12 ships two silent default flips (ELK layout for 7 diagram types; `redux-color`/`neo` look for 10 types) that must be pinned in `doInit()`. The structure is therefore verification-weighted: land the upgrade with pinned defaults and captured baselines (Phase 21), prove the SVG pipeline against v12 output via golden fixtures (Phase 22), validate themes/config/layout — which render through that pipeline (Phase 23) — then sweep all diagram types additively and run the milestone's final gates (Phase 24). Phase numbering continues from v1.2 (last phase: 20).
 
-## Phase 08: Technical Debt Remediation
+**Recorded deviation from the milestone letter:** `@mermaid-js/layout-elk` is **removed** (UPG-03), not bumped ^0.2.3 → ^1.x — mermaid 12 bundles and auto-registers ELK; keeping ^1.0.0 would ship ELK twice (~+500 kB gz) and 0.2.3 cannot work under v12.
 
-**Goal:** Fix build infrastructure, TypeScript errors, ESLint issues, App.tsx refactoring
-**Status:** Complete
-**Depends on:** Phase 07
+## Phases
 
-## Phase 09: E2E Test Fixes
+- [ ] **Phase 21: Upgrade & Compatibility** - Land pinned mermaid 12.0.0 with v11 defaults preserved, remove layout-elk, update build/CI/embed plumbing, and capture v11 golden fixtures before the flip
+- [ ] **Phase 22: SVG Pipeline Verification** - Prove `postProcessDiagramSvg` against v12 output structure via golden-fixture diffs; re-baseline pixel snapshots; verify error-path contracts
+- [ ] **Phase 23: Themes, Config & Layout Validation** - Validate theme matrix, theme derivation, frontmatter round-trip, and layout selector on v12
+- [ ] **Phase 24: Diagram-Type Sweep & Full Verification** - Additive v12 syntax support (usecase, autocomplete gaps), 20+ type render sweep, full suite/build gates, browser floor, revert path
 
-**Goal:** Fix e2e test failures (theme toggle, CodeMirror input, error detection, accessibility headings)
-**Status:** Complete
-**Depends on:** Phase 08
+## Phase Details
 
-## Phase 10: Visual Polish
+### Phase 21: Upgrade & Compatibility
+**Goal**: The app boots and builds on pinned mermaid 12.0.0 with v11 rendering behavior preserved (dagre layout, classic look), all upgrade plumbing (dependencies, chunks, CI, CDN embed) updated, and v11 structural golden fixtures captured before the dependency flip lands.
+**Depends on**: Nothing (first phase of v1.3)
+**Requirements**: UPG-01, UPG-02, UPG-03, UPG-04, UPG-05, UPG-06, PIPE-01
+**Success Criteria** (what must be TRUE):
+  1. v11 structural golden fixtures (edge paths, `g.edgeLabels` 1:1 correlation, `flowchart-{ID}-{N}` node ids, marker id substrings, `rect.background`, `.root` ordering) are captured and committed while the app still runs mermaid 11.17.2 — before any v12 code lands
+  2. The app boots on mermaid 12.0.0 (exact pin, lockfile updated) and every saved diagram renders with its v11 layout (dagre) and v11 look (classic) — nothing is re-laid-out or reskinned by the upgrade
+  3. Production build is green with ELK served from mermaid's own lazy chunks: no `@mermaid-js/layout-elk` in package.json, no `registerLayoutLoaders` call in `core.ts`, no dead `mermaid-elk` manualChunk; imports use the package specifier only
+  4. CI passes on Node 22.12+ and 24 only (Node 20 dropped per mermaid 12 engines requirement)
+  5. The embed snippet copied from ExportModal references `mermaid@12` with a valid SRI hash and executes in a standalone HTML page
 
-**Goal:** Revoir le visuel car c'est pas tres beau et professionnels, il faut que ce soit aussi optimal
-**Status:** Complete
-**Depends on:** Phase 09
-**Plans:**
+**Plans**: TBD
 
-- [10-01](./phases/10-revoir-le-visuel-car-c-est-pas-tr-s-beau-et-professionnels-il-faut-que-ce-soit-aussi-optimal/10-01-PLAN.md)
-- [10-02](./phases/10-revoir-le-visuel-car-c-est-pas-tr-s-beau-et-professionnels-il-faut-que-ce-soit-aussi-optimal/10-02-PLAN.md)
-- [10-03](./phases/10-revoir-le-visuel-car-c-est-pas-tr-s-beau-et-professionnels-il-faut-que-ce-soit-aussi-optimal/10-03-PLAN.md)
-- [10-04](./phases/10-revoir-le-visuel-car-c-est-pas-tr-s-beau-et-professionnels-il-faut-que-ce-soit-aussi-optimal/10-04-PLAN.md)
+> **Ordering constraint (PIPE-01):** the golden-fixture capture MUST be the first plan of this phase, executed before the mermaid 12 dependency flip. The default-flip pins (`layout: 'dagre'`, `look: 'classic'`) are harmless under v11, so the upgrade stays revert-safe at every commit.
 
-## Phase 11: Node Style Editing in Preview
+### Phase 22: SVG Pipeline Verification
+**Goal**: The shared SVG post-processing pipeline (preview, visual editor, fullscreen, PNG/JPEG/SVG exports) is proven — or consciously fixed — against mermaid 12's output structure, with error-path contracts verified.
+**Depends on**: Phase 21 (consumes the v11 golden fixtures captured there; all consumers now run on v12)
+**Requirements**: PIPE-02, PIPE-03, PIPE-04
+**Success Criteria** (what must be TRUE):
+  1. The `postProcessDiagramSvg` suite — static selector tests plus rendered preview/export parity — is green on v12, and any structural selector matching 0 elements fails the suite instead of passing silently (diffed against Phase 21's v11 fixtures)
+  2. Pixel-sensitive snapshots are re-baselined and pass, with mermaid 12's documented 1px `intersectPolygon` shift as the only intended diff
+  3. A syntax error in a diagram with frontmatter reports the source line the user actually wrote — the manual frontmatter offset is adjusted or removed if double-counting is confirmed on v12
+  4. Rendered and exported SVGs contain no leftover temporary mermaid DOM elements on v12 — cleanup verified and the manual `remove()` dropped or confirmed harmless
 
-**Goal:** Replace floating fill-color popup with comprehensive slide-in style editing panel matching Mermaid Live Editor capabilities (fill, stroke, border width, border style, text color, font properties, border radius, multi-node selection, auto-resync, code editor highlighting)
-**Status:** Ready
-**Depends on:** Phase 10
-**Plans:** 4/5 plans executed
+**Plans**: TBD
 
-- [ ] [11-01-PLAN.md](./phases/11-node-style-editing-in-preview/11-01-PLAN.md) — Extend NodeStyle type, fix parseStyleValue/styleToString, add removeNodeStyles
-- [ ] [11-02-PLAN.md](./phases/11-node-style-editing-in-preview/11-02-PLAN.md) — Build NodeStylePanel slide-in component with two-tier property display
-- [ ] [11-03-PLAN.md](./phases/11-node-style-editing-in-preview/11-03-PLAN.md) — Integrate NodeStylePanel into PreviewPanel (replace old popup, multi-select, auto-resync)
-- [ ] [11-04-PLAN.md](./phases/11-node-style-editing-in-preview/11-04-PLAN.md) — CodeEditor forwardRef API for line highlighting, WorkspacePanel wiring
-- [ ] [11-05-PLAN.md](./phases/11-node-style-editing-in-preview/11-05-PLAN.md) — Manual verification checkpoint
+### Phase 23: Themes, Config & Layout Validation
+**Goal**: Theme rendering, frontmatter configuration, and layout-engine selection behave identically to v11 under mermaid 12.
+**Depends on**: Phase 22 (theme checks render through the verified pipeline)
+**Requirements**: THM-01, THM-02, THM-03, THM-04
+**Success Criteria** (what must be TRUE):
+  1. The theme x diagram-type x dark/light snapshot matrix passes on v12 with no unexpected diffs
+  2. Custom palettes derived by `themeDerivation.ts` produce the same colors as v11 after re-derivation against v12's `theme-base.js` (variable names survive; formulas verified empirically)
+  3. Frontmatter round-trip behaves as on v11: `@theme` extraction works, config precedence holds (frontmatter > `initialize()` > per-type default > global default), and `@{...}` syntax parses
+  4. The layout selector switches dagre / elk / elk.stress under mermaid 12's bundled ELK; `elk.stress` resolves or degrades safely (fallback + warning) — never crashes the app
 
-## Phase 12: Refonte du systeme de palettes et themes Mermaid - migration vers des fichiers theme natifs
+**Plans**: TBD
 
-**Goal:** Superseded by Phase 13
-**Status:** Superseded
-**Depends on:** Phase 11
-**Plans:** Scope fully absorbed into Phase 13
+### Phase 24: Diagram-Type Sweep & Full Verification
+**Goal**: Every supported diagram type renders correctly on v12, additive v12 syntax is adopted (usecase diagram, autocomplete gaps, visual-editor fail-safe), and the milestone's final verification gates pass with a documented revert path.
+**Depends on**: Phase 23
+**Requirements**: DIA-01, DIA-02, DIA-03, DIA-04, VAL-01, VAL-02, VAL-03
+**Success Criteria** (what must be TRUE):
+  1. A visual spot-check sweep confirms all 20+ supported diagram types render correctly on v12 in dark and light themes
+  2. A diagram using v12 `@{...}` syntax opens read-only in the visual editor and is never corrupted by the regex-based parser
+  3. `usecaseDiagram` is detected by `detectDiagramType`, autocompleted, available as a template, and themeable; autocomplete additionally covers railroad, cynefin, swimlane, the new shapes, and `@{ view: collapsed }`
+  4. Full unit suite (`vitest run`), lint, type-check, and production build are green on mermaid 12; the browser floor is verified (`build.target` ES2024+, webkit E2E at ~Safari 17.4+) with iOS <= 17.3 behavior documented
+  5. The revert path (mermaid 11.17.2 + layout-elk 0.2.3 known-good pair) is documented, and 12.0.x point releases are tracked during the milestone for a fast-follow
 
-## Phase 13: Custom Mermaid themes from color palettes
+**Plans**: TBD
 
-**Goal:** Replace the 8-color palette system with a proper Mermaid-native theme system using ~20 core color slots and a derivation engine that mirrors Mermaid's internal Theme.updateColors() logic to produce ~200 themeVariables. Includes theme editor panel, DiagramColorsPanel refactor, and dual apply mechanism (app default + per-diagram frontmatter).
-**Status:** Planned
-**Depends on:** Phase 10 (supersedes Phase 12)
-**Parallel with:** Phase 11 (no file overlap — node styling is orthogonal to theming)
-**Plans:** 4/4 plans complete
+## Requirements Coverage
 
-- [ ] [13-01-PLAN.md](./phases/13-custom-mermaid-themes-from-color-palettes/13-01-PLAN.md) — Theme types, derivation engine, preset themes, tests (Wave 1)
-- [ ] [13-02-PLAN.md](./phases/13-custom-mermaid-themes-from-color-palettes/13-02-PLAN.md) — Theme editor sidebar panel with live preview (Wave 2)
-- [ ] [13-03-PLAN.md](./phases/13-custom-mermaid-themes-from-color-palettes/13-03-PLAN.md) — DiagramColorsPanel refactor + full migration from palettes to themes (Wave 3)
-- [ ] [13-04-PLAN.md](./phases/13-custom-mermaid-themes-from-color-palettes/13-04-PLAN.md) — App-level default theme persistence + dual apply wiring (Wave 4)
+| Phase | Requirements | Count |
+|-------|--------------|-------|
+| 21. Upgrade & Compatibility | UPG-01, UPG-02, UPG-03, UPG-04, UPG-05, UPG-06, PIPE-01 | 7 |
+| 22. SVG Pipeline Verification | PIPE-02, PIPE-03, PIPE-04 | 3 |
+| 23. Themes, Config & Layout Validation | THM-01, THM-02, THM-03, THM-04 | 4 |
+| 24. Diagram-Type Sweep & Full Verification | DIA-01, DIA-02, DIA-03, DIA-04, VAL-01, VAL-02, VAL-03 | 7 |
 
-## Phase 01: AI Fix Diagram
+**Coverage:** 21/21 v1.3 requirements mapped (100%) — no orphans, no duplicates. Each requirement maps to exactly one phase.
 
-**Goal:** Add AI-powered "Fix Diagram" feature that detects and fixes syntax, semantic, and style issues in Mermaid diagrams
-**Status:** Complete ✅
-**Depends on:** None
-**Plans:** 1/1 executed
+**Ordering rationale:** pins must land before any render can be trusted (21) → pipeline verification before theme validation because themes render through the pipeline (22 → 23) → additive sweep and final gates last (24). Error-path (PIPE-04) and theme checks (23) are gated behind pipeline verification; the additive DIA sweep goes last per its independence.
 
-- [x] [PLAN.md](./phases/01-ai-fix-diagram/PLAN.md) — Full implementation: fix mode state, buildFixSystemPrompt, sendFixRequest, Fix Diagram button, app integration, i18n, E2E tests, documentation
+## Progress
 
-**Completed:** 2026-04-10
-**Release:** v0.5.0
+**Execution Order:** 21 → 22 → 23 → 24 (decimal insertions, if any, execute between their surrounding integers)
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 21. Upgrade & Compatibility | v1.3 | — | Not started | - |
+| 22. SVG Pipeline Verification | v1.3 | — | Not started | - |
+| 23. Themes, Config & Layout Validation | v1.3 | — | Not started | - |
+| 24. Diagram-Type Sweep & Full Verification | v1.3 | — | Not started | - |
 
 ---
-
-# Milestone v1.1 — Mobile Responsive Design
-
-**Goal:** Deliver a true smartphone mobile experience (dedicated layout) that activates automatically based on viewport (≤768px), while keeping the existing desktop mode entirely intact.
-**Phases:** 5 (14-18, continuing from v1.0) | **Requirements:** 18/18 mapped ✓
-**Paradigm:** Hybrid — minimal bottom nav (Files / Edit / AI) + segmented Code↔Preview toggle + slide-over drawers for panels.
-
-## Phase 14: Mobile Foundation & Desktop Preservation
-
-**Goal:** App safely detects mobile viewport and renders a dedicated layout, with zero change to the desktop experience.
-**Status:** Complete
-**Depends on:** Phase 13
-**Requirements:** MFDN-01, MFDN-02, MFDN-03, MFDN-04
-**Success Criteria:**
-
-1. ✓ At ≤768px the app shows the mobile layout; at >768px it shows the existing desktop layout — no hybrid/broken intermediate state.
-2. ✓ The app fills the visible area correctly as mobile browser chrome appears/disappears (dvh units) — no content hidden behind address/toolbar.
-3. ✓ On notched devices, no content is obscured by the notch/speaker/home indicator (env() safe-area).
-4. Overlays stack in the documented order (bottom nav < modals z-50 < drawers < toasts) — nothing hidden behind a peer.
-
-*Cross-cutting guard: existing desktop view ≥768px is pixel/behaviorally unchanged.*
-**Plans:** 3/3 plans complete
-Plans:
-**Wave 1**
-
-- [x] 14-01-PLAN.md — useMediaQuery hook (useSyncExternalStore + desktop-default SSR snapshot, MFDN-01 detection primitive)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 14-02-PLAN.md — AppLayout top-level branch + MobileLayout scaffold + viewport-fit=cover + built-in h-dvh + per-zone @utility safe-* + centralized --z-* tokens (MFDN-01/02/03/04, keystone non-regression)
-
-**Wave 3** *(complete)*
-
-- [x] 14-03-PLAN.md — Playwright mobile-detection boundary spec at 768px (MFDN-01 empirical proof + desktop E2E non-regression gate)
-
-## Phase 15: Mobile Shell
-
-**Goal:** Users get a thumb-reachable mobile navigation chrome.
-**Status:** Planned
-**Depends on:** Phase 14
-**Requirements:** MSHL-01, MSHL-02, MSHL-03
-**Success Criteria:**
-
-1. At 375px width the TopBar fits without truncation — brand visible, primary actions in an overflow menu.
-2. A bottom nav (Files / Edit / AI) is thumb-reachable and switches the primary view.
-3. Mobile navigation state is independent from desktop state — no cross-bleed on viewport change.
-4. Tapping a bottom-nav destination shows exactly one active view immediately.
-
-**Plans:** 4/4 plans complete
-
-- [x] 15-01-PLAN.md
-- [x] 15-02-PLAN.md
-- [x] 15-03-PLAN.md
-- [x] 15-04-PLAN.md
-
-**Wave 1** *(parallel — no file overlap)*
-
-- [x] [15-01-PLAN.md](./phases/15-mobile-shell/15-01-PLAN.md) — useMobileShell hook (non-persistent viewport-reset state, MSHL-03 keystone) + nav.* i18n keys (en/fr)
-- [x] [15-03-PLAN.md](./phases/15-mobile-shell/15-03-PLAN.md) — MobileTopBar component (brand + New/Save + overflow trigger reusing CommandPalette, fits 375px, MSHL-01)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] [15-02-PLAN.md](./phases/15-mobile-shell/15-02-PLAN.md) — MobileBottomNav component (3 equal Files/Edit/AI slots, active indicator, tap handlers, MSHL-02)
-
-**Wave 3** *(blocked on Waves 1+2)*
-
-- [ ] [15-04-PLAN.md](./phases/15-mobile-shell/15-04-PLAN.md) — Integration: fill Phase 14 scaffold slots, remove placeholders, wire Modal position=right drawers (Sidebar/AIPanel) with mutual exclusion via useMobileShell + desktop non-regression guard
-
-## Phase 16: Mobile Workspace
-
-**Goal:** Users can edit code and view preview single-pane on mobile without losing context.
-**Status:** Planned
-**Depends on:** Phase 15
-**Requirements:** MWRK-01, MWRK-02, MWRK-03
-**Success Criteria:**
-
-1. Below 600px, editor and preview are shown one at a time via a segmented Code↔Preview toggle (never a cramped horizontal split).
-2. Switching Code→Preview and back returns to the same scroll position and selection.
-3. Code and UI text stay legible at mobile sizes without manual zoom.
-4. Editing in mobile toggle still updates the live preview correctly.
-
-**Plans:** 2/2 plans complete
-
-Plans:
-
-- [ ] [16-01-PLAN.md](./phases/16-mobile-workspace/16-01-PLAN.md) — MobileWorkspace component + custom 600px breakpoint (Wave 1)
-- [ ] [16-02-PLAN.md](./phases/16-mobile-workspace/16-02-PLAN.md) — Integration: wire MobileWorkspace into MobileLayout + AppLayout mobile prop pipeline (Wave 2)
-
-## Phase 17: Mobile Drawers & Panels
-
-**Goal:** Users access files, AI, and style tools via slide-over drawers on mobile.
-**Status:** Planned
-**Depends on:** Phase 16
-**Requirements:** MDRW-01, MDRW-02, MDRW-03, MDRW-04, MAI-01
-**Success Criteria:**
-
-1. Tapping "Files" opens the Sidebar as a slide-over drawer; closing returns to the prior view without losing work.
-2. Style panels (Colors / AdvancedStyle / Node-Edge-Subgraph) open as drawers/bottom sheets with mutual exclusion (opening one closes another).
-3. Existing modals fit the mobile screen, dismiss easily, bottom-anchored where appropriate.
-4. Drawers reuse existing Modal infrastructure (position="right") — no parallel drawer system.
-5. Bottom-nav "AI" opens the AI assistant panel as a drawer with full desktop-equivalent chat.
-
-**Plans:** 3/3 plans complete
-
-**Wave 1** *(parallel — zero file overlap)*
-
-- [x] [17-01-PLAN.md](./phases/17-mobile-drawers-panels/17-01-PLAN.md) — Extend useMobileShell MobileDrawer type/setActiveDrawer signature to include style-panel ids + mutual-exclusion tests (MDRW-02 keystone) ✅
-- [ ] [17-03-PLAN.md](./phases/17-mobile-drawers-panels/17-03-PLAN.md) — Adapt shared Modal responsively (fit screen, >=44px close target) + make Node/Edge/Subgraph floating panels full-width mobile slide-overs; desktop unchanged (MDRW-03 + MDRW-02 selection-driven half)
-
-**Wave 2** *(blocked on Wave 1 / 17-01)*
-
-- [ ] [17-02-PLAN.md](./phases/17-mobile-drawers-panels/17-02-PLAN.md) — Wire Colors/AdvancedStyle drawers into MobileLayout (Modal position=right via openDrawer) + TopBar overflow (CommandPalette) + desktop open-handler reuse + MDRW-01/04/MAI-01 non-regression (MDRW-02 consumer wiring + MDRW-04 reuse proof)
-
-## Phase 18: Touch Optimization & Visual Editor
-
-**Goal:** Users can interact with all controls and the visual editor by touch.
-**Status:** Executing
-**Depends on:** Phase 17
-**Requirements:** MTCH-01, MTCH-02, MTCH-03
-**Success Criteria:**
-
-1. Every interactive control has a ≥44×44px tappable area with adequate spacing — no mis-taps.
-2. In preview, users can scroll/pan with one finger and all actions are tap-reachable (no hover-only interactions remain).
-3. In the visual drag-and-drop editor, users can drag/select nodes and trigger AI modifications by touch.
-4. Pinch-to-zoom and pan the visual-editor canvas works on mobile without breaking desktop mouse behavior.
-
-**Plans:** 2/2 plans complete
-
-Plans:
-
-**Wave 1** *(parallel — zero file overlap between plans)*
-
-- [x] [18-01-PLAN.md](./phases/18-touch-optimization-visual-editor/18-01-PLAN.md) — MTCH-01/MTCH-02: raise mobile-shell tap targets to ≥44px (MobileTopBar p-3 + min-w/min-h-[44px], MobileBottomNav active:), add preview CSS touch-action (pan-x pan-y pinch-zoom), Wave-0 E2E specs ✅
-- [ ] [18-02-PLAN.md](./phases/18-touch-optimization-visual-editor/18-02-PLAN.md) — MTCH-03 keystone: migrate VisualEditorCanvas mouse→Pointer Events (unified, not forked), add multi-touch pinch-zoom via pointerId map, desktop non-regression E2E, real-device human checkpoint
-
----
-
-## v1.1 Planning Notes (for /gsd-plan-phase)
-
-- **CSS-vs-JS detection tension:** decide per-component whether a Tailwind breakpoint (`md:hidden`/`hidden md:flex`) suffices, reserving JS `useMediaQuery` for state-dependent conditional render (z-index layering, mobile/desktop state separation in MSHL-03).
-- **Custom 600px breakpoint required** for MWRK-01 (Tailwind defaults are sm=640 / md=768; neither is 600). Add a custom breakpoint (e.g. `mobile-split`) or media query in Phase 14/16.
-- **Phase 18 (pointer-events migration of VisualEditorCanvas) is the highest-risk phase** — recommend a research spike during Phase 18 planning.
-- All 5 phases match UI-detection keywords → `/gsd-ui-phase` available for each.
-- **Zero new dependencies** (per research): custom `useMediaQuery`, native Touch API, Tailwind v4 variants, CSS `env()` safe-area.
-
----
-
-# Milestone v1.2 — Mobile Completion & 0.6.0 Release
-
-**Goal:** Close the remaining gaps for a 100%-validated, fully-shippable mobile experience and release MermaidStudio **0.6.0** (the release marker for the mobile UI integration).
-**Phases:** 2 (19-20) | **Paradigm:** finish the visual-editor integration (the one outstanding orphan from v1.1), then QA the whole mobile milestone end-to-end (real-browser + real-device) and bump the version.
-
-## Phase 19: Visual Editor Wiring
-
-**Goal:** Wire the existing `VisualEditorCanvas` into the live app (desktop `WorkspacePanel` + mobile `MobileWorkspace`) behind the existing `toggleVisual` affordance, so the visual drag-and-drop editor is reachable and the Phase 18 touch migration is exercised end-to-end.
-**Status:** Planned
-**Depends on:** Phase 18
-**Requirements:** VIS-03 (visual edits sync to code). *(VIS-01/02 — AI in the visual editor — are explicitly DEFERRED: they depend on the separate, currently-broken AI-integration track, which is its own future milestone, not mobile work.)*
-**Plans:** 2/2 plans complete
-
-- [x] 19-01-PLAN.md
-- [x] 19-02-PLAN.md
-
-- [ ] [19-01-PLAN.md](./phases/19-visual-editor-wiring/19-01-PLAN.md) — Desktop: i18n key + WorkspacePanel 3-way view switch (split vs Visual) with VisualEditorCanvas mount + VIS-03 sync (Wave 1)
-- [ ] [19-02-PLAN.md](./phases/19-visual-editor-wiring/19-02-PLAN.md) — Mobile: MobileWorkspace 3-segment toggle + keep-alive Visual pane + scroll preservation + VIS-03 sync (Wave 2)
-
-**Success Criteria:**
-
-1. On desktop, toggling "Visual" mounts `VisualEditorCanvas` in the workspace; the CodeEditor and Preview remain accessible.
-2. On mobile, the visual editor is reachable (a Visual pane/entry) and supports touch drag/select via the Phase 18 pointer-events migration.
-3. Edits in the visual editor sync to the code editor (VIS-03) and the live preview updates.
-4. Desktop + mobile non-regression; existing tests stay green.
-
-## Phase 20: Mobile QA & 0.6.0 Release
-
-**Goal:** Validate the full mobile experience end-to-end (real-browser + real-device) and prepare MermaidStudio **0.6.0** (version bump DEFERRED to user, post-100%-UAT).
-**Status:** Complete ✅ (2/2 plans complete)
-**Depends on:** Phase 19
-**Requirements:** QA-01 (viable E2E / UAT checklist), REL-01 (0.6.0 release CHANGELOG; bump DEFERRED)
-**Plans:** 2/2 plans complete
-
-Plans:
-
-**Wave 1** *(parallel — zero file overlap between plans)*
-
-- [x] [20-01-PLAN.md](./phases/20-mobile-qa-&-0.6.0-release/20-01-PLAN.md) — Viable E2E: dev-only `scripts/dev-e2e.mjs` (node-direct Vite launch) + `playwright.config.ts` reuseExistingServer + prove a mobile spec runs (QA-01) ✅ **Complete**
-- [x] [20-02-PLAN.md](./phases/20-mobile-qa-&-0.6.0-release/20-02-PLAN.md) — UAT checklist (`.planning/v1.2-UAT-CHECKLIST.md`) + `CHANGELOG.md` 0.6.0 (unreleased); version bump DEFERRED (QA-01, REL-01) ✅ **Complete**
-
-**Success Criteria:**
-
-1. The Playwright E2E suite runs successfully in the dev environment (resolve the node-PATH + HTTPS self-signed-cert constraints — e.g. a dev-server launch script that runs Vite via `node` directly, or `reuseExistingServer` wired to such a server) OR a documented manual UAT checklist covers every mobile flow.
-2. Real-device validation confirmed: bottom nav, Files/AI/Colors/Advanced drawers (mutual exclusion), Code/Preview toggle (scroll preserved), visual-editor touch + pinch-zoom, safe-area on notched hardware.
-3. Version bumped **0.5.1 → 0.6.0** (`package.json` + `CHANGELOG`) with release notes calling out the mobile UI integration; `v0.6.0` tag.
-4. v1.1 + v1.2 milestones 100% validated.
-
-## v1.2 Planning Notes (for /gsd-plan-phase)
-
-- **Phase 19 is integration work, NOT new features** — `VisualEditorCanvas` already exists (Phase 18 made it touch-ready); it only needs to be mounted. Research the current `WorkspacePanel` view-switching (Code/Preview/Visual toggle) and how the visual editor was historically reached before planning.
-- **VIS-01/02 (AI in visual editor) are explicitly deferred** to a future AI-integration milestone — do not pull them into v1.2.
-- **Phase 20 must NOT bump the version until validation is 100%** — 0.6.0 is the release marker; it ships only when the whole mobile experience (v1.1 + v1.2) is fully validated, including real-device checks.
+*Roadmap created: 2026-09-12 — milestone v1.3 "Migration Mermaid 12" (phases continue from v1.2's Phase 20)*

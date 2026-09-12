@@ -256,18 +256,38 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MTCH-02 | Phase 18 | Complete |
 | MTCH-03 | Phase 18 | Complete |
 
-**v1.3 (Migration Mermaid 12) — Phases 21+:**
+**v1.3 (Migration Mermaid 12) — Phases 21-24:**
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UPG-01..UPG-06, PIPE-01..PIPE-04, THM-01..THM-04, DIA-01..DIA-04, VAL-01..VAL-03 | — | Mapped during roadmap creation |
+| UPG-01 | Phase 21 | Pending |
+| UPG-02 | Phase 21 | Pending |
+| UPG-03 | Phase 21 | Pending |
+| UPG-04 | Phase 21 | Pending |
+| UPG-05 | Phase 21 | Pending |
+| UPG-06 | Phase 21 | Pending |
+| PIPE-01 | Phase 21 | Pending |
+| PIPE-02 | Phase 22 | Pending |
+| PIPE-03 | Phase 22 | Pending |
+| PIPE-04 | Phase 22 | Pending |
+| THM-01 | Phase 23 | Pending |
+| THM-02 | Phase 23 | Pending |
+| THM-03 | Phase 23 | Pending |
+| THM-04 | Phase 23 | Pending |
+| DIA-01 | Phase 24 | Pending |
+| DIA-02 | Phase 24 | Pending |
+| DIA-03 | Phase 24 | Pending |
+| DIA-04 | Phase 24 | Pending |
+| VAL-01 | Phase 24 | Pending |
+| VAL-02 | Phase 24 | Pending |
+| VAL-03 | Phase 24 | Pending |
 
 **Coverage:**
 
 - v1 requirements: 36 total — Mapped to phases: 36 (100%), Unmapped: 0 ✓
 - v1.1 requirements: 18 total — Mapped to phases: 18 (100%), Unmapped: 0 ✓
-- v1.3 requirements: 21 total — Mapping in progress (roadmap creation)
+- v1.3 requirements: 21 total — Mapped to phases: 21 (100%), Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-22*
-*Last updated: 2026-09-12 after v1.3 milestone requirements definition*
+*Last updated: 2026-09-12 — v1.3 traceability mapped to Phases 21-24 (21/21 requirements)*
