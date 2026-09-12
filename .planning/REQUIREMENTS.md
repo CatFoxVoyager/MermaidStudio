@@ -102,6 +102,46 @@ Requirements for mobile responsive design milestone. Each maps to roadmap phases
 
 - [x] **MAI-01**: AI assistant panel is accessible on mobile via a drawer (bottom nav "AI" entry), reusing the existing AIPanel
 
+## v1.3 Requirements
+
+Requirements for the mermaid 12 migration milestone. Each maps to roadmap phases (21+). Category prefixes avoid collision with earlier milestone IDs (AI/GEN/PROV/UX/VIS/ADV/SEC, MFDN...MAI). Scope locked 2026-09-12: `@mermaid-js/layout-elk` is **removed**, not bumped (mermaid 12 bundles + auto-registers ELK; keeping ^1.0.0 would ship ELK twice, ~+500 kB gz — recorded deviation from the original "^0.2.3 → ^1.x" milestone letter).
+
+### Upgrade & Compatibility
+
+- [ ] **UPG-01**: mermaid upgraded from ^11.17.2 to exact pinned 12.0.0 (no floating range — no 12.0.x point releases exist yet) with lockfile update and production build green
+- [ ] **UPG-02**: Legacy defaults pinned in `doInit()` — `layout: 'dagre'` and `look: 'classic'` (theme already explicit) — neutralizing mermaid 12's two silent default flips (ELK layout for 7 types, redux-color/neo for 10 types); harmless under v11, so revert-safe at any point
+- [ ] **UPG-03**: `@mermaid-js/layout-elk` removed — package dropped and `registerLayoutLoaders` call deleted from `core.ts`; ELK arrives bundled and auto-registered in mermaid 12
+- [ ] **UPG-04**: `vite.config.ts` manualChunks reworked — dead `mermaid-elk` chunk branch removed, ELK verified to arrive inside mermaid's lazy chunk; package-specifier imports only (never `dist/mermaid.esm.min.mjs`)
+- [ ] **UPG-05**: CI Node matrix drops Node 20 (mermaid 12 engines: node >=22.12); matrix covers 22.12+ and 24
+- [ ] **UPG-06**: ExportModal CDN embed snippet bumps `mermaid@11` → `mermaid@12` with a regenerated SRI hash (a stale hash silently breaks every copied embed)
+
+### SVG Pipeline Verification
+
+- [ ] **PIPE-01**: v11 structural golden fixtures captured BEFORE the upgrade (`.edgePaths path.flowchart-link`, `g.edgeLabels` 1:1 index correlation, `flowchart-{ID}-{N}` node ids, marker id substrings, `rect.background`, `.root` ordering) then verified against v12 output — 0 selector matches = test failure
+- [ ] **PIPE-02**: `postProcessDiagramSvg` test suite (static + rendered preview/export parity) green on v12
+- [ ] **PIPE-03**: Pixel-sensitive snapshots re-baselined (mermaid 12's 1px `intersectPolygon` fix shifts dagre output too)
+- [ ] **PIPE-04**: Error-path contracts verified on v12: reported line numbers vs the app's manual frontmatter offset (adjust or remove the offset if double-counting is confirmed) and temp-element cleanup behavior (manual `remove()` obsolete-but-harmless or dropped)
+
+### Themes & Configuration
+
+- [ ] **THM-01**: Theme x diagram-type x dark/light snapshot matrix passes on v12
+- [ ] **THM-02**: `themeDerivation.ts` re-derived against v12's `theme-base.js` (variable names survive; formulas unverified upstream)
+- [ ] **THM-03**: Frontmatter round-trip intact on v12: `@theme` extraction, config precedence (frontmatter > `initialize()` > per-type default > global default), `@{...}` syntax parsing
+- [ ] **THM-04**: Layout selector still switches dagre / elk / elk.stress under bundled ELK; `elk.stress` resolves or degrades safely (never crashes)
+
+### Diagram Types & Syntax
+
+- [ ] **DIA-01**: All 20+ supported diagram types render correctly on v12 (visual spot-check sweep)
+- [ ] **DIA-02**: Visual editor fail-safe: `@{...}` syntax detected -> read-only mode; the regex-based parser never corrupts a diagram using new v12 syntax
+- [ ] **DIA-03**: Additive `usecaseDiagram` support: `detectDiagramType`, autocomplete, template, `usecase*` theme variables
+- [ ] **DIA-04**: Autocomplete coverage for gaps inherited from 11.x: railroad, cynefin, swimlane, new shapes, `@{ view: collapsed }`
+
+### Platform & Validation
+
+- [ ] **VAL-01**: Full unit suite (`vitest run`), lint, type-check, and production build green on mermaid 12
+- [ ] **VAL-02**: Browser floor verified: `build.target` >= ES2024, webkit E2E ~ Safari 17.4+; behavior on iOS <= 17.3 documented (early-adopter note: mermaid 12.0.0 is 2 days old, zero community post-mortems)
+- [ ] **VAL-03**: Revert path documented (11.17.2 + 0.2.3 = known-good pair) and 12.0.x point releases tracked during the milestone
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -126,6 +166,13 @@ Deferred to future release. Tracked but not in current roadmap.
 - **MOB-FUT-03**: PWA / offline service worker for full offline support
 - **MOB-FUT-04**: Advanced gesture-based diagram navigation (two-finger pan, advanced pinch)
 
+### Mermaid 12 Follow-ups (Deferred from v1.3)
+
+- **FR-01**: `redux-color`/`neo` as an opt-in "modern look" (requires palette-cycling support in the theme derivation engine)
+- **FR-02**: ELK as default layout / layout-picker expansion (conflicts with v1.3's zero-regression goal; full pipeline re-verification needed)
+- **FR-03**: Dynamic `import('mermaid')` for graceful degradation on pre-ES2024 browsers (capability check vs app-shell breakage — open product decision)
+- **FR-04**: `agentflow` diagram type support (detection + autocomplete + templates)
+
 ## Out of Scope
 
 Explicitly excluded. Documented to prevent scope creep.
@@ -140,6 +187,10 @@ Explicitly excluded. Documented to prevent scope creep.
 | Real-time AI collaboration | Async AI only, multi-user state sync too complex |
 | Diagram-to-text summarization | Diagrams are visual for reason, reverse is anti-feature |
 | Custom diagram types | Mermaid-only focus, not creating new syntax |
+| 0.6.0 release (version bump + v0.6.0 tag) | User-owned post-UAT action, tracked in `CHANGELOG.md` |
+| TypeScript 7 / Vitest 5 / jsdom 30 | Strict scope: mermaid 12 is the only major bump in v1.3 |
+| Adopting mermaid 12's new defaults (ELK layout, redux-color/neo) | Contradicts the zero-regression goal; both are Future items (FR-01/FR-02) |
+| Bump to 12.0.x during the milestone | No point releases exist yet (12.0.0 published 2026-09-10); VAL-03 tracks them for a fast-follow |
 
 ## Traceability
 
@@ -205,11 +256,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MTCH-02 | Phase 18 | Complete |
 | MTCH-03 | Phase 18 | Complete |
 
+**v1.3 (Migration Mermaid 12) — Phases 21+:**
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| UPG-01..UPG-06, PIPE-01..PIPE-04, THM-01..THM-04, DIA-01..DIA-04, VAL-01..VAL-03 | — | Mapped during roadmap creation |
+
 **Coverage:**
 
 - v1 requirements: 36 total — Mapped to phases: 36 (100%), Unmapped: 0 ✓
 - v1.1 requirements: 18 total — Mapped to phases: 18 (100%), Unmapped: 0 ✓
+- v1.3 requirements: 21 total — Mapping in progress (roadmap creation)
 
 ---
 *Requirements defined: 2026-03-22*
-*Last updated: 2026-03-22 after roadmap creation*
+*Last updated: 2026-09-12 after v1.3 milestone requirements definition*
