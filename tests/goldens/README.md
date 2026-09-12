@@ -49,6 +49,11 @@ node -p "require('./node_modules/mermaid/package.json').version"
 | `marker` ids | flowchart | `{safeId}_flowchart-v2-{pointStart\|pointEnd\|circleStart\|circleEnd\|crossStart\|crossEnd}` plus `-margin` variants; styled edges additionally get a per-stroke clone `{safeId}_flowchart-v2-pointEnd__333333` (mermaid appends `__{hex-without-#}` per edge stroke color) |
 | `.edgePaths path[@marker-end]` | flowchart | all 3 → `url(#…flowchart-v2-pointEnd__333333)`; every reference resolves to an existing `marker` id; observed id-family substring: **`pointEnd`** |
 | `.root` children | flowchart | observed order: `g.clusters`, `g.edgePaths`, `g.edgeLabels`, `g.nodes` — order recorded but **NOT asserted** (the pipeline reorder at `svgPostProcessing.ts:411-420` exists to change it); asserted: classes cover `nodes`, `edgePaths` (or `edges`), `edgeLabels` |
+| `.messageLine0` | sequence | **1** (the solid message, `A->>B`) |
+| `.messageLine1` | sequence | **1** (the dashed message, `B-->>A`) |
+| `.messageLine0/1[@marker-end]` | sequence | both → `url(#golden_seq-arrowhead)`; every reference resolves to an existing `marker` id; observed id-family substring: **`arrowhead`** |
+| `marker` ids | sequence | `{safeId}-arrowhead`, `-crosshead`, `-filled-head`, `-sequencenumber`, `-solidTopArrowHead`, `-solidBottomArrowHead`, `-stickTopArrowHead`, `-stickBottomArrowHead` |
+| `.messageText` | sequence | **2** (one per message) |
 
 ## rect.background finding (flagged for Phase 22)
 

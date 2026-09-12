@@ -25,6 +25,12 @@ const FLOWCHART = `flowchart TD
   B -->|fix| A
 linkStyle default stroke:#333333,fill:#ffffff,fill-opacity:1`;
 
+const SEQUENCE = `sequenceDiagram
+  participant A as Client
+  participant B as Server
+  A->>B: Request
+  B-->>A: Response`;
+
 /**
  * Render through the app's single mermaid entrypoint and parse the raw
  * post-sanitize output (PRE-postProcessDiagramSvg — that is the mermaid-emitted
@@ -107,4 +113,44 @@ describe('v11 structural goldens — flowchart (PIPE-01)', { timeout: 30000 }, (
   // future version starting to emit it is benign for the pipeline (its first
   // selector starts matching) and must not false-fail this gate. Flagged for
   // Phase 22.
+});
+
+describe('v11 structural goldens — sequence (PIPE-01)', { timeout: 30000 }, () => {
+  it('emits exactly one messageLine0 (solid) and one messageLine1 (dashed) per message pair (observed v11.17.2)', async () => {
+    const doc = await renderFixture(SEQUENCE, 'golden_seq');
+    // v11.17.2 observed: 1 each — the solid and the dashed message. The
+    // pipeline's color-sync loop at svgPostProcessing.ts:460 iterates these
+    // classes (selector '.edgePaths path, .messageLine0, .messageLine1,
+    // .messageLine').
+    expect(doc.querySelectorAll('.messageLine0').length).toBe(1);
+    expect(doc.querySelectorAll('.messageLine1').length).toBe(1);
+  });
+
+  it('resolves every messageLine marker-end to an existing marker (observed v11 family: arrowhead)', async () => {
+    const doc = await renderFixture(SEQUENCE, 'golden_seq_markers');
+    const markerIds = Array.from(doc.querySelectorAll('marker')).map(m => m.id);
+    expect(markerIds.length).toBeGreaterThan(0);
+    doc.querySelectorAll('.messageLine0, .messageLine1, .messageLine').forEach(line => {
+      const ref = line.getAttribute('marker-end')?.match(/url\(#([^)]+)\)/)?.[1];
+      expect(ref).toBeDefined();
+      expect(markerIds).toContain(ref!);
+      // Observed v11.17.2 marker-id family for sequence messages: the
+      // arrowhead family ({safeId}-arrowhead; defs also carry -crosshead,
+      // -filled-head, -sequencenumber and solid/stick arrowheads — all
+      // recorded in tests/goldens/README.md). Referenced family: arrowhead.
+      expect(ref!).toContain('arrowhead');
+    });
+  });
+
+  it('emits one .messageText per message (observed v11.17.2: 2)', async () => {
+    const doc = await renderFixture(SEQUENCE, 'golden_seq_texts');
+    // v11.17.2 observed: 2 (one per message: Request, Response).
+    expect(doc.querySelectorAll('.messageText').length).toBe(2);
+  });
+
+  // rect.background probe (carried over from the flowchart fixture per the
+  // Task 1 capture protocol): observed 0 under v11.17.2 for sequence output
+  // too. The family is documented in tests/goldens/README.md as
+  // not-emitted-under-v11 and is deliberately NOT asserted as a 0 count —
+  // finding flagged for Phase 22.
 });
