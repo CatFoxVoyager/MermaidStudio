@@ -1,6 +1,69 @@
 /**
  * SVG post-processing utilities for fixing Mermaid rendering issues.
  */
+import { parseDiagram, type ParsedDiagram } from '@/lib/mermaid/codeUtils';
+
+/** Subset of ParsedDiagram needed to drive the post-processing pipeline. */
+export type ParsedDiagramStyles = Pick<ParsedDiagram, 'styles' | 'linkStyles' | 'edges'>;
+
+/**
+ * Shared post-processing pipeline applied to rendered diagrams by the preview
+ * and the SVG/PNG exports. Keeping a single pipeline guarantees exports match
+ * what the user sees in the preview.
+ *
+ * In particular, the style panel persists `fill`/`fill-opacity` (edge label
+ * background) into `linkStyle` directives, but Mermaid misapplies that fill to
+ * the open edge paths — filled open paths render as large white polygons
+ * (especially visible with curve: stepAfter). applyEdgeFontStyles' final
+ * cleanup neutralizes the path fill; it must never be skipped.
+ *
+ * `parsed` must be the parse of the CURRENT diagram content: callers pass
+ * their existing (or memoized) parse instead of this function re-parsing raw
+ * source on every call.
+ */
+export function postProcessDiagramSvg(svg: string, parsed: ParsedDiagramStyles): string {
+  // Extract font-related node styles (font-related subset of node styles)
+  const nodeFontStyles = new Map<string, { fontSize?: string; fontWeight?: string; color?: string }>();
+  parsed.styles.forEach((style, nodeId) => {
+    const fontStyle: { fontSize?: string; fontWeight?: string; color?: string } = {};
+    if (style.fontSize) fontStyle.fontSize = style.fontSize;
+    if (style.fontWeight) fontStyle.fontWeight = style.fontWeight;
+    if (style.color) fontStyle.color = style.color;
+    if (Object.keys(fontStyle).length > 0) {
+      nodeFontStyles.set(nodeId, fontStyle);
+    }
+  });
+
+  const doc = parseSvgDocument(svg, true);
+  if (!doc) return svg;
+
+  fixDiagramLabelsInDoc(doc, svg);
+  applyEdgeFontStylesInDoc(doc, parsed.linkStyles, parsed.edges);
+  if (nodeFontStyles.size > 0) {
+    applyNodeFontStylesInDoc(doc, nodeFontStyles);
+  }
+
+  return new XMLSerializer().serializeToString(doc.documentElement);
+}
+
+/**
+ * Parse an SVG string into a Document. Mermaid's foreignObject may contain
+ * unclosed HTML void elements (<br>, <hr>, etc.) that fail XML parsing; with
+ * `allowHtmlFallback`, fall back to the forgiving HTML parser to normalize.
+ * Returns null if the result contains no <svg> element.
+ */
+function parseSvgDocument(svgString: string, allowHtmlFallback: boolean): Document | null {
+  const parser = new DOMParser();
+  let doc = parser.parseFromString(svgString, 'image/svg+xml');
+  if (allowHtmlFallback && doc.querySelector('parsererror')) {
+    const htmlDoc = parser.parseFromString(svgString, 'text/html');
+    const svgEl = htmlDoc.querySelector('svg');
+    if (svgEl) {
+      doc = parser.parseFromString(new XMLSerializer().serializeToString(svgEl), 'image/svg+xml');
+    }
+  }
+  return doc.querySelector('svg') ? doc : null;
+}
 
 /**
  * Resize background rect and center text within it.
@@ -108,9 +171,6 @@ function addSankeyGradients(doc: Document, svg: SVGSVGElement): boolean {
   return true;
 }
 
-/**
- * Center node label text and resize node shape to fit.
- */
 /**
  * Center node label text and resize node shape to fit.
  */
@@ -245,23 +305,22 @@ function fixNodeLabels(doc: Document, svg: SVGSVGElement, fontFamily: string): b
  * Also reorders SVG elements to ensure proper z-index layering.
  */
 export function fixDiagramLabels(svgString: string): string {
-  const parser = new DOMParser();
-  let doc = parser.parseFromString(svgString, 'image/svg+xml');
+  const doc = parseSvgDocument(svgString, true);
+  if (!doc) return svgString;
+  if (!fixDiagramLabelsInDoc(doc, svgString)) return svgString;
+  return new XMLSerializer().serializeToString(doc.documentElement);
+}
 
-  // Mermaid's foreignObject may contain unclosed HTML void elements (<br>, <hr>, etc.)
-  // that cause XML parsing to fail. Fall back to the forgiving HTML parser to normalize.
-  if (doc.querySelector('parsererror')) {
-    const htmlDoc = parser.parseFromString(svgString, 'text/html');
-    const svgEl = htmlDoc.querySelector('svg');
-    if (svgEl) {
-      svgString = new XMLSerializer().serializeToString(svgEl);
-      doc = parser.parseFromString(svgString, 'image/svg+xml');
-    }
-  }
+/**
+ * In-document variant of fixDiagramLabels. Mutates `doc` in place and returns
+ * whether anything changed. `source` is the SVG source the document was parsed
+ * from (kept for the substring-based diagram-type detection below).
+ */
+function fixDiagramLabelsInDoc(doc: Document, source: string): boolean {
   let changed = false;
 
   const svg = doc.querySelector('svg');
-  if (!svg) return svgString;
+  if (!svg) return false;
 
   // Extract font family from SVG to use for measurements
   const svgStyle = svg.getAttribute('style') || '';
@@ -270,21 +329,17 @@ export function fixDiagramLabels(svgString: string): string {
 
   // Check diagram type
   const roleDescription = svg.getAttribute('aria-roledescription');
-  const isSankey = roleDescription === 'sankey' || svgString.includes('sankey');
+  const isSankey = roleDescription === 'sankey' || source.includes('sankey');
   const isFlowchart =
     roleDescription === 'flowchart' ||
     roleDescription === 'flowchart-v2' ||
-    svgString.includes('flowchart') ||
+    source.includes('flowchart') ||
     svg.querySelector('.flowchart') !== null ||
     (svg.querySelector('.node') !== null && svg.querySelector('.edgePath') !== null);
 
-  // Add missing gradients for Sankey diagrams
+  // Add missing gradients for Sankey diagrams (skips all other fixes)
   if (isSankey) {
-    changed = addSankeyGradients(doc, svg) || changed;
-    if (changed) {
-      return new XMLSerializer().serializeToString(doc.documentElement);
-    }
-    return svgString;
+    return addSankeyGradients(doc, svg);
   }
 
   // Apply node label fixes
@@ -436,8 +491,7 @@ export function fixDiagramLabels(svgString: string): string {
     }
   });
 
-  if (!changed) return svgString;
-  return new XMLSerializer().serializeToString(doc.documentElement);
+  return changed;
 }
 
 /**
@@ -580,10 +634,23 @@ export function applyEdgeFontStyles(
   linkStyles: Map<number | 'default', { fontSize?: string; fontWeight?: string; stroke?: string; fill?: string; fillOpacity?: string }>,
   parsedEdges?: Array<{ source: string; target: string; label?: string }>,
 ): string {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(svgString, 'image/svg+xml');
+  const doc = parseSvgDocument(svgString, false);
+  if (!doc) return svgString;
+  applyEdgeFontStylesInDoc(doc, linkStyles, parsedEdges);
+  return new XMLSerializer().serializeToString(doc.documentElement);
+}
+
+/**
+ * Document-level variant of {@link applyEdgeFontStyles} used by the shared
+ * pipeline (parses once, mutates the Document in place).
+ */
+function applyEdgeFontStylesInDoc(
+  doc: Document,
+  linkStyles: Map<number | 'default', { fontSize?: string; fontWeight?: string; stroke?: string; fill?: string; fillOpacity?: string }>,
+  parsedEdges?: Array<{ source: string; target: string; label?: string }>,
+): void {
   const svg = doc.querySelector('svg');
-  if (!svg) return svgString;
+  if (!svg) return;
 
   const edgeLabelsContainer = doc.querySelector('g.edgeLabels');
   // Include sequence diagram message lines (line elements) in addition to flowchart paths
@@ -815,7 +882,6 @@ export function applyEdgeFontStyles(
     }
   });
 
-  return new XMLSerializer().serializeToString(doc.documentElement);
 }
 
 /**
@@ -827,11 +893,22 @@ export function applyNodeFontStyles(
   nodeStyles: Map<string, { fontSize?: string; fontWeight?: string; color?: string }>
 ): string {
   if (nodeStyles.size === 0) return svgString;
+  const doc = parseSvgDocument(svgString, false);
+  if (!doc) return svgString;
+  applyNodeFontStylesInDoc(doc, nodeStyles);
+  return new XMLSerializer().serializeToString(doc.documentElement);
+}
 
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(svgString, 'image/svg+xml');
+/**
+ * Document-level variant of {@link applyNodeFontStyles} used by the shared
+ * pipeline (the caller skips the call when nodeStyles is empty).
+ */
+function applyNodeFontStylesInDoc(
+  doc: Document,
+  nodeStyles: Map<string, { fontSize?: string; fontWeight?: string; color?: string }>
+): void {
   const svg = doc.querySelector('svg');
-  if (!svg) return svgString;
+  if (!svg) return;
 
   // Get all nodes in the SVG
   const nodes = Array.from(doc.querySelectorAll('.node'));
@@ -911,6 +988,4 @@ export function applyNodeFontStyles(
       });
     });
   }
-
-  return new XMLSerializer().serializeToString(doc.documentElement);
 }

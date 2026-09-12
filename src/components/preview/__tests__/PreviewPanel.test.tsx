@@ -41,6 +41,7 @@ vi.mock('@/lib/mermaid/core', () => ({
 // Mock sanitization
 vi.mock('@/utils/sanitization', () => ({
   sanitizeSVG: vi.fn((svg: string) => svg),
+  sanitizeCssValue: vi.fn((v: string) => v),
 }));
 
 // Mock codeUtils

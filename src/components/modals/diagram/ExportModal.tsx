@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Image as ImageIcon, FileText, Code, Share2, Check, Braces, X, Download, Circle } from 'lucide-react';
 import { SUPPORTED_GOOGLE_FONTS, findGoogleFont } from '@/constants/fonts';
-import { fixDiagramLabels } from '@/utils/svgPostProcessing';
+import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import { renderDiagram } from '@/lib/mermaid/core';
-import { parseFrontmatter } from '@/lib/mermaid/codeUtils';
+import { parseFrontmatter, parseDiagram } from '@/lib/mermaid/codeUtils';
+import { sanitizeCssValue } from '@/utils/sanitization';
 
 /** Extract font family from diagram frontmatter config */
 function extractFontFamilyFromContent(content: string): string | null {
@@ -107,6 +108,8 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
   const { t } = useTranslation();
   const [done, setDone] = useState<string | null>(null);
   const [transparentBg, setTransparentBg] = useState(false);
+  // Same parse as the preview, passed to the shared post-processing pipeline.
+  const parsedDiagram = useMemo(() => parseDiagram(diagramContent), [diagramContent]);
 
   function markDone(id: string) {
     setDone(id);
@@ -116,35 +119,44 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
   async function getSvgString(): Promise<string | null> {
     const { svg, error } = await renderDiagram(diagramContent, `export_${Date.now()}`);
     if (error || !svg) return null;
-    // Fix all label centering and add missing gradients for Sankey diagrams
-    return fixDiagramLabels(svg);
+    // Same post-processing as the preview (label fixes + edge style cleanup),
+    // so exports match what the user sees — e.g. linkStyle fill must not be
+    // applied to edge paths (white polygons with curve: stepAfter).
+    return postProcessDiagramSvg(svg, parsedDiagram);
   }
 
   async function exportSvg() {
-    const svgStr = await getSvgString();
-    if (!svgStr) return;
+    try {
+      const svgStr = await getSvgString();
+      if (!svgStr) return;
 
-    // Embed fonts into the SVG so they display correctly when opened standalone
-    const fontFamily = extractFontFamilyFromContent(diagramContent);
-    const fontCss = await fetchEmbeddedFontCss(fontFamily);
-    
-    let finalSvg = svgStr;
-    const styleParts = [];
-    if (fontCss) styleParts.push(fontCss);
-    if (fontFamily) styleParts.push(`* { font-family: ${fontFamily} !important; }`);
+      // Embed fonts into the SVG so they display correctly when opened standalone.
+      // Escape user-provided font names: this <style> ends up inside the exported
+      // SVG file, where an unescaped `</style>` could inject arbitrary markup.
+      const fontFamily = extractFontFamilyFromContent(diagramContent);
+      const safeFontFamily = fontFamily ? sanitizeCssValue(fontFamily) : null;
+      const fontCss = await fetchEmbeddedFontCss(fontFamily);
 
-    if (styleParts.length > 0) {
-      const styleTag = `<style>${styleParts.join('\n')}</style>`;
-      // Insert the style element right after the opening <svg> tag
-      finalSvg = finalSvg.replace(/(<svg[^>]*>)/, `$1\n${styleTag}`);
+      let finalSvg = svgStr;
+      const styleParts = [];
+      if (fontCss) styleParts.push(fontCss);
+      if (safeFontFamily) styleParts.push(`* { font-family: ${safeFontFamily} !important; }`);
+
+      if (styleParts.length > 0) {
+        const styleTag = `<style>${styleParts.join('\n')}</style>`;
+        // Insert the style element right after the opening <svg> tag
+        finalSvg = finalSvg.replace(/(<svg[^>]*>)/, `$1\n${styleTag}`);
+      }
+
+      const blob = new Blob([finalSvg], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${diagramTitle.replace(/\s+/g, '_')}.svg`; a.click();
+      URL.revokeObjectURL(url);
+      markDone('svg');
+    } catch (err) {
+      console.error('SVG export failed:', err);
     }
-
-    const blob = new Blob([finalSvg], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `${diagramTitle.replace(/\s+/g, '_')}.svg`; a.click();
-    URL.revokeObjectURL(url);
-    markDone('svg');
   }
 
   // Helper to convert oklch color to hex
@@ -208,11 +220,12 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
       // For PNG, we prefer success over custom fonts if it taints the canvas.
       // However, fetchEmbeddedFontCss returns base64 data URIs which SHOULD be safe.
       const fontFamily = extractFontFamilyFromContent(diagramContent);
+      const safeFontFamily = fontFamily ? sanitizeCssValue(fontFamily) : null;
       const fontCss = await fetchEmbeddedFontCss(fontFamily);
-      
+
       const styleParts = [];
       if (fontCss) styleParts.push(fontCss);
-      if (fontFamily) styleParts.push(`* { font-family: ${fontFamily}, sans-serif !important; }`);
+      if (safeFontFamily) styleParts.push(`* { font-family: ${safeFontFamily}, sans-serif !important; }`);
 
       if (styleParts.length > 0) {
         const styleTag = `<style>${styleParts.join('\n')}</style>`;

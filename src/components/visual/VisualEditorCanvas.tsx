@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { renderDiagram } from '@/lib/mermaid/core';
-import { sanitizeSVG } from '@/utils/sanitization';
+import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import {
   parseDiagram, updateNodeStyle, updateNodeLabel, updateNodeShape,
   addNode, removeNode, addEdge, generateNodeId, getNodeStyle, addSubgraph,
@@ -82,6 +82,11 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchPrevDistanceRef = useRef<number | null>(null);
 
+  // Parse once per content change (previously re-parsed on every render, i.e.
+  // on every drag/selection state update). Shared with the render pipeline
+  // below and the node/edge style helpers.
+  const parsed = useMemo(() => parseDiagram(content), [content]);
+
   const render = useCallback(async () => {
     const id = ++renderIdRef.current;
     setLoading(true);
@@ -90,8 +95,9 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     setLoading(false);
     if (e) { setError(e); return; }
     setError(null);
-    setSvg(s);
-  }, [content, themeId]);
+    // Same pipeline as the preview and exports so the visual editor matches.
+    setSvg(postProcessDiagramSvg(s, parsed));
+  }, [content, themeId, parsed]);
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
@@ -150,8 +156,6 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
       resize.disconnect();
     };
   }, [svg]);
-
-  const parsed = parseDiagram(content);
 
   function getVisualNode(id: string): VisualNode | null {
     const node = parsed.nodes.find(n => n.id === id);
@@ -507,10 +511,12 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
           ) : (
             <div className="min-h-full flex items-center justify-center p-8">
               <div className="relative" style={{ transform: `scale(${zoom})`, transformOrigin: 'center top' }}>
+                {/* Safe sink: `svg` was sanitized by renderDiagram (DOMPurify) and
+                    the post-processing pipeline only mutates attributes via DOM APIs. */}
                 <div
                   ref={svgContainerRef}
                   className="mermaid-container"
-                  dangerouslySetInnerHTML={{ __html: sanitizeSVG(svg) }}
+                  dangerouslySetInnerHTML={{ __html: svg }}
                 />
 
                 {overlays.map(overlay => {

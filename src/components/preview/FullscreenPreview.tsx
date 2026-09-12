@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { X, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { renderDiagram } from '@/lib/mermaid/core';
-import { sanitizeSVG } from '@/utils/sanitization';
+import { parseDiagram } from '@/lib/mermaid/codeUtils';
+import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 
 interface Props {
   content: string;
@@ -19,11 +20,15 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
   const lastPos = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Same parse as the preview, passed to the shared post-processing pipeline.
+  const parsedDiagram = useMemo(() => parseDiagram(content), [content]);
+
   useEffect(() => {
     renderDiagram(content, `fullscreen_${Date.now()}`, themeId).then(({ svg: s }) => {
-      if (s) {setSvg(s);}
+      // Same pipeline as the preview and exports so fullscreen matches both.
+      if (s) {setSvg(postProcessDiagramSvg(s, parsedDiagram));}
     });
-  }, [content, themeId]);
+  }, [content, themeId, parsedDiagram]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -98,13 +103,15 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
         onWheel={onWheel}
         style={{ userSelect: 'none' }}>
         <div className="w-full h-full flex items-center justify-center">
+          {/* Safe sink: `svg` was sanitized by renderDiagram (DOMPurify) and
+              the post-processing pipeline only mutates attributes via DOM APIs. */}
           {svg ? (
             <div className="mermaid-container transition-transform duration-75"
               style={{
                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                 transformOrigin: 'center center',
               }}
-              dangerouslySetInnerHTML={{ __html: sanitizeSVG(svg) }} />
+              dangerouslySetInnerHTML={{ __html: svg }} />
           ) : (
             <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
               style={{ borderColor: 'var(--border-strong)', borderTopColor: 'var(--accent)' }} />
