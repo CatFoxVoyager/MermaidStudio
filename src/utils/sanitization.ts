@@ -23,6 +23,16 @@ export function sanitizeSVG(html: string): string {
   });
 }
 
+/**
+ * Neutralize characters that would let a user-provided value break out of a
+ * CSS declaration (`;`, `}`) or of an HTML <style> block (`<`, `>`). Quotes
+ * and commas are preserved so font stacks like `"Segoe UI", sans-serif`
+ * keep working.
+ */
+export function sanitizeCssValue(value: string): string {
+  return value.replace(/[<>{};\\]/g, '').replace(/[\r\n]/g, '');
+}
+
 // Backup import validation constants
 const MAX_BACKUP_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_STRING_FIELD_LENGTH = 10000;

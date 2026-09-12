@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { renderDiagram, detectDiagramType } from '@/lib/mermaid/core';
 import { extractThemeIdFromContent } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
-import { sanitizeSVG } from '@/utils/sanitization';
-import { fixDiagramLabels, applyEdgeFontStyles, applyNodeFontStyles } from '@/utils/svgPostProcessing';
+import { sanitizeCssValue } from '@/utils/sanitization';
+import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, addNode, addEdge, generateNodeId, removeNode, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape, PresetType, PresetColors } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
@@ -388,7 +388,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const [panelLabels, setPanelLabels] = useState<Map<string, string>>(new Map());
   const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(null);
   const [parsedEdges, setParsedEdges] = useState<ParsedEdge[]>([]);
-  const [parsedLinkStyles, setParsedLinkStyles] = useState<Map<number, EdgeStyle>>(new Map());
+  const [parsedLinkStyles, setParsedLinkStyles] = useState<Map<number | 'default', EdgeStyle>>(new Map());
   const [toolMode, setToolMode] = useState<'select' | 'connect'>('select');
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -417,6 +417,10 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // Keep refs in sync without accessing them during render
   useEffect(() => { contentRef.current = content; }, [content]);
   useEffect(() => { toolModeRef.current = toolMode; }, [toolMode]);
+
+  // Parse the diagram once per content change; shared by the preview pipeline,
+  // the style panels, and Copy SVG so every consumer sees the same parse.
+  const parsedDiagram = useMemo(() => parseDiagram(content), [content]);
 
   // Generate node presets based on current theme (syncs with theme changes)
   const nodePresets = useMemo(() => {
@@ -594,14 +598,14 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
 
       // Extract font settings for direct CSS application
       if (themeVars) {
-        fontFamily = themeVars.fontFamily || '';
-        fontSize = themeVars.fontSize || '';
+        fontFamily = sanitizeCssValue(themeVars.fontFamily || '');
+        fontSize = sanitizeCssValue(themeVars.fontSize || '');
 
         // Map Mermaid theme variables to CSS variables
         const cssVars: string[] = [];
         for (const [key, value] of Object.entries(themeVars)) {
           if (typeof value === 'string') {
-            cssVars.push(`  --${key}: ${value};`);
+            cssVars.push(`  --${sanitizeCssValue(key)}: ${sanitizeCssValue(value)};`);
           }
         }
         if (cssVars.length > 0) {
@@ -633,23 +637,14 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     shadowCSS += `g.edgeLabel rect.background, g.edgeLabel rect { fill-opacity: 1 !important; opacity: 1 !important; stroke: none !important; }\n`;
     shadowCSS += `g.edgeLabel .label div, g.edgeLabel .label span { background-color: inherit; opacity: 1 !important; }\n`;
 
-    // Extract font-related node styles for post-processing
-    const nodeFontStyles = new Map<string, { fontSize?: string; fontWeight?: string; color?: string }>();
-    parsedStyles.forEach((style, nodeId) => {
-      const fontStyle: { fontSize?: string; fontWeight?: string; color?: string } = {};
-      if (style.fontSize) fontStyle.fontSize = style.fontSize;
-      if (style.fontWeight) fontStyle.fontWeight = style.fontWeight;
-      if (style.color) fontStyle.color = style.color;
-      if (Object.keys(fontStyle).length > 0) {
-        nodeFontStyles.set(nodeId, fontStyle);
-      }
-    });
+    // Shared post-processing (label fixes + edge style cleanup, incl. neutralizing
+    // the linkStyle fill that Mermaid misapplies to edge paths) — same pipeline as
+    // the exports so PNG/SVG output matches the preview.
+    const processedSvg = postProcessDiagramSvg(svg, parsedDiagram);
 
-    const processedSvg = applyNodeFontStyles(
-      applyEdgeFontStyles(fixDiagramLabels(svg), parsedLinkStyles, parsedEdges),
-      nodeFontStyles
-    );
-
+    // Safe sink: `svg` was sanitized by renderDiagram (DOMPurify) and the
+    // post-processing pipeline only mutates attributes via DOM APIs — it
+    // cannot introduce markup. shadowCSS values are escaped above.
     shadowRoot.innerHTML = `<style>${shadowCSS}</style><div class="mermaid">${processedSvg}</div>`;
     const svgContainer = shadowRoot.querySelector('.mermaid');
 
@@ -687,7 +682,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       }, parsedEdges);
     }
 
-  }, [svg, content, parsedEdges, panelStyles, parsedLinkStyles]);
+  }, [svg, content, parsedDiagram, parsedEdges]);
 
   // Cleanup edge hit targets on unmount
   useEffect(() => {
@@ -788,7 +783,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // Parse diagram and initialize node/label/style data
   useEffect(() => {
     if (!supportsClassDef) return;
-    const parsed = parseDiagram(content);
+    const parsed = parsedDiagram;
     const labels = new Map<string, string>();
     const styles = new Map<string, NodeStyle>();
     const subgraphIds = new Map<string, string | null>();
@@ -804,7 +799,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     setNodeSubgraphIds(subgraphIds);
     setSubgraphList(parsed.subgraphs.map(sg => ({ id: sg.id, label: sg.label })));
     setParsedStyles(parsed.styles);
-  }, [content, supportsClassDef]);
+  }, [parsedDiagram, supportsClassDef]);
 
   // Auto-resync: update panel styles when content changes from code editor
   useEffect(() => {
@@ -812,14 +807,14 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       skipResyncRef.current = false;
       return;
     }
-    const parsed = parseDiagram(content);
+    const parsed = parsedDiagram;
     const updatedStyles = new Map<string, NodeStyle>();
     for (const nodeId of selectedNodeIds) {
       const nodeStyle = getNodeStyle(parsed.styles, parsed.classDefs, parsed.nodeClasses, nodeId);
       updatedStyles.set(nodeId, nodeStyle);
     }
     setPanelStyles(updatedStyles);
-  }, [content, supportsClassDef, selectedNodeIds]);
+  }, [parsedDiagram, supportsClassDef, selectedNodeIds]);
 
   // Node click handler with multi-node selection (shift+click)
   const handleNodeClick = useCallback((e: React.MouseEvent, nodeId: string) => {
@@ -1071,14 +1066,13 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // Shape insertion handler: adds a new node to the diagram
   const handleAddShape = useCallback((shape: NodeShape) => {
     if (!onChange) return;
-    const parsed = parseDiagram(content);
-    const existingIds = parsed.nodes.map(n => n.id);
+    const existingIds = parsedDiagram.nodes.map(n => n.id);
     const id = generateNodeId(existingIds);
     const result = addNode(content, id, 'New Node', shape);
     onChange(result);
     setSelectedNodeIds(new Set([id]));
     setSelectedEdgeIndex(null);
-  }, [onChange, content]);
+  }, [onChange, content, parsedDiagram]);
 
   // Delete selected nodes handler
   const handleDeleteSelected = useCallback(() => {
@@ -1141,7 +1135,9 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
 
   async function copySvg() {
     if (!svg) {return;}
-    await navigator.clipboard.writeText(svg);
+    // Same pipeline as the preview and exports so the clipboard SVG matches
+    // what the user sees (incl. the edge-fill cleanup).
+    await navigator.clipboard.writeText(postProcessDiagramSvg(svg, parsedDiagram));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }

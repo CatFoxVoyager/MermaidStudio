@@ -68,7 +68,7 @@ export interface ParsedDiagram {
   styles: Map<string, NodeStyle>;
   classDefs: Map<string, NodeStyle>;
   nodeClasses: Map<string, string[]>;
-  linkStyles: Map<number, EdgeStyle>;
+  linkStyles: Map<number | 'default', EdgeStyle>;
   subgraphs: ParsedSubgraph[];
 }
 
