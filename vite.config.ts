@@ -98,10 +98,19 @@ export default defineConfig({
             if (id.includes('/react/') || id.includes('/react-dom/')) {
               return 'react-vendor';
             }
-            // Mermaid - split into core, layout and parser
+            // Mermaid - core and parser chunks; mermaid 12 bundles ELK itself and
+            // loads it lazily through its own dynamic import
             if (id.includes('mermaid')) {
-              if (id.includes('@mermaid-js/layout-elk')) return 'mermaid-elk';
               if (id.includes('@mermaid-js/parser')) return 'mermaid-parser';
+              // Mermaid's internal ELK async chunk (dist/chunks/*/elk-*.mjs) and
+              // the elkjs engine package it statically imports
+              // (elkjs/lib/elk.bundled.js, ~1.6 MB min) must keep mermaid's own
+              // dynamic-import boundary: returning undefined here stops the
+              // mermaid-core catch-all from collapsing the ELK code into the
+              // eagerly-loaded mermaid-core chunk.
+              if (/mermaid[/\\]dist[/\\]chunks[/\\].*elk-.+\.mjs(\?|$)/.test(id) || id.includes('elkjs')) {
+                return undefined;
+              }
               return 'mermaid-core';
             }
             // CodeMirror - separate core and features
@@ -139,7 +148,8 @@ export default defineConfig({
     reportCompressedSize: true,
     // 7000: the only chunks over the default 2500 kB limit are ai-webgpu (~6 MB,
     // LAZY — dynamic-imported by WebGPUMLCProvider, not in the initial bundle)
-    // and mermaid-core (~2.9 MB, Mermaid itself — unavoidable). Neither is a real
+    // and mermaid-core (~2.9 MB v11 baseline, Mermaid core — its bundled ELK
+    // loads separately via mermaid's own lazy elk-* chunk). Neither is a real
     // initial-load problem, so raise the limit instead of over-splitting.
     chunkSizeWarningLimit: 7000,
   },
