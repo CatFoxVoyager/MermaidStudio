@@ -33,7 +33,12 @@ v1.3 migrates the rendering engine from mermaid ^11.17.2 to exact-pinned **12.0.
   4. CI passes on Node 22.12+ and 24 only (Node 20 dropped per mermaid 12 engines requirement)
   5. The embed snippet copied from ExportModal references `mermaid@12` with a valid SRI hash and executes in a standalone HTML page
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 21-01-PLAN.md — v11 golden baseline capture + v12 default pins in doInit() (PIPE-01, UPG-02)
+- [ ] 21-02-PLAN.md — atomic mermaid 12.0.0 flip: exact pin, layout-elk removal, chunk rework (UPG-01, UPG-03, UPG-04)
+- [ ] 21-03-PLAN.md — CI Node matrix, CDN embed + SRI, full phase gates (UPG-05, UPG-06)
 
 > **Ordering constraint (PIPE-01):** the golden-fixture capture MUST be the first plan of this phase, executed before the mermaid 12 dependency flip. The default-flip pins (`layout: 'dagre'`, `look: 'classic'`) are harmless under v11, so the upgrade stays revert-safe at every commit.
 
