@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MermaidStudio CDN embed verification — mermaid@12.0.0 + SRI</title>
+</head>
+<body>
+<div class="mermaid">
+flowchart TD
+A --> B
+</div>
+<!-- version tag and integrity hash must be bumped together manually — exact pin, hash valid only for this exact version -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@12.0.0/dist/mermaid.min.js" integrity="sha384-xzghz1GQ5u9HCpVskeDPqMsdogD1yvuMQbEK53+wi+G70+6J1AG0L2cfi9PHjDWI" crossorigin="anonymous"></script>
+<script>mermaid.initialize({ startOnLoad: true });</script>
+</body>
+</html>
