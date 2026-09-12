@@ -109,7 +109,7 @@ Requirements for the mermaid 12 migration milestone. Each maps to roadmap phases
 ### Upgrade & Compatibility
 
 - [ ] **UPG-01**: mermaid upgraded from ^11.17.2 to exact pinned 12.0.0 (no floating range — no 12.0.x point releases exist yet) with lockfile update and production build green
-- [ ] **UPG-02**: Legacy defaults pinned in `doInit()` — `layout: 'dagre'` and `look: 'classic'` (theme already explicit) — neutralizing mermaid 12's two silent default flips (ELK layout for 7 types, redux-color/neo for 10 types); harmless under v11, so revert-safe at any point
+- [x] **UPG-02**: Legacy defaults pinned in `doInit()` — `layout: 'dagre'` and `look: 'classic'` (theme already explicit) — neutralizing mermaid 12's two silent default flips (ELK layout for 7 types, redux-color/neo for 10 types); harmless under v11, so revert-safe at any point
 - [ ] **UPG-03**: `@mermaid-js/layout-elk` removed — package dropped and `registerLayoutLoaders` call deleted from `core.ts`; ELK arrives bundled and auto-registered in mermaid 12
 - [ ] **UPG-04**: `vite.config.ts` manualChunks reworked — dead `mermaid-elk` chunk branch removed, ELK verified to arrive inside mermaid's lazy chunk; package-specifier imports only (never `dist/mermaid.esm.min.mjs`)
 - [ ] **UPG-05**: CI Node matrix drops Node 20 (mermaid 12 engines: node >=22.12); matrix covers 22.12+ and 24
@@ -117,7 +117,7 @@ Requirements for the mermaid 12 migration milestone. Each maps to roadmap phases
 
 ### SVG Pipeline Verification
 
-- [ ] **PIPE-01**: v11 structural golden fixtures captured BEFORE the upgrade (`.edgePaths path.flowchart-link`, `g.edgeLabels` 1:1 index correlation, `flowchart-{ID}-{N}` node ids, marker id substrings, `rect.background`, `.root` ordering) then verified against v12 output — 0 selector matches = test failure
+- [x] **PIPE-01**: v11 structural golden fixtures captured BEFORE the upgrade (`.edgePaths path.flowchart-link`, `g.edgeLabels` 1:1 index correlation, `flowchart-{ID}-{N}` node ids, marker id substrings, `rect.background`, `.root` ordering) then verified against v12 output — 0 selector matches = test failure
 - [ ] **PIPE-02**: `postProcessDiagramSvg` test suite (static + rendered preview/export parity) green on v12
 - [ ] **PIPE-03**: Pixel-sensitive snapshots re-baselined (mermaid 12's 1px `intersectPolygon` fix shifts dagre output too)
 - [ ] **PIPE-04**: Error-path contracts verified on v12: reported line numbers vs the app's manual frontmatter offset (adjust or remove the offset if double-counting is confirmed) and temp-element cleanup behavior (manual `remove()` obsolete-but-harmless or dropped)
@@ -261,12 +261,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | UPG-01 | Phase 21 | Pending |
-| UPG-02 | Phase 21 | Pending |
+| UPG-02 | Phase 21 | Complete |
 | UPG-03 | Phase 21 | Pending |
 | UPG-04 | Phase 21 | Pending |
 | UPG-05 | Phase 21 | Pending |
 | UPG-06 | Phase 21 | Pending |
-| PIPE-01 | Phase 21 | Pending |
+| PIPE-01 | Phase 21 | Complete |
 | PIPE-02 | Phase 22 | Pending |
 | PIPE-03 | Phase 22 | Pending |
 | PIPE-04 | Phase 22 | Pending |

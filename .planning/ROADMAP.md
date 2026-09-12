@@ -35,12 +35,12 @@ v1.3 migrates the rendering engine from mermaid ^11.17.2 to exact-pinned **12.0.
   4. CI passes on Node 22.12+ and 24 only (Node 20 dropped per mermaid 12 engines requirement)
   5. The embed snippet copied from ExportModal references `mermaid@12` with a valid SRI hash and executes in a standalone HTML page
 
-**Plans**: 3 plans
+**Plans**: 1/3 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 21-01-PLAN.md — v11 golden baseline capture + v12 default pins in doInit() (PIPE-01, UPG-02)
+- [x] 21-01-PLAN.md — v11 golden baseline capture + v12 default pins in doInit() (PIPE-01, UPG-02)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -114,7 +114,7 @@ Plans:
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 21. Upgrade & Compatibility | v1.3 | — | Not started | - |
+| 21. Upgrade & Compatibility | v1.3 | 1/3 | In Progress|  |
 | 22. SVG Pipeline Verification | v1.3 | — | Not started | - |
 | 23. Themes, Config & Layout Validation | v1.3 | — | Not started | - |
 | 24. Diagram-Type Sweep & Full Verification | v1.3 | — | Not started | - |

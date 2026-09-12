@@ -3,26 +3,26 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Migration Mermaid 12
 current_phase: 21
-current_phase_name: upgrade-compatibility
+current_phase_name: Upgrade & Compatibility
 status: executing
 stopped_at: ROADMAP.md written (Phases 21-24), STATE.md reset for v1.3, REQUIREMENTS.md traceability updated
-last_updated: "2026-09-12T13:38:48.159Z"
+last_updated: "2026-09-12T14:25:33.957Z"
 last_activity: 2026-09-12
-last_activity_desc: v1.3 roadmap created
-state_head: e3c54b93fca12c1dca64d2c7332aef8e7ba8c078
+last_activity_desc: Phase 21 execution started
+state_head: 72888958b893bb5a4b8797356289255ec59bac37
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
 # STATE: MermaidStudio
 
 **Last Updated:** 2026-09-12
-**Last Session:** 2026-09-12 — v1.3 roadmap created
-**Stopped At:** Roadmap created for milestone v1.3 (Phases 21-24); ready to plan Phase 21
+**Last Session:** 2026-09-12T14:25:20.124Z
+**Stopped At:** Completed 21-01-PLAN.md
 **Current Phase:** 21
 **Progress:** [░░░░░░░░░░] 0%
 
@@ -32,7 +32,7 @@ See: .planning/PROJECT.md (updated 2026-09-12)
 
 **Core Value:** Users prefer MermaidStudio over Mermaid Live Editor because of its polished interface, AI assistance, and better editing experience.
 
-**Current Focus:** Phase 21 — Upgrade & Compatibility (mermaid 11.17.2 → pinned 12.0.0)
+**Current Focus:** Phase 21 — Upgrade & Compatibility
 
 **Key Constraints:**
 
@@ -45,10 +45,10 @@ See: .planning/PROJECT.md (updated 2026-09-12)
 ## Current Position
 
 Milestone: v1.3 Migration Mermaid 12 (Phases 21-24)
-Phase: 21 (upgrade-compatibility) — READY TO EXECUTE
-Plan: — (not yet planned)
+Phase: 21 (Upgrade & Compatibility) — EXECUTING
+Plan: 2 of 3
 Status: Ready to execute
-Last activity: 2026-09-12 — v1.3 roadmap created
+Last activity: 2026-09-12 — Phase 21 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -68,6 +68,11 @@ Progress: [░░░░░░░░░░] 0%
 | 22 | 0 | — | — |
 | 23 | 0 | — | — |
 | 24 | 0 | — | — |
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 21 P21-01 | 14min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -79,6 +84,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent decisions affecti
 - mermaid pinned to exact 12.0.0; 12.0.x bumps deferred until point releases exist (VAL-03 tracks them)
 - PIPE-01 golden fixtures MUST be captured on v11 before the dependency flip lands — first plan of Phase 21
 - Adoption of mermaid 12's new defaults (ELK layout, redux-color/neo) is out of scope — Future items FR-01/FR-02
+- [Phase 21]: PIPE-01 golden baseline captured on v11 before the flip; rect.background family documented as not-emitted (asserting the observed 0 would false-fail a benign future emission) — PIPE-01 golden baseline captured on v11 before the flip; rect.background family documented as not-emitted (asserting the observed 0 would false-fail a benign future emission)
+- [Phase 21]: Capture correctness: every golden expected value observed from a real 11.17.2 render before being asserted; .root order recorded but not asserted — Capture correctness: every golden expected value observed from a real 11.17.2 render before being asserted; .root order recorded but not asserted
 
 ### Roadmap Evolution
 

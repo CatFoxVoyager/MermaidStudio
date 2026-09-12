@@ -73,6 +73,7 @@ Project gotcha: vitest defaults to watch mode — always use `vitest run`. Full 
 |----------|-------------|------------|-------------------|
 | Standalone embed page executes with @12 + SRI | UPG-06 | Requires a real browser + network fetch from jsDelivr | Open the standalone HTML page using the copied embed snippet; confirm the diagram renders and there is no SRI console error |
 | CI matrix runs on 22.12+ / 24 only | UPG-05 | Runs on GitHub runners | CI run shows node 22.x / 24.x matrix jobs, no 20.x |
+| User confirms the documented embed-pin deviation (CONTEXT said "@12"; implemented as exact `@12.0.0` — stricter, SRI-stable) | UPG-06 | User decision confirmation (checker info item, 2026-09-12 revision) | At UAT, show the user the Decision note in 21-03-PLAN.md and the exact-pinned embed snippet; confirm acceptance of the one-word deviation or direct a revert to the floating `@12` tag (which would also require re-pinning the SRI strategy) |
 
 ---
 
