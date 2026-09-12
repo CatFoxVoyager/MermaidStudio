@@ -38,6 +38,8 @@ function doInit(theme: 'dark' | 'light', useBase: boolean, mermaidTheme?: Mermai
   mermaid.initialize({
     startOnLoad: false,
     theme: resolvedMermaidTheme,
+    layout: 'dagre', // v11-default pin — v12 would default 7 diagram types to ELK
+    look: 'classic', // v11-default pin — v12 would default 10 diagram types to redux-color/neo
     darkMode: isDark,
     fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
     fontSize: 14,
