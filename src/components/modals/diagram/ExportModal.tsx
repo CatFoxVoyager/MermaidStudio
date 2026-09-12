@@ -326,7 +326,8 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
     const embed = `<div class="mermaid">
 ${diagramContent}
 </div>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" integrity="sha384-tI0sDqjGJcqrQ8e/XKiQGS+ee11v5knTNWx2goxMBxe4DO9U0uKlfxJtYB9ILZ4j" crossorigin="anonymous"></script>
+<!-- version tag and integrity hash must be bumped together manually — exact pin, hash valid only for this exact version -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@12.0.0/dist/mermaid.min.js" integrity="sha384-xzghz1GQ5u9HCpVskeDPqMsdogD1yvuMQbEK53+wi+G70+6J1AG0L2cfi9PHjDWI" crossorigin="anonymous"></script>
 <script>mermaid.initialize({ startOnLoad: true });</script>`;
     await navigator.clipboard.writeText(embed);
     markDone('embed');
