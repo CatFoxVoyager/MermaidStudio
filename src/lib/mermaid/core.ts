@@ -1,5 +1,4 @@
 import mermaid from 'mermaid';
-import elkLayouts from '@mermaid-js/layout-elk';
 import type { DiagramType } from '@/types';
 import { validateDiagramContent } from '@/utils/validation';
 import { deriveThemeVariables, extractThemeIdFromContent } from '@/constants/themeDerivation';
@@ -13,9 +12,6 @@ let currentTheme: 'dark' | 'light' = 'light';
 let currentMermaidTheme: MermaidBuiltinTheme = 'base';
 let defaultTheme: MermaidTheme | null = null;
 let diagramTheme: MermaidTheme | null = null;
-
-// Register ELK layout loaders once
-mermaid.registerLayoutLoaders(elkLayouts);
 
 function doInit(theme: 'dark' | 'light', useBase: boolean, mermaidTheme?: MermaidBuiltinTheme) {
   const resolvedMermaidTheme =
