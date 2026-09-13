@@ -6,6 +6,7 @@ import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import { renderDiagram } from '@/lib/mermaid/core';
 import { parseFrontmatter, parseDiagram } from '@/lib/mermaid/codeUtils';
 import { sanitizeCssValue } from '@/utils/sanitization';
+import { oklchToHex } from '@/utils/oklch';
 import { buildMermaidEmbedSnippet } from '@/constants/cdnEmbed';
 
 /** Extract font family from diagram frontmatter config */
@@ -160,33 +161,9 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
     }
   }
 
-  // Helper to convert oklch color to hex
-  function oklchToHex(oklchStr: string): string {
-    // Parse oklch string like "oklch(50% 0.1 200)" or "oklch(50% 0.1 200 / 0.5)"
-    const match = oklchStr.match(/oklch\s*\(\s*([\d.]+%?)\s+([\d.]+)\s+([\d.]+)\s*(?:\/\s*([\d.]+))?\s*\)/);
-    if (!match) return '#333333'; // fallback
-
-    const l = parseFloat(match[1].replace('%', '')) / 100;
-    const c = parseFloat(match[2]);
-    const h = parseFloat(match[3]);
-
-    // Simplified oklch to sRGB conversion (approximate)
-    // For better results, use a library like culori
-    const l2 = l + 0.39633777 * c * Math.cos(h * Math.PI / 180) + 0.21580375 * c * Math.sin(h * Math.PI / 180);
-    const m2 = 1.0 + 0.39633777 * c * Math.cos(h * Math.PI / 180) - 0.21580375 * c * Math.sin(h * Math.PI / 180);
-    const m2b = -0.25656905 * c * Math.cos(h * Math.PI / 180) + 0.62204873 * c * Math.sin(h * Math.PI / 180);
-
-    const l3 = l2 + 0.26405402 * m2b;
-    const b = m2 + -0.09511347 * m2b;
-
-    // Simplified gamma correction and RGB conversion
-    const r = Math.min(255, Math.max(0, (l3 + b + 1.0) * 127));
-    const g = Math.min(255, Math.max(0, (l3 - b) * 127 + 64));
-    const b2 = Math.min(255, Math.max(0, (l3 - 2.0 * b) * 127 + 64));
-
-    const toHex = (n: number) => Math.round(n).toString(16).padStart(2, '0');
-    return `#${toHex(r)}${toHex(g)}${toHex(b2)}`;
-  }
+  // oklch→hex conversion lives in src/utils/oklch.ts (spec-correct CSS
+  // Color 4 pipeline with alpha preservation) and is unit-tested in
+  // src/utils/__tests__/oklch.test.ts.
 
   async function exportPng() {
     const svgStr = await getSvgString();
