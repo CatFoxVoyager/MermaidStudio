@@ -377,3 +377,53 @@ flowchart TD
     });
   });
 });
+
+describe('PIPE-04 D8 — frontmatter error lines (mermaid 12 lock)', { timeout: 30000 }, () => {
+  // Exactly 8 lines: frontmatter = lines 1-5 (closing --- on line 5, so the app's
+  // frontmatterEndLine = 5). The syntax error is physically on editor line 8 —
+  // mermaid parses the frontmatter-stripped body, so its raw report is
+  // body-relative line 3, and the offset must produce "line 8 (absolute)".
+  // Fixture matches the 22-RESEARCH.md v12 spike verbatim (spike date 2026-09-13).
+  const FM_ERROR = `---
+config:
+  flowchart:
+    curve: basis
+---
+flowchart TD
+  A[Start] --> B
+  B ---> ]Broken`;
+
+  // The identical body without frontmatter: the error is physically on line 3
+  // and mermaid's raw report already says line 3.
+  const BODY_ONLY = `flowchart TD
+  A[Start] --> B
+  B ---> ]Broken`;
+
+  it('reports the editor line for frontmatter-diagram syntax errors on mermaid 12 (offset kept)', async () => {
+    const { error } = await renderDiagram(FM_ERROR, 'test_fm_line');
+
+    // Anti-vacuous precondition: mermaid itself parsed and failed —
+    // validateDiagramContent must not have rejected the fixture first.
+    expect(error).not.toBeNull();
+    expect(error).toContain('Lexical error');
+
+    // D8 lock (KEEP decision): raw v12 reports body-relative "line 3";
+    // the app offset (frontmatterEndLine = 5) yields the line the user
+    // actually wrote: 3 + 5 = 8.
+    expect(error).toContain('line 8 (absolute)');
+  });
+
+  it('keeps the raw body-relative line for frontmatter-less syntax errors (offset gated on ---)', async () => {
+    const { error } = await renderDiagram(BODY_ONLY, 'test_fmless_line');
+
+    // Anti-vacuous precondition: mermaid actually failed.
+    expect(error).not.toBeNull();
+    expect(error).toContain('Lexical error');
+
+    // The offset logic is gated on content starting with --- and must not
+    // fire without frontmatter: the raw body-relative reference survives
+    // unchanged and never gains the "(absolute)" suffix.
+    expect(error).toContain('line 3');
+    expect(error).not.toContain('(absolute)');
+  });
+});
