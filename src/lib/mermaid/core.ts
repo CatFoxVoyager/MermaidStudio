@@ -161,10 +161,17 @@ export async function renderDiagram(
 
     return { svg, error: null };
   } catch (e) {
-    // Clean up the temporary rendering element that mermaid leaves behind on failure.
-    // Without this, subsequent renders may fail silently after a parse error.
+    // mermaid 12 leaves BOTH the error svg ({safeId}) and its d-prefixed container
+    // div (d{safeId}) in the document after a failed render — its internal
+    // temp-element cleanup runs only on the success path. Render surfaces pass
+    // unique per-render ids (preview_*/export_* + timestamp), so the library's
+    // same-id pre-clean never fires across renders; removing both here closes
+    // the one-error-svg-plus-empty-div-per-failed-render accumulation observed
+    // under v11 and v12 alike (locked by core.test.ts D9/D10 non-remnance tests).
     const el = document.getElementById(safeId);
     if (el) el.remove();
+    const container = document.getElementById(`d${safeId}`);
+    if (container) container.remove();
 
     const originalError = e instanceof Error ? e.message : String(e);
     
