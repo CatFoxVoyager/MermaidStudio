@@ -10,6 +10,11 @@
 // pass: a 0-match IS the failure signal — the finding gets surfaced and Phase 22
 // owns any pipeline selector fix, never an edited baseline.
 //
+// Phase 22 (PIPE-02) extension: a dedicated describe block below ADDS .root
+// order locks (the natural v12 order pre-pipeline, the pipeline-enforced order
+// post-pipeline). No recorded v11 assertion above was edited — the locks sit
+// alongside them.
+//
 // Suite-level rules:
 // - Structural assertions ONLY: selector counts, id patterns, correlation
 //   invariants, marker resolution, group presence. No whole-SVG snapshot
@@ -18,6 +23,8 @@
 // - describe timeout 30000: each real render costs seconds.
 import { describe, it, expect } from 'vitest';
 import { renderDiagram } from '../core';
+import { parseDiagram } from '../codeUtils';
+import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 
 const FLOWCHART = `flowchart TD
   A[Start] -->|yes| B{Check}
@@ -153,4 +160,54 @@ describe('v11 structural goldens — sequence (PIPE-01)', { timeout: 30000 }, ()
   // too. The family is documented in tests/goldens/README.md as
   // not-emitted-under-v11 and is deliberately NOT asserted as a 0 count —
   // finding flagged for Phase 22.
+});
+
+// Cosmetic v12 delta (observed on mermaid 12.0.0, 2026-09-13): edge paths carry
+// the thickness/pattern class prefix DOUBLED — "edge-thickness-normal
+// edge-pattern-solid edge-thickness-normal edge-pattern-solid flowchart-link …".
+// Every pipeline selector (path.flowchart-link, .edgePaths path) still matches;
+// the prefix is deliberately NOT asserted anywhere in this suite — asserting
+// cosmetics manufactures false failures the moment upstream removes the
+// duplication. Recorded in tests/goldens/README.md (v12 re-run outcome).
+describe('v12 .root order lock — natural vs pipeline-enforced (PIPE-02 / D3)', { timeout: 30000 }, () => {
+  it('locks the natural v12 .root child order on raw output (observed 12.0.0: clusters, edgePaths, edgeLabels, nodes)', async () => {
+    const doc = await renderFixture(FLOWCHART, 'golden_flow_root_order');
+    const root = doc.querySelector('.root');
+    // Count-first guard (D2): the four groups the pipeline reorder filters on
+    // must all be present — and be ALL the children — before any order
+    // assertion. A 0-match or an extra group fails loudly here instead of
+    // letting the sequence assertion pass silently on wrong premises.
+    expect(root).not.toBeNull();
+    expect(root!.children.length).toBe(4);
+    const classes = Array.from(root!.children).map(c => c.getAttribute('class') ?? '');
+    // Observed on mermaid 12.0.0 (2026-09-13): identical to the v11 recorded
+    // order (tests/goldens/README.md observed-selector table). This is the
+    // order the pipeline reorder at svgPostProcessing.ts:409-422 exists to
+    // change — locking it here proves the reorder still has real work to do
+    // on v12 (no dead code).
+    expect(classes).toEqual(['clusters', 'edgePaths', 'edgeLabels', 'nodes']);
+  });
+
+  it('locks the pipeline-enforced .root child order post-pipeline (clusters, nodes, edgePaths, edgeLabels — labels painted last)', async () => {
+    // Raw render first (same getBBox swallow as renderFixture) — the raw svg
+    // string is kept so the pipeline receives exactly what real callers pass.
+    const { svg, error } = await renderDiagram(FLOWCHART, 'golden_flow_root_order_pipeline');
+    if (error && !error.includes('getBBox')) {
+      throw new Error(`Unexpected render error: ${error}`);
+    }
+    expect(svg).not.toBe('');
+
+    const processed = postProcessDiagramSvg(svg, parseDiagram(FLOWCHART));
+    const doc = new DOMParser().parseFromString(processed, 'image/svg+xml');
+    const root = doc.querySelector('.root');
+    // Count-first guard (D2): the reorder must not lose or add .root children.
+    expect(root).not.toBeNull();
+    expect(root!.children.length).toBe(4);
+    const classes = Array.from(root!.children).map(c => c.getAttribute('class') ?? '');
+    // svgPostProcessing.ts:409-422 re-appends nodes, then edgePaths, then
+    // edgeLabels; clusters are never moved and stay first. Edge labels end up
+    // painted LAST (on top of the paths) — the enforced order differs from the
+    // natural order locked above, proving the reorder does real work on v12.
+    expect(classes).toEqual(['clusters', 'nodes', 'edgePaths', 'edgeLabels']);
+  });
 });
