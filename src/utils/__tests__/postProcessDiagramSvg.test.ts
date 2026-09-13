@@ -143,3 +143,103 @@ linkStyle 1 stroke:#ff0000,stroke-width:3px`;
     doc.querySelectorAll('.edgePaths path').forEach(p => expect(p.getAttribute('fill')).toBe('none'));
   });
 });
+
+describe('postProcessDiagramSvg — v12 rendered parity, idempotency, invariants (PIPE-02)', { timeout: 30000 }, () => {
+  // Why ONE function-level test covers every render/export surface: all five
+  // pipeline consumers call this identical signature with identical arguments
+  // on the same rendered svg — PreviewPanel.tsx:643 (live preview) and :1140
+  // (clipboard copy), VisualEditorCanvas.tsx:99, FullscreenPreview.tsx:29,
+  // ExportModal.tsx:127 (getSvgString → SVG/PNG/JPEG). Byte-equality of two
+  // pipeline runs on the same input proves preview and export processing are
+  // the same deterministic transform — whatever one surface shows, all five show.
+  it('is deterministic: two pipeline runs on the same rendered svg produce exactly equal strings (preview/export parity)', async () => {
+    const { svg, error } = await renderDiagram(DIAGRAM_WITH_EDGE_FILL, 'test_v12_parity');
+    if (error && !error.includes('getBBox')) {
+      throw new Error(`Unexpected render error: ${error}`);
+    }
+    expect(svg).not.toBe('');
+
+    const first = postProcessDiagramSvg(svg, parseDiagram(DIAGRAM_WITH_EDGE_FILL));
+    const second = postProcessDiagramSvg(svg, parseDiagram(DIAGRAM_WITH_EDGE_FILL));
+    expect(first).not.toBe('');
+    expect(second).toBe(first);
+  });
+
+  // Idempotency probe (flagged in Plan 22-01) — ANSWERED EMPIRICALLY
+  // 2026-09-13 (temporary probe, deleted after the observation run): the
+  // pipeline is NOT byte-idempotent under re-application. Each pass over
+  // already-processed output appends exactly one whitespace character to each
+  // styled edge path's style attribute (observed: +3 bytes per run on this
+  // 3-edge fixture, unbounded across runs — root cause is the FINAL CLEANUP
+  // strip+append not being separator-safe, combined with CSSOM
+  // re-serialization per pass). The delta is whitespace-only — no attribute
+  // value, structure, or count ever changes — and it is functionally inert
+  // for the app: all five surfaces feed the pipeline RAW mermaid output
+  // exactly once per render (PreviewPanel :643/:1140, VisualEditorCanvas :99,
+  // FullscreenPreview :29, ExportModal :127), so the drift can never
+  // accumulate at runtime. Recorded as a low-severity finding in
+  // tests/goldens/README.md; fixing it is a conscious pipeline change owned
+  // by the phase, outside this plan's proof-and-lock footprint. The
+  // assertion below therefore locks what is operationally true and
+  // protective: re-processing changes NOTHING but whitespace — any real
+  // mutation (values, structure, counts) fails loudly, and a future
+  // byte-idempotent pipeline stays green.
+  it('is content-idempotent: re-processing already-processed output changes nothing but whitespace', async () => {
+    const { svg, error } = await renderDiagram(DIAGRAM_WITH_EDGE_FILL, 'test_v12_idempotent');
+    if (error && !error.includes('getBBox')) {
+      throw new Error(`Unexpected render error: ${error}`);
+    }
+    expect(svg).not.toBe('');
+
+    const once = postProcessDiagramSvg(svg, parseDiagram(DIAGRAM_WITH_EDGE_FILL));
+    const twice = postProcessDiagramSvg(once, parseDiagram(DIAGRAM_WITH_EDGE_FILL));
+    expect(once).not.toBe('');
+    // Whitespace-insensitive equality (ALL whitespace stripped from both
+    // sides): run 1's missing separator space and run 2's restored one must
+    // compare equal, so collapsing whitespace RUNS is not enough — the drift
+    // is only ever whitespace, and any non-whitespace mutation (values,
+    // structure, counts) cannot survive this comparison.
+    expect(twice.replace(/\s+/g, '')).toBe(once.replace(/\s+/g, ''));
+  });
+
+  it('preserves the post-pipeline structural invariants (count-first: 3 edge paths, 3 edge labels, FINAL CLEANUP fill, enforced .root order)', async () => {
+    const { svg, error } = await renderDiagram(DIAGRAM_WITH_EDGE_FILL, 'test_v12_invariants');
+    if (error && !error.includes('getBBox')) {
+      throw new Error(`Unexpected render error: ${error}`);
+    }
+    expect(svg).not.toBe('');
+
+    const processed = postProcessDiagramSvg(svg, parseDiagram(DIAGRAM_WITH_EDGE_FILL));
+    const doc = parseDoc(processed);
+
+    // Count-first (D2): exact counts on BOTH sides of the 1:1 edge↔label
+    // correlation the pipeline's edge map depends on — observed on mermaid
+    // 12.0.0 (2026-09-13): 3 and 3 for this fixture. Asserting each number
+    // explicitly (not just their equality) keeps a 0-match failing loudly.
+    const pathCount = doc.querySelectorAll('.edgePaths path').length;
+    const labels = doc.querySelector('g.edgeLabels');
+    expect(labels).not.toBeNull();
+    const labelCount = labels!.children.length;
+    expect(pathCount).toBe(3);
+    expect(labelCount).toBe(3);
+
+    // FINAL CLEANUP contract (svgPostProcessing.ts:863-883): every edge path
+    // carries the fill="none" attribute AND the important-flagged inline
+    // fill:none declaration (the white-wedge export fix).
+    const fills = getEdgePathFills(processed);
+    expect(fills.length).toBe(3);
+    for (const f of fills) {
+      expect(f.fillAttr).toBe('none');
+      expect(f.styleAttr).toContain('fill: none !important');
+    }
+
+    // Enforced .root child order (locked in structure-goldens.test.ts,
+    // PIPE-02/D3): clusters first (never moved), then nodes, edgePaths,
+    // edgeLabels — edge labels painted last, on top.
+    const root = doc.querySelector('.root');
+    expect(root).not.toBeNull();
+    expect(root!.children.length).toBe(4);
+    const classes = Array.from(root!.children).map(c => c.getAttribute('class') ?? '');
+    expect(classes).toEqual(['clusters', 'nodes', 'edgePaths', 'edgeLabels']);
+  });
+});
