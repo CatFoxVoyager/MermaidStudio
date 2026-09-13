@@ -181,8 +181,8 @@ describe('postProcessDiagramSvg — v12 rendered parity, idempotency, invariants
   // tests/goldens/README.md; fixing it is a conscious pipeline change owned
   // by the phase, outside this plan's proof-and-lock footprint. The
   // assertion below therefore locks what is operationally true and
-  // protective: re-processing changes NOTHING but whitespace — any real
-  // mutation (values, structure, counts) fails loudly, and a future
+  // protective: re-processing changes NOTHING but whitespace — value,
+  // structure, and count mutations fail loudly, and a future
   // byte-idempotent pipeline stays green.
   it('is content-idempotent: re-processing already-processed output changes nothing but whitespace', async () => {
     const { svg, error } = await renderDiagram(DIAGRAM_WITH_EDGE_FILL, 'test_v12_idempotent');
@@ -196,9 +196,12 @@ describe('postProcessDiagramSvg — v12 rendered parity, idempotency, invariants
     expect(once).not.toBe('');
     // Whitespace-insensitive equality (ALL whitespace stripped from both
     // sides): run 1's missing separator space and run 2's restored one must
-    // compare equal, so collapsing whitespace RUNS is not enough — the drift
-    // is only ever whitespace, and any non-whitespace mutation (values,
-    // structure, counts) cannot survive this comparison.
+    // compare equal, so collapsing whitespace RUNS is not enough. Known
+    // blind spot (by design): the strip-all comparison also masks
+    // whitespace-only changes inside text-node content — the observed drift
+    // is attribute-internal whitespace and cannot be distinguished from it.
+    // Value, structure, count, and non-whitespace text mutations all fail
+    // loudly.
     expect(twice.replace(/\s+/g, '')).toBe(once.replace(/\s+/g, ''));
   });
 
