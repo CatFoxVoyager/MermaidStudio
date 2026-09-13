@@ -465,8 +465,8 @@ describe('PIPE-04 D9/D10 — temp-element non-remnance (mermaid 12 lock)', { tim
   // The negative control below proves that premise on the installed version;
   // the per-surface tests lock zero residue for the id schemes real callers use.
   //
-  // Surface coverage note: the visual-editor (VisualEditorCanvas.tsx:99) and
-  // fullscreen (FullscreenPreview.tsx:29) surfaces call renderDiagram exactly
+  // Surface coverage note: the visual-editor (VisualEditorCanvas.tsx:93) and
+  // fullscreen (FullscreenPreview.tsx:27) surfaces call renderDiagram exactly
   // like preview/export, so these function-level locks cover all five pipeline
   // call-sites by construction (enumerated in 22-RESEARCH.md Verified
   // Codebase Facts).
@@ -490,7 +490,7 @@ describe('PIPE-04 D9/D10 — temp-element non-remnance (mermaid 12 lock)', { tim
   });
 
   it('preview surface leaves no mermaid temp elements after a failed render', async () => {
-    const id = 'preview_fail_probe'; // mirror PreviewPanel.tsx:643 render surface
+    const id = 'preview_fail_probe'; // mirror PreviewPanel.tsx:532 render surface
     const { error } = await renderDiagram(FM_ERROR, id);
 
     // Anti-vacuous precondition: mermaid actually failed.
