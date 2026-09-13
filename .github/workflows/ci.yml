@@ -231,6 +231,12 @@ jobs:
       - name: Build application
         run: pnpm run build
 
+      # Post-build guard (WR-03): a future mermaid bump that changes mermaid's
+      # internal chunk layout would let ELK silently re-inline ~1.4 MB into the
+      # eager mermaid-core chunk. Red build instead of a silent regression.
+      - name: Verify ELK stays lazy
+        run: pnpm run check:elk
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:

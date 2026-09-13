@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "build:analyze": "vite build",
+    "check:elk": "node scripts/check-elk-chunk.mjs",
     "preview": "vite preview",
     "benchmark": "node scripts/build/benchmark.mjs",
     "test": "vitest",
