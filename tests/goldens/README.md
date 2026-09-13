@@ -244,8 +244,8 @@ flagged for the D7 promotion decision (count this run: **0**).
 | computed-fill-test | computed fill of edge label backgrounds | labelBkg computed `rgba(245, 247, 250, 0.5)`, opacity 1, opaque via CSS | none |
 | verify-css-opacity | edge label background opacity | opacity 1 observed | none |
 | default-edge-label-state | default state (no linkStyle) | default `#F5F7FA` edgeLabel CSS; no rects | none |
-| edge-color-mapping-debug | linkStyle 1 targets the correct edge | **Path 1 `stroke attr: #ff0000`** (correct edge B→C); labels 16px where the spec's console note "expected" 20px | stroke mapping **correct on v12** (the spec's named April bug is absent). The 16px label: investigated — the app's `parseEdgeStyleValue` (`codeUtils.ts`) recognizes kebab-case `font-size` only; the spec's camelCase `fontSize:20px` is dropped by the app's OWN source parser. Version-independent (identical under v11) — **pre-existing app behavior, NOT a v12 delta** |
-| debug-fontsize | linkStyle 0 fontSize:30px reaches label? | `font-size="30px": false`; label computed 16px | investigated — same root cause as above (camelCase dropped app-side, pre-existing, not v12) |
+| edge-color-mapping-debug | linkStyle 1 targets the correct edge | **Path 1 `stroke attr: #ff0000`** (correct edge B→C); labels 16px where the spec's console note "expected" 20px | stroke mapping **correct on v12** (the spec's named April bug is absent). The 16px label: investigated — the style value is **not** lost at parse time: `parseEdgeStyleValue` accepts camelCase (`codeUtils.ts:313`; source comment: "Support both camelCase and kebab-case property names"). It is dropped at **application** time: the edge-label font application (`svgPostProcessing.ts:731-740`) queries `text` elements only, and under `htmlLabels: true` (`core.ts:42`) edge labels are foreignObject-based with no `text` element, so linkStyle font-size/font-weight are silently skipped (recorded as the known-limitation entry below). Version-independent (identical under v11 — the text-only block predates the migration, added bb1ef46 v0.4) — **pre-existing app behavior, NOT a v12 delta** |
+| debug-fontsize | linkStyle 0 fontSize:30px reaches label? | `font-size="30px": false`; label computed 16px | investigated — same root cause as the row above: text-element-only edge-label font application silently skipped under htmlLabels:true (value not lost at parse; see the known-limitation entry below). Pre-existing, version-independent, not v12 |
 | edge-label-centering (2 tests) | vertical centering + SVG structure | centers present; edge paths `fill: "none"` (the spec's own ❌ marker is stale scratch noise — fill:none is the pipeline's CORRECT state) | none |
 | edge-label-real-svg (2 tests) | centering in real SVG + full dump | group/content dimensions match; labelBkg inline structure normal | none |
 | ambiguous-labels-test | same-label edges + linkStyle targeting | 3 edges same label "connect"; node coords sane; linkStyle 1 → B→C | none |
@@ -275,10 +275,12 @@ flagged for the D7 promotion decision (count this run: **0**).
 into a tolerance, retry, or skip-listing; no assertion was promoted or
 weakened. Counts over the 21 pipeline-relevant specs: **18 none-observed, 2
 investigated** (both root-caused to pre-existing, version-independent app
-parser behavior — camelCase linkStyle keys — not v12 deltas), **1
-environment-drift failure** (welcome modal; cross-checked against the green
-structural goldens and sibling specs, not a pipeline regression), **0
-UNEXPLAINED**, **0 unclassified**.
+behavior — the text-element-only edge-label font application
+(`svgPostProcessing.ts:731-740`) silently skipped under `htmlLabels: true`
+(`core.ts:42`); the parser itself accepts camelCase — `codeUtils.ts:313` —
+not v12 deltas), **1 environment-drift failure** (welcome modal; cross-checked
+against the green structural goldens and sibling specs, not a pipeline
+regression), **0 UNEXPLAINED**, **0 unclassified**.
 
 #### D7 status
 
@@ -314,3 +316,34 @@ per render. Locked as whitespace-insensitive equality
 (`test_v12_idempotent` in the pipeline suite); making the cleanup
 separator-safe is a conscious pipeline change, deliberately out of Plan
 22-02's proof-and-lock footprint and surfaced here for phase ownership.
+
+### Known limitation: linkStyle font-size/font-weight silently ignored on edge labels (htmlLabels:true)
+
+Recorded 2026-09-13 by Plan 22-04 (gap closure). Observed on mermaid 12.0.0 on
+2026-09-13 (the PIPE-03 diagnostic run above) and identical under the mermaid
+11.17.2 v11 baseline — path/line provenance below, per this file's convention.
+
+- **Mechanism.** The pipeline's edge-label font application runs only against
+  `text` elements (`svgPostProcessing.ts:731-740`:
+  `label.querySelector('text')`). With the app's `flowchart.htmlLabels: true`
+  config (`core.ts:42`, `doInit()`), edge labels are foreignObject-based
+  (`g.label > foreignObject > …` — no `text` element, per the v11/v12
+  selector tables above), so the block never matches and linkStyle
+  `font-size`/`font-weight` have **no visible effect** — silently skipped,
+  no warning. Observed in this run: the two font-size specs' 20px/30px
+  linkStyle intents never landed; labels computed at the 16px default
+  (rows edge-color-mapping-debug and debug-fontsize in the classification
+  table above). The style value itself survives parsing —
+  `parseEdgeStyleValue` accepts camelCase (`codeUtils.ts:313`) — the drop is
+  at application time only.
+- **Provenance.** Predates the migration: the text-only application block was
+  added in bb1ef46 (v0.4) and `src/utils/svgPostProcessing.ts` was untouched
+  in phases 21-22. **Version-independent, identical under v11 and v12; NOT a
+  v12 delta.**
+- **Disposition.** Consciously **ACCEPTED for v1.3**: fixing it would make
+  linkStyle fonts START applying to edge labels — a deliberate rendering
+  change vs the v11 baseline that contradicts the milestone's
+  zero-regression goal. The fix (foreignObject-aware application) is a
+  pipeline-enhancement candidate surfaced for UAT ratification alongside the
+  idempotency deferral (22-VERIFICATION human item 2). If the user overturns,
+  it becomes a tracked post-milestone item.
