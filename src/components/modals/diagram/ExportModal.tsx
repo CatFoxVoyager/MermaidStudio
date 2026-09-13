@@ -6,6 +6,7 @@ import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import { renderDiagram } from '@/lib/mermaid/core';
 import { parseFrontmatter, parseDiagram } from '@/lib/mermaid/codeUtils';
 import { sanitizeCssValue } from '@/utils/sanitization';
+import { buildMermaidEmbedSnippet } from '@/constants/cdnEmbed';
 
 /** Extract font family from diagram frontmatter config */
 function extractFontFamilyFromContent(content: string): string | null {
@@ -323,13 +324,10 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
   }
 
   async function copyEmbedCode() {
-    const embed = `<div class="mermaid">
-${diagramContent}
-</div>
-<!-- version tag and integrity hash must be bumped together manually — exact pin, hash valid only for this exact version -->
-<script src="https://cdn.jsdelivr.net/npm/mermaid@12.0.0/dist/mermaid.min.js" integrity="sha384-xzghz1GQ5u9HCpVskeDPqMsdogD1yvuMQbEK53+wi+G70+6J1AG0L2cfi9PHjDWI" crossorigin="anonymous"></script>
-<script>mermaid.initialize({ startOnLoad: true });</script>`;
-    await navigator.clipboard.writeText(embed);
+    // Version tag + SRI hash come from the shared constants module
+    // (src/constants/cdnEmbed.ts), kept in sync with
+    // scripts/verify-cdn-embed.html by src/constants/__tests__/cdnEmbed.test.ts.
+    await navigator.clipboard.writeText(buildMermaidEmbedSnippet(diagramContent));
     markDone('embed');
   }
 
