@@ -4,8 +4,31 @@
 
 import { describe, it, expect } from 'vitest';
 import { renderDiagram, initMermaid, detectDiagramType } from '../core';
+import mermaid from 'mermaid';
 import DOMPurify from 'dompurify';
 import { validateDiagramContent } from '@/utils/validation';
+
+// Shared error-path fixtures (PIPE-04).
+//
+// FM_ERROR: exactly 8 lines — frontmatter = lines 1-5 (closing --- on line 5, so
+// the app's frontmatterEndLine = 5); the syntax error is physically on editor
+// line 8. Mermaid parses the frontmatter-stripped body, so its raw report is
+// body-relative line 3, and the offset must produce "line 8 (absolute)".
+// Matches the 22-RESEARCH.md v12 spike verbatim (spike date 2026-09-13).
+const FM_ERROR = `---
+config:
+  flowchart:
+    curve: basis
+---
+flowchart TD
+  A[Start] --> B
+  B ---> ]Broken`;
+
+// BODY_ONLY: the identical body without frontmatter — the error is physically
+// on line 3 and mermaid's raw report already says line 3.
+const BODY_ONLY = `flowchart TD
+  A[Start] --> B
+  B ---> ]Broken`;
 
 // Import the sanitization config for testing
 const SANITIZATION_CONFIG = {
@@ -379,26 +402,6 @@ flowchart TD
 });
 
 describe('PIPE-04 D8 — frontmatter error lines (mermaid 12 lock)', { timeout: 30000 }, () => {
-  // Exactly 8 lines: frontmatter = lines 1-5 (closing --- on line 5, so the app's
-  // frontmatterEndLine = 5). The syntax error is physically on editor line 8 —
-  // mermaid parses the frontmatter-stripped body, so its raw report is
-  // body-relative line 3, and the offset must produce "line 8 (absolute)".
-  // Fixture matches the 22-RESEARCH.md v12 spike verbatim (spike date 2026-09-13).
-  const FM_ERROR = `---
-config:
-  flowchart:
-    curve: basis
----
-flowchart TD
-  A[Start] --> B
-  B ---> ]Broken`;
-
-  // The identical body without frontmatter: the error is physically on line 3
-  // and mermaid's raw report already says line 3.
-  const BODY_ONLY = `flowchart TD
-  A[Start] --> B
-  B ---> ]Broken`;
-
   it('reports the editor line for frontmatter-diagram syntax errors on mermaid 12 (offset kept)', async () => {
     const { error } = await renderDiagram(FM_ERROR, 'test_fm_line');
 
@@ -425,5 +428,62 @@ flowchart TD
     // unchanged and never gains the "(absolute)" suffix.
     expect(error).toContain('line 3');
     expect(error).not.toContain('(absolute)');
+  });
+});
+
+describe('PIPE-04 D9/D10 — temp-element non-remnance (mermaid 12 lock)', { timeout: 30000 }, () => {
+  // mermaid 12 leaves BOTH the error svg ({safeId}) and its d-prefixed container
+  // div (d{safeId}) in the document after a failed render — its internal cleanup
+  // runs only on the success path. renderDiagram's catch block removes both.
+  // The negative control below proves that premise on the installed version;
+  // the per-surface tests lock zero residue for the id schemes real callers use.
+  //
+  // Surface coverage note: the visual-editor (VisualEditorCanvas.tsx:99) and
+  // fullscreen (FullscreenPreview.tsx:29) surfaces call renderDiagram exactly
+  // like preview/export, so these function-level locks cover all five pipeline
+  // call-sites by construction (enumerated in 22-RESEARCH.md Verified
+  // Codebase Facts).
+
+  it('raw mermaid.render failure leaves BOTH temp elements in the document (negative control)', async () => {
+    // Install the app's full mermaid config (dagre/classic pins) before the
+    // raw library render, so the control reproduces the app's exact setup.
+    initMermaid('light');
+
+    // The raw render must actually fail (premise of the control).
+    await expect(mermaid.render('raw_fail_probe', BODY_ONLY)).rejects.toThrow();
+
+    // mermaid 12 does NOT self-clean failed renders: the error svg and its
+    // d-prefixed container div both remain in the document.
+    expect(document.getElementById('raw_fail_probe')).not.toBeNull();
+    expect(document.getElementById('draw_fail_probe')).not.toBeNull();
+
+    // Clean up so the control cannot pollute the rest of the suite.
+    document.getElementById('raw_fail_probe')?.remove();
+    document.getElementById('draw_fail_probe')?.remove();
+  });
+
+  it('preview surface leaves no mermaid temp elements after a failed render', async () => {
+    const id = 'preview_fail_probe'; // mirror PreviewPanel.tsx:643 render surface
+    const { error } = await renderDiagram(FM_ERROR, id);
+
+    // Anti-vacuous precondition: mermaid actually failed.
+    expect(error).not.toBeNull();
+    expect(error).toContain('Lexical error');
+
+    // Zero residue for BOTH id forms: the svg (pre-existing removal) and the
+    // d-prefixed container div (cleanup extension).
+    expect(document.querySelectorAll(`#${id}, #d${id}`).length).toBe(0);
+  });
+
+  it('export surface leaves no mermaid temp elements after a failed render', async () => {
+    const id = `export_${Date.now()}`; // mirror ExportModal.tsx getSvgString id scheme
+    const { error } = await renderDiagram(FM_ERROR, id);
+
+    // Anti-vacuous precondition: mermaid actually failed.
+    expect(error).not.toBeNull();
+    expect(error).toContain('Lexical error');
+
+    // Zero residue for BOTH id forms of the computed export id.
+    expect(document.querySelectorAll(`#${id}, #d${id}`).length).toBe(0);
   });
 });
