@@ -30,6 +30,16 @@ const BODY_ONLY = `flowchart TD
   A[Start] --> B
   B ---> ]Broken`;
 
+// SEQ_FM_ERROR: 3-line frontmatter block (closing --- on line 3, so the app's
+// frontmatterEndLine = 3), sequenceDiagram on line 4, invalid statement on
+// line 5 (body-relative line 2). Probes research assumption A4: the v12
+// sequence parser's raw error DOES carry a body-relative line reference.
+const SEQ_FM_ERROR = `---
+config:
+---
+sequenceDiagram
+  ThisIsNotAStatement !!!`;
+
 // Import the sanitization config for testing
 const SANITIZATION_CONFIG = {
   ALLOWED_TAGS: [
@@ -428,6 +438,23 @@ describe('PIPE-04 D8 — frontmatter error lines (mermaid 12 lock)', { timeout: 
     // unchanged and never gains the "(absolute)" suffix.
     expect(error).toContain('line 3');
     expect(error).not.toContain('(absolute)');
+  });
+
+  it('reports the editor line for sequence-diagram frontmatter errors too (A4 probe)', async () => {
+    const { error } = await renderDiagram(SEQ_FM_ERROR, 'test_seq_fm_line');
+
+    // Anti-vacuous precondition: mermaid's sequence parser actually failed
+    // (its raw v12 message form is "Parse error on line N", not "Lexical error").
+    expect(error).not.toBeNull();
+    expect(error).toContain('Parse error');
+
+    // OBSERVED on mermaid 12.0.0, 2026-09-13 (probe run during Plan 22-01
+    // Task 3): the sequence parser's raw error carries a body-relative line
+    // reference ("Parse error on line 2"), so the offset regex fires —
+    // 2 + frontmatterEndLine(3) = 5, the physical line of the invalid
+    // statement. A4's "no line reference → regex no-op" branch did NOT
+    // materialize for sequence diagrams on v12.
+    expect(error).toContain('line 5 (absolute)');
   });
 });
 
