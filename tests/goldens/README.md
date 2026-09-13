@@ -183,6 +183,121 @@ depends on matches v12 output. Functional equivalence (D4) is locked by the
 rendered preview/export parity test and the order locks
 (`src/utils/__tests__/postProcessDiagramSvg.test.ts`).
 
+### Pixel diagnostics (PIPE-03) — v12 diagnostic re-run and diff classification (Phase 22, Plan 22-03)
+
+Recorded 2026-09-13 by Plan 22-03. Scope per D5: every existing pixel-sensitive
+artifact = the ~24 gitignored local diagnostic specs under
+`tests/e2e/tests/visual/` (uncommitted scratch, chromium-only). There are NO
+committed pixel baselines and NO v11-era captures on this host (research A5
+confirmed) — "re-baseline" therefore means: re-run, capture fresh, classify
+every observed difference against the mermaid 12.0.0 changelog, record.
+
+#### Run details
+
+| Property | Value |
+|---|---|
+| Re-run date | **2026-09-13** |
+| Installed mermaid at re-run | **12.0.0** (exact pin from Phase 21) |
+| Phase / requirement | Phase 22 (SVG Pipeline Verification), Plan 22-03, PIPE-03 |
+| Runner | Playwright 1.63.0, `--project=chromium` (the visual specs are chromium diagnostics; firefox/webkit sweeps belong to CI and Phase 24) |
+| Server | Vite dev server on `http://localhost:5173` (launched via `node scripts/dev-e2e.mjs`, playwright `reuseExistingServer`) |
+| Result | **25 passed / 1 failed (26 tests in 24 files), ~49s** — the failure is classified below as environment drift, not a pipeline regression |
+
+Environment notes for future re-derivation:
+
+- **Fresh captures land in the repository ROOT** (playwright resolves each
+  spec's relative `page.screenshot({ path })` against the process cwd), not in
+  `tests/e2e/tests/visual/`. Both locations are gitignored (`.gitignore`
+  `*.png` root rule + `tests/e2e/tests/visual/`), so nothing is committable by
+  accident. 26 fresh PNGs were captured 2026-09-13 ~09:23.
+- **The first-run welcome modal** (v0.6.0 release-notes dialog, app feature
+  added after these specs were written) is open in every fresh-context capture
+  and occludes the app with a dimmed backdrop. DOM-level probes (the specs'
+  locator/computed-style evidence, quoted below) are unaffected; full-page
+  pixel review of the captures is limited by the overlay, and the modal
+  directly caused the single failure (coordinate click intercepted).
+
+#### Scope classification (resolves the D5 open question)
+
+**21 of 24 files are pipeline-relevant** (subject is SVG post-processing
+output: edge/fill/label/reorder/multiline/fontsize/structure/verification
+specs). **3 files are out-of-scope helpers**, documented with rationale:
+
+| Helper spec | Why out of scope | Run outcome |
+|---|---|---|
+| `find-svg.spec.ts` | SVG discovery utility (locates the rendered diagram node for other specs); probes app chrome, not SVG output | pass |
+| `ui-panel-background-test.spec.ts` | UI panel interaction (style panel flow); app chrome, not mermaid SVG output (its internal flow observed rotted: EdgeStylePanel not found — pre-existing scratch rot, unrelated to the migration) | pass |
+| `check-shadow-css.spec.ts` | Shadow-DOM CSS layer inspection (app CSS, not mermaid output); confirmed the app's edge-label CSS rules (`g.edgeLabel rect { fill-opacity: 1 !important … }`) are present and unchanged | pass |
+
+#### Classification table (21 pipeline-relevant specs, chromium, mermaid 12.0.0)
+
+Verdict vocabulary per D6: **none** = no difference beyond the documented
+deltas; **documented** = matches a changelog-cited v12 delta (PR cited);
+**investigated** = observed, root-caused, cited; **UNEXPLAINED** = would be
+flagged for the D7 promotion decision (count this run: **0**).
+
+| Spec | Subject | Diff observed | Classification |
+|---|---|---|---|
+| edge-fill-debug | where fill lands when edgeLabelBackground is set | 0 rects in edgeLabels; both edge paths `fill="none"` attr + computed, stroke rgb(11,11,11) | none — matches documented no-rect state (htmlLabels:true) + pipeline FINAL CLEANUP |
+| edge-background-debug | what edge label processing affects | same family: no label rects, labelBkg via CSS only | none |
+| edge-label-background-test | edge label background color + opacity | `Found 0 rects in edgeLabels` | none — documented not-emitted family (see rect.background finding above) |
+| computed-fill-test | computed fill of edge label backgrounds | labelBkg computed `rgba(245, 247, 250, 0.5)`, opacity 1, opaque via CSS | none |
+| verify-css-opacity | edge label background opacity | opacity 1 observed | none |
+| default-edge-label-state | default state (no linkStyle) | default `#F5F7FA` edgeLabel CSS; no rects | none |
+| edge-color-mapping-debug | linkStyle 1 targets the correct edge | **Path 1 `stroke attr: #ff0000`** (correct edge B→C); labels 16px where the spec's console note "expected" 20px | stroke mapping **correct on v12** (the spec's named April bug is absent). The 16px label: investigated — the app's `parseEdgeStyleValue` (`codeUtils.ts`) recognizes kebab-case `font-size` only; the spec's camelCase `fontSize:20px` is dropped by the app's OWN source parser. Version-independent (identical under v11) — **pre-existing app behavior, NOT a v12 delta** |
+| debug-fontsize | linkStyle 0 fontSize:30px reaches label? | `font-size="30px": false`; label computed 16px | investigated — same root cause as above (camelCase dropped app-side, pre-existing, not v12) |
+| edge-label-centering (2 tests) | vertical centering + SVG structure | centers present; edge paths `fill: "none"` (the spec's own ❌ marker is stale scratch noise — fill:none is the pipeline's CORRECT state) | none |
+| edge-label-real-svg (2 tests) | centering in real SVG + full dump | group/content dimensions match; labelBkg inline structure normal | none |
+| ambiguous-labels-test | same-label edges + linkStyle targeting | 3 edges same label "connect"; node coords sane; linkStyle 1 → B→C | none |
+| edge-reordering-debug | edge order vs display order | sane post-pipeline (order locks green in the structural suite) | none |
+| edge-path-inspection | full raw SVG structure dump | raw v12 dump shows: doubled `edge-thickness-normal edge-pattern-solid` class prefix; FINAL CLEANUP `fill="none" fill-opacity="0"` + `;fill: none !important; fill-opacity: 0 !important;`; `pointEnd` marker family; `aria-roledescription="flowchart-v2"`; node ids `…-flowchart-A-0/-B-1/-C-3` (counter skip 0/1/3) | documented — doubled prefix = the cosmetic delta recorded in the v12 table above; everything else identical to the structural record |
+| debug-svg-structure | full structure dump | `g.label > foreignObject > div.labelBkg > span.edgeLabel > p` chain | none |
+| complete-verification | centering + background + path visibility sweep | all three probes OK | none |
+| final-verification | opaque background does NOT affect edge path | background opaque; path fill none | none |
+| verify-fill-not-on-path | fill NOT on path when label bg set | paths fill:none | none |
+| fontsize-centering | single/multi-line label centering | center offset 0.00px; group heights 24/48/72 px exact per line count; styled edge stroke #ff0000 correct | none |
+| multiline-label-bug | multiline edge label rendering | content `<p>Line 1<br>Line 2</p>`, `Has line breaks: true`, 2-line height exact | documented — line-break handling correct on v12 (#8048 family; no anomaly) |
+| multiline-br-test | explicit line breaks | `<p>First line<br>Second line<br>Third line</p>`, 3-line height exact, fits group | documented — same as above, breaks functional (#8048 family) |
+| test-edge-label-fill-fix | label bg must NOT affect edge path | **FAILED**: editor `click()` intercepted by the first-run welcome modal (`div[role="dialog"]`), 60s retry storm, timeout | investigated — **environment drift, not a pipeline regression**: the modal is an app feature added after these April-era scratch specs were written (fresh context per test ⇒ modal every run). Cross-checked against the green structural goldens (Plan 22-02) and sibling coverage: the spec's subject (fill isolation) is proven passing by edge-fill-debug, computed-fill-test and verify-fill-not-on-path in this same run. Scratch specs are deliberately unedited (plan prohibition) |
+
+#### Changelog-delta coverage (Pitfall 4 decision table applied)
+
+| Upstream delta | Trigger surface in the suite | Outcome |
+|---|---|---|
+| **#8152** — intersectPolygon fix, ≤1px movement wherever a polygon shape terminates an edge (dagre included) | every spec (rect nodes terminate edges) | **documented, present-by-changelog**: the intended D5 diff. Not differentially observable (no v11 captures on this host) and below attribute-probe resolution; geometry probes sane (edges attach exactly at node boundaries, e.g. path start y=72 against a node spanning y=8..72) |
+| **#8227 / #8232** — label-wrap exemptions for circle / double-circle / Display / Delay shapes | **none** — no such shape in any spec | not applicable (nothing to observe) |
+| **#8048** — `</br>` line-break handling | multiline-label-bug, multiline-br-test | **documented, healthy**: breaks render as breaks with exact per-line heights — no anomaly to classify |
+| doubled edge-path class prefix (v12 renderer unification, recorded in the v12 table above) | visible in every raw dump | documented (cosmetic, observed-and-not-asserted) |
+
+#### D6 policy statement as applied
+
+**Epsilon 0 outside the changelog-cited deltas — held.** Nothing was absorbed
+into a tolerance, retry, or skip-listing; no assertion was promoted or
+weakened. Counts over the 21 pipeline-relevant specs: **18 none-observed, 2
+investigated** (both root-caused to pre-existing, version-independent app
+parser behavior — camelCase linkStyle keys — not v12 deltas), **1
+environment-drift failure** (welcome modal; cross-checked against the green
+structural goldens and sibling specs, not a pipeline regression), **0
+UNEXPLAINED**, **0 unclassified**.
+
+#### D7 status
+
+`tests/e2e/tests/visual/` and the root-level capture PNGs remain **local-only
+gitignored diagnostics**: nothing committed, nothing promoted to
+`toHaveScreenshot` assertions, no spec edited. **No promotion trigger fired**
+(zero unexplained diffs). Caveat recorded for any future pixel review: fresh
+captures include the first-run welcome modal overlay (see environment notes);
+dismissing it (or persisting its localStorage flag) before a capture run would
+give unoccluded images.
+
+Re-derivation for a future session: start the dev server (`node
+scripts/dev-e2e.mjs`), run `npx playwright test tests/e2e/tests/visual
+--project=chromium --reporter=list`, fresh PNGs appear in the repository root
+(gitignored), and the console evidence quoted above reproduces. If the dev
+server comes up HTTPS (`.cert/cert.pem` present), playwright's
+`http://localhost:5173` URL check cannot detect or reach it — serve HTTP for
+the diagnostic runs.
+
 ### Idempotency probe outcome (PIPE-04 carry-over, answered by Plan 22-02)
 
 The double-application probe was answered empirically on 2026-09-13 (temporary
