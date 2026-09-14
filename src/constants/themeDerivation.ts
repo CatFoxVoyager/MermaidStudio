@@ -144,6 +144,18 @@ const DIAGRAM_TYPE_VARIABLES: Record<DiagramType, string[]> = {
   packetDiagram: ['primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'primaryTextColor', 'fontFamily', 'fontSize'],
   kanban: ['primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'primaryTextColor', 'fontFamily', 'fontSize'],
   architectureDiagram: ['primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'primaryTextColor', 'archEdgeColor', 'archEdgeArrowColor', 'archEdgeWidth', 'archGroupBorderColor', 'archGroupBorderWidth', 'fontFamily', 'fontSize'],
+  // Union-membership forces this Record key (compiler-required data entry only);
+  // it routes usecase into the EXISTING derivation path — both
+  // deriveThemeVariablesForDiagramType and applyThemeToFrontmatter filter
+  // through this one map. No derivation formula or engine change.
+  usecaseDiagram: [
+    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'arrowheadColor',
+    'primaryTextColor', 'textColor',
+    'primaryBorderColor',
+    'nodeBkg', 'mainBkg', 'nodeBorder', 'clusterBkg', 'clusterBorder',
+    'defaultLinkColor', 'titleColor', 'edgeLabelBackground',
+    'fontFamily', 'fontSize',
+  ],
   zenuml: ['primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'primaryTextColor', 'fontFamily', 'fontSize'],
   blockDiagram: ['primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'primaryTextColor', 'fontFamily', 'fontSize'],
   c4: ['primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'primaryTextColor', 'fontFamily', 'fontSize'],

@@ -514,3 +514,62 @@ describe('PIPE-04 D9/D10 — temp-element non-remnance (mermaid 12 lock)', { tim
     expect(document.querySelectorAll(`#${id}, #d${id}`).length).toBe(0);
   });
 });
+
+describe('usecase type adoption (DIA-02, mermaid 12 usecase-beta)', { timeout: 30000 }, () => {
+  // Grammar verified verbatim from the installed package
+  // (dist/chunks/mermaid.esm/usecaseDiagram-MS3LPB57.mjs): systemBoundary blocks
+  // close with `end` (systemBoundaryStatement :10934-10943 — NOT braces);
+  // `..>` is only valid as an include/extend relation BETWEEN TWO USE CASES
+  // with the label between arrow and target (`src ..> : include target`,
+  // semanticRelation :10881-10898 + endpoint validation :12282-12285; probe
+  // 2026-09-14: colon-after-target and stereotype forms both fail to parse);
+  // `--|>` requires same-kind endpoints (:12286-12289). The 24-RESEARCH.md
+  // candidate fixture's brace-closed boundary and bare `..>` dependency were
+  // both corrected against the grammar, then render-validated before locking
+  // (A4 observe-before-assert).
+  const USECASE_FIXTURE = `usecase-beta
+  actor User
+  actor Admin
+  Admin --|> User
+  systemBoundary App
+    "Log in"
+    "View dashboard"
+  end
+  User --> "Log in"
+  User --> "View dashboard"
+  "Log in" ..> : include "View dashboard"`;
+
+  // Same narrowed swallow as theme-matrix/structure-goldens (IN-05): a genuine
+  // crash that only MENTIONS getBBox must surface, not be tolerated.
+  const GETBBOX_JSDOM_LIMITATION = /\bgetBBox\b[^\n]*\bnot a function\b/;
+
+  it('detects usecase-beta content as usecaseDiagram', () => {
+    expect(detectDiagramType(USECASE_FIXTURE)).toBe('usecaseDiagram');
+  });
+
+  it('does NOT trigger on the internal module-name spelling (research Pitfall 1 lock)', () => {
+    // 'usecaseDiagram' is the app union label / mermaid's internal module chunk
+    // name only — mermaid 12's detector fires on `usecase-beta` alone, so
+    // content spelled with the module name must fall through to 'unknown'
+    // (matching mermaid's own rejection of it).
+    const moduleNameContent = USECASE_FIXTURE.replace('usecase-beta', 'usecaseDiagram');
+    expect(detectDiagramType(moduleNameContent)).toBe('unknown');
+  });
+
+  it('renders the usecase-beta fixture to a non-empty sanitized svg through renderDiagram', async () => {
+    initMermaid('light');
+    const id = 'usecase_adoption_render';
+    const { svg, error } = await renderDiagram(USECASE_FIXTURE, id);
+    try {
+      if (error && !GETBBOX_JSDOM_LIMITATION.test(error)) {
+        throw new Error(`Unexpected render error: ${error}`);
+      }
+      // Non-empty sanitized SVG with at least one shape/text element (D1 floor).
+      expect(svg).not.toBe('');
+      expect(svg).toMatch(/<(rect|circle|ellipse|polygon|path|text)[\s>]/);
+    } finally {
+      document.getElementById(id)?.remove();
+      document.getElementById(`d${id}`)?.remove();
+    }
+  });
+});

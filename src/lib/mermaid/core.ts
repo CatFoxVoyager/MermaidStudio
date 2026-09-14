@@ -325,5 +325,13 @@ export function detectDiagramType(content: string): DiagramType {
     return 'kanban';
   }
 
+  // Use case diagram (mermaid 12) — the v12 content trigger keyword is
+  // `usecase-beta` (mermaid's detector is /^\s*usecase-beta(?:\s|$)/, verified
+  // mermaid.core.mjs:591-599); the 'usecaseDiagram' union label is
+  // app-internal only and never appears as content.
+  if (first.startsWith('usecase-beta')) {
+    return 'usecaseDiagram';
+  }
+
   return 'unknown';
 }
