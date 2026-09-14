@@ -189,13 +189,15 @@ function fixNodeLabels(doc: Document, svg: SVGSVGElement, fontFamily: string): b
   
   doc.querySelectorAll('.node').forEach(node => {
     // 1. Find text elements or foreignObjects (Mermaid 11 uses foreignObject for labels)
-    const textElements = Array.from(node.querySelectorAll('text'));
+    const textElements = Array.from(node.querySelectorAll<SVGTextElement>('text'));
     const foreignObjects = Array.from(node.querySelectorAll('foreignObject'));
     
     if (textElements.length === 0 && foreignObjects.length === 0) return;
 
     // Use the first text element or foreignObject for measurements
-    let text: Element | null = null;
+    // (SVGTextElement, not Element: the final vertical-nudge block below
+    // writes to text.style, which only SVG elements expose.)
+    let text: SVGTextElement | null = null;
     let content = '';
     let fontSize = globalFontSize;
 

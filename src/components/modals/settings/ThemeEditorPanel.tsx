@@ -64,7 +64,8 @@ export function ThemeEditorPanel({
   const [themeName, setThemeName] = useState(initialTheme?.name ?? '');
   const [previewSvg, setPreviewSvg] = useState('');
   const previewIdRef = useRef(0);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  // React 19 requires useRef to take an explicit initial value.
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const handleColorChange = (key: keyof ThemeCoreColors, value: string) => {
     setLocalColors(prev => ({ ...prev, [key]: value }));

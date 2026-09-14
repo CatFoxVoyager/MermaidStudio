@@ -93,8 +93,20 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
     // Update preset colors if there are any preset classDef lines
     const hasPresets = /\bclassDef\s+preset(?:Primary|Success|Warning|Danger|Info)\b/.test(newContent);
     if (hasPresets) {
-      // Update preset colors to match the new theme
-      newContent = updatePresetColors(newContent, theme.coreColors);
+      // Update preset colors to match the new theme. Adapt coreColors to the
+      // 5-slot PresetColors shape exactly like PreviewPanel does for the same
+      // function: coreColors' semantic slots are optional and
+      // updatePresetColors interpolates them verbatim into classDef lines, so
+      // a missing slot falls back to the palette default instead of writing
+      // "undefined" into the diagram source.
+      const c = theme.coreColors;
+      newContent = updatePresetColors(newContent, {
+        primaryColor: c.primaryColor,
+        successColor: c.successColor ?? '#22c55e',
+        warningColor: c.warningColor ?? '#f59e0b',
+        errorColor: c.errorColor ?? '#ef4444',
+        infoColor: c.infoColor ?? '#06b6d4',
+      });
     }
 
     onContentChange(newContent);

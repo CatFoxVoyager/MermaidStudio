@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import type { TFunction } from 'i18next';
 import { getSettings } from '@/services/storage/database';
 import { callAI } from '@/services/ai/providers';
 import { logger } from '@/utils/logger';
@@ -131,7 +132,7 @@ export function useAISend({
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
 
   const send = useCallback(
-    async (text: string, t: (key: string, params?: unknown) => string) => {
+    async (text: string, t: TFunction<'translation', undefined>) => {
       if (!text.trim() || loading) {
         return;
       }
@@ -289,7 +290,7 @@ ${hasDiagram ? `\nCurrent diagram:\n${currentContent}` : ''}`;
   );
 
   const sendFixRequest = useCallback(
-    async (t: (key: string, params?: unknown) => string) => {
+    async (t: TFunction<'translation', undefined>) => {
       if (loading) {
         return;
       }
