@@ -166,11 +166,22 @@ describe('VisualEditorCanvas — D6 body-metadata read-only gate', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
-  it('open/close round-trip: onChange never fires and content stays byte-identical', async () => {
-    const original = BODY_METADATA_CONTENT;
+  it('open/close round-trip: onChange never fires and the fixture is pinned against drift', async () => {
+    // WR-03: this test previously ended with `expect(original).toBe(
+    // BODY_METADATA_CONTENT)` where `original` was assigned FROM
+    // BODY_METADATA_CONTENT — a const compared to its own source constant can
+    // never fail, so the "byte-identical round-trip" claim was unfalsifiable.
+    // The fixture is now pinned against an INDEPENDENT literal typed here, so
+    // any accidental mutation of the constant under test fails this test. The
+    // round-trip guarantee itself rides on the zero-onChange assertion below:
+    // this canvas holds no editable buffer of its own, and onChange is the
+    // only channel through which the component can mutate diagram content.
+    const FIXTURE_LITERAL =
+      'flowchart TD\n  A[Start] --> B\n  B@{ shape: "doc", label: "Doc" }';
+    expect(BODY_METADATA_CONTENT).toBe(FIXTURE_LITERAL);
     const onChange = vi.fn();
     const { container, unmount } = render(
-      <VisualEditorCanvas content={original} theme="light" onChange={onChange} />,
+      <VisualEditorCanvas content={BODY_METADATA_CONTENT} theme="light" onChange={onChange} />,
     );
 
     await waitFor(() => {
@@ -180,9 +191,6 @@ describe('VisualEditorCanvas — D6 body-metadata read-only gate', () => {
     unmount();
 
     expect(onChange).not.toHaveBeenCalled();
-    // onChange is the ONLY channel through which the editor can mutate the
-    // diagram; zero calls means content C round-tripped byte-identical.
-    expect(original).toBe(BODY_METADATA_CONTENT);
   });
 
   it('anti-vacuous control: metadata-free flowchart still invokes parseDiagram exactly as before', async () => {
