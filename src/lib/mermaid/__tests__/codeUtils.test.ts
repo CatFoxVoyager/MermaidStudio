@@ -22,6 +22,12 @@ import {
   updateEdgeArrowType,
   updateEdgeLabel,
 } from '../codeUtils';
+import {
+  extractThemeIdFromContent,
+  applyThemeToFrontmatter,
+  injectThemeComment,
+} from '@/constants/themeDerivation';
+import { getThemeById } from '@/constants/themes';
 
 describe('Mermaid Code Utilities', () => {
   describe('parseDiagram', () => {
@@ -400,6 +406,132 @@ A-->B`;
       expect(result.frontmatter.config?.theme).toBe('base');
       expect(result.frontmatter.config?.themeVariables?.primaryColor).toBe('#ff0000');
       expect(result.body).toContain('flowchart TD');
+    });
+  });
+
+  // THM-03 unit layer (Plan 23-03 Task 1, D9/D10): frontmatter ROUND-TRIP on
+  // mermaid 12 — extraction reads the value, re-generation carries it back
+  // without content loss. Render-layer precedence lives in
+  // frontmatter-precedence.test.ts (the second D10 layer).
+  describe('frontmatter round-trip on v12 (THM-03, D9)', () => {
+    it('round-trips a YAML --- block: generateFrontmatter → parseFrontmatter preserves config and body', () => {
+      // Complements (does not duplicate) the parseFrontmatter describe above:
+      // this exercises the app's actual WRITE path (generateFrontmatter) and
+      // proves the written block parses back to an identical config with the
+      // body split off byte-identically.
+      const config = {
+        theme: 'base',
+        themeVariables: { primaryColor: '#ff0000', lineColor: '#0066cc' },
+      };
+      const body = 'flowchart TD\nA[Start] --> B[End]';
+      const content = `${generateFrontmatter(config)}\n${body}`;
+
+      const result = parseFrontmatter(content);
+
+      expect(result.frontmatter.config?.theme).toBe('base');
+      expect(result.frontmatter.config?.themeVariables).toEqual(config.themeVariables);
+      expect(result.body).toBe(body);
+    });
+
+    it('@theme marker round-trip: applyThemeToFrontmatter re-generates the same id with a lossless body (D9)', () => {
+      const body = 'flowchart TD\nA[Start] --> B[End]';
+      const sunset = getThemeById('sunset');
+      expect(sunset).toBeDefined();
+
+      const regenerated = applyThemeToFrontmatter(body, sunset, false);
+
+      // The regenerated content carries the theme id via the %% @theme marker
+      // (THEME_COMMENT_RE, themeDerivation.ts:442) — the app's content-level
+      // theme channel that renderDiagram prefers over the caller's themeId.
+      expect(extractThemeIdFromContent(regenerated)).toBe('sunset');
+
+      // Re-parsing the regenerated content yields the same id...
+      const reparsed = parseFrontmatter(regenerated);
+      expect(extractThemeIdFromContent(reparsed.body)).toBe('sunset');
+
+      // ...and the diagram body survives regeneration byte-identically. The
+      // marker line is app metadata riding in front of the body (it is a
+      // mermaid COMMENT, invisible to the renderer); strip it the same way the
+      // app does (injectThemeComment(content, null) runs THEME_COMMENT_RE)
+      // before the byte-equality comparison — the id must round-trip AND the
+      // body must lose nothing (D9: re-generation without loss).
+      expect(injectThemeComment(reparsed.body, null)).toBe(body);
+
+      // The regenerated frontmatter config carries the theme's own colors:
+      // sunset.primaryColor passes through the derivation untouched.
+      expect(reparsed.frontmatter.config?.theme).toBe('base');
+      expect((reparsed.frontmatter.config?.themeVariables as Record<string, string>)?.primaryColor).toBe('#FED7AA');
+    });
+
+    it('@{...} node-attribute syntax: v11 shape/label attributes parse and regenerate without corruption (D9)', () => {
+      // NOTE: this is the app's @{...} meaning — the v11 node shape/label
+      // attribute syntax matched by codeUtils.ts:110 (v11Match) and emitted by
+      // shapeWrap's v11 branch (codeUtils.ts:219-230). Distinct from v12's
+      // frontmatter `@{ view: ... }` syntax, which Phase 24 owns via DIA-02.
+      const source = 'flowchart TD\nA@{ shape: "doc", label: "Doc" } --> B';
+
+      // Parse goes through the v11 attribute path: shape "doc" is a V11_SHAPES
+      // entry, so the whole @{...} form is consumed as the node's shape raw.
+      const parsed = parseDiagram(source);
+      const nodeA = parsed.nodes.find(n => n.id === 'A');
+      expect(nodeA?.shape).toBe('doc');
+      expect(nodeA?.label).toBe('Doc');
+
+      // Regeneration re-emits the same @{ shape, label } form (shapeWrap) and
+      // re-parsing recovers both attributes unchanged — no corruption.
+      const regenerated = updateNodeLabel(source, 'A', 'Doc v2');
+      expect(regenerated).toContain('@{ shape: "doc", label: "Doc v2" }');
+      const reparsed = parseDiagram(regenerated);
+      const nodeA2 = reparsed.nodes.find(n => n.id === 'A');
+      expect(nodeA2?.label).toBe('Doc v2');
+      expect(nodeA2?.shape).toBe('doc');
+    });
+
+    // Pitfall 5 observation tests (23-RESEARCH.md): the app's legacy-directive
+    // regex is /%%\{init:\s*({[\s\S]*?})\s*\}\)%%/ (codeUtils.ts:1022) — it
+    // demands a trailing `)%%`. These two cases pin what parseFrontmatter does
+    // with BOTH real-world spellings. Per D3/D11 an observed mismatch is
+    // recorded (comment + SUMMARY), never accommodated in the test and never
+    // "fixed" inside this validation task — an app-side fix would be an owned
+    // follow-up change.
+    it('OBSERVATION (Pitfall 5): no-paren spelling %%{init: {"theme": "dark"}%%', () => {
+      // Legal mermaid directive spelling — mermaid still honors this at render.
+      const content = '%%{init: {"theme": "dark"}%%\nflowchart TD\nA-->B';
+      const result = parseFrontmatter(content);
+
+      // OBSERVED (app layer, mermaid 12.0.0 host, 2026-09-14): the directive
+      // falls through — frontmatter is empty and the body keeps the directive
+      // line. The app parse layer ignores a directive mermaid still honors at
+      // render; renderDiagram's hasCustomTheme gate still fires on the
+      // %%{init: prefix (core.ts:136), so the render path is unaffected — the
+      // loss is confined to the app-layer config extraction. Classified per
+      // D3/D11 as a pre-existing app regex quirk (invisible on default
+      // rendering); recorded here and in 23-03-SUMMARY.md, NOT worked around.
+      expect(result.frontmatter).toEqual({});
+      expect(result.body).toBe(content);
+    });
+
+    it('OBSERVATION (Pitfall 5): trailing-paren spelling %%{init: {"theme": "dark"})%%', () => {
+      // The spelling the plan believed the app regex matches.
+      const content = '%%{init: {"theme": "dark"})%%\nflowchart TD\nA-->B';
+      const result = parseFrontmatter(content);
+
+      // OBSERVED (app layer, mermaid 12.0.0 host, 2026-09-14 — deeper than the
+      // plan expected): even the )%% spelling falls through for FLAT JSON. The
+      // lazy capture ({[\s\S]*?}) stops at the FIRST closing brace and the
+      // regex then needs `\}\)%%` — one more `}` after the group. Flat JSON has
+      // only one `}`, so the regex cannot match at all; it only matches when
+      // the JSON carries a nested object as its last member (the group stops at
+      // the inner brace), and in that case the captured text is truncated and
+      // JSON.parse throws into the catch. Net effect at the app layer: the
+      // %%{init directive branch of parseFrontmatter never yields a parsed
+      // config for single-object payloads. renderDiagram's hasCustomTheme gate
+      // still fires (content starts with %%{init:), so RENDER precedence is
+      // unaffected — this is an app-parse-layer observation only. Classified
+      // per D3/D11 (pre-existing, invisible on default rendering); recorded,
+      // not accommodated.
+      expect(result.frontmatter).toEqual({});
+      expect(result.body).toBe(content);
     });
   });
 
