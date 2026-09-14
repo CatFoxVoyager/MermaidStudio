@@ -479,3 +479,46 @@ describe('v12 gap entries', () => {
     });
   });
 });
+
+describe('v12 metadata completions — post-accept buffer text (WR-01)', () => {
+  /**
+   * Invoke the real completion source, pick the given option, and apply it to
+   * the buffer exactly the way @codemirror/autocomplete does:
+   * dist/index.js:1021 — the replacement end defaults to the cursor when the
+   * source omits `to`; dist/index.js:1060 — the option label is inserted over
+   * [result.from, result.to]. Returns the post-accept document text so tests
+   * lock insertion behavior, not merely the offered option list.
+   */
+  function acceptCompletion(doc: string, label: string, pos?: number, explicit = true): string {
+    const state = EditorState.create({ doc });
+    const at = pos ?? doc.length;
+    const context = new CompletionContext(state, at, explicit);
+    const result = mermaidCompletions(context);
+    if (!result) { throw new Error(`no completions offered at pos ${at}`); }
+    const option = Array.from(result.options).find(o => o.label === label);
+    if (!option) { throw new Error(`option not offered: ${label}`); }
+    const to = result.to ?? at;
+    return state.update({ changes: { from: result.from, to, insert: option.label } }).state.doc.toString();
+  }
+
+  it('typing `A@{` then accepting `@{ shape: ` yields `A@{ shape: ` — the typed @ is replaced, not doubled', () => {
+    const after = acceptCompletion('flowchart TD\nA@{', '@{ shape: ');
+    expect(after).toBe('flowchart TD\nA@{ shape: ');
+    expect(after).not.toContain('@@');
+  });
+
+  it('typing `A@` then accepting `@{ shape: ` via the explicit path also yields a single @', () => {
+    const after = acceptCompletion('flowchart TD\nA@', '@{ shape: ');
+    expect(after).toBe('flowchart TD\nA@{ shape: ');
+  });
+
+  it('accepting `@{ view: collapsed }` after a typed `@{` yields exactly one `@{`', () => {
+    const after = acceptCompletion('flowchart TD\nsubgraph X@{', '@{ view: collapsed }');
+    expect(after).toBe('flowchart TD\nsubgraph X@{ view: collapsed }');
+  });
+
+  it('completions without a preceding @ are unaffected (replacement still starts at the word)', () => {
+    const after = acceptCompletion('flowchart TD\nsu', 'subgraph');
+    expect(after).toBe('flowchart TD\nsubgraph');
+  });
+});
