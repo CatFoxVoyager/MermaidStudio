@@ -44,35 +44,41 @@ vi.mock('@/utils/sanitization', () => ({
   sanitizeCssValue: vi.fn((v: string) => v),
 }));
 
-// Mock codeUtils
-vi.mock('@/lib/mermaid/codeUtils', () => ({
-  parseDiagram: vi.fn(() => ({
-    nodes: [{ id: 'A', label: 'A', shape: 'rect', raw: 'A' }],
-    edges: [],
-    styles: new Map(),
-    classDefs: new Map(),
-    nodeClasses: new Map(),
-    linkStyles: new Map(),
-    subgraphs: [],
-  })),
-  getNodeStyle: vi.fn(() => ({})),
-  removeNodeStyles: vi.fn((s: string) => s),
-  parseFrontmatter: vi.fn(() => ({ frontmatter: {}, body: '' })),
-  addNode: vi.fn((source: string, id: string, label: string) => source + `\n  ${id}[${label}]`),
-  generateNodeId: vi.fn(() => 'nodeNew1'),
-  removeNode: vi.fn((source: string, nodeId: string) => source.replace(new RegExp(`.*${nodeId}.*`, 'g'), '').trim()),
-  updateLinkStyle: vi.fn((s: string) => s),
-  removeLinkStyles: vi.fn((s: string) => s),
-  updateEdgeArrowType: vi.fn((s: string) => s),
-  updateEdgeLabel: vi.fn((s: string) => s),
-  parseLinkStyles: vi.fn(() => new Map()),
-  edgeStyleToString: vi.fn(() => ''),
-  updateNodeStyle: vi.fn((s: string) => s),
-  updateNodeLabel: vi.fn((s: string) => s),
-  updateSubgraphLabel: vi.fn((s: string) => s),
-  addSubgraph: vi.fn((s: string) => s),
-  moveNodeToSubgraph: vi.fn((s: string) => s),
-}));
+// Mock codeUtils — spread the REAL module so the D6 fence helper
+// (bodyContainsAtDirective) runs its genuine implementation, and override the
+// parsers/mutators the tests control.
+vi.mock('@/lib/mermaid/codeUtils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/mermaid/codeUtils')>();
+  return {
+    ...actual,
+    parseDiagram: vi.fn(() => ({
+      nodes: [{ id: 'A', label: 'A', shape: 'rect', raw: 'A' }],
+      edges: [],
+      styles: new Map(),
+      classDefs: new Map(),
+      nodeClasses: new Map(),
+      linkStyles: new Map(),
+      subgraphs: [],
+    })),
+    getNodeStyle: vi.fn(() => ({})),
+    removeNodeStyles: vi.fn((s: string) => s),
+    parseFrontmatter: vi.fn(() => ({ frontmatter: {}, body: '' })),
+    addNode: vi.fn((source: string, id: string, label: string) => source + `\n  ${id}[${label}]`),
+    generateNodeId: vi.fn(() => 'nodeNew1'),
+    removeNode: vi.fn((source: string, nodeId: string) => source.replace(new RegExp(`.*${nodeId}.*`, 'g'), '').trim()),
+    updateLinkStyle: vi.fn((s: string) => s),
+    removeLinkStyles: vi.fn((s: string) => s),
+    updateEdgeArrowType: vi.fn((s: string) => s),
+    updateEdgeLabel: vi.fn((s: string) => s),
+    parseLinkStyles: vi.fn(() => new Map()),
+    edgeStyleToString: vi.fn(() => ''),
+    updateNodeStyle: vi.fn((s: string) => s),
+    updateNodeLabel: vi.fn((s: string) => s),
+    updateSubgraphLabel: vi.fn((s: string) => s),
+    addSubgraph: vi.fn((s: string) => s),
+    moveNodeToSubgraph: vi.fn((s: string) => s),
+  };
+});
 
 // Mock NodeStylePanel (has ColorPicker dependency that may have DOM requirements)
 vi.mock('@/components/preview/NodeStylePanel', () => ({
@@ -1029,6 +1035,82 @@ describe('PreviewPanel Component', () => {
 
       const emptyMessage = screen.queryByText(/start typing to see a live preview/i);
       expect(emptyMessage).toBeInTheDocument();
+    });
+  });
+
+  describe('D6 body-metadata mutation fence', () => {
+    // Body-metadata content: the bare post-id @{...} form (the exact shape
+    // updateNodeShape emits). Its parse silently drops node B, so any
+    // regeneration-style rewrite through a codeUtils mutator would corrupt
+    // the diagram — PreviewPanel's content-mutating handlers must fence it.
+    const BODY_METADATA_CONTENT =
+      'flowchart TD\n  A[Start] --> B\n  B@{ shape: "doc", label: "Doc" }';
+
+    it('add-shape path is fenced: onChange never fires for body-metadata content', async () => {
+      const { detectDiagramType } = await import('@/lib/mermaid/core');
+      vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+
+      const onChange = vi.fn();
+      const { container } = render(
+        <PreviewPanel content={BODY_METADATA_CONTENT} theme="light" onChange={onChange} />
+      );
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const boxButton = container.querySelector('button[title="Add Box (click or drag to canvas)"]');
+      expect(boxButton).toBeInTheDocument();
+      fireEvent.click(boxButton!);
+
+      expect(onChange).not.toHaveBeenCalled();
+      const { addNode } = await import('@/lib/mermaid/codeUtils');
+      expect(addNode).not.toHaveBeenCalled();
+    });
+
+    it('add-subgraph path is fenced: onChange never fires for body-metadata content', async () => {
+      const { detectDiagramType } = await import('@/lib/mermaid/core');
+      vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+
+      const onChange = vi.fn();
+      const { container } = render(
+        <PreviewPanel content={BODY_METADATA_CONTENT} theme="light" onChange={onChange} />
+      );
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const subgraphButton = container.querySelector('button[data-testid="add-subgraph-button"]');
+      expect(subgraphButton).toBeInTheDocument();
+      fireEvent.click(subgraphButton!);
+
+      expect(onChange).not.toHaveBeenCalled();
+      const { addSubgraph } = await import('@/lib/mermaid/codeUtils');
+      expect(addSubgraph).not.toHaveBeenCalled();
+    });
+
+    it('fence is off: add-shape behaves exactly as today without body metadata', async () => {
+      const { detectDiagramType } = await import('@/lib/mermaid/core');
+      vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+
+      const onChange = vi.fn();
+      const { container } = render(
+        <PreviewPanel content="graph TD\nA-->B" theme="light" onChange={onChange} />
+      );
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const boxButton = container.querySelector('button[title="Add Box (click or drag to canvas)"]');
+      expect(boxButton).toBeInTheDocument();
+      fireEvent.click(boxButton!);
+
+      expect(onChange).toHaveBeenCalledWith(expect.stringContaining('nodeNew1'));
     });
   });
 });
