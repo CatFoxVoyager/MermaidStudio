@@ -172,6 +172,23 @@ docker build -t mermaid-studio:prod .
 
 ---
 
+## 🌐 Browser Support
+
+MermaidStudio targets **evergreen browsers that ship ES2024** — the practical floor for the Mermaid 12 bundle:
+
+| Browser | Minimum version |
+|---------|-----------------|
+| Chrome / Edge | 115+ |
+| Firefox | 118+ |
+| Safari (macOS) | 17.4+ |
+| iOS Safari | 17.4+ |
+
+**Below the floor:** the application bundle — and Mermaid 12 itself — uses ES2024+ syntax with **no transpilation or polyfill fallback**. On older browsers (including iOS ≤ 17.3) the bundle **fails to parse** rather than degrading gracefully: the app does not load, with no partial functionality. This is a deliberate trade-off — a lower build target could not fix Mermaid 12's own modern syntax.
+
+Developers: see [docs/developer-guide/browser-support.md](./docs/developer-guide/browser-support.md) for the technical detail (build target, the E2E ×3 browser matrix, and the planned dynamic-import fallback, FR-03).
+
+---
+
 ## 🤖 AI Configuration
 
 ### Option 1: Local AI (Recommended - Free and Private)
