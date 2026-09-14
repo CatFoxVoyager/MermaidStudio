@@ -14,6 +14,7 @@ const TYPE_LABELS: Record<string, string> = {
   flowchart: 'Flowchart', sequence: 'Sequence', classDiagram: 'Class',
   stateDiagram: 'State', erDiagram: 'ER', gantt: 'Gantt',
   pie: 'Pie', mindmap: 'Mindmap', gitGraph: 'Git Graph', unknown: 'Diagram',
+  usecaseDiagram: 'Use Case',
 };
 
 interface Props {

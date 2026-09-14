@@ -455,6 +455,19 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         availableConfigOptions: ['ticketBaseUrl'],
       };
 
+    case 'usecaseDiagram':
+      return {
+        supportsClassDef: true,  // classDef token verified in the v12 usecase grammar
+        supportsStyleKeyword: true,  // style token verified in the v12 usecase grammar
+        supportsRectBlocks: false,
+        supportsFlowchartConfig: false,
+        supportsSequenceConfig: false,
+        supportsGanttConfig: false,
+        supportsC4Style: false,
+        supportsThemeVariablesOnly: false,
+        availableConfigOptions: ['direction'],  // TD/TB/BT/LR/RL verified in the grammar
+      };
+
     case 'zenuml':
       return {
         supportsClassDef: false,
