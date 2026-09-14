@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { builtinThemes, getThemeById, getThemeByName } from '../themes';
 import { getSwatchColors, DEFAULT_DARK_THEME, deriveThemeVariables } from '../themeDerivation';
-import { toHex } from '@/utils/colorConversion';
 import type { ThemeCoreColors } from '@/types';
 
 describe('themes', () => {
@@ -118,7 +117,7 @@ describe('derivation sweep — 10 builtins + 2 custom (D4)', () => {
 
   // Engine outputs that are NOT color values (sizes, opacities, widths, the
   // serialized radar/xyChart objects, and the pass-through typography keys) —
-  // excluded from the toHex format sweep, which applies to color values only.
+  // excluded from the color-literal sweep, which applies to color values only.
   // This is scoping, not weakening: exact color VALUES are the exact-hex
   // palette lock's concern (themeDerivation.test.ts); this task is the
   // breadth sweep (D4).
@@ -131,6 +130,7 @@ describe('derivation sweep — 10 builtins + 2 custom (D4)', () => {
     'pieOpacity',
     'requirementBorderSize',
     'archEdgeWidth',
+    'archGroupBorderWidth',
     'tagLabelFontSize',
     'commitLabelFontSize',
     'radar',
@@ -139,10 +139,22 @@ describe('derivation sweep — 10 builtins + 2 custom (D4)', () => {
     'fontSize',
   ]);
 
+  // RAW-value grammar check (WR-01): the previous sweep round-tripped every
+  // value through toHex and matched its OUTPUT against a hex pattern — vacuous,
+  // because toHex is total (any unparseable input falls through to
+  // hslToHex → rgbToHex(0,0,0) = '#000000'), so that check could never fail.
+  // Assert the engine's literal instead: hex, or one of the small closed set
+  // of CSS named colors the engine legitimately emits as fallbacks
+  // (themeDerivation.ts — 'white' :241, 'lightgrey' :248-249, 'grey' :250,
+  // 'red' :252-253, 'navy' :254, 'black' :341/:344).
+  const CSS_NAMED = new Set(['white', 'black', 'red', 'grey', 'lightgrey', 'navy']);
+  const isColorValue = (v: string) =>
+    /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(v) || CSS_NAMED.has(v);
+
   /**
    * Breadth assertion for one palette in BOTH modes: derives without throwing,
-   * produces a non-empty map, contains the core slots, and every color value
-   * normalizes via toHex (format check only, D5 allows format equivalence).
+   * produces a non-empty map, contains the core slots, and every remaining
+   * value IS a color literal (raw-value check — see isColorValue above).
    */
   function assertDerivesCleanly(coreColors: ThemeCoreColors, label: string): void {
     for (const darkMode of [false, true]) {
@@ -156,7 +168,10 @@ describe('derivation sweep — 10 builtins + 2 custom (D4)', () => {
       }
       for (const [key, value] of Object.entries(map)) {
         if (NON_COLOR_KEYS.has(key)) continue;
-        expect(toHex(value), `${label}: ${key} does not normalize via toHex (darkMode=${darkMode})`).toMatch(/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/);
+        expect(
+          isColorValue(value),
+          `${label}: ${key} is not a color literal (darkMode=${darkMode})`
+        ).toBe(true);
       }
     }
   }
@@ -191,7 +206,7 @@ describe('derivation sweep — 10 builtins + 2 custom (D4)', () => {
     infoColor: '#4d9fff',
   };
 
-  it('every builtin theme derives in light and dark mode (core slots + hex-normalizable values)', () => {
+  it('every builtin theme derives in light and dark mode (core slots + color-literal values)', () => {
     builtinThemes.forEach((theme) => assertDerivesCleanly(theme.coreColors, theme.id));
   });
 
