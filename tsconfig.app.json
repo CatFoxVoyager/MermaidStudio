@@ -2,10 +2,12 @@
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
-    /* lib is ES2021 (one step above target) so String.replaceAll type-checks:
-       the vite build target is locked to esnext (24-05) and every supported
-       browser ships it natively, so ES2020's narrower lib denied a real API. */
-    "lib": ["ES2021", "DOM", "DOM.Iterable"],
+    /* lib is ES2022 (two steps above target) so String.replaceAll and the
+       ErrorOptions constructor overload (`new Error(msg, { cause })`, used by
+       src/services/ai/WebGPUMLCProvider.ts) type-check: the vite build target
+       is locked to esnext (24-05) and every supported browser ships both
+       natively, so ES2020's narrower lib denied real APIs. */
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
 
