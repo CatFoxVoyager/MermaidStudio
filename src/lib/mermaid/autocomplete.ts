@@ -23,7 +23,24 @@ const DIAGRAM_STARTERS = [
   { label: 'kanban', detail: 'Kanban board', type: 'keyword' },
   { label: 'block-beta', detail: 'Block diagram', type: 'keyword' },
   { label: 'usecase-beta', detail: 'Use case diagram', type: 'keyword' },
+  { label: 'railroad-beta', detail: 'Railroad diagram', type: 'keyword' },
+  { label: 'cynefin-beta', detail: 'Cynefin domain chart', type: 'keyword' },
+  { label: 'swimlane-beta', detail: 'Swimlane diagram', type: 'keyword' },
 ];
+
+// Curated v12 shape vocabulary (D5 / Open Question 1 resolution): the app's
+// own V11_SHAPES from codeUtils.ts (all resolve under v12 as shortName or
+// alias — 24-RESEARCH.md) plus 14 clearly v12-era shortNames from the verified
+// 53-name registry. The full registry stays documented in 24-RESEARCH.md as
+// the safe superset source; an exhaustive dump is autocomplete noise (D5).
+const SHAPE_NAMES = [
+  'doc', 'docs', 'dbl-circ', 'cross-circ', 'bow-rect', 'flip-tri', 'curv-trap',
+  'manual-file', 'manual-input', 'procs', 'paper-tape',
+  'person', 'browser', 'cloud', 'console', 'bucket', 'folder', 'fork', 'join',
+  'hourglass', 'flag', 'text', 'odd', 'bang', 'bolt',
+];
+
+const SHAPE_COMPLETIONS = SHAPE_NAMES.map(shape => ({ label: shape, detail: `Shape: ${shape}`, type: 'type' }));
 
 const FLOWCHART_COMPLETIONS = [
   { label: 'subgraph', detail: 'Start a subgraph block', type: 'keyword' },
@@ -38,6 +55,9 @@ const FLOWCHART_COMPLETIONS = [
   { label: '-.->',detail: 'Dotted arrow', type: 'operator' },
   { label: '==>', detail: 'Thick arrow', type: 'operator' },
   { label: '-->>',detail: 'Open arrow', type: 'operator' },
+  { label: '@{ view: collapsed }', detail: 'Collapse subgraph to a single node', type: 'keyword' },
+  { label: '@{ shape: ', detail: 'Attach shape metadata to a node', type: 'keyword' },
+  ...SHAPE_COMPLETIONS,
 ];
 
 const SEQUENCE_COMPLETIONS = [
@@ -192,6 +212,39 @@ const USECASE_COMPLETIONS = [
   { label: '--|>', detail: 'Generalization', type: 'operator' },
 ];
 
+// Keywords extracted from the installed mermaid 12.0.0 RailroadGrammar
+// (Langium grammar, chunk-WLRJLAWP.mjs): terminal, nonterminal, special,
+// choice, sequence, optional, oneOrMore, zeroOrMore. The 6 core ones are
+// surfaced here (D5 minimalism); rules read `name = terminal("a");`.
+const RAILROAD_COMPLETIONS = [
+  { label: 'terminal', detail: 'Terminal (literal token)', type: 'keyword' },
+  { label: 'nonterminal', detail: 'Nonterminal (rule reference)', type: 'keyword' },
+  { label: 'choice', detail: 'Alternatives block', type: 'keyword' },
+  { label: 'sequence', detail: 'Ordered sequence', type: 'keyword' },
+  { label: 'optional', detail: 'Optional element', type: 'keyword' },
+  { label: 'oneOrMore', detail: 'One or more repetitions', type: 'keyword' },
+];
+
+// Domain keywords from the installed CynefinGrammar (Langium): clear,
+// complicated, complex, chaotic, confusion. Items are quoted strings on
+// lines under the bare domain name; transitions use `clear --> complex`.
+const CYNEFIN_COMPLETIONS = [
+  { label: 'clear', detail: 'Clear domain (best practices)', type: 'keyword' },
+  { label: 'complicated', detail: 'Complicated domain (good practices)', type: 'keyword' },
+  { label: 'complex', detail: 'Complex domain (emergent practices)', type: 'keyword' },
+  { label: 'chaotic', detail: 'Chaotic domain (novel practices)', type: 'keyword' },
+  { label: 'confusion', detail: 'Confusion / disorder (centre)', type: 'keyword' },
+];
+
+// swimlane-beta is a standalone v12 type rendered by the flowchart engine
+// (createFlowDiagram): lanes are declared as subgraph blocks.
+const SWIMLANE_COMPLETIONS = [
+  { label: 'subgraph', detail: 'Declare a lane', type: 'keyword' },
+  { label: 'direction', detail: 'Set direction', type: 'keyword' },
+  { label: 'end', detail: 'End a lane block', type: 'keyword' },
+  { label: '-->', detail: 'Arrow connection', type: 'operator' },
+];
+
 function detectType(doc: string): string {
   const lines = doc.trim().split('\n');
   let firstLine = '';
@@ -222,6 +275,9 @@ function detectType(doc: string): string {
   if (firstLine.startsWith('kanban')) {return 'kanban';}
   if (firstLine.startsWith('block-beta')) {return 'block';}
   if (firstLine.startsWith('usecase-beta')) {return 'usecase';}
+  if (firstLine.startsWith('railroad-beta')) {return 'railroad';}
+  if (firstLine.startsWith('cynefin-beta')) {return 'cynefin';}
+  if (firstLine.startsWith('swimlane-beta')) {return 'swimlane';}
   return '';
 }
 
@@ -259,6 +315,9 @@ export function mermaidCompletions(context: CompletionContext): CompletionResult
       case 'kanban':    completions = KANBAN_COMPLETIONS; break;
       case 'block':     completions = BLOCK_COMPLETIONS; break;
       case 'usecase':   completions = USECASE_COMPLETIONS; break;
+      case 'railroad':  completions = RAILROAD_COMPLETIONS; break;
+      case 'cynefin':   completions = CYNEFIN_COMPLETIONS; break;
+      case 'swimlane':  completions = SWIMLANE_COMPLETIONS; break;
       default:
         completions = MERMAID_KEYWORDS.map(k => ({ label: k, type: 'keyword' }));
         completions.push(...MERMAID_ARROWS.map(a => ({ label: a, type: 'operator' })));

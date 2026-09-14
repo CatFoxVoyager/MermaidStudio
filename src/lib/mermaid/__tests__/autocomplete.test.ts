@@ -397,3 +397,85 @@ describe('v12 adopted-type completions', () => {
     expect(labels).toContain('systemBoundary');
   });
 });
+
+describe('v12 gap entries', () => {
+  const RAILROAD_LABELS = ['terminal', 'nonterminal', 'choice', 'sequence', 'optional', 'oneOrMore'];
+  const CYNEFIN_LABELS = ['clear', 'complicated', 'complex', 'chaotic', 'confusion'];
+  const SWIMLANE_LABELS = ['subgraph', 'direction', 'end', '-->'];
+  const SHAPE_LABELS = [
+    'doc', 'docs', 'dbl-circ', 'cross-circ', 'bow-rect', 'flip-tri', 'curv-trap',
+    'manual-file', 'manual-input', 'procs', 'paper-tape',
+    'person', 'browser', 'cloud', 'console', 'bucket', 'folder', 'fork', 'join',
+    'hourglass', 'flag', 'text', 'odd', 'bang', 'bolt',
+  ];
+
+  describe('starter keywords (verified -beta spellings)', () => {
+    it('offers exactly swimlane-beta for partial `swi` on the first line', () => {
+      const labels = runCompletions('swi').map(o => o.label);
+      expect(labels).toEqual(['swimlane-beta']);
+    });
+
+    it('offers exactly railroad-beta for partial `rail` on the first line', () => {
+      const labels = runCompletions('rail').map(o => o.label);
+      expect(labels).toEqual(['railroad-beta']);
+    });
+
+    it('offers exactly cynefin-beta for partial `cynef` on the first line', () => {
+      const labels = runCompletions('cynef').map(o => o.label);
+      expect(labels).toEqual(['cynefin-beta']);
+    });
+  });
+
+  describe('completion group routing', () => {
+    it('routes a railroad-beta first line to the railroad group', () => {
+      const labels = runCompletions('railroad-beta\n').map(o => o.label);
+      for (const expected of RAILROAD_LABELS) {
+        expect(labels).toContain(expected);
+      }
+      expect(labels).not.toContain('participant'); // generic fallback must be replaced
+    });
+
+    it('routes a cynefin-beta first line to the cynefin group', () => {
+      const labels = runCompletions('cynefin-beta\n').map(o => o.label);
+      for (const expected of CYNEFIN_LABELS) {
+        expect(labels).toContain(expected);
+      }
+      expect(labels).not.toContain('participant');
+    });
+
+    it('routes a swimlane-beta first line to the swimlane group', () => {
+      const labels = runCompletions('swimlane-beta\n').map(o => o.label);
+      for (const expected of SWIMLANE_LABELS) {
+        expect(labels).toContain(expected);
+      }
+      expect(labels).not.toContain('participant');
+    });
+  });
+
+  describe('shape completions in flowchart context', () => {
+    it('offers the full curated 25-entry shape vocabulary', () => {
+      const labels = runCompletions('flowchart TD\n').map(o => o.label);
+      for (const shape of SHAPE_LABELS) {
+        expect(labels).toContain(shape);
+      }
+    });
+
+    it('filters shape entries by a partial token', () => {
+      const labels = runCompletions('flowchart TD\npers').map(o => o.label);
+      expect(labels).toContain('person');
+    });
+  });
+
+  describe('subgraph metadata entries', () => {
+    it('offers both metadata entries for partial `@{`', () => {
+      const labels = runCompletions('flowchart TD\n@{').map(o => o.label);
+      expect(labels).toContain('@{ view: collapsed }');
+      expect(labels).toContain('@{ shape: ');
+    });
+
+    it('offers the view-collapse entry for partial `view`', () => {
+      const labels = runCompletions('flowchart TD\nview').map(o => o.label);
+      expect(labels).toEqual(['@{ view: collapsed }']);
+    });
+  });
+});
