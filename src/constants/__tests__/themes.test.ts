@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { builtinThemes, getThemeById, getThemeByName } from '../themes';
-import { getSwatchColors, DEFAULT_DARK_THEME } from '../themeDerivation';
+import { getSwatchColors, DEFAULT_DARK_THEME, deriveThemeVariables } from '../themeDerivation';
+import { toHex } from '@/utils/colorConversion';
+import type { ThemeCoreColors } from '@/types';
 
 describe('themes', () => {
   it('builtinThemes has 10 entries', () => {
@@ -101,5 +103,134 @@ describe('themes', () => {
         expect(differingColors).toBeGreaterThanOrEqual(3);
       }
     }
+  });
+});
+
+describe('derivation sweep — 10 builtins + 2 custom (D4)', () => {
+  // Core slots the engine is documented to emit for every palette (THM-02).
+  const CORE_SLOTS = [
+    'primaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'primaryBorderColor',
+  ] as const;
+
+  // Engine outputs that are NOT color values (sizes, opacities, widths, the
+  // serialized radar/xyChart objects, and the pass-through typography keys) —
+  // excluded from the toHex format sweep, which applies to color values only.
+  // This is scoping, not weakening: exact color VALUES are the exact-hex
+  // palette lock's concern (themeDerivation.test.ts); this task is the
+  // breadth sweep (D4).
+  const NON_COLOR_KEYS = new Set([
+    'pieTitleTextSize',
+    'pieSectionTextSize',
+    'pieLegendTextSize',
+    'pieStrokeWidth',
+    'pieOuterStrokeWidth',
+    'pieOpacity',
+    'requirementBorderSize',
+    'archEdgeWidth',
+    'tagLabelFontSize',
+    'commitLabelFontSize',
+    'radar',
+    'xyChart',
+    'fontFamily',
+    'fontSize',
+  ]);
+
+  /**
+   * Breadth assertion for one palette in BOTH modes: derives without throwing,
+   * produces a non-empty map, contains the core slots, and every color value
+   * normalizes via toHex (format check only, D5 allows format equivalence).
+   */
+  function assertDerivesCleanly(coreColors: ThemeCoreColors, label: string): void {
+    for (const darkMode of [false, true]) {
+      expect(() => deriveThemeVariables(coreColors, darkMode), `${label} threw (darkMode=${darkMode})`).not.toThrow();
+      const map = deriveThemeVariables(coreColors, darkMode);
+      expect(Object.keys(map).length, `${label} produced an empty map (darkMode=${darkMode})`).toBeGreaterThan(0);
+      for (const slot of CORE_SLOTS) {
+        // A missing core slot is a FINDING (D3 protocol), not a test
+        // accommodation — do not weaken this into an optional check.
+        expect(map[slot], `${label} missing core slot ${slot} (darkMode=${darkMode})`).toBeDefined();
+      }
+      for (const [key, value] of Object.entries(map)) {
+        if (NON_COLOR_KEYS.has(key)) continue;
+        expect(toHex(value), `${label}: ${key} does not normalize via toHex (darkMode=${darkMode})`).toMatch(/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/);
+      }
+    }
+  }
+
+  // Two synthetic custom palettes — the shape a user-authored custom theme
+  // stores and getThemeById resolves from localStorage — with deliberately
+  // distinct hex per slot. The localStorage lookup path itself is out of
+  // scope (D4): the derivation engine is the validated surface.
+  const CUSTOM_PALETTE_A: ThemeCoreColors = {
+    primaryColor: '#ff6b6b',
+    secondaryColor: '#4ecdc4',
+    background: '#f7fff7',
+    lineColor: '#1a535c',
+    primaryTextColor: '#22223b',
+    successColor: '#2a9d8f',
+    warningColor: '#e9c46a',
+    errorColor: '#e76f51',
+    infoColor: '#264653',
+    fontFamily: 'Inter, system-ui, sans-serif',
+    fontSize: '14px',
+  };
+
+  const CUSTOM_PALETTE_B: ThemeCoreColors = {
+    primaryColor: '#dbe7ff',
+    secondaryColor: '#b8c7ff',
+    background: '#0f1222',
+    lineColor: '#7c9cff',
+    primaryTextColor: '#e8ecff',
+    successColor: '#00c48c',
+    warningColor: '#ffb648',
+    errorColor: '#ff5470',
+    infoColor: '#4d9fff',
+  };
+
+  it('every builtin theme derives in light and dark mode (core slots + hex-normalizable values)', () => {
+    builtinThemes.forEach((theme) => assertDerivesCleanly(theme.coreColors, theme.id));
+  });
+
+  it('custom palette A derives in light and dark mode (D4 custom path)', () => {
+    assertDerivesCleanly(CUSTOM_PALETTE_A, 'custom-palette-a');
+  });
+
+  it('custom palette B derives in light and dark mode (D4 custom path)', () => {
+    assertDerivesCleanly(CUSTOM_PALETTE_B, 'custom-palette-b');
+  });
+
+  it('variable names survive: flowchart-family names all appear in a builtin derivation (THM-02)', () => {
+    // DIAGRAM_TYPE_VARIABLES.flowchart (themeDerivation.ts:23-30 — not
+    // exported; keep this list in sync). These are the app-emitted names that
+    // mermaid 12's Theme.calculate(overrides) accepts (research-verified in
+    // v12 source — 23-RESEARCH.md Pattern 3).
+    const flowchartVariables = [
+      'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'arrowheadColor',
+      'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
+      'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor', 'border2',
+      'nodeBkg', 'mainBkg', 'nodeBorder', 'clusterBkg', 'clusterBorder',
+      'defaultLinkColor', 'titleColor', 'edgeLabelBackground', 'nodeTextColor',
+      'fontFamily', 'fontSize',
+    ];
+    const corporateBlue = builtinThemes.find((t) => t.id === 'corporate-blue');
+    expect(corporateBlue).toBeDefined();
+    const result = deriveThemeVariables(corporateBlue!.coreColors, false);
+    for (const name of flowchartVariables) {
+      // Typography keys are pass-through-only: the engine emits them only
+      // when coreColors carries them (builtins do not set them — covered by
+      // the typography pass-through test below).
+      if (name === 'fontFamily' || name === 'fontSize') continue;
+      expect(result[name], `flowchart variable "${name}" missing from derived output`).toBeDefined();
+    }
+  });
+
+  it('typography pass-through: fontFamily/fontSize survive when coreColors carries them', () => {
+    const result = deriveThemeVariables(CUSTOM_PALETTE_A, false);
+    expect(result.fontFamily).toBe('Inter, system-ui, sans-serif');
+    expect(result.fontSize).toBe('14px');
   });
 });
