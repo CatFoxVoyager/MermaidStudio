@@ -347,3 +347,60 @@ Recorded 2026-09-13 by Plan 22-04 (gap closure). Observed on mermaid 12.0.0 on
   pipeline-enhancement candidate surfaced for UAT ratification alongside the
   idempotency deferral (22-VERIFICATION human item 2). If the user overturns,
   it becomes a tracked post-milestone item.
+
+## Phase 24 DIA-01 render sweep — 44-cell jsdom lock-in + local chromium captures (Plan 24-04)
+
+Recorded 2026-09-14 by Plan 24-04. This section follows the section style
+above: capture provenance, observed outcome, D2 classification of every
+anomaly (zero unclassified cells, zero skip-listed types).
+
+### Capture details
+
+| Property | Value |
+|---|---|
+| Sweep date | **2026-09-14** |
+| Installed mermaid at capture | **12.0.0** (exact pin from Phase 21) |
+| Phase / requirement | Phase 24 (Diagram-Type Sweep & Full Verification), Plan 24-04, DIA-01 |
+| jsdom lock-in suite | `src/lib/mermaid/__tests__/diagram-type-sweep.test.ts` — **44 cells = 22 types × light/dark**, every cell through `renderDiagram` ONLY (validateDiagramContent → doInit dagre/classic pins → mermaid.render → sanitizeMermaidSVG; never `mermaid.render` directly, Pitfall 2) |
+| Fixtures | `src/lib/mermaid/__tests__/fixtures/diagram-type-fixtures.ts` — exactly 22 entries (module-scope grid guard; `Record<SweepFixtureKey, …>` compiler-forced key set) |
+| Fixture provenance | **Phase 23 theme-matrix (probe-validated on v12)**: flowchart, sequence, classDiagram, stateDiagram, erDiagram, gantt, pie, mindmap · **template-derived** (bodies from `src/constants/templates.ts`, trimmed): gitGraph, journey, quadrantChart, requirementDiagram, timeline, sankey, xyChart, packetDiagram, kanban, architectureDiagram, blockDiagram, c4 · **plan 24-01 canonical** (grammar-corrected against the installed package, render-validated there): usecaseDiagram · **placeholder content (expectedError)**: zenuml |
+| Capture spec | `tests/e2e/tests/visual/type-sweep-captures.spec.ts` — local-only scratch, **chromium project, light theme**, one full-page PNG per fixture to the repository ROOT (gitignored `*.png` rule), the first-run welcome modal dismissed in-spec before capture (unoccluded images), zero pixel assertions (no `toHaveScreenshot` anywhere) |
+| Capture run | 2026-09-14, chromium over the **HTTP** dev server (`node scripts/dev-e2e.mjs`; `.cert/` set aside for the run and restored after — the recipe above), **22/22 passed (~25s)**, 22 fresh PNGs observed locally. Runs resolve the spec's relative screenshot path against the process cwd, so captures land in the repo root (same as the Phase 22 diagnostic runs) |
+| jsdom sweep result | **44/44 green**: 42 real render cells (non-empty sanitized SVG + ≥1 substance element — path/rect/circle/polygon/text/line — in BOTH modes) + 2 zenuml documented-failure cells (anti-vacuous lock, both modes). Runtime ~6.5s targeted |
+
+### D2 classification table (zero unclassified cells)
+
+| Cell(s) | Observation | Classification |
+|---|---|---|
+| zenuml ×2 modes | render errors, SVG empty — observed verbatim: `No diagram type detected matching given configuration for text: zenuml\n …` (probe-observe-delete run, 2026-09-14) | **Documented pre-existing acceptance (expectedError, anti-vacuous).** zenuml is ABSENT from the entire mermaid 12.0.0 dist (case-insensitive search of the installed package: zero hits — the detector registry in `mermaid.core.mjs` has no zenuml entry) and `@mermaid-js/mermaid-zenuml` was never a dependency pre-flip (`bf3658e^` package.json audit): the app union entry is inherited from v11 and the error is version-independent. The cell is locked to PASS only while the documented failure still occurs — if a future mermaid bundles zenuml and renders it, the assertions fail loudly and force re-classification. The external-package adoption path is out of scope (FR-04-adjacent, v2) |
+| timeline, architectureDiagram, c4 ×2 modes (observed in the pre-lock probe, 2026-09-14) | render fails under jsdom ONLY: `tspan.node(...).getComputedTextLength is not a function` / `testSpan.node(...).getComputedTextLength is not a function`; SVG empty | **jsdom environment limitation — enabled in-suite, cells locked as REAL renders.** Root cause from source: mermaid 12's shared text-wrapping helper measures wrapped text via `getComputedTextLength()` on a d3-created tspan (`computeWidthOfText`, dist `chunk-EBKONHZ7.mjs:1915-1919`), routed through by the timeline / architecture / c4 renderers; jsdom implements no SVG text-metrics APIs. Same gap class as the repo's global `getBBox` polyfill (`tests/vitest.setup.ts:62-76`) and the same API already recorded above as a jsdom gap under v11.17.2 (the htmlLabels:false precedent) — **version-independent, NOT a v12 delta, NOT an app bug.** Disposition: a sweep-local polyfill of the same shape (characters × 8px approximation) is installed inside `diagram-type-sweep.test.ts` so these cells assert a REAL render through the pipeline instead of a locked failure; the GLOBAL setup is deliberately untouched so no other suite's recorded classifications change. Browser reality confirmed the same day: the chromium captures render timeline / architecture / c4 normally |
+| remaining 19 types × 2 modes | non-empty sanitized SVG, ≥1 substance element, no error | **none — pass** |
+
+### D10 division of labor (stated, not papered over)
+
+The jsdom sweep proves **integration and non-empty render** through the app's
+real production pipeline; it does **NOT** prove pixel-accurate browser
+rendering — that is **VAL-02's E2E layer** (plan 24-05: the complete E2E suite
+on chromium AND firefox AND webkit per D8). The local chromium captures in
+`tests/e2e/tests/visual/type-sweep-captures.spec.ts` are the **human
+spot-check material** reviewed at UAT (Phase 22 D5 pattern): scratch only,
+never committed, never promoted to `toHaveScreenshot` assertions.
+
+### Deferred-item closure
+
+The **Phase 23 verifier's deferred browser-level rendering-confirmation item**
+routes to **Phase 24's VAL-01/VAL-02 gates, executed by plan 24-05**. This
+plan contributes the jsdom lock-in (above) and the human spot-check captures
+only; it claims no browser-level automated proof.
+
+### Re-derivation for a future session
+
+```bash
+node -p "require('./node_modules/mermaid/package.json').version"   # expect 12.0.0
+npx vitest run src/lib/mermaid/__tests__/diagram-type-sweep.test.ts # 44/44
+# captures (HTTP recipe — set .cert/ aside if present, restore after):
+node scripts/dev-e2e.mjs &
+npx playwright test tests/e2e/tests/visual/type-sweep-captures.spec.ts --project=chromium
+# → 22 fresh type-sweep-*.png in the repository root (gitignored)
+```
+
