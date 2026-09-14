@@ -55,8 +55,8 @@ const FLOWCHART_COMPLETIONS = [
   { label: '-.->',detail: 'Dotted arrow', type: 'operator' },
   { label: '==>', detail: 'Thick arrow', type: 'operator' },
   { label: '-->>',detail: 'Open arrow', type: 'operator' },
-  { label: '@{ view: collapsed }', detail: 'Collapse subgraph to a single node', type: 'keyword' },
-  { label: '@{ shape: ', detail: 'Attach shape metadata to a node', type: 'keyword' },
+  { label: '@{ view: collapsed }', detail: 'Collapse subgraph to a single node (makes the visual editor read-only)', type: 'keyword' },
+  { label: '@{ shape: ', detail: 'Attach shape metadata to a node (makes the visual editor read-only)', type: 'keyword' },
   ...SHAPE_COMPLETIONS,
 ];
 
