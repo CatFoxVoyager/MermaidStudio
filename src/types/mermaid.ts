@@ -6,7 +6,7 @@ export type DiagramType =
   | 'erDiagram' | 'gantt' | 'pie' | 'mindmap' | 'gitGraph'
   | 'journey' | 'quadrantChart' | 'requirementDiagram' | 'timeline'
   | 'sankey' | 'xyChart' | 'packetDiagram' | 'kanban'
-  | 'architectureDiagram' | 'zenuml' | 'blockDiagram' | 'c4' | 'unknown';
+  | 'architectureDiagram' | 'usecaseDiagram' | 'zenuml' | 'blockDiagram' | 'c4' | 'unknown';
 
 export interface Template {
   id: string;
