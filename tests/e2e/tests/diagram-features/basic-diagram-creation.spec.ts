@@ -97,7 +97,14 @@ test.describe('Basic Diagram Creation', () => {
     expect(initialCode).toBeTruthy();
 
     // Create new diagram
+    const tabsBefore = await tabBar.tabs.count();
     await appLayout.newDiagram();
+    // newDiagram is async (IndexedDB write -> refresh -> openDiagram); wait for
+    // the new tab to be committed before mutating the editor. Issuing setCode
+    // earlier raced the React commit on webkit: the doc echo fired through the
+    // previous tab's onChange closure and the pending commit's value-sync then
+    // reverted the editor (VAL-02, plan 24-05).
+    await expect(tabBar.tabs).toHaveCount(tabsBefore + 1);
 
     // Set code in the new tab
     await editor.setCode(basicDiagrams.simpleFlow);
@@ -151,7 +158,12 @@ test.describe('Basic Diagram Creation', () => {
     expect(initialCode).toBeTruthy();
 
     // Create new diagram
+    const tabsBefore = await appLayout.tabBar.tabs.count();
     await appLayout.newDiagram();
+    // Same commit-evidence wait as 'should switch between tabs': setCode
+    // before the new tab's commit raced the onChange closure and the doc was
+    // reverted by the pending value-sync (seen on chromium here, VAL-02 24-05).
+    await expect(appLayout.tabBar.tabs).toHaveCount(tabsBefore + 1);
 
     // Write content to the new tab
     await editor.setCode('test content');
