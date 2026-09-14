@@ -285,7 +285,17 @@ export function mermaidCompletions(context: CompletionContext): CompletionResult
   const word = context.matchBefore(/[\w\-.|<>{}[\]():#]+/);
   if (!word && !context.explicit) {return null;}
 
-  const from = word?.from ?? context.pos;
+  // WR-01: `@` is deliberately outside the matchBefore charset (it is not part
+  // of a mermaid identifier), so a typed `@{` yields word = '{' starting AFTER
+  // the `@`, and a bare typed `@` yields no word at all (explicit path). In
+  // both cases the default `from` lands after the typed `@`, so accepting an
+  // `@{ ... }` metadata completion doubled it (`A@@{ shape: `). When the
+  // character immediately before the replacement range is `@`, extend the
+  // range to consume it so acceptance REPLACES the typed `@`.
+  let from = word?.from ?? context.pos;
+  if (from > 0 && context.state.doc.sliceString(from - 1, from) === '@') {
+    from -= 1;
+  }
   const text = word?.text?.toLowerCase() ?? '';
   const doc = context.state.doc.toString();
   const type = detectType(doc);
