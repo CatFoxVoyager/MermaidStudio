@@ -9,6 +9,7 @@ import { AISettingsModal } from '@/ai/AISettingsModal';
 import { KeyboardShortcuts } from '@/components/modals/tools/KeyboardShortcuts';
 import { WelcomeModal } from '@/components/modals/tools/WelcomeModal';
 import { Toast } from '@/components/shared/Toast';
+import type { ToastItem } from '@/hooks/useToast';
 import type { Diagram, Template } from '@/types';
 
 // Lazy load heavy modal components
@@ -60,14 +61,17 @@ interface ModalProviderProps {
   handleNewFolder?: () => void;
   diagrams?: Diagram[];
   onOpenDiagram?: (id: string) => void;
-  toggleAI?: () => void;
+  /* Required (not optional): the only renderers (App.tsx, its test factory)
+     always supply them, and CommandPalette — the sole consumer gated on
+     showPalette — needs them non-optional. */
+  toggleAI: () => void;
   toggleTheme?: () => void;
-  theme?: 'light' | 'dark';
+  theme: 'light' | 'dark';
   aiSettingsKey?: number;
   setAiSettingsKey?: (k: number | ((prev: number) => number)) => void;
   refresh?: () => void;
   showToast?: (msg: string) => void;
-  toasts?: Array<{ id: string; message: string; type: string }>;
+  toasts?: ToastItem[];
   dismiss?: (id: string) => void;
 }
 

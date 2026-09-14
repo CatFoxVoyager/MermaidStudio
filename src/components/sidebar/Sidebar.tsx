@@ -12,7 +12,9 @@ import type { ContextMenuItem } from '../shared/ContextMenu';
 
 interface Props {
   onOpenDiagram: (id: string) => void;
-  activeDiagramId?: string;
+  /* string | null (not just undefined): callers derive it from the active
+     tab, which is null whenever no tab is open. */
+  activeDiagramId?: string | null;
   onRefresh: () => void;
   onDiagramDeleted?: (diagramIds: string[]) => void;
 }
