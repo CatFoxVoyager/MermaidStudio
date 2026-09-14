@@ -5,7 +5,9 @@ import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import {
   parseDiagram, updateNodeStyle, updateNodeLabel, updateNodeShape,
   addNode, removeNode, addEdge, generateNodeId, getNodeStyle, addSubgraph,
+  bodyContainsAtDirective,
 } from '@/lib/mermaid/codeUtils';
+import type { ParsedDiagram } from '@/lib/mermaid/codeUtils';
 import { ShapeToolbar } from './ShapeToolbar';
 import { PropertiesPanel } from './PropertiesPanel';
 import type { NodeShape, NodeStyle, VisualNode, VisualEdge, SelectionState, ToolMode } from './types';
@@ -58,6 +60,20 @@ interface Props {
   onChange: (content: string) => void;
 }
 
+// D6 read-only stand-in parse result: the read-only gate short-circuits the
+// parse memo so parseDiagram is never invoked for body-metadata content; the
+// `parsed` consumers below see an empty structure instead (overlays and the
+// properties panel are hidden in read-only mode anyway).
+const EMPTY_PARSED: ParsedDiagram = {
+  nodes: [],
+  edges: [],
+  styles: new Map(),
+  classDefs: new Map(),
+  nodeClasses: new Map(),
+  linkStyles: new Map(),
+  subgraphs: [],
+};
+
 export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props) {
   const [svg, setSvg] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -82,10 +98,21 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchPrevDistanceRef = useRef<number | null>(null);
 
+  // D6 fail-safe (DIA-04): content whose BODY (outside frontmatter) carries
+  // the v12 metadata-attach syntax (`@{...}`) opens read-only. The gate is
+  // computed BEFORE the parse memo and short-circuits it, so the regex-based
+  // parser is never invoked on such content — parseDiagram silently drops
+  // bare post-id metadata lines (the exact form this app's own updateNodeShape
+  // emits), and any regeneration-style edit would then corrupt the diagram.
+  const readOnly = useMemo(() => bodyContainsAtDirective(content), [content]);
+
   // Parse once per content change (previously re-parsed on every render, i.e.
   // on every drag/selection state update). Shared with the render pipeline
   // below and the node/edge style helpers.
-  const parsed = useMemo(() => parseDiagram(content), [content]);
+  const parsed = useMemo(
+    () => (readOnly ? EMPTY_PARSED : parseDiagram(content)),
+    [content, readOnly],
+  );
 
   const render = useCallback(async () => {
     const id = ++renderIdRef.current;
@@ -95,9 +122,17 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     setLoading(false);
     if (e) { setError(e); return; }
     setError(null);
+    if (readOnly) {
+      // D6 read-only mode: postProcessDiagramSvg's second argument is the
+      // parse result — skipping it keeps the whole parse-based pipeline out
+      // of the read-only path. The visual delta is cosmetic fill/ordering
+      // polish; acceptable for a degraded read-only view.
+      setSvg(s);
+      return;
+    }
     // Same pipeline as the preview and exports so the visual editor matches.
     setSvg(postProcessDiagramSvg(s, parsed));
-  }, [content, themeId, parsed]);
+  }, [content, themeId, parsed, readOnly]);
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
@@ -199,7 +234,8 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
         setConnectFirst(nodeId);
         return;
       }
-      if (connectFirst !== nodeId) {
+      // D6 belt-and-braces: read-only content never reaches a codeUtils mutator.
+      if (!readOnly && connectFirst !== nodeId) {
         onChange(addEdge(content, connectFirst, nodeId));
       }
       setConnectFirst(null);
@@ -344,7 +380,12 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     }
   }
 
+  // D6 belt-and-braces: every edit callback below early-returns in read-only
+  // mode so no path can hand body-metadata content to a codeUtils mutator —
+  // the affordance hiding in the JSX is the first fence, these are the second.
+
   function handleAddShape(shape: NodeShape) {
+    if (readOnly) {return;}
     const id = generateNodeId(parsed.nodes.map(n => n.id));
     onChange(addNode(content, id, 'New Node', shape));
     setSelection({ nodeIds: [id], edgeKey: null });
@@ -352,12 +393,13 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
 
   function handleDropOnCanvas(e: React.DragEvent) {
     e.preventDefault();
-    if (!dragShape) {return;}
+    if (readOnly || !dragShape) {return;}
     handleAddShape(dragShape);
     setDragShape(null);
   }
 
   function handleDeleteSelected() {
+    if (readOnly) {return;}
     let updated = content;
     selection.nodeIds.forEach(id => { updated = removeNode(updated, id); });
     setSelection({ nodeIds: [], edgeKey: null });
@@ -365,18 +407,22 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   }
 
   function handleLabelChange(id: string, label: string) {
+    if (readOnly) {return;}
     onChange(updateNodeLabel(content, id, label));
   }
 
   function handleShapeChange(id: string, shape: NodeShape) {
+    if (readOnly) {return;}
     onChange(updateNodeShape(content, id, shape));
   }
 
   function handleStyleChange(id: string, style: NodeStyle) {
+    if (readOnly) {return;}
     onChange(updateNodeStyle(content, id, style));
   }
 
   function handleArrowChange(source: string, target: string, arrowType: string) {
+    if (readOnly) {return;}
     const lines = content.split('\n');
     const updated = lines.map(line => {
       const trimmed = line.trim();
@@ -392,6 +438,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   }
 
   function handleEdgeLabelChange(source: string, target: string, label: string) {
+    if (readOnly) {return;}
     const lines = content.split('\n');
     const updated = lines.map(line => {
       const trimmed = line.trim();
@@ -405,6 +452,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   }
 
   function handleDeleteEdge(source: string, target: string) {
+    if (readOnly) {return;}
     const lines = content.split('\n').filter(line => {
       const t = line.trim();
       return !(t.includes(source) && t.includes(target) && (t.includes('-->') || t.includes('---') || t.includes('==>') || t.includes('-.->') || t.includes('o--o')));
@@ -414,6 +462,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   }
 
   function handleAddSubgraph() {
+    if (readOnly) {return;}
     onChange(addSubgraph(content));
   }
 
@@ -434,7 +483,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
         const active = document.activeElement;
         if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {return;}
         if (e.ctrlKey || e.metaKey) {return;}
-        setToolMode('connect');
+        if (!readOnly) {setToolMode('connect');}
       }
       if (e.key === 'Escape') {
         setConnectFirst(null);
@@ -443,19 +492,21 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selection]);
+  }, [selection, readOnly]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <ShapeToolbar
-        toolMode={toolMode}
-        onToolMode={m => { setToolMode(m); setConnectFirst(null); }}
-        onAddShape={handleAddShape}
-        onDragStart={shape => setDragShape(shape)}
-        onDeleteSelected={handleDeleteSelected}
-        hasSelection={selection.nodeIds.length > 0}
-        onAddSubgraph={handleAddSubgraph}
-      />
+      {!readOnly && (
+        <ShapeToolbar
+          toolMode={toolMode}
+          onToolMode={m => { setToolMode(m); setConnectFirst(null); }}
+          onAddShape={handleAddShape}
+          onDragStart={shape => setDragShape(shape)}
+          onDeleteSelected={handleDeleteSelected}
+          hasSelection={selection.nodeIds.length > 0}
+          onAddSubgraph={handleAddSubgraph}
+        />
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         <div
@@ -489,7 +540,17 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
             </button>
           </div>
 
-          {toolMode === 'connect' && (
+          {readOnly && (
+            <div
+              data-testid="visual-editor-readonly"
+              aria-live="polite"
+              className="absolute top-2 left-2 z-10 px-2 py-1 rounded-lg border text-[10px] font-medium"
+              style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+              {'Read-only — v12 metadata syntax (@{...}) cannot be edited here'}
+            </div>
+          )}
+
+          {toolMode === 'connect' && !readOnly && (
             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-full text-xs font-medium border"
               style={{ background: 'var(--accent-dim)', borderColor: 'rgba(var(--accent-rgb),0.3)', color: 'var(--accent)' }}>
               {connectFirst
@@ -519,7 +580,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
                   dangerouslySetInnerHTML={{ __html: svg }}
                 />
 
-                {overlays.map(overlay => {
+                {!readOnly && overlays.map(overlay => {
                   const isSelected = selection.nodeIds.includes(overlay.id);
                   const isConnectSource = overlay.id === connectFirst;
                   return (
@@ -546,19 +607,21 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
           )}
         </div>
 
-        <div className="shrink-0 overflow-hidden transition-all duration-200"
-          style={{ width: 220 }}>
-          <PropertiesPanel
-            selectedNodes={selectedNodes}
-            selectedEdge={selectedEdge}
-            onLabelChange={handleLabelChange}
-            onShapeChange={handleShapeChange}
-            onStyleChange={handleStyleChange}
-            onArrowChange={handleArrowChange}
-            onEdgeLabelChange={handleEdgeLabelChange}
-            onDeleteEdge={handleDeleteEdge}
-          />
-        </div>
+        {!readOnly && (
+          <div className="shrink-0 overflow-hidden transition-all duration-200"
+            style={{ width: 220 }}>
+            <PropertiesPanel
+              selectedNodes={selectedNodes}
+              selectedEdge={selectedEdge}
+              onLabelChange={handleLabelChange}
+              onShapeChange={handleShapeChange}
+              onStyleChange={handleStyleChange}
+              onArrowChange={handleArrowChange}
+              onEdgeLabelChange={handleEdgeLabelChange}
+              onDeleteEdge={handleDeleteEdge}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
