@@ -484,7 +484,9 @@ flowchart TD
     });
   });
 
-  describe('applyThemeToFrontmatter', () => {
+  // IN-01: renamed so the two applyThemeToFrontmatter suites (basic wrapping
+  // above, merge semantics here) are distinguishable in test output.
+  describe('applyThemeToFrontmatter — merge semantics', () => {
     it('merges new colors into existing themeVariables (preserves custom keys)', () => {
       const theme = {
         id: 'test',
