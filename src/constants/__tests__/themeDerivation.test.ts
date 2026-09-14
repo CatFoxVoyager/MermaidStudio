@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveThemeVariables, applyThemeToFrontmatter, applyC4FromTheme, applyStyleToContent, stripThemeDirective, DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '../themeDerivation';
+import { deriveThemeVariables, deriveThemeVariablesForDiagramType, applyThemeToFrontmatter, applyC4FromTheme, applyStyleToContent, stripThemeDirective, DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '../themeDerivation';
 import { toHex } from '@/utils/colorConversion';
 import type { ThemeCoreColors } from '@/types';
 
@@ -1210,5 +1210,69 @@ describe('exact-hex palette lock (v12 source values → v11 hex, D5/D7)', () => 
     }
     expect(light.cScale12).toBeUndefined();
     expect(dark.cScale12).toBeUndefined();
+  });
+});
+
+describe('usecase routing (24-01 DIA-02 — DIAGRAM_TYPE_VARIABLES.usecaseDiagram)', () => {
+  // The usecase map entry (24-01 Task 1) is a compiler-forced Record key that
+  // routes the new type into the EXISTING derivation path — no formula or
+  // engine change. These locks prove the routing is real, not vacuous: the
+  // discriminating keys below are present in the usecase entry but ABSENT
+  // from the `unknown` fallback set, so a missing entry (fallback active)
+  // would strip them and fail these assertions.
+  const USECASE_ONLY_KEYS = ['defaultLinkColor', 'titleColor', 'edgeLabelBackground'] as const;
+
+  const CORE_COLORS: ThemeCoreColors = {
+    primaryColor: '#ECECFF',
+    background: '#ffffff',
+  };
+
+  it('deriveThemeVariablesForDiagramType filters to the usecase entry — usecase-only keys survive', () => {
+    const result = deriveThemeVariablesForDiagramType(CORE_COLORS, false, 'usecaseDiagram');
+    for (const key of USECASE_ONLY_KEYS) {
+      expect(
+        result[key],
+        `usecase-only key "${key}" was stripped — the usecase map entry is missing and the unknown fallback is active`
+      ).toBeDefined();
+    }
+    // The generic node/edge/label portion of the entry survives too
+    // (fontFamily/fontSize are pass-through keys, not engine-derived, so they
+    // are only asserted when provided in coreColors).
+    expect(result.nodeBkg).toBeDefined();
+    expect(result.clusterBkg).toBeDefined();
+    expect(result.textColor).toBeDefined();
+  });
+
+  it('applyThemeToFrontmatter routes usecase-beta content through the new detect branch', () => {
+    const theme = {
+      id: 'test', name: 'Test', description: 'Test theme', isBuiltin: true,
+      coreColors: {
+        ...CORE_COLORS,
+        // Discriminator: secondaryTextColor is allowed by the UNKNOWN fallback
+        // set but NOT by the usecase entry — its absence from the output
+        // proves the content routed through the usecase branch's allowed set.
+        secondaryTextColor: '#eeeeee',
+      },
+    };
+    // The render-validated 24-01 Task 1 fixture (verbatim).
+    const fixture = `usecase-beta
+  actor User
+  actor Admin
+  Admin --|> User
+  systemBoundary App
+    "Log in"
+    "View dashboard"
+  end
+  User --> "Log in"
+  User --> "View dashboard"
+  "Log in" ..> : include "View dashboard"`;
+    const result = applyThemeToFrontmatter(fixture, theme, false);
+    // Positive: the engine always ensures arrowheadColor for types whose
+    // allowed set has it (the usecase entry does) — a derived usecase-set key
+    // present in the produced frontmatter.
+    expect(result).toContain('arrowheadColor:');
+    // Negative discriminator: the usecase entry excludes secondaryTextColor,
+    // so the core color is filtered out and the key never reaches the YAML.
+    expect(result).not.toContain('secondaryTextColor');
   });
 });
