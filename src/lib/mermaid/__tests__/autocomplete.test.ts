@@ -3,9 +3,28 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { mermaidAutocomplete } from '../autocomplete';
+import { mermaidAutocomplete, mermaidCompletions } from '../autocomplete';
 import { CompletionContext } from '@codemirror/autocomplete';
 import { EditorState } from '@codemirror/state';
+
+interface CompletionOption {
+  label: string;
+  detail?: string;
+  type?: string;
+}
+
+/**
+ * Invoke the REAL completion source (the same function `mermaidAutocomplete`
+ * wires as its override) against a document and return the offered option
+ * labels. `pos` defaults to end-of-document; `explicit` defaults to true so
+ * contexts with no word under the cursor still produce options.
+ */
+function runCompletions(doc: string, pos?: number, explicit = true): CompletionOption[] {
+  const state = EditorState.create({ doc });
+  const context = new CompletionContext(state, pos ?? doc.length, explicit);
+  const result = mermaidCompletions(context);
+  return result ? Array.from(result.options) as CompletionOption[] : [];
+}
 
 describe('Mermaid Autocomplete', () => {
   describe('Diagram Type Detection', () => {
@@ -328,5 +347,53 @@ describe('Mermaid Autocomplete', () => {
       // Should still create context even for unknown types
       expect(context).toBeDefined();
     });
+  });
+});
+
+describe('v12 adopted-type completions', () => {
+  const USECASE_LABELS = [
+    'actor',
+    'systemBoundary',
+    'end',
+    'direction',
+    'note for',
+    'classDef',
+    'style',
+    'include',
+    'extend',
+    '..>',
+    '--|>',
+  ];
+
+  it('offers the usecase-beta starter on the first line (verified v12 trigger spelling)', () => {
+    const options = runCompletions('use');
+    const labels = options.map(o => o.label);
+    expect(labels).toContain('usecase-beta');
+    // The filter narrows to exactly the new starter — nothing else contains 'use'
+    expect(labels).toEqual(['usecase-beta']);
+  });
+
+  it('offers the usecase-beta starter on an empty document', () => {
+    const labels = runCompletions('').map(o => o.label);
+    expect(labels).toContain('usecase-beta');
+  });
+
+  it('routes a usecase-beta first line to the usecase completion group', () => {
+    const labels = runCompletions('usecase-beta\n').map(o => o.label);
+    for (const expected of USECASE_LABELS) {
+      expect(labels).toContain(expected);
+    }
+  });
+
+  it('replaces the generic fallback: no sequence/gitgraph-only entries inside usecase', () => {
+    const labels = runCompletions('usecase-beta\n').map(o => o.label);
+    expect(labels).not.toContain('participant'); // SEQUENCE_COMPLETIONS only
+    expect(labels).not.toContain('commit'); // GITGRAPH_COMPLETIONS only
+  });
+
+  it('filters the usecase group by a partial token on a later line', () => {
+    const doc = 'usecase-beta\nactor U\nsys';
+    const labels = runCompletions(doc).map(o => o.label);
+    expect(labels).toContain('systemBoundary');
   });
 });

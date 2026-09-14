@@ -22,6 +22,7 @@ const DIAGRAM_STARTERS = [
   { label: 'xychart-beta', detail: 'XY scatter chart', type: 'keyword' },
   { label: 'kanban', detail: 'Kanban board', type: 'keyword' },
   { label: 'block-beta', detail: 'Block diagram', type: 'keyword' },
+  { label: 'usecase-beta', detail: 'Use case diagram', type: 'keyword' },
 ];
 
 const FLOWCHART_COMPLETIONS = [
@@ -177,6 +178,20 @@ const BLOCK_COMPLETIONS = [
   { label: 'block:', detail: 'Block container', type: 'keyword' },
 ];
 
+const USECASE_COMPLETIONS = [
+  { label: 'actor', detail: 'Declare an actor', type: 'keyword' },
+  { label: 'systemBoundary', detail: 'System boundary block', type: 'keyword' },
+  { label: 'end', detail: 'End a block', type: 'keyword' },
+  { label: 'direction', detail: 'Set direction', type: 'keyword' },
+  { label: 'note for', detail: 'Attach a note to an element', type: 'keyword' },
+  { label: 'classDef', detail: 'Define a style class', type: 'keyword' },
+  { label: 'style', detail: 'Style an element', type: 'keyword' },
+  { label: 'include', detail: 'Include relation', type: 'keyword' },
+  { label: 'extend', detail: 'Extend relation', type: 'keyword' },
+  { label: '..>', detail: 'Dependency', type: 'operator' },
+  { label: '--|>', detail: 'Generalization', type: 'operator' },
+];
+
 function detectType(doc: string): string {
   const lines = doc.trim().split('\n');
   let firstLine = '';
@@ -206,10 +221,11 @@ function detectType(doc: string): string {
   if (firstLine.startsWith('xychart')) {return 'xychart';}
   if (firstLine.startsWith('kanban')) {return 'kanban';}
   if (firstLine.startsWith('block-beta')) {return 'block';}
+  if (firstLine.startsWith('usecase-beta')) {return 'usecase';}
   return '';
 }
 
-function mermaidCompletions(context: CompletionContext): CompletionResult | null {
+export function mermaidCompletions(context: CompletionContext): CompletionResult | null {
   const word = context.matchBefore(/[\w\-.|<>{}[\]():#]+/);
   if (!word && !context.explicit) {return null;}
 
@@ -242,6 +258,7 @@ function mermaidCompletions(context: CompletionContext): CompletionResult | null
       case 'xychart':   completions = XYCHART_COMPLETIONS; break;
       case 'kanban':    completions = KANBAN_COMPLETIONS; break;
       case 'block':     completions = BLOCK_COMPLETIONS; break;
+      case 'usecase':   completions = USECASE_COMPLETIONS; break;
       default:
         completions = MERMAID_KEYWORDS.map(k => ({ label: k, type: 'keyword' }));
         completions.push(...MERMAID_ARROWS.map(a => ({ label: a, type: 'operator' })));
