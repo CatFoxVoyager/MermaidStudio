@@ -25,21 +25,24 @@ export default defineConfig({
     // stuck in_progress until its timeout. forceExit lets vitest exit cleanly.
     forceExit: true,
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        // Cap the worker count (default scales with cores: cores - 1 = ~31
-        // forks on the 32-core dev host, each importing mermaid + jsdom —
-        // hundreds of MB each). 8 keeps peak memory inside the host envelope
-        // and the full suite inside the 600s gate wrapper; CI runners (4
-        // cores) are unaffected — the cap sits above their core count.
-        // Memory hygiene, NOT the "Worker exited unexpectedly" fix: that root
-        // cause was AIPanel.fixMode.test.tsx's unstable i18n `t` mock driving
-        // an unbounded synchronous render loop (killed one fork on every
-        // full-suite run), fixed in the test itself the same day.
-        maxWorkers: 8,
-        minWorkers: 1,
-      },
-    },
+    // Cap worker forks at 8 (Vitest 4: top-level option — the older
+    // poolOptions.forks.maxWorkers form is silently ignored with only a
+    // DEPRECATED warning). Rationale (VAL-01, 2026-09-14): the full suite
+    // is disk-I/O-bound — wall time is ~parallelism-independent (595s to
+    // SIGTERM at both 8 and default ~31 forks), and at ~31 forks the import
+    // herd starves the heavy pure-compute themes derivation sweep past even
+    // the 15s ceiling while the cold-cache organic wall runs ~790s
+    // (warm-cache runs are ~270s — the transform/import cache dominates).
+    // 8 forks keeps per-fork latency healthy (every file green) inside the
+    // 900s gate wrapper; CI runners (4 cores) are unaffected — maxWorkers is
+    // a ceiling, not a floor. NOT the "Worker exited unexpectedly" fix: that
+    // root cause was AIPanel.fixMode.test.tsx's unstable i18n `t` mock
+    // driving an unbounded synchronous render loop, fixed in the test
+    // itself; the residual fork deaths were the old 600s wrapper's SIGTERM
+    // killing the in-flight fork (exit 124, collateral "Worker exited
+    // unexpectedly").
+    maxWorkers: 8,
+    minWorkers: 1,
     environment: 'jsdom',
     setupFiles: ['./tests/vitest.setup.ts'],
     include: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx'],
