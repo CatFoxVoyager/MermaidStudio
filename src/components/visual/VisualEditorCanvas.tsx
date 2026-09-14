@@ -4,7 +4,7 @@ import { renderDiagram } from '@/lib/mermaid/core';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import {
   parseDiagram, updateNodeStyle, updateNodeLabel, updateNodeShape,
-  addNode, removeNode, addEdge, generateNodeId, getNodeStyle, addSubgraph,
+  addNode, removeNode, addEdge, generateNodeId, getNodeStyle,
   bodyContainsAtDirective,
 } from '@/lib/mermaid/codeUtils';
 import type { ParsedDiagram } from '@/lib/mermaid/codeUtils';
@@ -459,11 +459,6 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     });
     setSelection({ nodeIds: [], edgeKey: null });
     onChange(lines.join('\n'));
-  }
-
-  function handleAddSubgraph() {
-    if (readOnly) {return;}
-    onChange(addSubgraph(content));
   }
 
   useEffect(() => {
