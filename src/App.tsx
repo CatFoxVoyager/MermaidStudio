@@ -118,7 +118,7 @@ export default function App() {
   // is undefined) skips it: release notes for a version the user never ran
   // are noise, and a fresh-profile auto-open blocked every interaction in
   // the E2E suite (locked by App.welcomeModal.test.tsx, Phase 24 decision).
-  // At a future bump (e.g. 0.8.0), users who saw 0.6.0 (stored "0.6.0")
+  // At this bump (0.6.0 → 0.8.0), users who saw 0.6.0 (stored "0.6.0")
   // still get the new notes.
   useEffect(() => {
     let cancelled = false;
