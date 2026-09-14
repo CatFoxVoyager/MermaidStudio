@@ -517,6 +517,31 @@ A-->B`;
       expect(result.body).toBe('flowchart TD\nA-->B');
     });
 
+    // WR-04: a directive line may carry trailing text after its `}}%%` close.
+    // The block terminator must fire on that line (it CONTAINS `}%%`), not
+    // keep scanning to the next `%%`-terminated line — pre-fix, the
+    // `%% note %%` comment below ended the block and the body came back
+    // EMPTY (the diagram silently dropped).
+    it('keeps the diagram body when the directive line carries trailing text (WR-04)', () => {
+      const content =
+        '%%{init: {"theme": "dark"}}%% some trailing text\nflowchart TD\nA --> B\n%% note %%';
+      const result = parseFrontmatter(content);
+
+      expect(result.frontmatter.config).toEqual({ theme: 'dark' });
+      expect(result.body).toBe('flowchart TD\nA --> B\n%% note %%');
+    });
+
+    // WR-04 kept the accumulation loop (not a single-line-only variant) so
+    // the multi-line directive JSON shape stays supported: the terminator is
+    // anchored to the directive's own closing line, wherever it sits.
+    it('parses a multi-line %%{init: {...}}%% payload (terminator anchored to its own close, WR-04)', () => {
+      const content = '%%{init: {\n  "theme": "dark"\n}}%%\nflowchart TD\nA-->B';
+      const result = parseFrontmatter(content);
+
+      expect(result.frontmatter.config).toEqual({ theme: 'dark' });
+      expect(result.body).toBe('flowchart TD\nA-->B');
+    });
+
     it('OBSERVATION (Pitfall 5): trailing-paren spelling %%{init: {"theme": "dark"})%% falls through', () => {
       // The malformed spelling the pre-WR-03 regex demanded. The corrected
       // regex deliberately does NOT match it (a `)` between the JSON and the

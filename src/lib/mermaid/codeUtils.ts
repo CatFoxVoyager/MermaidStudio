@@ -1007,7 +1007,17 @@ export function parseFrontmatter(content: string): { frontmatter: FrontmatterCon
       const line = lines[currentLine];
       initBlock += line + '\n';
 
-      if (line.trim().endsWith('%%')) {
+      // WR-04: the block ends at the directive's OWN close (`}%%`), not at
+      // any line that merely *ends* with `%%`. The old suffix check skipped
+      // a directive line carrying trailing text (`...}}%% note`) and kept
+      // scanning, so a later `%%`-terminated line (e.g. a `%% comment %%`)
+      // ended the block — swallowing the diagram lines into initBlock and
+      // returning an empty body. Containment (rather than a line suffix)
+      // also keeps multi-line directives working: the close arrives on its
+      // own line. A spurious early `}%%` cannot lose data — the regex +
+      // JSON.parse gate below then fails and the full content falls through
+      // as the body.
+      if (line.includes('}%%')) {
         foundEnd = true;
         currentLine++;
         break;
