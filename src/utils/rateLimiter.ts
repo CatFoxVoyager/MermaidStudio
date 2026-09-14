@@ -169,8 +169,11 @@ export class RateLimiter {
     // import; without unref, that interval prevents Vitest workers (and any
     // Node host) from exiting after tests finish. Browsers have no unref, so
     // guard it.
-    if (typeof (this.cleanupInterval as NodeJS.Timeout).unref === 'function') {
-      (this.cleanupInterval as NodeJS.Timeout).unref();
+    // One narrowed local (instead of re-casting at the call) so the typeof
+    // guard also narrows the invocation for the type checker.
+    const timer = this.cleanupInterval as NodeJS.Timeout;
+    if (typeof timer.unref === 'function') {
+      timer.unref();
     }
   }
 

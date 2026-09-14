@@ -48,10 +48,10 @@ describe('VisualEditorCanvas - Pointer Events', () => {
     }
 
     // Mock getBoundingClientRect for the container
-    mockContainerRect = mockGetBoundingClientRect(0, 0, 800, 600);
+    mockContainerRect = mockGetBoundingClientRect(0, 0, 800, 600) as unknown as DOMRect;
 
     // Mock getBoundingClientRect for SVG node elements
-    mockElementRect = mockGetBoundingClientRect(100, 100, 100, 50);
+    mockElementRect = mockGetBoundingClientRect(100, 100, 100, 50) as unknown as DOMRect;
 
     // Mock Element.prototype.getBoundingClientRect
     Element.prototype.getBoundingClientRect = vi.fn(function(this: Element) {
