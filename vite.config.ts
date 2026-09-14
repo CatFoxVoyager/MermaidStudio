@@ -4,8 +4,6 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import path from 'path';
 import fs from 'fs';
 
-const emptyModule = 'data:text/javascript,export default {}';
-
 // Single source of truth for the app version. Read from package.json and
 // injected both as a JS compile-time constant (__APP_VERSION__) and into
 // index.html via the %APP_VERSION% placeholder so the version never has to be

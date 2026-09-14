@@ -2,7 +2,10 @@
   "compilerOptions": {
     "target": "ES2020",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    /* lib is ES2021 (one step above target) so String.replaceAll type-checks:
+       the vite build target is locked to esnext (24-05) and every supported
+       browser ships it natively, so ES2020's narrower lib denied a real API. */
+    "lib": ["ES2021", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
 
@@ -15,36 +18,44 @@
     "jsx": "react-jsx",
     "jsxImportSource": "react",
 
-    /* Linting */
+    /* Linting
+       noUnusedLocals/noUnusedParameters deliberately NOT set: the project's
+       declared posture is eslint no-unused-vars off (CLAUDE.md), and the
+       codebase relies on it. */
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
 
-    /* Path Aliases */
-    "baseUrl": ".",
+    /* Test authoring surfaces (CR-01 gate repair): vitest runs with
+       globals enabled (vitest.config.ts) and the setup file extends expect
+       with jest-dom matchers, so test files under src need those globals
+       declared to type-check. */
+    "types": ["vitest/globals", "@testing-library/jest-dom/vitest"],
+
+    /* Path Aliases. `baseUrl` removed: it is deprecated as of TypeScript 6.0
+       (TS5101) and unnecessary — without it, `paths` values resolve relative
+       to this file but must carry an explicit leading "./" (TS5090). */
     "paths": {
-      "@/components/*": ["src/components/*"],
-      "@/lib/*": ["src/lib/*"],
-      "@/services/*": ["src/services/*"],
-      "@/types": ["src/types"],
-      "@/types/*": ["src/types/*"],
-      "@/hooks": ["src/hooks"],
-      "@/hooks/*": ["src/hooks/*"],
-      "@/constants": ["src/constants"],
-      "@/constants/*": ["src/constants/*"],
-      "@/utils": ["src/utils"],
-      "@/utils/*": ["src/utils/*"],
-      "@/ai": ["src/components/ai"],
-      "@/ai/*": ["src/components/ai/*"],
-      "@/editor": ["src/components/editor"],
-      "@/editor/*": ["src/components/editor/*"],
-      "@/preview": ["src/components/preview"],
-      "@/preview/*": ["src/components/preview/*"],
-      "@/sidebar": ["src/components/sidebar"],
-      "@/sidebar/*": ["src/components/sidebar/*"],
-      "@/visual": ["src/components/visual"],
-      "@/visual/*": ["src/components/visual/*"]
+      "@/components/*": ["./src/components/*"],
+      "@/lib/*": ["./src/lib/*"],
+      "@/services/*": ["./src/services/*"],
+      "@/types": ["./src/types"],
+      "@/types/*": ["./src/types/*"],
+      "@/hooks": ["./src/hooks"],
+      "@/hooks/*": ["./src/hooks/*"],
+      "@/constants": ["./src/constants"],
+      "@/constants/*": ["./src/constants/*"],
+      "@/utils": ["./src/utils"],
+      "@/utils/*": ["./src/utils/*"],
+      "@/ai": ["./src/components/ai"],
+      "@/ai/*": ["./src/components/ai/*"],
+      "@/editor": ["./src/components/editor"],
+      "@/editor/*": ["./src/components/editor/*"],
+      "@/preview": ["./src/components/preview"],
+      "@/preview/*": ["./src/components/preview/*"],
+      "@/sidebar": ["./src/components/sidebar"],
+      "@/sidebar/*": ["./src/components/sidebar/*"],
+      "@/visual": ["./src/components/visual"],
+      "@/visual/*": ["./src/components/visual/*"]
     }
   },
   "include": ["src"]
