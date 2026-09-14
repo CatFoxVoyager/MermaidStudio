@@ -3,35 +3,44 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AIPanel } from '../AIPanel';
 
+// Mock i18next. `t` must be referentially stable across renders (real
+// react-i18next memoizes it): AIPanel's fix-mode effect lists `t` in its
+// dependency array, and a per-call closure re-fires it every render — with the
+// sendFixRequest state update that is an unbounded synchronous render loop
+// (worker-fork kill, see AIPanel.fixMode.test.tsx for the full post-mortem).
+// This file never renders fixMode=true, so it passed — the same latent
+// landmine, hardened at the same time (VAL-01, 2026-09-14).
+const { mockT } = vi.hoisted(() => ({
+  mockT: (key: string, params?: { msg?: string }) => {
+    const translations: Record<string, string> = {
+      'ai.panelTitle': 'AI Assistant',
+      'ai.placeholder': 'Ask AI...',
+      'ai.send': 'Press Enter',
+      'ai.title': 'AI Assistant',
+      'ai.describeDefault': 'Describe your diagram',
+      'ai.providerSettings': 'Settings',
+      'ai.resetChat': 'Reset chat',
+      'ai.apply': 'Apply',
+      'ai.suggestion1': 'Create a flowchart',
+      'ai.suggestion2': 'Add a node',
+      'ai.suggestion3': 'Explain this diagram',
+      'ai.suggestion4': 'Fix the syntax',
+      'ai.suggestion5': 'Optimize the layout',
+      'ai.suggestion6': 'Add styling',
+      'ai.openSettings': 'Open Settings',
+      'ai.configureProvider': 'Configure your AI provider in settings.',
+      'ai.errorPrefix': 'Error: {{msg}}',
+    };
+    let result = translations[key] || key;
+    if (params?.msg) {
+      result = result.replace('{{msg}}', params.msg);
+    }
+    return result;
+  },
+}));
+
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, params?: { msg?: string }) => {
-      const translations: Record<string, string> = {
-        'ai.panelTitle': 'AI Assistant',
-        'ai.placeholder': 'Ask AI...',
-        'ai.send': 'Press Enter',
-        'ai.title': 'AI Assistant',
-        'ai.describeDefault': 'Describe your diagram',
-        'ai.providerSettings': 'Settings',
-        'ai.resetChat': 'Reset chat',
-        'ai.apply': 'Apply',
-        'ai.suggestion1': 'Create a flowchart',
-        'ai.suggestion2': 'Add a node',
-        'ai.suggestion3': 'Explain this diagram',
-        'ai.suggestion4': 'Fix the syntax',
-        'ai.suggestion5': 'Optimize the layout',
-        'ai.suggestion6': 'Add styling',
-        'ai.openSettings': 'Open Settings',
-        'ai.configureProvider': 'Configure your AI provider in settings.',
-        'ai.errorPrefix': 'Error: {{msg}}',
-      };
-      let result = translations[key] || key;
-      if (params?.msg) {
-        result = result.replace('{{msg}}', params.msg);
-      }
-      return result;
-    },
-  }),
+  useTranslation: () => ({ t: mockT }),
 }));
 
 vi.mock('@/services/storage/database', async importOriginal => {
