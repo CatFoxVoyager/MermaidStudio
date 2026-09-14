@@ -172,7 +172,7 @@ docker build -t mermaid-studio:prod .
 
 ---
 
-## 🌐 Browser Support
+## 🌐 Browser support
 
 MermaidStudio targets **evergreen browsers that ship ES2024** — the practical floor for the Mermaid 12 bundle:
 

@@ -1,6 +1,6 @@
 # Browser Support (Developer Guide)
 
-Technical detail behind the user-facing **[Browser Support](../../README.md#-browser-support)**
+Technical detail behind the user-facing **[Browser support](../../README.md#-browser-support)**
 section in the README. Scope: why the floor exists, how it is locked, and what
 the planned long-term fix is. Written for Phase 24 / VAL-02 (decision D8).
 
