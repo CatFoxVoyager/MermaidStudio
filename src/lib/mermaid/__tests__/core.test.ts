@@ -556,6 +556,14 @@ describe('usecase type adoption (DIA-02, mermaid 12 usecase-beta)', { timeout: 3
     expect(detectDiagramType(moduleNameContent)).toBe('unknown');
   });
 
+  it('does NOT detect a usecase-beta-prefixed longer word as usecaseDiagram (IN-03 detector parity)', () => {
+    // mermaid 12's detector is /^\s*usecase-beta(?:\s|$)/ — the (?:\s|$)
+    // boundary is load-bearing: a longer word like `usecase-betamax` is
+    // invalid input the renderer rejects, and the app label must not claim
+    // it either (pre-fix startsWith() mislabeled it usecaseDiagram).
+    expect(detectDiagramType('usecase-betamax\n  actor User')).toBe('unknown');
+  });
+
   it('renders the usecase-beta fixture to a non-empty sanitized svg through renderDiagram', async () => {
     initMermaid('light');
     const id = 'usecase_adoption_render';
