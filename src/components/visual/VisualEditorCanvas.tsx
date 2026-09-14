@@ -504,7 +504,6 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
           onDragStart={shape => setDragShape(shape)}
           onDeleteSelected={handleDeleteSelected}
           hasSelection={selection.nodeIds.length > 0}
-          onAddSubgraph={handleAddSubgraph}
         />
       )}
 

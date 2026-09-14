@@ -449,7 +449,10 @@ A-->B`;
       const result = parseFrontmatter(content);
 
       expect(result.frontmatter.config?.theme).toBe('base');
-      expect(result.frontmatter.config?.themeVariables?.primaryColor).toBe('#ff0000');
+      // themeVariables comes out of the YAML parser as an opaque value; the
+      // test asserts its shape, so narrow it explicitly.
+      const themeVariables = result.frontmatter.config?.themeVariables as Record<string, string> | undefined;
+      expect(themeVariables?.primaryColor).toBe('#ff0000');
       expect(result.body).toContain('flowchart TD');
     });
   });
@@ -481,7 +484,9 @@ A-->B`;
     it('@theme marker round-trip: applyThemeToFrontmatter re-generates the same id with a lossless body (D9)', () => {
       const body = 'flowchart TD\nA[Start] --> B[End]';
       const sunset = getThemeById('sunset');
-      expect(sunset).toBeDefined();
+      // Guard (not toBeDefined): narrows `sunset` to MermaidTheme for the
+      // call below while still failing the test when the id is missing.
+      if (!sunset) throw new Error('sunset theme missing from the registry');
 
       const regenerated = applyThemeToFrontmatter(body, sunset, false);
 

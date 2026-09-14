@@ -113,42 +113,22 @@ export interface DiagramStyleOptions extends BaseStyleOptions {
   maxNodeWidth?: number;
   maxNodeHeight?: number;
   maxTextWidth?: number;
-  padding?: number;
-  useMaxWidth?: boolean;
-
-  // State diagram options
-  padding?: number;
-  useMaxWidth?: boolean;
-
-  // Class diagram options
-  padding?: number;
-  useMaxWidth?: boolean;
 
   // ER diagram options
-  padding?: number;
-  useMaxWidth?: boolean;
   minEntityWidth?: number;
   minEntityHeight?: number;
-
-  // Journey options (uses flowchart config)
-  padding?: number;
-  useMaxWidth?: boolean;
 
   // Timeline options
   disableMulticolor?: boolean;
   htmlLabels?: boolean;
 
-  // Block diagram options
+  // Shared sizing keys: the state, class, ER, journey, block, C4 and
+  // architecture sections each previously re-declared the identical optional
+  // `padding` / `useMaxWidth` pair; duplicate property declarations are a
+  // compile error surfaced by the repaired type-check gate (CR-01). The two
+  // single declarations here (`padding`) and in the flowchart section above
+  // (`useMaxWidth`) preserve the combined shape exactly.
   padding?: number;
-  useMaxWidth?: boolean;
-
-  // C4 context options
-  padding?: number;
-  useMaxWidth?: boolean;
-
-  // Architecture diagram options
-  padding?: number;
-  useMaxWidth?: boolean;
 
   // Quadrant chart options (uses pie config)
   chartWidth?: number;

@@ -19,6 +19,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import App from '../../App';
 import { APP_VERSION } from '@/constants/app';
+import type { AppSettings } from '@/types';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -28,8 +29,15 @@ vi.mock('react-i18next', () => ({
   initReactI18next: { type: '3rdParty', init: vi.fn() },
 }));
 
-// getSettings payload is overridden per test via mockGetSettings.
-const mockGetSettings = vi.fn(() => Promise.resolve({ theme: 'light', language: 'en' }));
+// getSettings payload is overridden per test via mockGetSettings. Typed as a
+// stored-settings resolution so per-test overrides can add optional settings
+// fields (e.g. seenReleaseNotesVersion) without tripping the narrowed
+// inferred type of the default mock body; lastOpenDiagramId is `string | null`
+// in stored records (legacy rows persist null) though AppSettings types it as
+// an optional string only. Omit + re-add: a bare intersection would narrow
+// the two optional declarations to `string`.
+type StoredSettings = Omit<Partial<AppSettings>, 'lastOpenDiagramId'> & { lastOpenDiagramId?: string | null };
+const mockGetSettings = vi.fn((): Promise<StoredSettings> => Promise.resolve({ theme: 'light', language: 'en' }));
 
 vi.mock('@/services/storage/database', () => ({
   getDiagrams: vi.fn(() => Promise.resolve([])),
@@ -88,7 +96,7 @@ vi.mock('@/hooks/useToast', () => ({
   useToast: vi.fn(() => ({ toasts: [], show: vi.fn(), dismiss: vi.fn() })),
 }));
 
-const baseSettings = {
+const baseSettings: StoredSettings = {
   theme: 'dark',
   language: 'en',
   lastOpenDiagramId: null,

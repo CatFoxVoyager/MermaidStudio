@@ -389,7 +389,9 @@ export function removeLinkStyles(source: string, indices: number[]): string {
 /** Split an edge line into: [beforeArrow, arrowType, edgeLabel, afterArrow] */
 function splitEdgeLine(line: string): [string, string, string, string] | null {
   const arrowMatch = line.match(/(-->|---|-.->|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|--\|>|\|>|~~~)/);
-  if (!arrowMatch) return null;
+  // `index` is always defined for a non-global match, but the lib types it
+  // optional — guard it so the arithmetic below is sound (repaired gate).
+  if (!arrowMatch || arrowMatch.index === undefined) return null;
   const beforeArrow = line.substring(0, arrowMatch.index);
   const arrow = arrowMatch[0];
   const rest = line.substring(arrowMatch.index + arrow.length);

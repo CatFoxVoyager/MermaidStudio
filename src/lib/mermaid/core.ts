@@ -75,7 +75,9 @@ export function getDefaultTheme(): MermaidTheme | null {
  * injecting YAML frontmatter into content.
  */
 export function setDiagramTheme(themeId: string | null): void {
-  diagramTheme = themeId ? getThemeById(themeId) : null;
+  // getThemeById is typed `| undefined` for an unknown id; normalize so the
+  // module-level cache keeps its declared `MermaidTheme | null` shape.
+  diagramTheme = themeId ? (getThemeById(themeId) ?? null) : null;
 }
 
 /**

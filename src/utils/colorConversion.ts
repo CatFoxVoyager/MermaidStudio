@@ -111,17 +111,28 @@ export function adjustToHex(color: string, adjustment: { h?: number; s?: number;
 
 /**
  * Wrap khroma's darken function to always return hex.
+ *
+ * `amount` is optional, mirroring lightenToHex and the themeDerivation
+ * quadrant defaults, which call this with no amount. khroma's own .d.ts
+ * requires a number, but the pass-through below is deliberate: a missing
+ * amount has always reached khroma as NaN (invalid hsl → toHex falls back to
+ * #000000), and substituting a numeric default here would change rendered
+ * colors.
  */
-export function darkenToHex(color: string, amount: number): string {
-  const result = darken(color, amount);
+export function darkenToHex(color: string, amount?: number): string {
+  const result = darken(color, amount ?? Number.NaN);
   return toHex(result);
 }
 
 /**
  * Wrap khroma's lighten function to always return hex.
+ *
+ * Same pass-through rationale as darkenToHex: khroma's .d.ts requires a
+ * number, but callers may omit `amount`, and the resulting NaN path is the
+ * long-standing runtime behavior.
  */
 export function lightenToHex(color: string, amount?: number): string {
-  const result = lighten(color, amount);
+  const result = lighten(color, amount ?? Number.NaN);
   return toHex(result);
 }
 
