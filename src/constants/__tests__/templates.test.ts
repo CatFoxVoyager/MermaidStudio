@@ -42,7 +42,7 @@ describe('templates', () => {
       // keyword `usecase-beta` — never the internal module-name spelling
       // (research Pitfall 1).
       expect(template.id).toBe('usecase-system');
-      expect(template.content).toMatch(/^---\nconfig:\n  theme: 'base'\n---\nusecase-beta\n/);
+      expect(template.content).toMatch(/^---\nconfig:\n {2}theme: 'base'\n---\nusecase-beta\n/);
     });
 
     it('renders the usecase template content through renderDiagram', { timeout: 30000 }, async () => {
