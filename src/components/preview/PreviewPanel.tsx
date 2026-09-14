@@ -658,7 +658,8 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     // post-processing pipeline only mutates attributes via DOM APIs — it
     // cannot introduce markup. shadowCSS values are escaped above.
     shadowRoot.innerHTML = `<style>${shadowCSS}</style><div class="mermaid">${processedSvg}</div>`;
-    const svgContainer = shadowRoot.querySelector('.mermaid');
+    // innerHTML was just set with a `.mermaid` div, so the container exists.
+    const svgContainer = shadowRoot.querySelector('.mermaid')!;
 
     // Store reference for size calculations (pointing to SVG container in Shadow DOM)
     svgContainerRef.current = svgContainer as unknown as HTMLDivElement;
@@ -840,7 +841,9 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         return;
       }
       // D6 fence: body-metadata content never reaches a codeUtils mutator.
-      if (!bodyHasMetadata && connectFirst !== nodeId) {
+      // Same inline onChange guard as the subgraph edge path below — the
+      // prop is optional in this component's Props.
+      if (!bodyHasMetadata && connectFirst !== nodeId && onChange) {
         onChange(addEdge(content, connectFirst, nodeId));
       }
       setConnectFirst(null);

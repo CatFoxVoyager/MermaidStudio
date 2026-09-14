@@ -11,6 +11,7 @@ export interface ThemeCoreColors {
   // Edge colors (group: "edges")
   lineColor?: string;
   arrowheadColor?: string;
+  primaryBorderColor?: string;
 
   // Background colors (group: "backgrounds")
   background: string;
@@ -21,6 +22,7 @@ export interface ThemeCoreColors {
   primaryTextColor?: string;
   secondaryTextColor?: string;
   tertiaryTextColor?: string;
+  textColor?: string;
 
   // Semantic colors (group: "semantic") per D-03
   successColor?: string;

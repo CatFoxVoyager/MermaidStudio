@@ -3,7 +3,7 @@
 // Reference: node_modules/mermaid/dist/chunks/mermaid.core/chunk-7R4GIKGN.mjs
 
 import { isDark } from 'khroma';
-import type { ThemeCoreColors, MermaidTheme, DiagramType } from '@/types';
+import type { ThemeCoreColors, MermaidTheme, DiagramType, DiagramStyleOptions } from '@/types';
 import { builtinThemes } from '@/constants/themes';
 import { detectDiagramType } from '@/lib/mermaid/core';
 import { updateLinkStyle, parseLinkStyles } from '@/lib/mermaid/codeUtils';
@@ -365,6 +365,10 @@ export function deriveThemeVariables(
   t.venn8 = t.venn8 ?? adjustToHex(t.secondaryColor as string, { h: 120, l: -30 });
   t.vennTitleTextColor = t.vennTitleTextColor ?? t.titleColor;
   t.vennSetTextColor = t.vennSetTextColor ?? t.textColor;
+  // radar/xyChart are built as objects here and JSON.stringify'd into strings
+  // by the final pass below (`key === 'radar' || key === 'xyChart'`), so the
+  // cast only bridges the intermediate Record<string, string> typing — the
+  // value stored is never used as a string before serialization.
   t.radar = {
     axisColor: (t.radar as any)?.axisColor || t.lineColor,
     axisStrokeWidth: (t.radar as any)?.axisStrokeWidth || 2,
@@ -376,7 +380,7 @@ export function deriveThemeVariables(
     graticuleOpacity: (t.radar as any)?.graticuleOpacity || 0.3,
     legendBoxSize: (t.radar as any)?.legendBoxSize || 12,
     legendFontSize: (t.radar as any)?.legendFontSize || 12,
-  };
+  } as unknown as string;
   t.archEdgeColor = t.archEdgeColor || '#777';
   t.archEdgeArrowColor = t.archEdgeArrowColor || '#777';
   t.archEdgeWidth = t.archEdgeWidth || '3';
@@ -409,7 +413,7 @@ export function deriveThemeVariables(
     yAxisTickColor: (t.xyChart as any)?.yAxisTickColor || t.primaryTextColor,
     yAxisLineColor: (t.xyChart as any)?.yAxisLineColor || t.primaryTextColor,
     plotColorPalette: '#FFF4DD,#FFD8B1,#FFA07A,#ECEFF1,#D6DBDF,#C3E0A8,#FFB6A4,#FFD74D,#738FA7,#FFFFF0',
-  };
+  } as unknown as string;
   t.requirementBackground = t.requirementBackground || t.primaryColor;
   t.requirementBorderColor = t.requirementBorderColor || t.primaryBorderColor;
   t.requirementBorderSize = t.requirementBorderSize || '1';
@@ -592,7 +596,10 @@ export function applyThemeToFrontmatter(
     if (!themeVariables.signalTextColor) themeVariables.signalTextColor = theme.coreColors.textColor || themeVariables.textColor || themeVariables.primaryTextColor;
     if (!themeVariables.labelBoxBkgColor) themeVariables.labelBoxBkgColor = theme.coreColors.background || themeVariables.background;
     if (!themeVariables.labelBoxBorderColor) themeVariables.labelBoxBorderColor = theme.coreColors.primaryColor || themeVariables.primaryColor;
-  } else if (diagramType === 'flowchart' || diagramType === 'graph') {
+  // `graph` source syntax is mapped to 'flowchart' by detectDiagramType, so a
+  // 'graph' diagramType value can never occur here (the repaired type-check
+  // gate flagged the comparison as having no overlap).
+  } else if (diagramType === 'flowchart') {
     if (!themeVariables.nodeBkg) themeVariables.nodeBkg = theme.coreColors.primaryColor || themeVariables.primaryColor;
     if (!themeVariables.nodeBorder) themeVariables.nodeBorder = theme.coreColors.primaryBorderColor || themeVariables.primaryBorderColor;
     if (!themeVariables.clusterBkg) themeVariables.clusterBkg = theme.coreColors.tertiaryColor || themeVariables.tertiaryColor;
@@ -793,7 +800,10 @@ export function stripThemeDirective(content: string): string {
 
 export function applyStyleToContent(
   content: string,
-  styleOptions: StyleOptions & any,
+  // Every option is applied conditionally, so callers may pass any subset —
+  // the test suite and extractStyleOptionsFromContent (which returns a
+  // Partial) both rely on that.
+  styleOptions: Partial<DiagramStyleOptions>,
   darkMode: boolean = false
 ): string {
   let stripped = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
@@ -901,7 +911,9 @@ export function applyStyleToContent(
   }
 
   // 4. Flowchart specific layout options
-  if (diagramType === 'flowchart' || diagramType === 'graph') {
+  // Same detectDiagramType mapping as above: 'graph' never occurs as a
+  // diagramType value, so only 'flowchart' is compared here.
+  if (diagramType === 'flowchart') {
     const flowchartCfg: any = { ...(newConfig.flowchart || {}) };
     let hasFlowchartChanges = false;
 

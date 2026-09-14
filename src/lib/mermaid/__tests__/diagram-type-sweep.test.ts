@@ -51,7 +51,10 @@ import type { SweepFixtureKey } from './fixtures/diagram-type-fixtures';
 // (characters × 8px) is monotone in text length and layout-plausible enough
 // for renderability — what D1 asserts — never geometry truth.
 beforeAll(() => {
-  const proto = (globalThis as { SVGElement?: { prototype: Record<string, unknown> } }).SVGElement
+  // `as unknown as` — the constructor shape on globalThis doesn't structurally
+  // overlap the narrowed probe type, but the property is only read, never
+  // reassigned, when the polyfill below runs.
+  const proto = (globalThis as unknown as { SVGElement?: { prototype: Record<string, unknown> } }).SVGElement
     ?.prototype;
   if (proto && typeof proto.getComputedTextLength !== 'function') {
     proto.getComputedTextLength = function getComputedTextLength(this: SVGElement): number {
