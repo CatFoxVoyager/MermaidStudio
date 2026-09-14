@@ -3,7 +3,9 @@ import { getDiagrams } from '@/services/storage/database';
 import { initMermaid } from '@/lib/mermaid/core';
 import { useTheme, useTabs, useLanguage } from '@/hooks';
 
-interface AppState {
+// Exported so hooks/index.ts can re-export them (the repaired type-check
+// gate flagged the local-only declarations as unre-exportable, TS2459).
+export interface AppState {
   sidebarOpen: boolean;
   focusMode: boolean;
   renderTimeMs: number | null;
@@ -12,7 +14,7 @@ interface AppState {
   diagrams: unknown[];
 }
 
-interface AppActions {
+export interface AppActions {
   setSidebarOpen: (open: boolean) => void;
   setFocusMode: (focus: boolean) => void;
   setRenderTimeMs: (time: number | null) => void;
