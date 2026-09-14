@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Type, Maximize2, ArrowLeftRight, ArrowUpDown, Spline, Square, RotateCcw, LayoutGrid, X, SlidersHorizontal, Compass } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { DEFAULT_STYLE_OPTIONS, type DiagramStyleOptions, type DiagramDirection, type LayoutEngine, getStylingCapabilities } from '@/types';
+import { DEFAULT_STYLE_OPTIONS, type DiagramStyleOptions, type DiagramDirection, type LayoutEngine, type DiagramType, getStylingCapabilities } from '@/types';
 import { applyStyleToContent, extractStyleOptionsFromContent } from '@/constants/themeDerivation';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 import { detectDiagramType } from '@/lib/mermaid/core';
@@ -114,7 +114,9 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
     { value: '%W%Y', label: 'Week YYYY' },
     { value: '%Q %Y', label: 'Quarter YYYY' },
   ];
-  const [diagramType, setDiagramType] = useState<string>('flowchart');
+  // DiagramType (not string): the only writer is detectDiagramType, which
+  // returns DiagramType, and getStylingCapabilities takes DiagramType.
+  const [diagramType, setDiagramType] = useState<DiagramType>('flowchart');
   const baseContentRef = useRef<string>('');
   const isDark = theme === 'dark';
   const isInitialized = useRef(false);
@@ -214,7 +216,9 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   const isGantt = stylingCapabilities.supportsGanttConfig;
   const hasConfigOptions = isFlowchart || isSequence || isGantt;
   const isElkLayout = styleOptions.layoutEngine === 'elk' || styleOptions.layoutEngine === 'elk.stress';
-  const supportsDirection = diagramType === 'flowchart' || diagramType === 'graph';
+  // diagramType is a DiagramType; detectDiagramType normalizes `graph …`
+  // sources to 'flowchart', so no separate 'graph' branch exists.
+  const supportsDirection = diagramType === 'flowchart';
 
   // Use the new capabilities from types
   const supportsStyleKeyword = stylingCapabilities.supportsStyleKeyword;

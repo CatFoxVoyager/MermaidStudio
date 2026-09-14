@@ -1,6 +1,6 @@
 import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { EditorView, basicSetup } from 'codemirror';
-import { Decoration, keymap } from '@codemirror/view';
+import { Decoration, keymap, type DecorationSet } from '@codemirror/view';
 import { EditorState, StateEffect, StateField } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
@@ -25,7 +25,7 @@ const highlightLineEffect = StateEffect.define<number>();
 const clearHighlightEffect = StateEffect.define<void>();
 
 // StateField that manages the highlight decoration
-const highlightField = StateField.define<Decoration.set>({
+const highlightField = StateField.define<DecorationSet>({
   create() { return Decoration.none; },
   update(decorations, tr) {
     for (const effect of tr.effects) {

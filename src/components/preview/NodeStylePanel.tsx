@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, type CSSProperties } from 'react';
 import { X, RotateCcw, ChevronDown, Settings2, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
@@ -178,10 +178,16 @@ export function NodeStylePanel({
       {/* Body */}
       <div
         className="flex-1 overflow-y-auto p-3 flex flex-col gap-4 node-panel-scroll"
+        /* `scrollbar-width` only accepts auto/thin/none — a length is invalid
+           CSS that browsers ignore (real width styling is the
+           ::-webkit-scrollbar block above). Kept verbatim under a cast
+           rather than "fixed" to a valid value, which would change rendering;
+           the double cast is required because the value is outside the
+           property's declared union by design. */
         style={{
           scrollbarWidth: '12px',
           scrollbarColor: 'rgba(0,0,0,0.3) transparent',
-        }}
+        } as unknown as CSSProperties}
       >
         {/* Label (single node only) */}
         {singleNodeId && onLabelChange && (

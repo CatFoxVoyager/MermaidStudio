@@ -131,11 +131,16 @@ export function sanitizeMermaidSVG(svg: string): string {
   );
 
   const forbiddenTags = ['iframe', 'form', 'input', 'textarea', 'select', 'button', 'script', 'object', 'embed', 'applet'];
+  // FORBID_TAGS/FORBID_ATTR must be ARRAYS: DOMPurify's _resolveSetOption
+  // falls back to an empty set for any non-array value, so the previous
+  // object form ({ tag: true }) was silently ignored at runtime and these
+  // tags/attributes were NOT actually forbidden. The html USE_PROFILE alone
+  // allows form/input/button/iframe, so the explicit forbid list matters.
   const sanitized = DOMPurify.sanitize(withPlaceholders, {
     USE_PROFILES: { html: true, svg: true, svgFilters: true },
     ADD_TAGS: ['foreignObject'],
-    FORBID_TAGS: Object.fromEntries(forbiddenTags.map(t => [t, true])),
-    FORBID_ATTR: { onerror: true, onload: true, onclick: true, onmouseover: true },
+    FORBID_TAGS: forbiddenTags,
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
   });
 
   const restored = sanitized.replace(
