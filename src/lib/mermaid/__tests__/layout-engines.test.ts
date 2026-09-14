@@ -70,13 +70,23 @@ config:
 ${BODY}`;
 
 /**
+ * The jsdom getBBox limitation (no text metrics → the polyfilled/missing
+ * implementation surfaces as a "... getBBox ... is not a function" TypeError).
+ * Narrow the swallow to that message shape (IN-05): a genuine crash that only
+ * MENTIONS getBBox — e.g. reading it off an undefined object inside a layout
+ * engine ("Cannot read properties of undefined (reading 'getBBox')") — must
+ * surface as an unexpected render error, not be silently tolerated.
+ */
+const GETBBOX_JSDOM_LIMITATION = /\bgetBBox\b[^\n]*\bnot a function\b/;
+
+/**
  * Render through the app's single mermaid entrypoint and parse the raw
  * post-sanitize output. getBBox errors are a jsdom text-metrics limitation,
  * not a diagram error (existing pattern from structure-goldens.test.ts).
  */
 async function renderFixture(source: string, id: string): Promise<Document> {
   const { svg, error } = await renderDiagram(source, id);
-  if (error && !error.includes('getBBox')) {
+  if (error && !GETBBOX_JSDOM_LIMITATION.test(error)) {
     throw new Error(`Unexpected render error: ${error}`);
   }
   expect(svg).not.toBe('');

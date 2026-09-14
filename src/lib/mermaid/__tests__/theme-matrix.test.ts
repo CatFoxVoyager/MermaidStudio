@@ -184,10 +184,20 @@ if (PALETTES.length !== 12) {
 // (renderDiagram ONLY — Pitfall 2; getBBox swallow; DOMParser on the
 // sanitized svg; describe-level timeout 30000 per the established convention).
 // ---------------------------------------------------------------------------
+/**
+ * The jsdom getBBox limitation (no text metrics → the polyfilled/missing
+ * implementation surfaces as a "... getBBox ... is not a function" TypeError).
+ * Narrow the swallow to that message shape (IN-05): a genuine crash that only
+ * MENTIONS getBBox — e.g. reading it off an undefined object inside a layout
+ * engine ("Cannot read properties of undefined (reading 'getBBox')") — must
+ * surface as an unexpected render error, not be silently tolerated.
+ */
+const GETBBOX_JSDOM_LIMITATION = /\bgetBBox\b[^\n]*\bnot a function\b/;
+
 async function renderFixture(source: string, id: string, themeId?: string): Promise<Document> {
   try {
     const { svg, error } = await renderDiagram(source, id, themeId);
-    if (error && !error.includes('getBBox')) {
+    if (error && !GETBBOX_JSDOM_LIMITATION.test(error)) {
       throw new Error(`Unexpected render error: ${error}`);
     }
     expect(svg).not.toBe('');
