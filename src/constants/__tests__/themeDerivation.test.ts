@@ -388,14 +388,19 @@ graph TD
       expect(result).not.toContain("background:");
     });
 
-    it('adds only the specified option in dark mode', () => {
+    // IN-02: applyStyleToContent declares a darkMode parameter but never reads
+    // it (themeDerivation.ts:781-785), so this exercises the identical
+    // light-mode path under darkMode=true. Kept as a mode sweep so a future
+    // wiring of the flag is already covered; the name no longer implies
+    // dark-specific behavior.
+    it('adds only the specified option with darkMode=true (flag currently inert)', () => {
       const contentWithoutTheme = `graph TD
     A[Start] --> B[End]
 `;
 
       const result = applyStyleToContent(contentWithoutTheme, {
         fontSize: 18
-      }, true); // dark mode
+      }, true); // darkMode flag — currently inert (see IN-02 note above)
 
       // Should only include fontSize, not all default colors
       expect(result).toContain("themeVariables:");
