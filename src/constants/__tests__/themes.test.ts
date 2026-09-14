@@ -68,7 +68,9 @@ describe('themes', () => {
     const themeSwatches = builtinThemes.map(theme => ({
       id: theme.id,
       name: theme.name,
-      swatches: getSwatchColors(theme.coreColors, theme.id === 'dark-tech'),
+      // IN-03: follow the DEFAULT_DARK_THEME pointer instead of hardcoding the
+      // one dark builtin id, so a future dark theme derives swatches correctly.
+      swatches: getSwatchColors(theme.coreColors, theme.id === DEFAULT_DARK_THEME.id),
     }));
 
     // Compare each pair of themes
