@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "npm run type-check && vite build",
     "build:analyze": "vite build",
     "check:elk": "node scripts/check-elk-chunk.mjs",
     "check:cdn-embed": "vitest run src/constants/__tests__/cdnEmbed.test.ts",
