@@ -56,6 +56,7 @@ test.describe('Template Selection Flow', () => {
 
     // Get initial code
     const initialCode = await editor.getCode();
+    const tabsBefore = await appLayout.tabBar.tabs.count();
 
     // Open templates modal
     await appLayout.openTemplates();
@@ -66,7 +67,18 @@ test.describe('Template Selection Flow', () => {
     // Verify modal is closed
     await expect(templatesPage.modal).not.toBeVisible();
 
+    // Template selection opens the template as a NEW active tab via an async
+    // chain (createDiagram -> refresh -> openDiagram, not awaited before the
+    // modal closes). Wait for that tab to be committed before reading the
+    // editor doc — reading earlier raced the value-sync on webkit and saw the
+    // previous tab's content (VAL-02, plan 24-05).
+    await expect(appLayout.tabBar.tabs).toHaveCount(tabsBefore + 1);
+
     // Verify template content was loaded (code should be different)
+    // The state -> CodeMirror doc sync runs in a post-commit passive effect;
+    // poll instead of reading once (a single read raced that effect on
+    // webkit and saw the previous tab's content, VAL-02, plan 24-05).
+    await expect.poll(() => editor.getCode(), { timeout: 5000 }).not.toBe(initialCode);
     const newCode = await editor.getCode();
     // Just verify that code exists - the specific content depends on which template
     expect(newCode).toBeTruthy();

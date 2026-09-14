@@ -52,14 +52,18 @@ const highlightField = StateField.define<Decoration.set>({
 export const CodeEditor = forwardRef<CodeEditorRef, Props>(function CodeEditor({ value, onChange, onSave, theme }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  // Latest-ref pattern: assign DURING RENDER. CodeMirror's updateListener
+  // fires synchronously inside view.dispatch(); syncing these refs in a
+  // passive useEffect left a window (render committed, effect not yet run)
+  // where a dispatch — e.g. an E2E setCode immediately after a tab switch,
+  // or a fast typist — wrote through the PREVIOUS tab's onChange closure,
+  // corrupting the wrong tab's content (clobbered again by the value-sync
+  // effect). Webkit's slower pipeline hit the window on every run; chromium
+  // masked it by winning the race (VAL-02, plan 24-05).
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
-
-  // Update refs when callbacks change
-  useEffect(() => {
-    onChangeRef.current = onChange;
-    onSaveRef.current = onSave;
-  }, [onChange, onSave]);
+  onChangeRef.current = onChange;
+  onSaveRef.current = onSave;
 
   useImperativeHandle(ref, () => ({
     highlightLine(line: number) {
