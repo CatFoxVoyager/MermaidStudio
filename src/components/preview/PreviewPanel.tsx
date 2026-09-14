@@ -6,7 +6,7 @@ import { extractThemeIdFromContent } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
 import { sanitizeCssValue } from '@/utils/sanitization';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
-import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, addNode, addEdge, generateNodeId, removeNode, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors } from '@/lib/mermaid/codeUtils';
+import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, addNode, addEdge, generateNodeId, removeNode, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyContainsAtDirective } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape, PresetType, PresetColors } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
 import { EdgeStylePanel } from './EdgeStylePanel';
@@ -422,6 +422,17 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // the style panels, and Copy SVG so every consumer sees the same parse.
   const parsedDiagram = useMemo(() => parseDiagram(content), [content]);
 
+  // D6 fail-safe (DIA-04, Open Question 2 resolution (a)): presence of the
+  // v12 `@{...}` metadata syntax in the diagram body fences every mutating
+  // handler below. parseDiagram silently drops bare post-id metadata lines
+  // (the exact form updateNodeShape emits), so a rewrite through a codeUtils
+  // mutator would corrupt such a diagram — the same corruption risk as the
+  // visual editor, fenced by the same shared helper. Display-side parsing
+  // (parsedDiagram above) stays: it only feeds pickers; the corruption risk
+  // is mutation. (Derived from content, which is already in every handler's
+  // dependency array — the closures can never see a stale fence.)
+  const bodyHasMetadata = useMemo(() => bodyContainsAtDirective(content), [content]);
+
   // Generate node presets based on current theme (syncs with theme changes)
   const nodePresets = useMemo(() => {
     // Try themeId prop first, then extract from content
@@ -493,7 +504,8 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
 
     // Check if any preset classDef exists
     const hasPresets = /\bclassDef\s+preset(?:Primary|Success|Warning|Danger|Info)\b/.test(content);
-    if (!hasPresets) return;
+    // D6 fence: body-metadata content is never rewritten, even automatically.
+    if (!hasPresets || bodyHasMetadata) return;
 
     // Update all preset classDef colors in the diagram
     const updated = updatePresetColors(content, currentThemeColors);
@@ -827,7 +839,8 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         setConnectFirst(nodeId);
         return;
       }
-      if (connectFirst !== nodeId) {
+      // D6 fence: body-metadata content never reaches a codeUtils mutator.
+      if (!bodyHasMetadata && connectFirst !== nodeId) {
         onChange(addEdge(content, connectFirst, nodeId));
       }
       setConnectFirst(null);
@@ -858,8 +871,10 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
 
   const handleAddSubgraph = useCallback(() => {
     if (!onChange) return;
+    // D6 fence: body-metadata content is never rewritten.
+    if (bodyHasMetadata) return;
     onChange(addSubgraph(content, undefined, t('preview.subgraph')));
-  }, [onChange, content, t]);
+  }, [onChange, content, t, bodyHasMetadata]);
 
   const handleSubgraphClick = useCallback((e: React.MouseEvent, subgraphId: string) => {
     e.stopPropagation();
@@ -873,7 +888,8 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         setSelectedSubgraphId(null);
         return;
       }
-      if (connectFirst !== subgraphId && onChange) {
+      // D6 fence: body-metadata content never reaches a codeUtils mutator.
+      if (connectFirst !== subgraphId && onChange && !bodyHasMetadata) {
         onChange(addEdge(content, connectFirst, subgraphId));
       }
       setConnectFirst(null);
@@ -897,24 +913,27 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
 
   const handleSubgraphStyleChange = useCallback((subgraphId: string, styleUpdate: Partial<NodeStyle>) => {
     if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
     const existingStyle = parsedStyles.get(subgraphId) ?? {};
     const mergedStyle = { ...existingStyle, ...styleUpdate };
     const result = updateNodeStyle(content, subgraphId, mergedStyle);
     onChange(result);
-  }, [onChange, content, parsedStyles]);
+  }, [onChange, content, parsedStyles, bodyHasMetadata]);
 
   const handleSubgraphLabelChange = useCallback((subgraphId: string, newLabel: string) => {
     if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
     const result = updateSubgraphLabel(content, subgraphId, newLabel);
     onChange(result);
-  }, [onChange, content]);
+  }, [onChange, content, bodyHasMetadata]);
 
   const handleSubgraphReset = useCallback((subgraphId: string) => {
     if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
     const result = removeNodeStyles(content, [subgraphId]);
     onChange(result);
     setSelectedSubgraphId(null);
-  }, [onChange, content]);
+  }, [onChange, content, bodyHasMetadata]);
 
   const handleCanvasClick = useCallback(() => {
     if (toolMode === 'connect') {
@@ -935,6 +954,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // Style change handler: writes classDef/class lines to code via onChange
   const handleStyleChange = useCallback((nodeIds: string[], styleUpdate: Partial<NodeStyle>) => {
     if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence — also skips the panelStyles update below
     skipResyncRef.current = true;
 
     // Update panelStyles immediately so UI reflects the change
@@ -993,27 +1013,30 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     }
 
     onChange(result);
-  }, [onChange, content, panelStyles]);
+  }, [onChange, content, panelStyles, bodyHasMetadata]);
 
   // Reset handler: removes all classDef/class lines for selected nodes
   const handleResetStyles = useCallback((nodeIds: string[]) => {
     if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
     skipResyncRef.current = true;
     const result = removeNodeStyles(content, nodeIds);
     onChange(result);
     setSelectedNodeIds(new Set());
-  }, [onChange, content]);
+  }, [onChange, content, bodyHasMetadata]);
 
   // Subgraph change handler: moves a node to a different subgraph
   const handleSubgraphChange = useCallback((nodeId: string, subgraphId: string | null) => {
     if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
     const result = moveNodeToSubgraph(content, nodeId, subgraphId);
     onChange(result);
-  }, [onChange, content]);
+  }, [onChange, content, bodyHasMetadata]);
 
   // Preset handler: applies a preset using classDef
   const handlePresetApply = useCallback((nodeIds: string[], presetType: PresetType) => {
     if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence — also skips the panelStyles update below
     skipResyncRef.current = true;
 
     // Remove old styles for these nodes first
@@ -1028,66 +1051,75 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // Edge style change handler
   const handleEdgeStyleChange = useCallback((edgeIndex: number, styleUpdate: Partial<EdgeStyle>) => {
     if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
     const existingStyle = parsedLinkStyles.get(edgeIndex) ?? {};
     const mergedStyle = { ...existingStyle, ...styleUpdate };
     const result = updateLinkStyle(content, edgeIndex, mergedStyle);
     onChange(result);
-  }, [onChange, content, parsedLinkStyles]);
+  }, [onChange, content, parsedLinkStyles, bodyHasMetadata]);
 
   // Edge arrow type change handler
   const handleEdgeArrowChange = useCallback((source: string, target: string, arrowType: string) => {
     if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
     const result = updateEdgeArrowType(content, source, target, arrowType);
     onChange(result);
-  }, [onChange, content]);
+  }, [onChange, content, bodyHasMetadata]);
 
   // Node label change handler
   const handleNodeLabelChange = useCallback((nodeId: string, newLabel: string) => {
     if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
     const result = updateNodeLabel(content, nodeId, newLabel);
     onChange(result);
-  }, [onChange, content]);
+  }, [onChange, content, bodyHasMetadata]);
 
   // Edge label change handler
   const handleEdgeLabelChange = useCallback((source: string, target: string, label: string) => {
     if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
     const result = updateEdgeLabel(content, source, target, label);
     onChange(result);
-  }, [onChange, content]);
+  }, [onChange, content, bodyHasMetadata]);
 
   // Edge reset handler
   const handleEdgeReset = useCallback((edgeIndex: number) => {
     if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
     const result = removeLinkStyles(content, [edgeIndex]);
     onChange(result);
     setSelectedEdgeIndex(null);
-  }, [onChange, content]);
+  }, [onChange, content, bodyHasMetadata]);
 
   // Shape insertion handler: adds a new node to the diagram
   const handleAddShape = useCallback((shape: NodeShape) => {
     if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
     const existingIds = parsedDiagram.nodes.map(n => n.id);
     const id = generateNodeId(existingIds);
     const result = addNode(content, id, 'New Node', shape);
     onChange(result);
     setSelectedNodeIds(new Set([id]));
     setSelectedEdgeIndex(null);
-  }, [onChange, content, parsedDiagram]);
+  }, [onChange, content, parsedDiagram, bodyHasMetadata]);
 
   // Delete selected nodes handler
   const handleDeleteSelected = useCallback(() => {
     if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
     let updated = content;
     selectedNodeIds.forEach(id => { updated = removeNode(updated, id); });
     setSelectedNodeIds(new Set());
     setSelectedEdgeIndex(null);
     onChange(updated);
-  }, [onChange, content, selectedNodeIds]);
+  }, [onChange, content, selectedNodeIds, bodyHasMetadata]);
 
   // Drop handler: adds a shape when dragged onto the canvas, or moves node to root
   const handleDropOnCanvas = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     console.log('DROP ON CANVAS - dragNodeId:', dragNodeId);
+    // D6 fence: body-metadata content is never rewritten.
+    if (bodyHasMetadata) return;
     // If dragging a node over the canvas (not a shape from toolbar), move to root
     if (dragNodeId && onChange) {
       console.log('MOVING TO ROOT:', dragNodeId);
@@ -1099,7 +1131,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     if (!dragShape) return;
     handleAddShape(dragShape);
     setDragShape(null);
-  }, [dragShape, dragNodeId, handleAddShape, onChange, content]);
+  }, [dragShape, dragNodeId, handleAddShape, onChange, content, bodyHasMetadata]);
 
   // Pan handlers for drag navigation
   const handlePanMouseDown = useCallback((e: React.MouseEvent) => {
@@ -1383,7 +1415,8 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
                     const droppedId = dragNodeId || e.dataTransfer.getData('text/plain');
                     console.log('SUBGRAPH DROP - state dragNodeId:', dragNodeId, 'dt droppedId:', droppedId, 'target sgId:', sg.id);
 
-                    if (droppedId && onChange) {
+                    if (droppedId && onChange && !bodyHasMetadata) {
+                      // (D6 fence: body-metadata content is never rewritten)
                       onChange(moveNodeToSubgraph(content, droppedId, sg.id));
                     }
                     setDragNodeId(null);
