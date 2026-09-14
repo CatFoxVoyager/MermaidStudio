@@ -20,7 +20,11 @@ interface LogEntry {
   level: LogLevel;
   message: string;
   timestamp: string;
-  context?: Record<string, unknown>;
+  // `unknown`, not Record<string, unknown>: every real call site passes
+  // whatever value it has at hand (a message id, a reply string, a caught
+  // error). formatLogEntry truthy-checks then JSON.stringify's it, which
+  // already handles primitives.
+  context?: unknown;
   error?: Error;
 }
 
@@ -56,9 +60,13 @@ function formatLogEntry(entry: LogEntry): string {
 }
 
 /**
- * Core logging function
+ * Core logging function. Named emitLogEntry (not `log`) so the name `log`
+ * stays free for the exported facade alias below — the storage helper's
+ * catch blocks call `log.debug(...)`, which must resolve to the facade,
+ * not to this internal function (a prior shadowing bug made those catch
+ * paths throw TypeError instead of logging gracefully).
  */
-function log(entry: LogEntry): void {
+function emitLogEntry(entry: LogEntry): void {
   // In production, suppress debug and info logs
   if (!isDevelopment && (entry.level === 'debug' || entry.level === 'info')) {
     return;
@@ -77,8 +85,8 @@ export const logger = {
    * Debug-level logs - only emitted in development
    * Use for detailed debugging information that's not needed in production
    */
-  debug(message: string, context?: Record<string, unknown>): void {
-    log({
+  debug(message: string, context?: unknown): void {
+    emitLogEntry({
       level: 'debug',
       message,
       timestamp: new Date().toISOString(),
@@ -90,8 +98,8 @@ export const logger = {
    * Info-level logs - only emitted in development
    * Use for general informational messages
    */
-  info(message: string, context?: Record<string, unknown>): void {
-    log({
+  info(message: string, context?: unknown): void {
+    emitLogEntry({
       level: 'info',
       message,
       timestamp: new Date().toISOString(),
@@ -103,8 +111,8 @@ export const logger = {
    * Warning logs - always emitted
    * Use for warning conditions that should be visible in production
    */
-  warn(message: string, context?: Record<string, unknown>): void {
-    log({
+  warn(message: string, context?: unknown): void {
+    emitLogEntry({
       level: 'warn',
       message,
       timestamp: new Date().toISOString(),
@@ -116,8 +124,8 @@ export const logger = {
    * Error logs - always emitted
    * Use for errors that need to be visible in production
    */
-  error(message: string, error?: Error | unknown, context?: Record<string, unknown>): void {
-    log({
+  error(message: string, error?: unknown, context?: unknown): void {
+    emitLogEntry({
       level: 'error',
       message,
       timestamp: new Date().toISOString(),
@@ -139,13 +147,13 @@ export const logger = {
   scope(scopeName: string) {
     const prefix = `[${scopeName}]`;
     return {
-      debug: (message: string, context?: Record<string, unknown>) =>
+      debug: (message: string, context?: unknown) =>
         logger.debug(`${prefix} ${message}`, context),
-      info: (message: string, context?: Record<string, unknown>) =>
+      info: (message: string, context?: unknown) =>
         logger.info(`${prefix} ${message}`, context),
-      warn: (message: string, context?: Record<string, unknown>) =>
+      warn: (message: string, context?: unknown) =>
         logger.warn(`${prefix} ${message}`, context),
-      error: (message: string, error?: unknown, context?: Record<string, unknown>) =>
+      error: (message: string, error?: unknown, context?: unknown) =>
         logger.error(`${prefix} ${message}`, error, context),
     };
   }
@@ -167,7 +175,7 @@ export const storage = {
     try {
       return localStorage.getItem(key);
     } catch {
-      log.debug('localStorage unavailable for get:', key);
+      logger.debug('localStorage unavailable for get:', key);
       return null;
     }
   },
@@ -181,7 +189,7 @@ export const storage = {
       localStorage.setItem(key, value);
       return true;
     } catch {
-      log.debug('localStorage unavailable for set:', key);
+      logger.debug('localStorage unavailable for set:', key);
       return false;
     }
   },
@@ -195,7 +203,7 @@ export const storage = {
       localStorage.removeItem(key);
       return true;
     } catch {
-      log.debug('localStorage unavailable for remove:', key);
+      logger.debug('localStorage unavailable for remove:', key);
       return false;
     }
   },

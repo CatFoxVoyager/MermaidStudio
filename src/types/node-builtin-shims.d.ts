@@ -43,3 +43,14 @@ declare namespace NodeJS {
   // (`typeof handle.unref === 'function'`) exactly because browsers lack them.
   type Timeout = ReturnType<typeof setTimeout> & { unref?: () => void; ref?: () => void };
 }
+
+/**
+ * GPUAdapter.isFallbackAdapter: part of the WebGPU spec (the adapter reports
+ * whether it is a software fallback) and read by
+ * src/services/ai/WebGPUMLCProvider.ts, but missing from the WebGPU type
+ * definitions reachable from this project. Optional + readonly to match the
+ * spec attribute while tolerating definitions that omit it.
+ */
+interface GPUAdapter {
+  readonly isFallbackAdapter?: boolean;
+}
