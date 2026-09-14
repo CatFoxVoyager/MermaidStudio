@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-09-14
+
+### Changed
+- **Mermaid 12 engine** - Diagram engine upgraded to Mermaid 12 with the same familiar look by design (v11 dagre/classic defaults pinned; zero user-facing regression verified by the 1446-test suite and 3-browser E2E matrix)
+- **ELK layout bundled** - ELK layout engine now ships inside the Mermaid 12 package — available in the layout picker with no double download
+- **Embeddable CDN build re-pinned** - CDN embed script re-pinned with an integrity hash (SRI sha384)
+
+### Added
+- **usecaseDiagram type** - New diagram type support with expanded autocomplete coverage (railroad, cynefin, swimlane layouts and new shapes)
+
+### Security
+- **SVG post-processing hardened** - Pipeline locked against real Mermaid 12 output: preview/export parity and hardened XSS sanitization
+
 ## [0.6.0] - 2026-07-03
 
 ### Added

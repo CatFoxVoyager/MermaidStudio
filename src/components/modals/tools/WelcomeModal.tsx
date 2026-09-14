@@ -1,11 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import {
   ExternalLink,
-  Smartphone,
-  MousePointerClick,
+  Workflow,
+  Network,
   ShieldCheck,
-  Wrench,
-  Square,
+  Lock,
+  Shapes,
 } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
 import { APP_VERSION } from '@/constants/app';
@@ -34,11 +34,11 @@ export function WelcomeModal({ onClose }: Props) {
   const { t } = useTranslation();
 
   const releaseNotes = [
-    { icon: Smartphone, key: 'mobile' as const },
-    { icon: MousePointerClick, key: 'visualMobile' as const },
-    { icon: Square, key: 'touch' as const },
-    { icon: ShieldCheck, key: 'safeArea' as const },
-    { icon: Wrench, key: 'diagramFix' as const },
+    { icon: Workflow, key: 'mermaid12' as const },
+    { icon: Network, key: 'elk' as const },
+    { icon: ShieldCheck, key: 'svgPipeline' as const },
+    { icon: Lock, key: 'cdnSri' as const },
+    { icon: Shapes, key: 'usecaseDiagram' as const },
   ];
 
   return (

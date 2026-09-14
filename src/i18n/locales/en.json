@@ -536,11 +536,11 @@
     "intro": "A fast, fully client-side editor for Mermaid diagrams. Your diagrams, settings, and AI models stay in your browser — nothing is sent to a server.",
     "whatsNew": "What's new in this version",
     "releaseNotes": {
-      "mobile": "Mobile responsive layout with dedicated UI, drawers, and bottom navigation",
-      "visualMobile": "Visual drag-and-drop editor now works on mobile (Code / Preview / Visual toggle)",
-      "touch": "Touch interaction support: unified pointer events, pinch-to-zoom and pan",
-      "safeArea": "Safe-area inset support for notches and home indicators",
-      "diagramFix": "AI Fix Diagram detects and repairs syntax, semantic, and style issues"
+      "mermaid12": "Diagram engine upgraded to Mermaid 12 — same familiar look by design (v11 dagre/classic defaults pinned)",
+      "elk": "ELK layout engine now bundled with Mermaid 12 — available in the layout picker, no double download",
+      "svgPipeline": "SVG post-processing pipeline locked against real Mermaid 12 output: preview/export parity, hardened XSS sanitization",
+      "cdnSri": "Embeddable CDN build re-pinned with an integrity hash (SRI sha384)",
+      "usecaseDiagram": "New usecaseDiagram type and expanded autocomplete: railroad, cynefin, swimlane, and new shapes"
     },
     "moreInChangelog": "See the full changelog on GitHub for the complete list.",
     "github": "View on GitHub",

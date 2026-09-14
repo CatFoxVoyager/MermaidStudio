@@ -536,11 +536,11 @@
     "intro": "Un éditeur de diagrammes Mermaid rapide et entièrement côté client. Vos diagrammes, paramètres et modèles d'IA restent dans votre navigateur — rien n'est envoyé vers un serveur.",
     "whatsNew": "Nouveautés de cette version",
     "releaseNotes": {
-      "mobile": "Interface mobile responsive avec UI dédiée, tiroirs et navigation basse",
-      "visualMobile": "L'éditeur visuel glisser-déposer fonctionne désormais sur mobile (bascule Code / Aperçu / Visuel)",
-      "touch": "Prise en charge du tactile : événements pointeur unifiés, zoom pincé et panoramique",
-      "safeArea": "Gestion des zones sécurisées pour les encoches et indicateurs d'accueil",
-      "diagramFix": "Correction IA de diagrammes : détecte et répare les problèmes de syntaxe, sémantique et style"
+      "mermaid12": "Moteur de diagrammes mis à niveau vers Mermaid 12 — rendu identique par conception (défauts v11 dagre/classic conservés)",
+      "elk": "Moteur de mise en page ELK désormais inclus avec Mermaid 12 — disponible dans le sélecteur de disposition, sans double téléchargement",
+      "svgPipeline": "Pipeline de post-traitement SVG verrouillé sur la sortie réelle de Mermaid 12 : parité aperçu/export, sanitisation XSS renforcée",
+      "cdnSri": "Build CDN intégrable épinglé avec un hash d'intégrité (SRI sha384)",
+      "usecaseDiagram": "Nouveau type de diagramme usecaseDiagram et autocomplétion étendue : railroad, cynefin, swimlane et nouvelles formes"
     },
     "moreInChangelog": "Consultez le changelog complet sur GitHub pour la liste complète.",
     "github": "Voir sur GitHub",
