@@ -108,12 +108,23 @@ export default function App() {
   const modalOpen = useCallback((n: keyof typeof modals) => () => openModal(n), [openModal]);
   const modalToggle = useCallback((n: keyof typeof modals) => () => toggleModal(n), [toggleModal]);
 
-  // Show the welcome / release-notes modal once per app version
+  // Show the welcome / release-notes modal on UPDATES only: a stored version
+  // that differs from the current one means the user is returning after an
+  // upgrade. A fresh install (no stored version — the DEFAULT_SETTINGS value
+  // is undefined) skips it: release notes for a version the user never ran
+  // are noise, and a fresh-profile auto-open blocked every interaction in
+  // the E2E suite (locked by App.welcomeModal.test.tsx, Phase 24 decision).
+  // At a future bump (e.g. 0.8.0), users who saw 0.6.0 (stored "0.6.0")
+  // still get the new notes.
   useEffect(() => {
     let cancelled = false;
     getSettings()
       .then(s => {
-        if (!cancelled && s.seenReleaseNotesVersion !== APP_VERSION) {
+        if (
+          !cancelled &&
+          s.seenReleaseNotesVersion !== undefined &&
+          s.seenReleaseNotesVersion !== APP_VERSION
+        ) {
           openModal('showWelcome');
         }
       })
