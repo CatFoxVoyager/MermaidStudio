@@ -27,16 +27,15 @@ export default defineConfig({
     pool: 'forks',
     poolOptions: {
       forks: {
-        // Cap the worker count. The default scales with cores (cores - 1),
-        // which on a 32-core dev host means ~31 forks, each importing
-        // mermaid + jsdom (hundreds of MB each) — the resulting commit-charge
-        // overcommit kills random worker forks mid-run ("Worker exited
-        // unexpectedly"), failing whatever tests that fork was running.
-        // Observed twice during the Phase 24 VAL-01 full-suite runs
-        // (2026-09-14): run 1 lost a themes derivation-sweep test to the
-        // resulting starvation, run 2 lost a whole file's 2 tests. 8 workers
-        // keeps peak memory inside the host envelope; CI runners (4 cores)
-        // are unaffected — the cap sits above their core count.
+        // Cap the worker count (default scales with cores: cores - 1 = ~31
+        // forks on the 32-core dev host, each importing mermaid + jsdom —
+        // hundreds of MB each). 8 keeps peak memory inside the host envelope
+        // and the full suite inside the 600s gate wrapper; CI runners (4
+        // cores) are unaffected — the cap sits above their core count.
+        // Memory hygiene, NOT the "Worker exited unexpectedly" fix: that root
+        // cause was AIPanel.fixMode.test.tsx's unstable i18n `t` mock driving
+        // an unbounded synchronous render loop (killed one fork on every
+        // full-suite run), fixed in the test itself the same day.
         maxWorkers: 8,
         minWorkers: 1,
       },
