@@ -246,7 +246,15 @@ const SWIMLANE_COMPLETIONS = [
 ];
 
 function detectType(doc: string): string {
-  const lines = doc.trim().split('\n');
+  // WR-02: strip a leading YAML frontmatter block before the comment-scan.
+  // All 25 app templates start with `---`; without this, the first
+  // non-comment line was the `---` delimiter itself, every
+  // frontmatter-carrying document detected as '' and fell to the generic
+  // completion set — the per-type groups below were unreachable on the
+  // primary (template-created) authoring path. Matches the frontmatter-first
+  // behavior of detectDiagramType in core.ts.
+  const withoutFrontmatter = doc.replace(/^\s*---[\s\S]*?---\s*/, '');
+  const lines = withoutFrontmatter.trim().split('\n');
   let firstLine = '';
 
   for (const line of lines) {
