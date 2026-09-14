@@ -58,7 +58,7 @@ import { renderDiagram, initMermaid } from '../core';
 import { builtinThemes } from '@/constants/themes';
 import { deriveThemeVariables } from '@/constants/themeDerivation';
 import { toHex } from '@/utils/colorConversion';
-import { CUSTOM_PALETTE_A, CUSTOM_PALETTE_B } from '../../../../tests/fixtures/palettes';
+import { CUSTOM_PALETTE_A, CUSTOM_PALETTE_B } from '@/constants/__tests__/fixtures/palettes';
 import type { MermaidTheme, ThemeCoreColors } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -116,8 +116,9 @@ if (FAMILY_IDS.length !== 8) {
 
 // ---------------------------------------------------------------------------
 // Palettes (D4): all 10 builtins + 2 synthetic custom derived palettes.
-// Custom shapes come from the SHARED fixture tests/fixtures/palettes.ts
-// (IN-04) — the exact CUSTOM_PALETTE_A / CUSTOM_PALETTE_B objects the unit
+// Custom shapes come from the SHARED fixture src/constants/__tests__/fixtures/palettes.ts
+// (IN-04; under src since IN-07 so the repo gates cover it) — the exact
+// CUSTOM_PALETTE_A / CUSTOM_PALETTE_B objects the unit
 // sweep in themes.test.ts locks, so the matrix covers the user-authored theme
 // path with the same fixtures as the sweep (the old verbatim-copy +
 // "keep in sync" comment arrangement is gone).
