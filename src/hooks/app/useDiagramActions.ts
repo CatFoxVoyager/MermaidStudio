@@ -2,12 +2,13 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { createDiagram, createFolder } from '@/services/storage/database';
 import type { Template } from '@/types';
+import type { ModalName } from '../useModalManager';
 
 export interface UseDiagramActionsParams {
   openDiagram: (diagramId: string) => Promise<void>;
   refresh: () => void;
   showToast: (message: string) => void;
-  closeModal: (name: string) => void;
+  closeModal: (name: ModalName) => void;
 }
 
 export interface UseDiagramActionsReturn {

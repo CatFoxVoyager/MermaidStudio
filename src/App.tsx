@@ -91,6 +91,10 @@ export default function App() {
   });
 
   // Keyboard shortcuts
+  // Local const so the null-check below narrows inside the onThemeIdChange
+  // closure (re-reading appState.activeTab there defeats narrowing).
+  const activeTab = appState.activeTab;
+
   const shortcuts = useAppShortcuts({
     openModal,
     toggleModal,
@@ -180,8 +184,8 @@ export default function App() {
           onOpenBackup={modalOpen('showBackup')}
           onFocusMode={modalHandlers.toggleFocusMode}
           onThemeIdChange={
-            appState.activeTab
-              ? (themeId: string | null) => appState.updateTabTheme(appState.activeTab.id, themeId)
+            activeTab
+              ? (themeId: string | null) => appState.updateTabTheme(activeTab.id, themeId)
               : undefined
           }
           showAI={modals.showAI}
@@ -225,7 +229,7 @@ export default function App() {
           onOpenDiagram={appState.openDiagram}
           toggleAI={modalToggle('showAI')}
           toggleTheme={appState.toggleTheme}
-          theme={appState.theme as 'light' | 'dark'}
+          theme={appState.theme}
           aiSettingsKey={appState.aiSettingsKey}
           setAiSettingsKey={appState.setAiSettingsKey}
           refresh={appState.refresh}

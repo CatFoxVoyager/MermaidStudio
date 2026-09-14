@@ -1,15 +1,22 @@
 import { useCallback, useEffect } from 'react';
 import { useModalProviderProps } from '@/hooks';
+import type { Tab } from '@/types';
 
 export interface UseModalStateParams {
-  tabs: ReturnType<typeof useModalProviderProps> extends infer T ? T extends { tabs: infer U } ? U : never : never;
+  /* Typed directly (Tab[]), not inferred from useModalProviderProps: the
+     conditional-type inference below read `tabs` off the hook's RETURN type
+     (which has no `tabs` member), so the parameter silently collapsed to
+     `never` and rejected every real call site. */
+  tabs: Tab[];
   activeTabId: string | null;
-  theme: unknown;
+  theme: string;
   updateTabContent: (id: string, content: string) => void;
   saveTab: (id: string) => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
-  setFocusMode: (focus: boolean) => void;
-  setSidebarOpen: (open: boolean) => void;
+  /* Updater form matches UseModalProviderPropsParams — useAppHandlers calls
+     setFocusMode(prev => ...) with an updater function. */
+  setFocusMode: (value: boolean | ((prev: boolean) => boolean)) => void;
+  setSidebarOpen: (value: boolean | ((prev: boolean) => boolean)) => void;
   openDiagram: (id: string) => Promise<void>;
   refresh: () => void;
 }

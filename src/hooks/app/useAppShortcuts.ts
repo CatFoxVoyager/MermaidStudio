@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import type { Shortcut } from '../useKeyboardShortcuts';
+import type { ModalName } from '../useModalManager';
 
 interface UseAppShortcutsParams {
-  openModal: (name: string) => void;
-  toggleModal: (name: string) => void;
+  openModal: (name: ModalName) => void;
+  toggleModal: (name: ModalName) => void;
   newDiagram: () => void;
   activeTab: { id: string } | null;
   handleSave: (tabId: string) => void;

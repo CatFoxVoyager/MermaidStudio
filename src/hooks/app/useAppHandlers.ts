@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Tab } from '@/types';
+import type { ModalName } from '../useModalManager';
 import { validateDiagramContent } from '@/utils/validation';
 
 export interface UseAppHandlersParams {
@@ -8,7 +9,7 @@ export interface UseAppHandlersParams {
   updateTabContent: (tabId: string, content: string) => void;
   saveTab: (tabId: string) => void;
   showToast: (message: string) => void;
-  closeModal: (name: string) => void;
+  closeModal: (name: ModalName) => void;
   setFocusMode: (value: boolean | ((prev: boolean) => boolean)) => void;
   setSidebarOpen: (value: boolean | ((prev: boolean) => boolean)) => void;
 }

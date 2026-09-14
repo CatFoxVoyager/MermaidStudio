@@ -18,8 +18,8 @@ interface AppLayoutProps {
   defaultTheme?: MermaidTheme | null;
   setDefaultTheme?: (theme: MermaidTheme | null) => void;
   // Language
-  language: string;
-  onChangeLanguage: (lang: string) => void;
+  language: 'en' | 'fr';
+  onChangeLanguage: (lang: 'en' | 'fr') => void;
   // Sidebar
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
@@ -201,6 +201,7 @@ export function AppLayout({
             activeTabId={activeTabId}
             activeTab={activeTab}
             theme={theme}
+            renderTimeMs={renderTimeMs}
             themeId={activeTab?.themeId}
             onSelectTab={onSelectTab}
             onCloseTab={onCloseTab}
