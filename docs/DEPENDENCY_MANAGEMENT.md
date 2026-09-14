@@ -146,6 +146,11 @@ npm install package-name@latest
 # Test thoroughly
 ```
 
+**Mermaid specifically:** the mermaid pin is exact and the CDN embed carries a
+matching SRI — for the revert path (known-good pair 11.17.2 + layout-elk 0.2.3
+via `git revert bf3658e`) and the 12.0.x fast-follow procedure, see
+[developer-guide/mermaid-revert-and-tracking.md](./developer-guide/mermaid-revert-and-tracking.md).
+
 ### Scenario 3: License Compatibility Issue
 ```bash
 # Check licenses
