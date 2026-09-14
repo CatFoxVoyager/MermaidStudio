@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { sanitizeSVG } from '../sanitization';
+import { sanitizeSVG, sanitizeMermaidSVG } from '../sanitization';
 
 // Mock DOMPurify since jsdom may not have full DOMPurify support
 vi.mock('dompurify', () => ({
@@ -135,6 +135,38 @@ describe('sanitizeSVG', () => {
         input,
         expect.objectContaining({
           ADD_ATTR: expect.arrayContaining(['data-testid']),
+        })
+      );
+    });
+  });
+});
+
+describe('sanitizeMermaidSVG', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('DOMPurify configuration', () => {
+    it('should call DOMPurify.sanitize with FORBID_TAGS/FORBID_ATTR as arrays containing the deny-listed entries', () => {
+      sanitizeMermaidSVG('<svg/>');
+
+      // Regression lock: FORBID_TAGS and FORBID_ATTR MUST be arrays.
+      // DOMPurify's _resolveSetOption silently resolves any non-array value
+      // (e.g. the historical { tag: true } object form) to an empty set, so a
+      // shape revert would re-disable the forbid list on the app's XSS
+      // boundary with no error and no user-visible difference. The asserted
+      // members mirror the production deny lists; arrayContaining makes this
+      // assertion fail whenever either value stops being an array.
+      expect(DOMPurify.sanitize).toHaveBeenCalledWith(
+        '<svg/>',
+        expect.objectContaining({
+          FORBID_TAGS: expect.arrayContaining([
+            'script',
+            'iframe',
+            'form',
+            'input',
+          ]),
+          FORBID_ATTR: expect.arrayContaining(['onerror', 'onload']),
         })
       );
     });
