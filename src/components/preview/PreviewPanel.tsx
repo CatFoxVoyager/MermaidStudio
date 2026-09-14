@@ -1046,7 +1046,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     result = applyNodePreset(result, nodeIds, presetType, currentThemeColors);
 
     onChange(result);
-  }, [onChange, content, currentThemeColors]);
+  }, [onChange, content, currentThemeColors, bodyHasMetadata]);
 
   // Edge style change handler
   const handleEdgeStyleChange = useCallback((edgeIndex: number, styleUpdate: Partial<EdgeStyle>) => {
