@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { mermaidAutocomplete, mermaidCompletions } from '../autocomplete';
 import { CompletionContext } from '@codemirror/autocomplete';
 import { EditorState } from '@codemirror/state';
+import { TEMPLATES } from '@/constants/templates';
 
 interface CompletionOption {
   label: string;
@@ -520,5 +521,47 @@ describe('v12 metadata completions — post-accept buffer text (WR-01)', () => {
   it('completions without a preceding @ are unaffected (replacement still starts at the word)', () => {
     const after = acceptCompletion('flowchart TD\nsu', 'subgraph');
     expect(after).toBe('flowchart TD\nsubgraph');
+  });
+});
+
+describe('frontmatter documents — detectType sees past YAML frontmatter (WR-02)', () => {
+  // All 25 app templates start with frontmatter; before the fix the first
+  // non-comment line was the `---` delimiter, so every template-created
+  // diagram detected as '' and offered the generic fallback set — the
+  // per-type groups below were unreachable on the primary authoring path.
+  // A trailing `\n` is appended to each probe so the cursor sits after a
+  // line break: word = null, no prefix filter, the FULL group is offered.
+  it('routes the frontmatter-carrying usecase-system template to the usecase group', () => {
+    const template = TEMPLATES.find(t => t.id === 'usecase-system');
+    expect(template).toBeDefined();
+    expect(template!.content.startsWith('---')).toBe(true); // fixture premise
+    const labels = runCompletions(template!.content + '\n').map(o => o.label);
+    for (const expected of ['actor', 'systemBoundary', 'include', 'extend', '--|>']) {
+      expect(
+        labels,
+        `usecase entry "${expected}" missing — frontmatter not stripped, generic fallback active`
+      ).toContain(expected);
+    }
+    expect(labels).not.toContain('participant'); // generic fallback must be replaced
+  });
+
+  it('routes frontmatter-carrying sequence and flowchart templates to their groups', () => {
+    const sequence = TEMPLATES.find(t => t.type === 'sequence');
+    const flowchart = TEMPLATES.find(t => t.type === 'flowchart');
+    expect(sequence).toBeDefined();
+    expect(flowchart).toBeDefined();
+    expect(sequence!.content.startsWith('---')).toBe(true);
+    expect(flowchart!.content.startsWith('---')).toBe(true);
+    // Group-specific entries that are ABSENT from the generic fallback keyword
+    // list (MERMAID_KEYWORDS in language.ts contains 'participant'/'subgraph',
+    // so those pass even pre-fix — falsifiability probe 2026-09-14):
+    // 'note left of' exists only in SEQUENCE_COMPLETIONS, '@{ shape: ' only in
+    // FLOWCHART_COMPLETIONS.
+    expect(runCompletions(sequence!.content + '\n').map(o => o.label)).toContain('note left of');
+    expect(runCompletions(flowchart!.content + '\n').map(o => o.label)).toContain('@{ shape: ');
+  });
+
+  it('still detects types for frontmatter-free documents (no regression on the %%-scan path)', () => {
+    expect(runCompletions('usecase-beta\n').map(o => o.label)).toContain('systemBoundary');
   });
 });
