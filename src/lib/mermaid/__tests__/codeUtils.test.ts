@@ -487,49 +487,47 @@ A-->B`;
       expect(nodeA2?.shape).toBe('doc');
     });
 
-    // Pitfall 5 observation tests (23-RESEARCH.md): the app's legacy-directive
-    // regex is /%%\{init:\s*({[\s\S]*?})\s*\}\)%%/ (codeUtils.ts:1022) — it
-    // demands a trailing `)%%`. These two cases pin what parseFrontmatter does
-    // with BOTH real-world spellings. Per D3/D11 an observed mismatch is
-    // recorded (comment + SUMMARY), never accommodated in the test and never
-    // "fixed" inside this validation task — an app-side fix would be an owned
-    // follow-up change.
-    it('OBSERVATION (Pitfall 5): no-paren spelling %%{init: {"theme": "dark"}%%', () => {
-      // Legal mermaid directive spelling — mermaid still honors this at render.
-      const content = '%%{init: {"theme": "dark"}%%\nflowchart TD\nA-->B';
+    // Pitfall 5 (23-RESEARCH.md) — owned follow-up APPLIED (WR-03, 23-REVIEW).
+    // The app's legacy-directive regex was /%%\{init:\s*({[\s\S]*?})\s*\}\)%%/
+    // — it demanded a trailing `)%%` no legal directive spelling can satisfy,
+    // so the branch never returned a parsed config (recorded as observation
+    // per D3/D11 during 23-03; the fix was deliberately deferred out of the
+    // validation task). The stray `)` has now been dropped
+    // (codeUtils.ts parseFrontmatter): the flat and nested round-trips below
+    // pin app-layer extraction of the legal `}}%%` spelling, and one
+    // observation records that malformed spellings still fall through
+    // (ignored — never crashed, never misparsed).
+    it('parses a flat %%{init: {...}}%% directive into frontmatter config (Pitfall 5 / WR-03)', () => {
+      const content = '%%{init: {"theme": "dark"}}%%\nflowchart TD\nA-->B';
       const result = parseFrontmatter(content);
 
-      // OBSERVED (app layer, mermaid 12.0.0 host, 2026-09-14): the directive
-      // falls through — frontmatter is empty and the body keeps the directive
-      // line. The app parse layer ignores a directive mermaid still honors at
-      // render; renderDiagram's hasCustomTheme gate still fires on the
-      // %%{init: prefix (core.ts:136), so the render path is unaffected — the
-      // loss is confined to the app-layer config extraction. Classified per
-      // D3/D11 as a pre-existing app regex quirk (invisible on default
-      // rendering); recorded here and in 23-03-SUMMARY.md, NOT worked around.
-      expect(result.frontmatter).toEqual({});
-      expect(result.body).toBe(content);
+      expect(result.frontmatter.config).toEqual({ theme: 'dark' });
+      expect(result.body).toBe('flowchart TD\nA-->B');
     });
 
-    it('OBSERVATION (Pitfall 5): trailing-paren spelling %%{init: {"theme": "dark"})%%', () => {
-      // The spelling the plan believed the app regex matches.
+    it('parses a nested %%{init: {...}}%% payload (themeVariables survive extraction)', () => {
+      const content =
+        '%%{init: {"theme": "dark", "themeVariables": {"primaryColor": "#ff6b6b"}}}%%\nflowchart TD\nA-->B';
+      const result = parseFrontmatter(content);
+
+      expect(result.frontmatter.config).toEqual({
+        theme: 'dark',
+        themeVariables: { primaryColor: '#ff6b6b' },
+      });
+      expect(result.body).toBe('flowchart TD\nA-->B');
+    });
+
+    it('OBSERVATION (Pitfall 5): trailing-paren spelling %%{init: {"theme": "dark"})%% falls through', () => {
+      // The malformed spelling the pre-WR-03 regex demanded. The corrected
+      // regex deliberately does NOT match it (a `)` between the JSON and the
+      // closing `%%` is not a legal directive), so the app parse layer keeps
+      // ignoring it exactly as before — the directive is dropped from
+      // consideration, never crashed on. Render precedence is unaffected
+      // either way: renderDiagram's hasCustomTheme gate fires on the %%{init:
+      // prefix (core.ts:136), independent of this parse layer.
       const content = '%%{init: {"theme": "dark"})%%\nflowchart TD\nA-->B';
       const result = parseFrontmatter(content);
 
-      // OBSERVED (app layer, mermaid 12.0.0 host, 2026-09-14 — deeper than the
-      // plan expected): even the )%% spelling falls through for FLAT JSON. The
-      // lazy capture ({[\s\S]*?}) stops at the FIRST closing brace and the
-      // regex then needs `\}\)%%` — one more `}` after the group. Flat JSON has
-      // only one `}`, so the regex cannot match at all; it only matches when
-      // the JSON carries a nested object as its last member (the group stops at
-      // the inner brace), and in that case the captured text is truncated and
-      // JSON.parse throws into the catch. Net effect at the app layer: the
-      // %%{init directive branch of parseFrontmatter never yields a parsed
-      // config for single-object payloads. renderDiagram's hasCustomTheme gate
-      // still fires (content starts with %%{init:), so RENDER precedence is
-      // unaffected — this is an app-parse-layer observation only. Classified
-      // per D3/D11 (pre-existing, invisible on default rendering); recorded,
-      // not accommodated.
       expect(result.frontmatter).toEqual({});
       expect(result.body).toBe(content);
     });

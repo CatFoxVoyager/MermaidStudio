@@ -1019,7 +1019,12 @@ export function parseFrontmatter(content: string): { frontmatter: FrontmatterCon
       const body = lines.slice(currentLine).join('\n').trim();
 
       try {
-        const configMatch = initBlock.match(/%%\{init:\s*({[\s\S]*?})\s*\}\)%%/);
+        // WR-03: the regex previously demanded a trailing `)%%` which no legal
+        // directive spelling can satisfy (legal `%%{init: {...}}%%` has no `)`;
+        // flat JSON has no second `}` for a `\}\)%%` tail), so this branch
+        // never returned a parsed config. The stray `)` is dropped — flat and
+        // nested payloads now round-trip (codeUtils.test.ts, Pitfall 5).
+        const configMatch = initBlock.match(/%%\{init:\s*({[\s\S]*?})\s*\}%%/);
         if (configMatch) {
           const config = JSON.parse(configMatch[1]);
           return {
