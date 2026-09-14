@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { builtinThemes, getThemeById, getThemeByName } from '../themes';
 import { getSwatchColors, DEFAULT_DARK_THEME, deriveThemeVariables } from '../themeDerivation';
-import { CUSTOM_PALETTE_A, CUSTOM_PALETTE_B } from '../../../tests/fixtures/palettes';
+import { CUSTOM_PALETTE_A, CUSTOM_PALETTE_B } from './fixtures/palettes';
 import type { ThemeCoreColors } from '@/types';
 
 describe('themes', () => {
@@ -181,8 +181,9 @@ describe('derivation sweep — 10 builtins + 2 custom (D4)', () => {
 
   // Two synthetic custom palettes — the shape a user-authored custom theme
   // stores and getThemeById resolves from localStorage — with deliberately
-  // distinct hex per slot. Defined ONCE in tests/fixtures/palettes.ts (IN-04)
-  // and shared with the theme-matrix render suite, so the sweep and the matrix
+  // distinct hex per slot. Defined ONCE in ./fixtures/palettes.ts (IN-04;
+  // under src since IN-07 so the repo gates cover it) and shared with the
+  // theme-matrix render suite, so the sweep and the matrix
   // can never silently validate different palettes. The localStorage lookup
   // path itself is out of scope (D4): the derivation engine is the validated
   // surface.

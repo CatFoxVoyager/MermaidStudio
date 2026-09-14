@@ -6,6 +6,11 @@
  * from two verbatim copies that carried manual "keep in sync" comments, so
  * drift between the sweep and the matrix fixtures is no longer possible.
  *
+ * Lives under src/ since IN-07 (iteration-2 review) so the file inherits the
+ * repo's own quality gates — eslint src, the prettier src glob behind the
+ * format:check CI gate, and direct tsc coverage via tsconfig.app.json's
+ * include — which the old tests/ location sat entirely outside.
+ *
  * The shape is what a user-authored custom theme stores and getThemeById
  * resolves from localStorage; every color slot carries a deliberately distinct
  * hex value so a change in any single slot is observable downstream.
