@@ -502,6 +502,23 @@ requirementDiagram
     user_service - satisfies -> security_req
     user_mgmt - refines -> user_service`,
   },
+  {
+    id: 'usecase-system', title: 'Use Case Overview', description: 'Actor goals inside a system boundary',
+    category: 'Usecase', complexity: 'simple', type: 'usecaseDiagram',
+    content: `---
+config:
+  theme: 'base'
+---
+usecase-beta
+    actor User
+    systemBoundary App
+        "Log in"
+        "View dashboard"
+    end
+    User --> "Log in"
+    User --> "View dashboard"
+    "Log in" ..> : include "View dashboard"`,
+  },
 ];
 
 export const CATEGORIES = [...new Set(TEMPLATES.map(t => t.category))];
