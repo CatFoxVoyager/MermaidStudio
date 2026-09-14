@@ -21,6 +21,7 @@ import {
   removeLinkStyles,
   updateEdgeArrowType,
   updateEdgeLabel,
+  bodyContainsAtDirective,
 } from '../codeUtils';
 import {
   extractThemeIdFromContent,
@@ -151,6 +152,50 @@ describe('Mermaid Code Utilities', () => {
       expect(result.edges[2].arrowType).toBe('--o');
       expect(result.edges[3].arrowType).toBe('o--');
       expect(result.edges[4].arrowType).toBe('--|>');
+    });
+
+    it('silently drops a bare post-id metadata line (D6 corruption vector — observation test)', () => {
+      // The bare post-id form is what this module's own updateNodeShape emits
+      // for the 11 V11_SHAPES. It matches no parse rule (arrow test, node
+      // regex, STANDALONE), so a node defined ONLY by such a line vanishes
+      // from parsed.nodes entirely — and a node that also appears on an edge
+      // silently loses its shape/label. This drop is the upstream behavior
+      // the D6 read-only gate FENCES, not fixes — recorded so a future parser
+      // upgrade re-classifies consciously (Phase 23 observation-test precedent).
+      const source = 'flowchart TD\n  A[Start] --> B\n  C@{ shape: "doc", label: "Doc" }';
+      const result = parseDiagram(source);
+
+      expect(result.nodes.some(n => n.id === 'A')).toBe(true);
+      expect(result.nodes.some(n => n.id === 'B')).toBe(true);
+      // Node C exists only through the metadata line — the parser drops it.
+      expect(result.nodes.find(n => n.id === 'C')).toBeUndefined();
+      expect(result.edges).toHaveLength(1);
+    });
+  });
+
+  describe('bodyContainsAtDirective (D6 fail-safe presence test)', () => {
+    it('returns false for a plain flowchart (no metadata)', () => {
+      expect(bodyContainsAtDirective('flowchart TD\n  A --> B')).toBe(false);
+    });
+
+    it('returns true for a body occurrence (space-separated form)', () => {
+      expect(bodyContainsAtDirective('flowchart TD\n  A @{ shape: doc } ')).toBe(true);
+    });
+
+    it('returns true for the bare post-id form emitted by updateNodeShape', () => {
+      expect(
+        bodyContainsAtDirective('flowchart TD\n  A-->B\n  B@{ shape: "doc", label: "Doc" }'),
+      ).toBe(true);
+    });
+
+    it('returns false when the only occurrence sits inside frontmatter (THM-03 config is legitimate)', () => {
+      const source = '---\ntitle: T\nconfig:\n  metadata: "@{ view: collapsed }"\n---\nflowchart TD\n  A --> B';
+      expect(bodyContainsAtDirective(source)).toBe(false);
+    });
+
+    it('returns false when the only occurrence sits inside a legacy init directive', () => {
+      const source = '%%{init: {"theme":"dark"}}%%\nflowchart TD\nA-->B';
+      expect(bodyContainsAtDirective(source)).toBe(false);
     });
   });
 
