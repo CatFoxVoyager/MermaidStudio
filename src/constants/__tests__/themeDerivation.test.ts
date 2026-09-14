@@ -252,9 +252,18 @@ config:
 flowchart TD
   A --> B`;
       const result = applyThemeToFrontmatter(content, theme, false);
-      // Should only have one frontmatter block
-      const frontmatterCount = (result.match(/^---\n/g) || []).length;
+      // Should only have one frontmatter block. Count block OPENERS (`---` +
+      // `config:`) with the `m` flag (WR-02): without `m`, `^` matches only at
+      // string index 0, so a strip regression leaking the old block mid-string
+      // stayed invisible; and a bare `^---` with `m` would count the CLOSING
+      // delimiter line too (the template always emits open + close), so the
+      // opener shape `---\nconfig:` is the countable unit.
+      const frontmatterCount = (result.match(/^---\nconfig:/gm) || []).length;
       expect(frontmatterCount).toBe(1);
+      // Pin the strip negatively: the old block's `theme: default` must never
+      // survive into the regenerated output — the neighboring toContain merge
+      // assertions cannot distinguish a leaked old block from the new one.
+      expect(result).not.toContain('theme: default');
     });
   });
 
