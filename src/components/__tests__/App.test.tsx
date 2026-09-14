@@ -498,6 +498,7 @@ describe('App Component', () => {
       vi.mocked(useModalManager).mockReturnValue({
         modals: {
           showAI: false,
+          showWelcome: false,
           showTemplates: false,
           showHistory: false,
           showExport: false,
@@ -532,6 +533,7 @@ describe('App Component', () => {
       vi.mocked(useModalManager).mockReturnValue({
         modals: {
           showAI: false,
+          showWelcome: false,
           showTemplates: false,
           showHistory: false,
           showExport: false,
@@ -565,6 +567,7 @@ describe('App Component', () => {
       vi.mocked(useModalManager).mockReturnValue({
         modals: {
           showAI: false,
+          showWelcome: false,
           showTemplates: false,
           showHistory: false,
           showExport: false,
@@ -598,6 +601,7 @@ describe('App Component', () => {
       vi.mocked(useModalManager).mockReturnValue({
         modals: {
           showAI: true,
+          showWelcome: false,
           showTemplates: true,
           showHistory: false,
           showExport: false,

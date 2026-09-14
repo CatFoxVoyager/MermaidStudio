@@ -779,6 +779,8 @@ describe('Database API Key Encryption', () => {
         description: 'My custom template',
         content: 'graph TD\n  A --> B',
         category: 'flowchart',
+        complexity: 'simple',
+        type: 'flowchart',
       });
 
       expect(template.id).toBeDefined();
@@ -792,6 +794,8 @@ describe('Database API Key Encryption', () => {
         description: 'Desc 1',
         content: 'content1',
         category: 'flowchart',
+        complexity: 'simple',
+        type: 'flowchart',
       });
 
       await saveUserTemplate({
@@ -799,6 +803,8 @@ describe('Database API Key Encryption', () => {
         description: 'Desc 2',
         content: 'content2',
         category: 'sequence',
+        complexity: 'simple',
+        type: 'sequence',
       });
 
       const templates = await getUserTemplates();
@@ -814,6 +820,8 @@ describe('Database API Key Encryption', () => {
         description: 'Will be deleted',
         content: 'content',
         category: 'flowchart',
+        complexity: 'simple',
+        type: 'flowchart',
       });
 
       await deleteUserTemplate(template.id);
@@ -926,6 +934,8 @@ describe('Database API Key Encryption', () => {
           description: 'From backup',
           content: 'flowchart TD\n  A --> B',
           category: 'flowchart',
+          complexity: 'simple',
+          type: 'flowchart',
           created_at: new Date().toISOString(),
         },
       ];

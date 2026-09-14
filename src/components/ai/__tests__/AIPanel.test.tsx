@@ -78,7 +78,12 @@ vi.mock('@/services/ai/providers', async importOriginal => {
 const mockClipboard = {
   writeText: vi.fn(() => Promise.resolve()),
 };
-global.navigator.clipboard = mockClipboard as any;
+// navigator.clipboard is a read-only accessor; define it on the navigator
+// instance instead of assigning through it.
+Object.defineProperty(global.navigator, 'clipboard', {
+  value: mockClipboard,
+  configurable: true,
+});
 
 Element.prototype.scrollIntoView = vi.fn();
 

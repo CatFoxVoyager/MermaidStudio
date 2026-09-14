@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
+import type { TFunction } from 'i18next';
 import { useAISend } from '../useAISend';
+
+/* Identity t-stub: production sendFixRequest only calls t('key', {params})
+   and reads the string back. Single bridge cast — i18next's overloaded
+   TFunction cannot be satisfied structurally by a (key) => key impl. */
+const identityT = ((key: string) => key) as unknown as TFunction<'translation', undefined>;
 
 const mockCallAI = vi.fn();
 vi.mock('@/services/storage/database', () => ({
@@ -39,7 +45,7 @@ describe('useAISend - Fix Mode', () => {
     );
 
     await waitFor(async () => {
-      await result.current.sendFixRequest(key => key);
+      await result.current.sendFixRequest(identityT);
     });
 
     expect(mockCallAI).toHaveBeenCalled();
@@ -64,7 +70,7 @@ describe('useAISend - Fix Mode', () => {
     );
 
     await waitFor(async () => {
-      await result.current.sendFixRequest(key => key);
+      await result.current.sendFixRequest(identityT);
     });
 
     expect(mockAddMessage).toHaveBeenCalledWith(
@@ -92,7 +98,7 @@ describe('useAISend - Fix Mode', () => {
     );
 
     await waitFor(async () => {
-      await result.current.sendFixRequest(key => key);
+      await result.current.sendFixRequest(identityT);
     });
 
     expect(mockAddMessage).toHaveBeenCalledWith(
@@ -114,7 +120,7 @@ describe('useAISend - Fix Mode', () => {
     );
 
     await waitFor(async () => {
-      await result.current.sendFixRequest(key => key);
+      await result.current.sendFixRequest(identityT);
     });
 
     expect(mockAddMessage).toHaveBeenCalledWith(

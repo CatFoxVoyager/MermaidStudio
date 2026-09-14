@@ -61,10 +61,9 @@ vi.mock('@/components/editor/TabBar', () => ({
 describe('WorkspacePanel - Visual Editor Toggle', () => {
   const mockTabs: Tab[] = [{
     id: '1',
+    diagram_id: 'diagram-1',
     title: 'Test Diagram',
     content: 'flowchart TD\n  A --> B',
-    created_at: Date.now(),
-    updated_at: Date.now(),
     is_dirty: false,
     saved_content: 'flowchart TD\n  A --> B',
   }];

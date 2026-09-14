@@ -40,8 +40,8 @@ vi.mock('../useAppHandlers', () => ({
 
 describe('useModalProviderProps', () => {
   const mockTabs: Tab[] = [
-    { id: '1', name: 'Tab 1', content: 'content1', dirty: false, diagram_id: 'diag1' },
-    { id: '2', name: 'Tab 2', content: 'content2', dirty: false, diagram_id: 'diag2' },
+    { id: '1', diagram_id: 'diag1', title: 'Tab 1', content: 'content1', saved_content: 'content1', is_dirty: false },
+    { id: '2', diagram_id: 'diag2', title: 'Tab 2', content: 'content2', saved_content: 'content2', is_dirty: false },
   ];
 
   const mockParams = {

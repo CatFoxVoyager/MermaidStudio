@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
+import type { TFunction } from 'i18next';
 import { useAISend } from '../useAISend';
 import type { AIMessage } from '@/types';
 
@@ -43,12 +44,15 @@ vi.mock('@/utils/logger', async importOriginal => {
 });
 
 describe('useAISend', () => {
-  let mockAddMessage: ReturnType<typeof vi.fn>;
+  /* Typed to the production signatures the hook consumes (not the bare
+     ReturnType<typeof vi.fn>, whose unconstrained call signature matches
+     nothing useAISend actually requires). */
+  let mockAddMessage: Mock<(role: AIMessage['role'], content: string) => AIMessage>;
   let mockMessages: AIMessage[];
-  let mockT: ReturnType<typeof vi.fn>;
+  let mockT: TFunction<'translation', undefined>;
 
   beforeEach(() => {
-    mockAddMessage = vi.fn((role: AIMessage['role'], content: string) => ({
+    mockAddMessage = vi.fn((role: AIMessage['role'], content: string): AIMessage => ({
       id: 'test-id',
       role,
       content,
@@ -56,12 +60,16 @@ describe('useAISend', () => {
     }));
 
     mockMessages = [];
-    mockT = vi.fn((key: string, params?: { msg?: string }) => {
+    // Single bridge cast: i18next's TFunction is an overloaded generated
+    // type that a plain (key, params) implementation cannot satisfy
+    // structurally; the impl below mirrors the exact call shape production
+    // uses (t('ai.errorPrefix', { msg })).
+    mockT = vi.fn((key: string, params?: { msg?: string }): string => {
       if (params?.msg) {
         return `Error: ${params.msg}`;
       }
       return key;
-    });
+    }) as unknown as TFunction<'translation', undefined>;
 
     vi.clearAllMocks();
   });

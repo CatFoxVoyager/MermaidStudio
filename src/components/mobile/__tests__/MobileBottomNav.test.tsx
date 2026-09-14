@@ -119,7 +119,7 @@ describe('MobileBottomNav', () => {
     expect(aiButton.style.getPropertyValue('border-top')).toBe('2px solid transparent');
 
     // Change to ai
-    rerender(<MobileBottomNav activeView="ai" setActiveView={mockSetActiveView} />);
+    rerender(<MobileBottomNav activeView="ai" setActiveView={mockSetActiveView} setActiveDrawer={mockSetActiveDrawer} />);
 
     filesButton = screen.getByTestId('mobile-nav-files');
     aiButton = screen.getByTestId('mobile-nav-ai');
@@ -133,7 +133,7 @@ describe('MobileBottomNav', () => {
 
   it('does not apply safe-bottom or z-index token (slot owns them)', () => {
     const { container } = render(
-      <MobileBottomNav activeView="edit" setActiveView={mockSetActiveView} />
+      <MobileBottomNav activeView="edit" setActiveView={mockSetActiveView} setActiveDrawer={mockSetActiveDrawer} />
     );
 
     const nav = container.querySelector('nav');

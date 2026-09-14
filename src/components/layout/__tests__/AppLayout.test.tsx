@@ -82,10 +82,13 @@ describe('AppLayout Component', () => {
   const mockProps = {
     theme: 'light' as const,
     toggleTheme: vi.fn(),
-    language: 'en',
+    language: 'en' as const,
     onChangeLanguage: vi.fn(),
     sidebarOpen: true,
     onToggleSidebar: vi.fn(),
+    onOpenDiagram: vi.fn(),
+    onRefreshSidebar: vi.fn(),
+    onDiagramDeleted: vi.fn(),
     tabs: [],
     activeTabId: null,
     activeTab: null,
@@ -119,6 +122,7 @@ describe('AppLayout Component', () => {
     renderTimeMs: null,
     onRenderTime: vi.fn(),
     refreshKey: 0,
+    aiSettingsKey: 0,
   };
 
   beforeEach(() => {
@@ -222,8 +226,12 @@ describe('AppLayout Component', () => {
     });
 
     it('should pass language to TopBar', () => {
-      render(<AppLayout {...mockProps} language="de" />);
-      expect(screen.getByText('Language: de')).toBeInTheDocument();
+      // 'fr' (not the historical 'de'): the app only supports 'en' | 'fr'
+      // (useLanguage), which is what AppLayoutProps now declares. The
+      // assertion — AppLayout forwards language to TopBar verbatim — is
+      // unchanged.
+      render(<AppLayout {...mockProps} language="fr" />);
+      expect(screen.getByText('Language: fr')).toBeInTheDocument();
     });
 
     it('should call onToggleAI when toggle button clicked', () => {

@@ -63,29 +63,37 @@ vi.mock('@/components/visual/ColorPicker', () => ({
   ),
 }));
 
+// presetType mirrors the component's NodeStylePreset (required — it is what
+// the preset button hands to onPresetApply) and the PresetType values the
+// panel's preset classDefs use.
 const defaultPresets = [
   {
     label: 'Primary',
+    presetType: 'primary' as const,
     style: { fill: '#3b82f6', stroke: '#3b82f6', color: '#ffffff' } as NodeStyle,
     color: '#3b82f6',
   },
   {
     label: 'Success',
+    presetType: 'success' as const,
     style: { fill: '#22c55e', stroke: '#22c55e', color: '#ffffff' } as NodeStyle,
     color: '#22c55e',
   },
   {
     label: 'Warning',
+    presetType: 'warning' as const,
     style: { fill: '#f59e0b', stroke: '#f59e0b', color: '#ffffff' } as NodeStyle,
     color: '#f59e0b',
   },
   {
     label: 'Danger',
+    presetType: 'danger' as const,
     style: { fill: '#ef4444', stroke: '#ef4444', color: '#ffffff' } as NodeStyle,
     color: '#ef4444',
   },
   {
     label: 'Info',
+    presetType: 'info' as const,
     style: { fill: '#06b6d4', stroke: '#06b6d4', color: '#ffffff' } as NodeStyle,
     color: '#06b6d4',
   },
