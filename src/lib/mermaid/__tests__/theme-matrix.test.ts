@@ -179,6 +179,17 @@ if (PALETTES.length !== 12) {
   throw new Error(`D4 grid integrity: expected 12 palettes, found ${PALETTES.length}`);
 }
 
+// IN-06: the it.each lookups do `PALETTES.find(p => p.label === label)!` and
+// renderCell routes on `CUSTOM_THEMES[palette.label]` — both assume labels are
+// unique. The length guard above cannot see a future builtin taking the
+// custom-a/custom-b id (the grid would still total 12): `find` would resolve
+// the builtin first, that palette would render through the per-diagram
+// builtin path twice, and the user-authored default-theme path would silently
+// lose all coverage — with zero failures.
+if (new Set(PALETTES.map(p => p.label)).size !== PALETTES.length) {
+  throw new Error('D4 grid integrity: palette labels must be unique');
+}
+
 // ---------------------------------------------------------------------------
 // Harness — renderFixture copied verbatim from structure-goldens.test.ts
 // (renderDiagram ONLY — Pitfall 2; getBBox swallow; DOMParser on the
