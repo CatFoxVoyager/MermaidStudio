@@ -22,7 +22,7 @@
     "test:lighthouse": "lhci autorun --collect.url=http://localhost:5173",
     "lint": "eslint src --max-warnings 999",
     "lint:fix": "eslint src --fix",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
     "format": "prettier --write src/**/*.{ts,tsx}",
     "format:check": "prettier --check src/**/*.{ts,tsx}",
     "prepare": "husky",
