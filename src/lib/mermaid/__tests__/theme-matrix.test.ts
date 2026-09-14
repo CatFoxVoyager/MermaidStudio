@@ -58,6 +58,7 @@ import { renderDiagram, initMermaid } from '../core';
 import { builtinThemes } from '@/constants/themes';
 import { deriveThemeVariables } from '@/constants/themeDerivation';
 import { toHex } from '@/utils/colorConversion';
+import { CUSTOM_PALETTE_A, CUSTOM_PALETTE_B } from '../../../../tests/fixtures/palettes';
 import type { MermaidTheme, ThemeCoreColors } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -115,9 +116,11 @@ if (FAMILY_IDS.length !== 8) {
 
 // ---------------------------------------------------------------------------
 // Palettes (D4): all 10 builtins + 2 synthetic custom derived palettes.
-// Custom shapes are duplicated verbatim from themes.test.ts
-// (CUSTOM_PALETTE_A / CUSTOM_PALETTE_B — keep in sync) so the matrix covers
-// the user-authored theme path with the same fixtures the unit sweep locks.
+// Custom shapes come from the SHARED fixture tests/fixtures/palettes.ts
+// (IN-04) — the exact CUSTOM_PALETTE_A / CUSTOM_PALETTE_B objects the unit
+// sweep in themes.test.ts locks, so the matrix covers the user-authored theme
+// path with the same fixtures as the sweep (the old verbatim-copy +
+// "keep in sync" comment arrangement is gone).
 // The localStorage lookup path is out of scope (D4) — synthetics reach the
 // render through the app default-theme channel (initMermaid → doInit
 // preference chain, core.ts:25-27) because getThemeById cannot resolve them.
@@ -128,31 +131,6 @@ if (FAMILY_IDS.length !== 8) {
 // flowchart cell of the anchored palette — catches the engine and the render
 // layer drifting TOGETHER, which in-test derived expectations cannot see.
 // ---------------------------------------------------------------------------
-const CUSTOM_PALETTE_A: ThemeCoreColors = {
-  primaryColor: '#ff6b6b',
-  secondaryColor: '#4ecdc4',
-  background: '#f7fff7',
-  lineColor: '#1a535c',
-  primaryTextColor: '#22223b',
-  successColor: '#2a9d8f',
-  warningColor: '#e9c46a',
-  errorColor: '#e76f51',
-  infoColor: '#264653',
-  fontFamily: 'Inter, system-ui, sans-serif',
-  fontSize: '14px',
-};
-
-const CUSTOM_PALETTE_B: ThemeCoreColors = {
-  primaryColor: '#dbe7ff',
-  secondaryColor: '#b8c7ff',
-  background: '#0f1222',
-  lineColor: '#7c9cff',
-  primaryTextColor: '#e8ecff',
-  successColor: '#00c48c',
-  warningColor: '#ffb648',
-  errorColor: '#ff5470',
-  infoColor: '#4d9fff',
-};
 
 interface MatrixPalette {
   label: string;

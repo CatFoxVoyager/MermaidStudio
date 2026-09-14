@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { builtinThemes, getThemeById, getThemeByName } from '../themes';
 import { getSwatchColors, DEFAULT_DARK_THEME, deriveThemeVariables } from '../themeDerivation';
+import { CUSTOM_PALETTE_A, CUSTOM_PALETTE_B } from '../../../tests/fixtures/palettes';
 import type { ThemeCoreColors } from '@/types';
 
 describe('themes', () => {
@@ -180,33 +181,11 @@ describe('derivation sweep — 10 builtins + 2 custom (D4)', () => {
 
   // Two synthetic custom palettes — the shape a user-authored custom theme
   // stores and getThemeById resolves from localStorage — with deliberately
-  // distinct hex per slot. The localStorage lookup path itself is out of
-  // scope (D4): the derivation engine is the validated surface.
-  const CUSTOM_PALETTE_A: ThemeCoreColors = {
-    primaryColor: '#ff6b6b',
-    secondaryColor: '#4ecdc4',
-    background: '#f7fff7',
-    lineColor: '#1a535c',
-    primaryTextColor: '#22223b',
-    successColor: '#2a9d8f',
-    warningColor: '#e9c46a',
-    errorColor: '#e76f51',
-    infoColor: '#264653',
-    fontFamily: 'Inter, system-ui, sans-serif',
-    fontSize: '14px',
-  };
-
-  const CUSTOM_PALETTE_B: ThemeCoreColors = {
-    primaryColor: '#dbe7ff',
-    secondaryColor: '#b8c7ff',
-    background: '#0f1222',
-    lineColor: '#7c9cff',
-    primaryTextColor: '#e8ecff',
-    successColor: '#00c48c',
-    warningColor: '#ffb648',
-    errorColor: '#ff5470',
-    infoColor: '#4d9fff',
-  };
+  // distinct hex per slot. Defined ONCE in tests/fixtures/palettes.ts (IN-04)
+  // and shared with the theme-matrix render suite, so the sweep and the matrix
+  // can never silently validate different palettes. The localStorage lookup
+  // path itself is out of scope (D4): the derivation engine is the validated
+  // surface.
 
   it('every builtin theme derives in light and dark mode (core slots + color-literal values)', () => {
     builtinThemes.forEach((theme) => assertDerivesCleanly(theme.coreColors, theme.id));
