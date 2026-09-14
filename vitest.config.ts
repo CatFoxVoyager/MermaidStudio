@@ -10,10 +10,37 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    // 15s per-test ceiling (vitest default is 5s): under the full-suite
+    // startup herd on the Windows dev host, a worker fork can die while the
+    // remaining workers starve, pushing normally-sub-3s pure-compute tests
+    // past the 5s default (observed 2026-09-14, full-suite VAL-01 run: the
+    // themes derivation sweep timed out at 5000ms while an isolated run of
+    // the same file passes 15/15 in ~2.5s of test time, and one worker fork
+    // emitted "exited unexpectedly"). Assertions are untouched — this only
+    // widens the starvation headroom; a genuinely hung test still fails at
+    // 15s. Same flake class as the documented subgraph-render near-5s flake.
+    testTimeout: 15000,
     // Force exit after tests finish: the suite hangs at teardown (a flaky
     // timer/handle keeps the worker pool alive), which left the CI 'Test' job
     // stuck in_progress until its timeout. forceExit lets vitest exit cleanly.
     forceExit: true,
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        // Cap the worker count. The default scales with cores (cores - 1),
+        // which on a 32-core dev host means ~31 forks, each importing
+        // mermaid + jsdom (hundreds of MB each) — the resulting commit-charge
+        // overcommit kills random worker forks mid-run ("Worker exited
+        // unexpectedly"), failing whatever tests that fork was running.
+        // Observed twice during the Phase 24 VAL-01 full-suite runs
+        // (2026-09-14): run 1 lost a themes derivation-sweep test to the
+        // resulting starvation, run 2 lost a whole file's 2 tests. 8 workers
+        // keeps peak memory inside the host envelope; CI runners (4 cores)
+        // are unaffected — the cap sits above their core count.
+        maxWorkers: 8,
+        minWorkers: 1,
+      },
+    },
     environment: 'jsdom',
     setupFiles: ['./tests/vitest.setup.ts'],
     include: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx'],
