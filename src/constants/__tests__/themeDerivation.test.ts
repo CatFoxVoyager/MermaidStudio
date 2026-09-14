@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveThemeVariables, deriveThemeVariablesForDiagramType, applyThemeToFrontmatter, applyC4FromTheme, applyStyleToContent, stripThemeDirective, DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '../themeDerivation';
+import { deriveThemeVariables, deriveThemeVariablesForDiagramType, applyThemeToFrontmatter, applyC4FromTheme, applyStyleToContent, stripThemeDirective, removeThemeColorsFromFrontmatter, DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '../themeDerivation';
 import { toHex } from '@/utils/colorConversion';
 import type { ThemeCoreColors } from '@/types';
 
@@ -582,6 +582,49 @@ flowchart TD
       expect(result).toContain('basis');
       expect(result).toContain('padding:');
       expect(result).toContain('20');
+    });
+  });
+
+  describe('removeThemeColorsFromFrontmatter', () => {
+    // CR-02 regression: the function is declared to return string, but the
+    // return statement was dropped — the built frontmatter was discarded and
+    // the function returned undefined. The caller (DiagramColorsPanel
+    // handleResetToDefault) assigns the result to the diagram content and
+    // feeds it straight into onContentChange, so a dropped return destroys
+    // the editor content on "Reset to default".
+    it('returns a string that preserves the diagram body for frontmatter input (CR-02)', () => {
+      const content = `---
+config:
+  theme: base
+  themeVariables:
+    primaryColor: '#ff6b6b'
+    fontSize: '16px'
+  flowchart:
+    curve: basis
+---
+flowchart TD
+  A[Start] --> B[End]`;
+
+      const result: unknown = removeThemeColorsFromFrontmatter(content);
+
+      // Contract with the caller: the result replaces the diagram content.
+      expect(typeof result).toBe('string');
+      const text = result as string;
+      // Diagram body survives the reset verbatim
+      expect(text).toContain('flowchart TD');
+      expect(text).toContain('A[Start] --> B[End]');
+      // Theme-derived colors are stripped (primaryColor is in the flowchart
+      // derived set) — the reset's whole purpose
+      expect(text).not.toContain('#ff6b6b');
+      // Typography (typographyKeys) and layout config are preserved
+      expect(text).toContain("fontSize: '16px'");
+      expect(text).toContain('curve:');
+      expect(text).toContain('basis');
+    });
+
+    it('returns the cleaned body unchanged for content without frontmatter', () => {
+      const content = 'flowchart TD\n  A --> B';
+      expect(removeThemeColorsFromFrontmatter(content)).toBe('flowchart TD\n  A --> B');
     });
   });
 

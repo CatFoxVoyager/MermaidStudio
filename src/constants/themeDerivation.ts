@@ -674,6 +674,7 @@ config:
 ${objectToYaml(mergedConfig, 2)}---
 
 ${cleanBody}`;
+  return yamlConfig;
 }
 
 /**
