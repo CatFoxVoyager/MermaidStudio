@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { useAppState } from '../useAppState';
 
@@ -82,7 +82,7 @@ describe('useAppState', () => {
   it('should load diagrams when showPalette is true', async () => {
     const { getDiagrams } = await import('@/services/storage/database');
     const testDiagrams = [{ id: '1', title: 'Test' }];
-    (getDiagrams as vi.Mock).mockResolvedValue(testDiagrams);
+    (getDiagrams as Mock).mockResolvedValue(testDiagrams);
 
     const { result } = renderHook(() => useAppState(true));
 
@@ -173,7 +173,7 @@ describe('useAppState', () => {
   it('should reload diagrams when refresh is called with showPalette true', async () => {
     const { getDiagrams } = await import('@/services/storage/database');
     const testDiagrams = [{ id: '1', title: 'Test' }];
-    (getDiagrams as vi.Mock).mockResolvedValue(testDiagrams);
+    (getDiagrams as Mock).mockResolvedValue(testDiagrams);
 
     const { result } = renderHook(() => useAppState(true));
 
@@ -183,7 +183,7 @@ describe('useAppState', () => {
     });
 
     // Clear mock to track new calls
-    (getDiagrams as vi.Mock).mockClear();
+    (getDiagrams as Mock).mockClear();
 
     // Call refresh
     result.current.refresh();

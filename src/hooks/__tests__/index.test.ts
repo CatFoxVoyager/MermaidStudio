@@ -57,7 +57,7 @@ describe('hooks barrel export', () => {
   });
 
   it('should export all hooks as named exports', () => {
-    const hookNames = [
+    const hookNames: Array<keyof typeof hooks> = [
       'useTheme',
       'useLanguage',
       'useTabs',
