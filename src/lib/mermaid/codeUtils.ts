@@ -1054,6 +1054,22 @@ export function parseFrontmatter(content: string): { frontmatter: FrontmatterCon
   return { frontmatter: {}, body: content };
 }
 
+/**
+ * D6 fail-safe (DIA-04): presence test for the v12 metadata-attach syntax
+ * (`@{...}`) OUTSIDE frontmatter. Content whose body carries the syntax opens
+ * the visual editor read-only and is never handed to the regex-based
+ * parseDiagram, which silently drops bare post-id metadata lines
+ * (`B@{ shape: "doc", label: "x" }` — the exact form this module's own
+ * updateNodeShape emits). Presence test ONLY — no structure parsing; the
+ * parser upgrade for `@{...}` is out of scope by design. The body comes from
+ * the app's own parseFrontmatter split, so frontmatter-embedded metadata
+ * (legitimate mermaid config) and legacy `%%{init:...}%%` directives never
+ * trigger the gate — consistent with detectDiagramType's stripping semantics.
+ */
+export function bodyContainsAtDirective(content: string): boolean {
+  return parseFrontmatter(content).body.includes('@{');
+}
+
 function parseYamlFrontmatter(yaml: string): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   const lines = yaml.split('\n');
