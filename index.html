@@ -3,7 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Deliberately NO viewport-fit=cover: cover makes engines report nonzero
+         env(safe-area-inset-bottom) while some Android browsers still exclude
+         the gesture zone from the viewport, so the safe-bottom padding under
+         the bottom nav rendered as a visible strip. Without cover the insets
+         are 0 everywhere, the nav sits flush at the viewport bottom, and the
+         gesture zone stays browser chrome colored via theme-color. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Primary Meta Tags -->
     <title>MermaidStudio v%APP_VERSION% - Advanced Mermaid Diagram Editor</title>
