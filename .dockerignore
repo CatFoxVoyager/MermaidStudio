@@ -1,0 +1,17 @@
+node_modules
+dist
+.git
+.cert
+.planning
+.gsd
+.agents
+.claude
+coverage
+playwright-report
+test-results
+tests/e2e/test-results
+visual
+type-sweep-*.png
+stats.html
+npm-debug.log*
+.vite
