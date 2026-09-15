@@ -536,6 +536,7 @@
     "intro": "Un éditeur de diagrammes Mermaid rapide et entièrement côté client. Vos diagrammes, paramètres et modèles d'IA restent dans votre navigateur — rien n'est envoyé vers un serveur.",
     "whatsNew": "Nouveautés de cette version",
     "releaseNotes": {
+      "navFlush": "La navigation inférieure est collée au bord bas sur mobile — plus aucun espace entre la barre et la zone de gestes Android",
       "mermaid12": "Moteur de diagrammes mis à niveau vers Mermaid 12 — rendu identique par conception (défauts v11 dagre/classic conservés)",
       "elk": "Moteur de mise en page ELK désormais inclus avec Mermaid 12 — disponible dans le sélecteur de disposition, sans double téléchargement",
       "svgPipeline": "Pipeline de post-traitement SVG verrouillé sur la sortie réelle de Mermaid 12 : parité aperçu/export, sanitisation XSS renforcée",

@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import {
   ExternalLink,
+  PanelBottom,
   Workflow,
   Network,
   ShieldCheck,
@@ -34,6 +35,7 @@ export function WelcomeModal({ onClose }: Props) {
   const { t } = useTranslation();
 
   const releaseNotes = [
+    { icon: PanelBottom, key: 'navFlush' as const },
     { icon: Workflow, key: 'mermaid12' as const },
     { icon: Network, key: 'elk' as const },
     { icon: ShieldCheck, key: 'svgPipeline' as const },

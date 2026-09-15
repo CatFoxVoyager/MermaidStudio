@@ -8,14 +8,23 @@ layer(base);
 @utility safe-top {
   padding-top: env(safe-area-inset-top);
 }
-@utility safe-bottom {
-  /* No-op in browser tabs: index.html intentionally omits viewport-fit=cover
-     (a cover + inset combo rendered as a white strip under the bottom nav on
-     Android browsers that exclude the gesture zone from the viewport), so
-     engines report 0 here. Kept for true edge-to-edge contexts (installed
-     PWA/fullscreen) where a real inset is honored and still capped at 48px
-     against over-reporting. */
-  padding-bottom: min(env(safe-area-inset-bottom), 48px);
+.safe-bottom {
+  /* Zero in browser tabs — reported insets are not trusted here. With
+     viewport-fit=cover (removed from index.html) Samsung Internet drew the
+     inset as a white strip under the bottom nav; the layout answer is no
+     padding at all, so the nav sits flush against the browser-owned gesture
+     zone regardless of what the browser reports. */
+  padding-bottom: 0;
+}
+
+/* True edge-to-edge surfaces only (installed PWA / fullscreen): the page
+   really extends under the system bar there, so the inset is restored,
+   capped at 48px against over-reporting. Plain (unlayered) rules outrank
+   the utilities layer, so these win over any padding utility on the slot. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  .safe-bottom {
+    padding-bottom: min(env(safe-area-inset-bottom), 48px);
+  }
 }
 @utility safe-left {
   padding-left: env(safe-area-inset-left);
