@@ -1,0 +1,29 @@
+[project]
+name = "crew"
+version = "0.1.0"
+description = "MermaidStudio dev crew (planner -> developer -> reviewer)"
+authors = [{ name = "MermaidStudio" }]
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "crewai[tools,litellm]>=1.15.21,<2.0.0"
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+crew = "crew.main:run"
+run_crew = "crew.main:run"
+train = "crew.main:train"
+replay = "crew.main:replay"
+test = "crew.main:test"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.crewai]
+type = "crew"
+project_id = "74f8970f-87f6-41fd-87f3-f8722b9dc7c3"

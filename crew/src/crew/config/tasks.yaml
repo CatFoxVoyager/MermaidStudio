@@ -1,0 +1,35 @@
+plan_task:
+  description: >
+    Mission: {mission}
+    Repository root: {repo_root}
+    Read the relevant code first (real files only), then produce the
+    implementation plan: numbered steps, each naming the exact files to
+    create or modify and how to verify it. Never plan git commits or pushes.
+  expected_output: >
+    A numbered step-by-step plan referencing real file paths, with a concrete
+    verification step per item. Written in French.
+  agent: planner
+
+implement_task:
+  description: >
+    Apply the planner's steps for this mission: {mission}
+    Repository root: {repo_root}
+    Follow the repo's conventions (React 19 + TypeScript, Tailwind utility
+    classes, '@/ path aliases, tests co-located in __tests__ directories).
+    Respect the mission's constraints exactly — for a read-only audit mission,
+    do not modify or create any file outside the crew/ directory.
+  expected_output: >
+    A summary in French listing every file created or modified with its path,
+    or an explicit statement that nothing was changed.
+  agent: developer
+
+verify_task:
+  description: >
+    Verify the work done for this mission: {mission}
+    Repository root: {repo_root}
+    Read the files involved, run the whitelisted checks that apply
+    (type-check, lint, targeted 'test' runs), and write the final report.
+  expected_output: >
+    A markdown report in French: what was done, the exact checks run with
+    their exit codes, and remaining risks or follow-ups.
+  agent: reviewer
