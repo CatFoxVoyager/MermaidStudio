@@ -118,29 +118,29 @@ Requirements for the mermaid 12 migration milestone. Each maps to roadmap phases
 ### SVG Pipeline Verification
 
 - [x] **PIPE-01**: v11 structural golden fixtures captured BEFORE the upgrade (`.edgePaths path.flowchart-link`, `g.edgeLabels` 1:1 index correlation, `flowchart-{ID}-{N}` node ids, marker id substrings, `rect.background`, `.root` ordering) then verified against v12 output — 0 selector matches = test failure
-- [ ] **PIPE-02**: `postProcessDiagramSvg` test suite (static + rendered preview/export parity) green on v12
-- [ ] **PIPE-03**: Pixel-sensitive snapshots re-baselined (mermaid 12's 1px `intersectPolygon` fix shifts dagre output too)
-- [ ] **PIPE-04**: Error-path contracts verified on v12: reported line numbers vs the app's manual frontmatter offset (adjust or remove the offset if double-counting is confirmed) and temp-element cleanup behavior (manual `remove()` obsolete-but-harmless or dropped)
+- [x] **PIPE-02**: `postProcessDiagramSvg` test suite (static + rendered preview/export parity) green on v12
+- [x] **PIPE-03**: Pixel-sensitive snapshots re-baselined (mermaid 12's 1px `intersectPolygon` fix shifts dagre output too)
+- [x] **PIPE-04**: Error-path contracts verified on v12: reported line numbers vs the app's manual frontmatter offset (adjust or remove the offset if double-counting is confirmed) and temp-element cleanup behavior (manual `remove()` obsolete-but-harmless or dropped)
 
 ### Themes & Configuration
 
-- [ ] **THM-01**: Theme x diagram-type x dark/light snapshot matrix passes on v12
-- [ ] **THM-02**: `themeDerivation.ts` re-derived against v12's `theme-base.js` (variable names survive; formulas unverified upstream)
-- [ ] **THM-03**: Frontmatter round-trip intact on v12: `@theme` extraction, config precedence (frontmatter > `initialize()` > per-type default > global default), `@{...}` syntax parsing
-- [ ] **THM-04**: Layout selector still switches dagre / elk / elk.stress under bundled ELK; `elk.stress` resolves or degrades safely (never crashes)
+- [x] **THM-01**: Theme x diagram-type x dark/light snapshot matrix passes on v12
+- [x] **THM-02**: `themeDerivation.ts` re-derived against v12's `theme-base.js` (variable names survive; formulas unverified upstream)
+- [x] **THM-03**: Frontmatter round-trip intact on v12: `@theme` extraction, config precedence (frontmatter > `initialize()` > per-type default > global default), `@{...}` syntax parsing
+- [x] **THM-04**: Layout selector still switches dagre / elk / elk.stress under bundled ELK; `elk.stress` resolves or degrades safely (never crashes)
 
 ### Diagram Types & Syntax
 
-- [ ] **DIA-01**: All 20+ supported diagram types render correctly on v12 (visual spot-check sweep)
-- [ ] **DIA-02**: Visual editor fail-safe: `@{...}` syntax detected -> read-only mode; the regex-based parser never corrupts a diagram using new v12 syntax
-- [ ] **DIA-03**: Additive `usecaseDiagram` support: `detectDiagramType`, autocomplete, template, `usecase*` theme variables
-- [ ] **DIA-04**: Autocomplete coverage for gaps inherited from 11.x: railroad, cynefin, swimlane, new shapes, `@{ view: collapsed }`
+- [x] **DIA-01**: All 20+ supported diagram types render correctly on v12 (visual spot-check sweep)
+- [x] **DIA-02**: Visual editor fail-safe: `@{...}` syntax detected -> read-only mode; the regex-based parser never corrupts a diagram using new v12 syntax
+- [x] **DIA-03**: Additive `usecaseDiagram` support: `detectDiagramType`, autocomplete, template, `usecase*` theme variables
+- [x] **DIA-04**: Autocomplete coverage for gaps inherited from 11.x: railroad, cynefin, swimlane, new shapes, `@{ view: collapsed }`
 
 ### Platform & Validation
 
-- [ ] **VAL-01**: Full unit suite (`vitest run`), lint, type-check, and production build green on mermaid 12
-- [ ] **VAL-02**: Browser floor verified: `build.target` >= ES2024, webkit E2E ~ Safari 17.4+; behavior on iOS <= 17.3 documented (early-adopter note: mermaid 12.0.0 is 2 days old, zero community post-mortems)
-- [ ] **VAL-03**: Revert path documented (11.17.2 + 0.2.3 = known-good pair) and 12.0.x point releases tracked during the milestone
+- [x] **VAL-01**: Full unit suite (`vitest run`), lint, type-check, and production build green on mermaid 12
+- [x] **VAL-02**: Browser floor verified: `build.target` >= ES2024, webkit E2E ~ Safari 17.4+; behavior on iOS <= 17.3 documented (early-adopter note: mermaid 12.0.0 is 2 days old, zero community post-mortems)
+- [x] **VAL-03**: Revert path documented (11.17.2 + 0.2.3 = known-good pair) and 12.0.x point releases tracked during the milestone
 
 ## v2 Requirements
 
@@ -267,20 +267,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UPG-05 | Phase 21 | Complete |
 | UPG-06 | Phase 21 | Complete |
 | PIPE-01 | Phase 21 | Complete |
-| PIPE-02 | Phase 22 | Pending |
-| PIPE-03 | Phase 22 | Pending |
-| PIPE-04 | Phase 22 | Pending |
-| THM-01 | Phase 23 | Pending |
-| THM-02 | Phase 23 | Pending |
-| THM-03 | Phase 23 | Pending |
-| THM-04 | Phase 23 | Pending |
-| DIA-01 | Phase 24 | Pending |
-| DIA-02 | Phase 24 | Pending |
-| DIA-03 | Phase 24 | Pending |
-| DIA-04 | Phase 24 | Pending |
-| VAL-01 | Phase 24 | Pending |
-| VAL-02 | Phase 24 | Pending |
-| VAL-03 | Phase 24 | Pending |
+| PIPE-02 | Phase 22 | Complete |
+| PIPE-03 | Phase 22 | Complete |
+| PIPE-04 | Phase 22 | Complete |
+| THM-01 | Phase 23 | Complete |
+| THM-02 | Phase 23 | Complete |
+| THM-03 | Phase 23 | Complete |
+| THM-04 | Phase 23 | Complete |
+| DIA-01 | Phase 24 | Complete (24-04) |
+| DIA-02 | Phase 24 | Complete (24-03; verified 24-VERIFICATION) |
+| DIA-03 | Phase 24 | Complete (24-01; autocomplete half in 24-02) |
+| DIA-04 | Phase 24 | Complete (24-02; verified 24-VERIFICATION) |
+| VAL-01 | Phase 24 | Complete (24-05; final-tree gates: vitest 1446/1446 after review loop, lint, type-check both projects, build w/ real pre-flight) |
+| VAL-02 | Phase 24 | Complete (24-05; x3 matrix over HTTP: chromium 99/99, webkit 97/97 in-suite, firefox 99/99 effective w/ isolation-proven flake classification) |
+| VAL-03 | Phase 24 | Complete (24-05; bf3658e revert path + 12.0.x fast-follow doc) |
 
 **Coverage:**
 
