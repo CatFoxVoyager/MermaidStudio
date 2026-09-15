@@ -35,7 +35,7 @@ function doInit(theme: 'dark' | 'light', useBase: boolean, mermaidTheme?: Mermai
     startOnLoad: false,
     theme: resolvedMermaidTheme,
     layout: 'dagre', // v11-default pin — v12 would default 7 diagram types to ELK
-    look: 'classic', // v11-default pin — v12 would default 10 diagram types to redux-color/neo
+    look: 'neo', // v12 neo/redux-color look — flips the Phase-21 classic pin (revert-safe)
     darkMode: isDark,
     fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
     fontSize: 14,

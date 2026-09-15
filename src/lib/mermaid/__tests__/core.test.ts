@@ -323,6 +323,18 @@ flowchart TD
       initMermaid('light');
       expect(mermaid.mermaidAPI.getConfig().flowchart?.wrappingWidth).toBe(200);
     });
+
+    it('activates the v12 neo look while keeping the dagre layout pin', () => {
+      // The Phase-21 migration pinned look:'classic' so v11 diagrams rendered
+      // unchanged on mermaid 12. Deliberately flipped to 'neo' (redux-color
+      // styling) afterwards — every diagram re-renders with the new visual
+      // default; revert-safe (set back to 'classic' restores the old look).
+      // layout:'dagre' stays pinned: ELK would change node placement, a
+      // separate risk from the look flip.
+      initMermaid('light');
+      expect(mermaid.mermaidAPI.getConfig().look).toBe('neo');
+      expect(mermaid.mermaidAPI.getConfig().layout).toBe('dagre');
+    });
   });
 
   describe('detectDiagramType', () => {
