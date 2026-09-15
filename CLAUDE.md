@@ -196,7 +196,7 @@ Notable project-specific rules (`eslint.config.js`, flat config):
 | Package | Purpose |
 |---------|---------|
 | React 19.2.5 | UI framework |
-| Mermaid ^11.15.0 | Diagram rendering (+ `@mermaid-js/layout-elk`) |
+| Mermaid 12.0.0 | Diagram rendering (+ `@mermaid-js/layout-elk`) |
 | CodeMirror 6 | Code editor |
 | @mlc-ai/web-llm | In-browser LLM via WebGPU (vendored tarball) |
 | @huggingface/transformers | ONNX/transformers runtime for AI features |
