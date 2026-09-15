@@ -310,6 +310,19 @@ flowchart TD
       expect(() => initMermaid('dark')).not.toThrow();
       expect(() => initMermaid('light')).not.toThrow();
     });
+
+    it('pins flowchart.wrappingWidth to the v11 default 200 (mermaid 12 lock)', () => {
+      // mermaid 12.0.0 lowered the flowchart.wrappingWidth default from 200
+      // to 120 (and added minNodeWidth: 120): labels wider than the cap wrap
+      // (break-spaces) and the shape is sized from the capped bbox, so
+      // raising the font-size grows node HEIGHT while node width stays
+      // frozen at ~200 — text overflows the box. Verified empirically on the
+      // installed 12.0.0 with a browser harness (default cap: viewBox grows
+      // 466x128 -> 466x371 from 16px to 30px font; wrappingWidth 400+:
+      // width follows the font). Same v11-default pin as layout/look above.
+      initMermaid('light');
+      expect(mermaid.mermaidAPI.getConfig().flowchart?.wrappingWidth).toBe(200);
+    });
   });
 
   describe('detectDiagramType', () => {
