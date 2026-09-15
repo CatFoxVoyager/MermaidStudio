@@ -105,9 +105,10 @@ export function MobileLayout({
         />
       </div>
 
-      {/* Bottom nav slot - safe-area + z-index token (Phase 15 fills this).
-          Painted with the nav surface so any safe-area inset renders as a
-          continuation of the nav bar, not a floating strip of root background. */}
+      {/* Bottom nav slot - z-index token (Phase 15 fills this). No safe-area
+          padding in browsers: index.html omits viewport-fit=cover, so the
+          inset is 0 and the nav sits flush at the viewport bottom; the
+          gesture zone below is browser chrome painted from theme-color. */}
       <div
         className="safe-bottom z-[var(--z-bottom-nav)] bg-[var(--surface-raised)]"
         data-testid="mobile-bottomnav-slot"

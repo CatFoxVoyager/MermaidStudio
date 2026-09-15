@@ -9,9 +9,12 @@ layer(base);
   padding-top: env(safe-area-inset-top);
 }
 @utility safe-bottom {
-  /* Capped at 48px (max system nav-bar inset): some Android 15 edge-to-edge
-     browsers over-report the inset, which showed as a bare band under the
-     bottom nav. A real inset never exceeds 48dp. */
+  /* No-op in browser tabs: index.html intentionally omits viewport-fit=cover
+     (a cover + inset combo rendered as a white strip under the bottom nav on
+     Android browsers that exclude the gesture zone from the viewport), so
+     engines report 0 here. Kept for true edge-to-edge contexts (installed
+     PWA/fullscreen) where a real inset is honored and still capped at 48px
+     against over-reporting. */
   padding-bottom: min(env(safe-area-inset-bottom), 48px);
 }
 @utility safe-left {
