@@ -7,6 +7,7 @@ describe('MobileTopBar', () => {
   const defaultProps = {
     onSave: vi.fn(),
     onNewDiagram: vi.fn(),
+    onExport: vi.fn(),
     onOpenCommandPalette: vi.fn(),
   };
 
@@ -45,6 +46,17 @@ describe('MobileTopBar', () => {
       expect(screen.getByTestId('mobile-topbar-overflow')).toBeInTheDocument();
     });
 
+    it('should render Export button when onExport is provided', () => {
+      render(<MobileTopBar {...defaultProps} />);
+      expect(screen.getByTestId('mobile-topbar-export')).toBeInTheDocument();
+    });
+
+    it('should not render Export button when onExport is undefined', () => {
+      const props = { ...defaultProps, onExport: undefined };
+      render(<MobileTopBar {...props} />);
+      expect(screen.queryByTestId('mobile-topbar-export')).not.toBeInTheDocument();
+    });
+
     it('should have proper structural layout for 375px fit', () => {
       render(<MobileTopBar {...defaultProps} />);
       const header = screen.getByTestId('mobile-topbar');
@@ -72,6 +84,14 @@ describe('MobileTopBar', () => {
       const saveButton = screen.getByTestId('mobile-topbar-save');
       await user.click(saveButton);
       expect(defaultProps.onSave).toHaveBeenCalled();
+    });
+
+    it('should call onExport when Export button is clicked', async () => {
+      const user = userEvent.setup();
+      render(<MobileTopBar {...defaultProps} />);
+      const exportButton = screen.getByTestId('mobile-topbar-export');
+      await user.click(exportButton);
+      expect(defaultProps.onExport).toHaveBeenCalled();
     });
 
     it('should call onOpenCommandPalette when overflow button is clicked', async () => {

@@ -1,16 +1,18 @@
 import { useTranslation } from 'react-i18next';
-import { FilePlus, Save, Menu } from 'lucide-react';
+import { FilePlus, Save, Download, Menu } from 'lucide-react';
 import { APP_VERSION } from '@/constants/app';
 
 export interface MobileTopBarProps {
   onNewDiagram?: () => void;   // optional — if undefined, New button hidden (matches desktop TopBar pattern)
   onSave: () => void;          // primary Save action
+  onExport?: () => void;       // optional — if undefined, Export button hidden (desktop parity: WorkspacePanel export)
   onOpenCommandPalette: () => void;  // overflow trigger — REUSES the existing TopBar/CommandPalette mechanism per D-01
 }
 
 export function MobileTopBar({
   onNewDiagram,
   onSave,
+  onExport,
   onOpenCommandPalette,
 }: MobileTopBarProps) {
   const { t } = useTranslation();
@@ -64,6 +66,18 @@ export function MobileTopBar({
         >
           <Save size={18} />
         </button>
+        {onExport && (
+          <button
+            data-testid="mobile-topbar-export"
+            onClick={onExport}
+            className="p-3 rounded-lg transition-colors hover:bg-white/8 active:bg-white/15 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            style={{ color: 'var(--text-secondary)' }}
+            aria-label={t('common.export')}
+            title={t('common.export')}
+          >
+            <Download size={18} />
+          </button>
+        )}
         <button
           data-testid="mobile-topbar-overflow"
           onClick={onOpenCommandPalette}

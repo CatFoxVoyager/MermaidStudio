@@ -19,6 +19,7 @@ interface MobileLayoutProps {
   // TopBar actions
   onNewDiagram?: () => void;
   onSave: () => void;
+  onShowExport?: () => void;
   onOpenCommandPalette: () => void;
   // Sidebar drawer props
   onOpenDiagram: (id: string) => void;
@@ -50,6 +51,7 @@ export function MobileLayout({
   theme,
   onNewDiagram,
   onSave,
+  onShowExport,
   onOpenCommandPalette,
   onOpenDiagram,
   activeDiagramId,
@@ -86,6 +88,7 @@ export function MobileLayout({
         <MobileTopBar
           onNewDiagram={onNewDiagram}
           onSave={onSave}
+          onExport={onShowExport}
           onOpenCommandPalette={onOpenCommandPalette}
         />
       </div>
@@ -102,9 +105,11 @@ export function MobileLayout({
         />
       </div>
 
-      {/* Bottom nav slot - safe-area + z-index token (Phase 15 fills this) */}
+      {/* Bottom nav slot - safe-area + z-index token (Phase 15 fills this).
+          Painted with the nav surface so any safe-area inset renders as a
+          continuation of the nav bar, not a floating strip of root background. */}
       <div
-        className="safe-bottom z-[var(--z-bottom-nav)]"
+        className="safe-bottom z-[var(--z-bottom-nav)] bg-[var(--surface-raised)]"
         data-testid="mobile-bottomnav-slot"
       >
         <MobileBottomNav activeView={activeView} setActiveView={setActiveView} setActiveDrawer={setActiveDrawer} />
