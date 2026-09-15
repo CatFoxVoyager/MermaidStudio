@@ -37,6 +37,7 @@ interface ModalProviderProps {
   showWelcome: boolean;
   // Callbacks
   onCloseTemplates: () => void;
+  onOpenTemplates: () => void;
   onCloseHistory: () => void;
   onCloseExport: () => void;
   onClosePalette: () => void;
@@ -87,6 +88,7 @@ export function ModalProvider({
   showFullscreen,
   showWelcome,
   onCloseTemplates,
+  onOpenTemplates,
   onCloseHistory,
   onCloseExport,
   onClosePalette,
@@ -148,7 +150,7 @@ export function ModalProvider({
           onNewFolder={handleNewFolder}
           onOpenTemplates={() => {
             onClosePalette();
-            onCloseTemplates();
+            onOpenTemplates();
           }}
           onToggleHistory={() => {
             onClosePalette();

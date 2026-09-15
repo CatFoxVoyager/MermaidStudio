@@ -37,9 +37,10 @@ vi.mock('@/components/modals/diagram/ExportModal', () => ({
 }));
 
 vi.mock('@/components/modals/tools/CommandPalette', () => ({
-  CommandPalette: ({ onClose, onNewDiagram }: any) => (
+  CommandPalette: ({ onClose, onNewDiagram, onOpenTemplates }: any) => (
     <div data-testid="command-palette">
       <button onClick={onNewDiagram}>New Diagram</button>
+      <button onClick={onOpenTemplates}>Open Templates</button>
       <button onClick={onClose}>Close</button>
     </div>
   ),
@@ -121,6 +122,7 @@ describe('ModalProvider Component', () => {
     showFullscreen: false,
     showWelcome: false,
     onCloseTemplates: vi.fn(),
+    onOpenTemplates: vi.fn(),
     onCloseHistory: vi.fn(),
     onCloseExport: vi.fn(),
     onClosePalette: vi.fn(),
@@ -479,6 +481,23 @@ describe('ModalProvider Component', () => {
       renderModalProvider(incompleteProps);
       // CommandPalette should not render if required props are missing
       expect(screen.queryByTestId('command-palette')).not.toBeInTheDocument();
+    });
+
+    it('should open the template library (not close it) when the Template Library command fires', () => {
+      const onOpenTemplates = vi.fn();
+      const onCloseTemplates = vi.fn();
+      const onClosePalette = vi.fn();
+      renderModalProvider({
+        ...mockProps,
+        showPalette: true,
+        onOpenTemplates,
+        onCloseTemplates,
+        onClosePalette,
+      });
+      screen.getByText('Open Templates').click();
+      expect(onClosePalette).toHaveBeenCalled();
+      expect(onOpenTemplates).toHaveBeenCalled();
+      expect(onCloseTemplates).not.toHaveBeenCalled();
     });
   });
 });

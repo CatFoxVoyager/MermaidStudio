@@ -210,6 +210,7 @@ export default function App() {
         <ModalProvider
           {...modals}
           onCloseTemplates={modalClose('showTemplates')}
+          onOpenTemplates={modalOpen('showTemplates')}
           onCloseHistory={modalClose('showHistory')}
           onCloseExport={modalClose('showExport')}
           onClosePalette={modalClose('showPalette')}
