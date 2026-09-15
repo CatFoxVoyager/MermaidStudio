@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { X, RotateCcw, ChevronDown, Settings2 } from 'lucide-react';
+import { X, RotateCcw, ChevronDown, Settings2, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 import type { EdgeStyle, ParsedEdge } from '@/lib/mermaid/codeUtils';
@@ -13,6 +13,8 @@ interface EdgeStylePanelProps {
   onLabelChange: (source: string, target: string, label: string) => void;
   onStyleChange: (edgeIndex: number, style: Partial<EdgeStyle>) => void;
   onReset: (edgeIndex: number) => void;
+  /** Callback when the edge is deleted (hides the button if absent) */
+  onDelete?: () => void;
 }
 
 export function EdgeStylePanel({
@@ -24,6 +26,7 @@ export function EdgeStylePanel({
   onLabelChange,
   onStyleChange,
   onReset,
+  onDelete,
 }: EdgeStylePanelProps) {
   const { t } = useTranslation();
   const [label, setLabel] = useState(edge.label);
@@ -301,20 +304,35 @@ export function EdgeStylePanel({
           </div>
         </div>
 
-        {/* Reset Button */}
-        <div className="mt-auto pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+        {/* Reset / Delete Buttons */}
+        <div className="mt-auto pt-2 border-t flex gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
           <button
             onClick={() => onReset(edgeIndex)}
-            className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-medium transition-colors"
+            className="flex items-center justify-center gap-1.5 flex-1 min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
             style={{
               background: 'rgba(239,68,68,0.1)',
               color: '#ef4444',
               border: '1px solid rgba(239,68,68,0.2)',
             }}
           >
-            <RotateCcw size={12} />
-            {t('edgeStyle.resetStyle')}
+            <RotateCcw size={12} className="shrink-0" />
+            <span className="truncate">{t('edgeStyle.resetStyle')}</span>
           </button>
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              title={t('edgeStyle.delete')}
+              className="flex items-center justify-center gap-1.5 flex-1 min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
+              style={{
+                background: '#ef4444',
+                color: '#ffffff',
+                border: '1px solid #ef4444',
+              }}
+            >
+              <Trash2 size={12} className="shrink-0" />
+              <span className="truncate">{t('edgeStyle.delete')}</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

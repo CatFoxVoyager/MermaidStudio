@@ -6,7 +6,7 @@ import { extractThemeIdFromContent } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
 import { sanitizeCssValue } from '@/utils/sanitization';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
-import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, addNode, addEdge, generateNodeId, removeNode, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyContainsAtDirective } from '@/lib/mermaid/codeUtils';
+import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyContainsAtDirective } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape, PresetType, PresetColors } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
 import { EdgeStylePanel } from './EdgeStylePanel';
@@ -1133,6 +1133,50 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     onChange(updated);
   }, [onChange, content, selectedNodeIds, bodyHasMetadata]);
 
+  // Delete selected edge handler
+  const handleDeleteSelectedEdge = useCallback(() => {
+    if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
+    const edge = parsedEdges[selectedEdgeIndex ?? -1];
+    if (!edge) return;
+    const updated = removeEdge(content, edge.source, edge.target);
+    setSelectedEdgeIndex(null);
+    onChange(updated);
+  }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
+
+  // Delete selected subgraph handler (children de-nest to the root)
+  const handleDeleteSelectedSubgraph = useCallback(() => {
+    if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
+    if (selectedSubgraphId === null) return;
+    const updated = removeSubgraph(content, selectedSubgraphId);
+    setSelectedSubgraphId(null);
+    onChange(updated);
+  }, [onChange, content, selectedSubgraphId, bodyHasMetadata]);
+
+  // Keyboard: Delete/Backspace removes the current selection (nodes first,
+  // then edge, then subgraph). Skipped while typing in any editable element —
+  // inputs, textareas, selects and CodeMirror's contenteditable — so erasing
+  // text in the editor or a panel field never deletes diagram content.
+  useEffect(() => {
+    const onPreviewKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') {return;}
+      const hasSelection =
+        selectedNodeIds.size > 0 ||
+        selectedEdgeIndex !== null ||
+        selectedSubgraphId !== null;
+      if (!hasSelection) {return;}
+      const active = document.activeElement as HTMLElement | null;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || active.isContentEditable)) {return;}
+      e.preventDefault();
+      if (selectedNodeIds.size > 0) {handleDeleteSelected();}
+      else if (selectedEdgeIndex !== null) {handleDeleteSelectedEdge();}
+      else if (selectedSubgraphId !== null) {handleDeleteSelectedSubgraph();}
+    };
+    document.addEventListener('keydown', onPreviewKeyDown);
+    return () => document.removeEventListener('keydown', onPreviewKeyDown);
+  }, [selectedNodeIds, selectedEdgeIndex, selectedSubgraphId, handleDeleteSelected, handleDeleteSelectedEdge, handleDeleteSelectedSubgraph]);
+
   // Drop handler: adds a shape when dragged onto the canvas, or moves node to root
   const handleDropOnCanvas = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -1301,8 +1345,6 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           onToolMode={setToolMode}
           onAddShape={handleAddShape}
           onDragStart={shape => setDragShape(shape)}
-          onDeleteSelected={handleDeleteSelected}
-          hasSelection={selectedNodeIds.size > 0}
         />
       )}
 
@@ -1499,6 +1541,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           onLabelChange={handleEdgeLabelChange}
           onStyleChange={handleEdgeStyleChange}
           onReset={handleEdgeReset}
+          onDelete={handleDeleteSelectedEdge}
         />
       )}
 
@@ -1511,6 +1554,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           onStyleChange={handleSubgraphStyleChange}
           onLabelChange={handleSubgraphLabelChange}
           onReset={handleSubgraphReset}
+          onDelete={handleDeleteSelectedSubgraph}
         />
       )}
 
@@ -1528,6 +1572,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           onSubgraphChange={handleSubgraphChange}
           presets={nodePresets}
           onPresetApply={handlePresetApply}
+          onDelete={handleDeleteSelected}
         />
       )}
     </div>

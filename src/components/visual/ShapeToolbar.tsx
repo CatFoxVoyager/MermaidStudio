@@ -64,8 +64,10 @@ interface Props {
   onToolMode: (m: ToolMode) => void;
   onAddShape: (shape: NodeShape) => void;
   onDragStart: (shape: NodeShape) => void;
-  onDeleteSelected: () => void;
-  hasSelection: boolean;
+  /** Optional inline delete (visual editor keeps it; PreviewPanel moved
+   *  deletion into its detail panels, so it no longer passes these). */
+  onDeleteSelected?: () => void;
+  hasSelection?: boolean;
 }
 
 export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, onDeleteSelected, hasSelection }: Props) {
@@ -109,7 +111,7 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
         ))}
       </div>
 
-      {hasSelection && (
+      {hasSelection && onDeleteSelected && (
         <>
           <div className="w-px h-8 shrink-0 mx-1" style={{ background: 'var(--border-subtle)' }} />
           <button

@@ -19,6 +19,8 @@ import {
   edgeStyleToString,
   updateLinkStyle,
   removeLinkStyles,
+  removeEdge,
+  removeSubgraph,
   updateEdgeArrowType,
   updateEdgeLabel,
   bodyContainsAtDirective,
@@ -323,6 +325,128 @@ describe('Mermaid Code Utilities', () => {
       const result = removeNode(source, 'B');
 
       expect(result).not.toContain('class B');
+    });
+  });
+
+  describe('removeEdge', () => {
+    it('should remove a simple edge line', () => {
+      const source = 'flowchart TD\nA --> B\nB --> C';
+      const result = removeEdge(source, 'A', 'B');
+
+      expect(result).not.toContain('A --> B');
+      expect(result).toContain('B --> C');
+    });
+
+    it('should remove an edge with a label', () => {
+      const source = 'flowchart TD\nA -->|go| B\nB --> C';
+      const result = removeEdge(source, 'A', 'B');
+
+      expect(result).not.toContain('|go|');
+      expect(result).toContain('B --> C');
+    });
+
+    it('should respect write direction (A,B does not match B --> A)', () => {
+      const source = 'flowchart TD\nB --> A';
+      const result = removeEdge(source, 'A', 'B');
+
+      expect(result).toBe(source);
+    });
+
+    it('should not match node ids sharing a prefix', () => {
+      const source = 'flowchart TD\nAB --> C';
+      const result = removeEdge(source, 'A', 'C');
+
+      expect(result).toBe(source);
+    });
+
+    it('should remove the edge linkStyle and shift subsequent ones', () => {
+      const source = [
+        'flowchart TD',
+        'A --> B',
+        'B --> C',
+        'C --> D',
+        'linkStyle 0 stroke:red',
+        'linkStyle 2 stroke:blue',
+      ].join('\n');
+      const result = removeEdge(source, 'A', 'B');
+
+      expect(result).not.toContain('linkStyle 0');
+      expect(result).toContain('linkStyle 1 stroke:blue');
+    });
+
+    it('should leave other edges, nodes and their styles intact', () => {
+      const source = 'flowchart TD\nA --> B\nA --> C\nstyle A fill:red\nstyle C fill:blue';
+      const result = removeEdge(source, 'A', 'B');
+
+      expect(result).toContain('A --> C');
+      expect(result).toContain('style A fill:red');
+      expect(result).toContain('style C fill:blue');
+    });
+
+    it('should return source unchanged when edge is missing', () => {
+      const source = 'flowchart TD\nA --> B';
+      const result = removeEdge(source, 'X', 'Y');
+
+      expect(result).toBe(source);
+    });
+  });
+
+  describe('removeSubgraph', () => {
+    it('should remove the block but keep child nodes (de-nesting)', () => {
+      const source = 'flowchart TD\nsubgraph sg1["Group"]\n  A[Node A]\n  B[Node B]\nend\nC[Node C]';
+      const result = removeSubgraph(source, 'sg1');
+
+      expect(result).not.toContain('subgraph sg1');
+      expect(result).not.toContain('Group');
+      expect(result).toContain('A[Node A]');
+      expect(result).toContain('B[Node B]');
+      expect(result).toContain('C[Node C]');
+      expect(result.split('\n').filter(l => l.trim() === 'end')).toHaveLength(0);
+    });
+
+    it('should remove direction lines that were inside the block', () => {
+      const source = 'flowchart TD\nsubgraph sg1\n  direction LR\n  A --> B\nend';
+      const result = removeSubgraph(source, 'sg1');
+
+      expect(result).not.toContain('direction');
+      expect(result).toContain('A --> B');
+    });
+
+    it('should remove the subgraph style but keep children styles', () => {
+      const source = 'flowchart TD\nsubgraph sg1\n  A --> B\nend\nstyle sg1 fill:red\nstyle A fill:blue';
+      const result = removeSubgraph(source, 'sg1');
+
+      expect(result).not.toContain('style sg1');
+      expect(result).toContain('style A fill:blue');
+    });
+
+    it('should handle nesting: removing the outer keeps the inner block intact', () => {
+      const source = 'flowchart TD\nsubgraph sg1\n  subgraph sg2\n    A --> B\n  end\n  C --> D\nend';
+      const result = removeSubgraph(source, 'sg1');
+
+      expect(result).not.toContain('subgraph sg1');
+      expect(result).toContain('subgraph sg2');
+      expect(result).toContain('A --> B');
+      expect(result).toContain('C --> D');
+      expect(result.split('\n').filter(l => l.trim() === 'end')).toHaveLength(1);
+    });
+
+    it('should remove an inner subgraph without touching the outer', () => {
+      const source = 'flowchart TD\nsubgraph sg1\n  subgraph sg2\n    A --> B\n  end\n  C --> D\nend';
+      const result = removeSubgraph(source, 'sg2');
+
+      expect(result).toContain('subgraph sg1');
+      expect(result).not.toContain('subgraph sg2');
+      expect(result).toContain('A --> B');
+      expect(result).toContain('C --> D');
+      expect(result.split('\n').filter(l => l.trim() === 'end')).toHaveLength(1);
+    });
+
+    it('should return source unchanged when subgraph id is missing', () => {
+      const source = 'flowchart TD\nsubgraph sg1\n  A --> B\nend';
+      const result = removeSubgraph(source, 'nope');
+
+      expect(result).toBe(source);
     });
   });
 
