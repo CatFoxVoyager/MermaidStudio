@@ -536,6 +536,7 @@
     "intro": "A fast, fully client-side editor for Mermaid diagrams. Your diagrams, settings, and AI models stay in your browser — nothing is sent to a server.",
     "whatsNew": "What's new in this version",
     "releaseNotes": {
+      "navFlush": "Bottom navigation sits flush against the bottom edge on mobile — no more gap between the nav and the Android gesture bar",
       "mermaid12": "Diagram engine upgraded to Mermaid 12 — same familiar look by design (v11 dagre/classic defaults pinned)",
       "elk": "ELK layout engine now bundled with Mermaid 12 — available in the layout picker, no double download",
       "svgPipeline": "SVG post-processing pipeline locked against real Mermaid 12 output: preview/export parity, hardened XSS sanitization",

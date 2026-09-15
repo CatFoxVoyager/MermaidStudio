@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-09-15
+
+### Fixed
+- **Mobile bottom nav flush** - The gap between the bottom navigation and the Android gesture bar is gone: `viewport-fit=cover` removed (it made browsers report a bottom inset they don't actually overlay) and the safe-area padding zeroed in browser tabs, so the nav sits flush at the viewport bottom. The inset is honored only where the page is truly edge-to-edge (installed PWA/fullscreen). Browser chrome (URL bar, gesture zone) follows the app theme via a synced `theme-color`.
+
 ## [0.8.0] - 2026-09-14
 
 ### Changed
