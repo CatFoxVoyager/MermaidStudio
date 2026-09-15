@@ -39,7 +39,7 @@ function doInit(theme: 'dark' | 'light', useBase: boolean, mermaidTheme?: Mermai
     darkMode: isDark,
     fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
     fontSize: 14,
-    flowchart: { curve: 'basis', padding: 20, htmlLabels: true, useMaxWidth: false },
+    flowchart: { curve: 'basis', padding: 20, htmlLabels: true, useMaxWidth: false, wrappingWidth: 200 }, // v11-default pin — v12 lowers wrappingWidth to 120, freezing node width so bigger fonts grow node height instead of width
     sequence: { useMaxWidth: true, actorMargin: 50 },
     ...(themeVars && { themeVariables: themeVars }),
   });
