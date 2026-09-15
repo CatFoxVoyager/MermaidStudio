@@ -172,20 +172,20 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-09-14
-Stopped at: Phase 24 complete — all phases complete
+Stopped at: Milestone v1.3 complete and archived (tag pending user)
 Resume file: None
 
 **If returning after break:**
 
-1. Review current phase status in this STATE.md
-2. Check ROADMAP.md for phase success criteria
-3. Review REQUIREMENTS.md traceability table
-4. Run `/gsd-plan-phase 24`
+1. Review current state in this STATE.md
+2. Check `.planning/MILESTONES.md` for the v1.3 record
+3. Review `.planning/PROJECT.md` Next Milestone Goals (candidates)
+4. Run `/gsd-new-milestone`
 
 **Quick Links:**
 
 - Roadmap: `.planning/ROADMAP.md`
-- Requirements: `.planning/REQUIREMENTS.md`
+- Milestones: `.planning/MILESTONES.md`
 - Research: `.planning/research/SUMMARY.md`
 - Project context: `.planning/PROJECT.md`
 
