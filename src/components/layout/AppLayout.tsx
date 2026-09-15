@@ -133,6 +133,7 @@ export function AppLayout({
         theme={theme}
         onNewDiagram={onNewDiagram}
         onSave={() => activeTab && onSave(activeTab.id)}
+        onShowExport={onShowExport}
         onOpenCommandPalette={onOpenCommandPalette}
         onOpenDiagram={onOpenDiagram}
         activeDiagramId={activeTab?.diagram_id ?? null}

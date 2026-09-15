@@ -9,7 +9,10 @@ layer(base);
   padding-top: env(safe-area-inset-top);
 }
 @utility safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom);
+  /* Capped at 48px (max system nav-bar inset): some Android 15 edge-to-edge
+     browsers over-report the inset, which showed as a bare band under the
+     bottom nav. A real inset never exceeds 48dp. */
+  padding-bottom: min(env(safe-area-inset-bottom), 48px);
 }
 @utility safe-left {
   padding-left: env(safe-area-inset-left);
