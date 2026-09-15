@@ -17,9 +17,15 @@ vi.mock('@/editor/CodeEditor', () => ({
 }));
 
 vi.mock('@/preview/PreviewPanel', () => ({
-  PreviewPanel: ({ content, theme, onError }: { content: string; theme: 'dark' | 'light'; onError?: (e: string | null) => void }) => (
+  PreviewPanel: ({ content, theme, onError, onChange }: { content: string; theme: 'dark' | 'light'; onError?: (e: string | null) => void; onChange?: (v: string) => void }) => (
     <div data-testid="preview-panel" data-theme={theme} data-content={content}>
       <div>Preview: {content}</div>
+      <button
+        onClick={() => onChange?.('updated preview content')}
+        aria-label="Preview panel change button"
+      >
+        Simulate Preview Change
+      </button>
     </div>
   ),
 }));
@@ -189,6 +195,20 @@ describe('MobileWorkspace - Visual Mode Integration', () => {
       fireEvent.click(visualButton);
 
       expect(handleChange).toHaveBeenCalledWith('updated visual content');
+    });
+  });
+
+  describe('preview edit sync (delete button works in mobile preview)', () => {
+    it('passes onChange to PreviewPanel so preview mutations reach the code', () => {
+      const handleChange = vi.fn();
+      render(<MobileWorkspace {...defaultProps} onChange={handleChange} />);
+
+      fireEvent.click(screen.getByTestId('mobile-workspace-tab-preview'));
+
+      const previewButton = screen.getByLabelText('Preview panel change button');
+      fireEvent.click(previewButton);
+
+      expect(handleChange).toHaveBeenCalledWith('updated preview content');
     });
   });
 

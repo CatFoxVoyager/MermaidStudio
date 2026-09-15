@@ -140,7 +140,7 @@ export function MobileWorkspace({
             activePane === 'preview' ? '' : 'hidden'
           }`}
         >
-          <PreviewPanel content={value} theme={theme} themeId={themeId} onError={onPreviewError} />
+          <PreviewPanel content={value} theme={theme} themeId={themeId} onError={onPreviewError} onChange={onChange} />
         </div>
         <div
           ref={visualContainerRef}
