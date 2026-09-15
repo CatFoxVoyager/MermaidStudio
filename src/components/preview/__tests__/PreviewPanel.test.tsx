@@ -44,6 +44,13 @@ vi.mock('@/utils/sanitization', () => ({
   sanitizeCssValue: vi.fn((v: string) => v),
 }));
 
+// Pass-through post-processing: jsdom's DOMParser creates SVG elements
+// without CSSOM (.style), which the real pipeline writes to. These tests
+// target the overlay hit-target architecture, not SVG transformation.
+vi.mock('@/utils/svgPostProcessing', () => ({
+  postProcessDiagramSvg: (svg: string) => svg,
+}));
+
 // Mock codeUtils — spread the REAL module so the D6 fence helper
 // (bodyContainsAtDirective) runs its genuine implementation, and override the
 // parsers/mutators the tests control.
@@ -1111,6 +1118,165 @@ describe('PreviewPanel Component', () => {
       fireEvent.click(boxButton!);
 
       expect(onChange).toHaveBeenCalledWith(expect.stringContaining('nodeNew1'));
+    });
+  });
+
+  describe('Subgraph overlay hit-target architecture (connect/select fix)', () => {
+    // Reproduction of the field bug: the subgraph overlay covered the WHOLE
+    // cluster (z 6/8/15) above node overlays (z 5), so clicks aimed at a node
+    // inside a subgraph hit the cluster overlay instead — silently capturing
+    // the subgraph id as connectFirst, adding wrong edges (subgraph -> node)
+    // or no-oping on the same-id guard, and opening the subgraph panel when
+    // the user meant to select a node.
+    //
+    // jsdom has no hit-testing, so these tests pin the FIX's structure:
+    // the full-cluster overlay must not take pointer events (real browsers
+    // then fall through to the node overlays), a dedicated label strip keeps
+    // subgraph interactions reachable, and connect mode must not leave
+    // floating panels or edge hit areas swallowing clicks.
+
+    const SUBGRAPH_CONTENT =
+      'flowchart TD\n  TSC[Tool Server Connectivity]\n  subgraph phase0 ["Phase 0"]\n    AB1(Abort)\n  end\n  TNR[Target Network Reachability]';
+
+    // SVG the renderDiagram mock injects into the shadow root: three nodes
+    // (TSC/AB1 inside the cluster, TNR outside) and the phase0 cluster.
+    const SUBGRAPH_SVG = [
+      '<svg id="test-svg" viewBox="0 0 400 300">',
+      '<g class="node" id="flowchart-TSC-1"><rect/><text class="nodeLabel">TSC</text></g>',
+      '<g class="node" id="flowchart-AB1-2"><rect/><text class="nodeLabel">Abort</text></g>',
+      '<g class="node" id="flowchart-TNR-3"><rect/><text class="nodeLabel">TNR</text></g>',
+      // Real Mermaid 11 cluster ids end with "-<subgraphId>" (no numeric
+      // suffix), e.g. preview_2_1789473997362-phase0 — verified in-browser.
+      '<g class="cluster" id="preview-test-1789473997362-phase0"><rect/><text class="cluster-label text">Phase 0</text></g>',
+      // Edge path (TSC -->|Failure| AB1): addEdgeClickTargets only injects its
+      // overlay when .edgePaths path.flowchart-link elements exist.
+      '<g class="edgePaths"><path class="flowchart-link" id="L_TSC_AB1_0" d="M 50 200 L 350 200"/></g>',
+      '</svg>',
+    ].join('');
+
+    const mockParsedDiagram = {
+      nodes: [
+        { id: 'TSC', label: 'Tool Server Connectivity', shape: 'rect', raw: 'TSC[Tool Server Connectivity]', parentSubgraphId: 'phase0' },
+        { id: 'AB1', label: 'Abort', shape: 'rounded', raw: 'AB1(Abort)', parentSubgraphId: 'phase0' },
+        { id: 'TNR', label: 'Target Network Reachability', shape: 'rect', raw: 'TNR[Target Network Reachability]', parentSubgraphId: null },
+      ],
+      edges: [{ source: 'TSC', target: 'AB1', label: 'Failure', arrowType: '-->', raw: 'TSC -->|Failure| AB1' }],
+      styles: new Map(),
+      classDefs: new Map(),
+      nodeClasses: new Map(),
+      linkStyles: new Map(),
+      subgraphs: [{ id: 'phase0', label: 'Phase 0' }],
+    };
+
+    async function renderWithSubgraphOverlays(onChange = vi.fn()) {
+      const { parseDiagram } = await import('@/lib/mermaid/codeUtils');
+      const { renderDiagram, detectDiagramType } = await import('@/lib/mermaid/core');
+      // mockReset (not just re-mocking) purges leftover mock*Once queues:
+      // earlier tests in this file queue renderDiagram Once-values and end
+      // before the 400ms debounce fires, so the component never consumes
+      // them (clearAllMocks doesn't clear Once queues) and this block's
+      // first renders would silently receive stale SVGs instead.
+      vi.mocked(renderDiagram).mockReset();
+      vi.mocked(renderDiagram).mockResolvedValue({ svg: SUBGRAPH_SVG, error: null });
+      vi.mocked(parseDiagram).mockReset();
+      vi.mocked(parseDiagram).mockReturnValue(mockParsedDiagram as Awaited<ReturnType<typeof parseDiagram>>);
+      vi.mocked(detectDiagramType).mockReset();
+      vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+
+      const utils = render(<PreviewPanel content={SUBGRAPH_CONTENT} theme="light" onChange={onChange} />);
+      await waitFor(() => {
+        expect(utils.container.querySelector('.subgraph-overlay')).toBeInTheDocument();
+      }, { timeout: 3000 });
+      return utils;
+    }
+
+    it('full-cluster subgraph overlay does not take pointer events (nodes stay clickable)', async () => {
+      const { container } = await renderWithSubgraphOverlays();
+
+      const sgOverlay = container.querySelector('.subgraph-overlay') as HTMLElement;
+      expect(sgOverlay).toBeInTheDocument();
+      expect(getComputedStyle(sgOverlay).pointerEvents).toBe('none');
+    });
+
+    it('full-cluster overlay accepts drops only while a node is being dragged', async () => {
+      const { container } = await renderWithSubgraphOverlays();
+
+      const nodeOverlay = container.querySelector('.node-overlay')!;
+      const sgOverlay = container.querySelector('.subgraph-overlay') as HTMLElement;
+      expect(getComputedStyle(sgOverlay).pointerEvents).toBe('none');
+
+      fireEvent.dragStart(nodeOverlay);
+      expect(getComputedStyle(sgOverlay).pointerEvents).toBe('auto');
+
+      fireEvent.dragEnd(nodeOverlay);
+      expect(getComputedStyle(sgOverlay).pointerEvents).toBe('none');
+    });
+
+    it('label strip exists above the cluster and selects the subgraph on click', async () => {
+      const { container } = await renderWithSubgraphOverlays();
+
+      const strip = container.querySelector('[data-testid="subgraph-label-hit"]') as HTMLElement;
+      expect(strip).toBeInTheDocument();
+      expect(getComputedStyle(strip).pointerEvents).toBe('auto');
+
+      fireEvent.click(strip);
+      await waitFor(() => {
+        expect(screen.getByTestId('subgraph-style-panel')).toBeInTheDocument();
+      });
+    });
+
+    it('connect mode: subgraph label strip then outside node adds subgraph->node edge', async () => {
+      const onChange = vi.fn();
+      const { container } = await renderWithSubgraphOverlays(onChange);
+
+      fireEvent.click(container.querySelector('button[title^="Connect tool"]')!);
+      fireEvent.click(container.querySelector('[data-testid="subgraph-label-hit"]')!);
+
+      // Node overlays follow SVG document order: TSC, AB1, TNR.
+      const overlays = container.querySelectorAll('.node-overlay');
+      expect(overlays.length).toBe(3);
+      fireEvent.click(overlays[2]);
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith(expect.stringContaining('phase0 --> TNR'));
+    });
+
+    it('entering connect mode closes the node style panel', async () => {
+      const { container } = await renderWithSubgraphOverlays();
+
+      fireEvent.click(container.querySelectorAll('.node-overlay')[0]);
+      expect(screen.getByTestId('node-style-panel')).toBeInTheDocument();
+
+      fireEvent.click(container.querySelector('button[title^="Connect tool"]')!);
+      expect(screen.queryByTestId('node-style-panel')).not.toBeInTheDocument();
+    });
+
+    it('entering connect mode closes the subgraph style panel', async () => {
+      const { container } = await renderWithSubgraphOverlays();
+
+      // Post-fix the full-cluster overlay no longer takes clicks — the label
+      // strip is the interactive subgraph area.
+      fireEvent.click(container.querySelector('[data-testid="subgraph-label-hit"]')!);
+      expect(screen.getByTestId('subgraph-style-panel')).toBeInTheDocument();
+
+      fireEvent.click(container.querySelector('button[title^="Connect tool"]')!);
+      expect(screen.queryByTestId('subgraph-style-panel')).not.toBeInTheDocument();
+    });
+
+    it('connect mode: edge hit areas fall through to the canvas (connectFirst resets)', async () => {
+      const { container } = await renderWithSubgraphOverlays();
+
+      fireEvent.click(container.querySelector('button[title^="Connect tool"]')!);
+      fireEvent.click(container.querySelectorAll('.node-overlay')[0]);
+      expect(container.querySelector('.node-overlay.connect-source')).not.toBeNull();
+
+      const hitPath = container.querySelector('[data-edge-overlay] path');
+      expect(hitPath).toBeInTheDocument();
+      fireEvent.click(hitPath!);
+
+      // The click must reach the canvas handler, which cancels the pending
+      // connection — not be swallowed by the edge hit area.
+      expect(container.querySelector('.node-overlay.connect-source')).toBeNull();
     });
   });
 });

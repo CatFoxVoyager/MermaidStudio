@@ -147,6 +147,7 @@ function addEdgeClickTargets(
   containerEl: HTMLDivElement,
   onEdgeClick: (index: number) => void,
   parsedEdges: ParsedEdge[],
+  isConnectMode: () => boolean,
 ): () => void {
   const shadowRoot = shadowHost.shadowRoot;
   if (!shadowRoot) return () => {};
@@ -262,6 +263,10 @@ function addEdgeClickTargets(
     const parsedIndex = svgToParsedIndex.get(svgIndex) ?? svgIndex;
 
     hitPath.addEventListener('click', (e) => {
+      // In connect mode the click must fall through to the canvas so it can
+      // cancel a pending connectFirst — return BEFORE stopPropagation, or the
+      // 15px-wide hit path silently swallows every connect-mode click.
+      if (isConnectMode()) return;
       e.stopPropagation();
       e.preventDefault();
       onEdgeClick(parsedIndex);
@@ -417,6 +422,17 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // Keep refs in sync without accessing them during render
   useEffect(() => { contentRef.current = content; }, [content]);
   useEffect(() => { toolModeRef.current = toolMode; }, [toolMode]);
+
+  // Entering connect mode closes every floating panel and clears the current
+  // selection: the Node/Edge/Subgraph style panels float above the canvas
+  // (z-30) and would otherwise swallow the second click of a connect gesture.
+  useEffect(() => {
+    if (toolMode === 'connect') {
+      setSelectedNodeIds(new Set());
+      setSelectedEdgeIndex(null);
+      setSelectedSubgraphId(null);
+    }
+  }, [toolMode]);
 
   // Parse the diagram once per content change; shared by the preview pipeline,
   // the style panels, and Copy SVG so every consumer sees the same parse.
@@ -692,7 +708,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           if (willSelect) onSelectionOpen?.();
           return willSelect ? index : null;
         });
-      }, parsedEdges);
+      }, parsedEdges, () => toolModeRef.current === 'connect');
     }
 
   }, [svg, content, parsedDiagram, parsedEdges]);
@@ -1395,53 +1411,78 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
               const isSelected = selectedSubgraphId === sg.id;
               const isDropTarget = dragOverSubgraphId === sg.id;
               const isConnectSource = connectFirst === sg.id;
+              const title = supportsClassDef ? (toolMode === 'connect' ? `Click to connect from/to ${sg.id}` : t('preview.clickToEditSubgraph')) : sg.label;
               return (
-                <div
-                  key={`sg-${sg.id}`}
-                  onClick={e => handleSubgraphClick(e, sg.id)}
-                  onMouseDown={e => {
-                    // Prevent canvas drag when clicking on subgraphs
-                    e.stopPropagation();
-                  }}
-                  onDragOver={e => {
-                    e.preventDefault();
-                    if (e.dataTransfer) {
-                      e.dataTransfer.dropEffect = 'move';
-                    }
-                    setDragOverSubgraphId(sg.id);
-                  }}
-                  onDragLeave={() => setDragOverSubgraphId(null)}
-                  onDrop={e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Fallback to dataTransfer if dragNodeId state is lost
-                    const droppedId = dragNodeId || e.dataTransfer.getData('text/plain');
-                    console.log('SUBGRAPH DROP - state dragNodeId:', dragNodeId, 'dt droppedId:', droppedId, 'target sgId:', sg.id);
+                <React.Fragment key={`sg-${sg.id}`}>
+                  {/* Full-cluster outline: visual state only. pointerEvents is
+                      disabled except while a node is being dragged (drop
+                      target) — covering the whole cluster above the node
+                      overlays (z 5) used to swallow every click aimed at a
+                      node inside the subgraph. */}
+                  <div
+                    className="subgraph-overlay"
+                    onDragOver={e => {
+                      e.preventDefault();
+                      if (e.dataTransfer) {
+                        e.dataTransfer.dropEffect = 'move';
+                      }
+                      setDragOverSubgraphId(sg.id);
+                    }}
+                    onDragLeave={() => setDragOverSubgraphId(null)}
+                    onDrop={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // Fallback to dataTransfer if dragNodeId state is lost
+                      const droppedId = dragNodeId || e.dataTransfer.getData('text/plain');
+                      console.log('SUBGRAPH DROP - state dragNodeId:', dragNodeId, 'dt droppedId:', droppedId, 'target sgId:', sg.id);
 
-                    if (droppedId && onChange && !bodyHasMetadata) {
-                      // (D6 fence: body-metadata content is never rewritten)
-                      onChange(moveNodeToSubgraph(content, droppedId, sg.id));
-                    }
-                    setDragNodeId(null);
-                    setDragOverSubgraphId(null);
-                  }}
-                  className="subgraph-overlay"
-                  style={{
-                    position: 'absolute',
-                    left: sg.clusterX,
-                    top: sg.clusterY,
-                    width: sg.clusterWidth,
-                    height: sg.clusterHeight,
-                    cursor: toolMode === 'connect' ? 'crosshair' : (supportsClassDef ? 'pointer' : 'default'),
-                    // Subgraphs must be above nodes for connect mode and drag-drop, but below dragging nodes
-                    zIndex: toolMode === 'connect' ? 15 : (dragNodeId ? 8 : 6),
-                    border: isSelected ? '2px solid var(--accent)' : (isConnectSource || isDropTarget) ? '2px dashed var(--accent)' : '2px solid transparent',
-                    borderRadius: '4px',
-                    background: isConnectSource ? 'rgba(var(--accent-rgb), 0.1)' : (isDropTarget ? 'rgba(var(--accent-rgb), 0.08)' : undefined),
-                    transition: 'border-color 0.15s, background 0.15s',
-                  }}
-                  title={supportsClassDef ? (toolMode === 'connect' ? `Click to connect from/to ${sg.id}` : t('preview.clickToEditSubgraph')) : sg.label}
-                />
+                      if (droppedId && onChange && !bodyHasMetadata) {
+                        // (D6 fence: body-metadata content is never rewritten)
+                        onChange(moveNodeToSubgraph(content, droppedId, sg.id));
+                      }
+                      setDragNodeId(null);
+                      setDragOverSubgraphId(null);
+                    }}
+                    style={{
+                      position: 'absolute',
+                      left: sg.clusterX,
+                      top: sg.clusterY,
+                      width: sg.clusterWidth,
+                      height: sg.clusterHeight,
+                      // Subgraphs must be above nodes for drag-drop, but below dragging nodes
+                      zIndex: dragNodeId ? 8 : 6,
+                      pointerEvents: dragNodeId ? 'auto' : 'none',
+                      border: isSelected ? '2px solid var(--accent)' : (isConnectSource || isDropTarget) ? '2px dashed var(--accent)' : '2px solid transparent',
+                      borderRadius: '4px',
+                      background: isConnectSource ? 'rgba(var(--accent-rgb), 0.1)' : (isDropTarget ? 'rgba(var(--accent-rgb), 0.08)' : undefined),
+                      transition: 'border-color 0.15s, background 0.15s',
+                    }}
+                  />
+                  {/* Label strip (top 30px of the cluster, computed by
+                      extractSubgraphOverlays): the only always-clickable
+                      subgraph area, above the node overlays so subgraph
+                      selection and connect-from-subgraph stay reachable. */}
+                  <div
+                    data-testid="subgraph-label-hit"
+                    className="subgraph-label-hit"
+                    onClick={e => handleSubgraphClick(e, sg.id)}
+                    onMouseDown={e => {
+                      // Prevent canvas drag when clicking on subgraphs
+                      e.stopPropagation();
+                    }}
+                    style={{
+                      position: 'absolute',
+                      left: sg.x,
+                      top: sg.y,
+                      width: sg.width,
+                      height: sg.height,
+                      cursor: toolMode === 'connect' ? 'crosshair' : (supportsClassDef ? 'pointer' : 'default'),
+                      zIndex: toolMode === 'connect' ? 16 : 7,
+                      borderRadius: '4px 4px 0 0',
+                    }}
+                    title={title}
+                  />
+                </React.Fragment>
               );
             })}
           </div>
