@@ -35,7 +35,12 @@
     <link rel="alternate" hreflang="fr" href="https://mermaidstudio.app/fr">
 
     <!-- PWA -->
-    <meta name="theme-color" content="#0d7377">
+    <!-- First-paint fallbacks follow the system scheme; useTheme then syncs
+         both metas to the app's active theme (browser chrome — URL bar and
+         the Android edge-to-edge gesture zone — is painted from theme-color,
+         not from the page). -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafaf9">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0d1117">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="MermaidStudio">

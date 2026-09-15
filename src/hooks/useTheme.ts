@@ -10,6 +10,11 @@ const log = logger.scope('useTheme');
 
 const DEFAULT_THEME_KEY = 'mermaid-studio-default-theme';
 
+// Browser chrome (URL bar, Android edge-to-edge gesture zone) is painted from
+// theme-color, not from the page: a stale color shows as a mismatched band
+// around the viewport on mobile. Keep it on the app's base surface.
+const THEME_CHROME_COLORS = { light: '#fafaf9', dark: '#0d1117' } as const;
+
 export function useTheme() {
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [defaultTheme, setDefaultThemeState] = useState<MermaidTheme | null>(null);
@@ -35,6 +40,10 @@ export function useTheme() {
     const root = document.documentElement;
     if (theme === 'dark') root.classList.add('dark');
     else root.classList.remove('dark');
+
+    document
+      .querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')
+      .forEach(meta => meta.setAttribute('content', THEME_CHROME_COLORS[theme]));
 
     const appTheme = defaultTheme ?? (theme === 'dark' ? DEFAULT_DARK_THEME : DEFAULT_LIGHT_THEME);
     initMermaid(theme, undefined, appTheme);
