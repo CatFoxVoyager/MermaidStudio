@@ -29,6 +29,7 @@ vi.mock('react-i18next', () => ({
         'nodeStyle.borderRadiusX': 'Border Radius X',
         'nodeStyle.borderRadiusY': 'Border Radius Y',
         'nodeStyle.resetStyles': 'Reset Styles',
+        'nodeStyle.delete': 'Delete',
         'nodeStyle.mixed': 'Mixed',
         'nodeStyle.mix': 'Mix',
         'nodeStyle.solid': 'Solid',
@@ -230,6 +231,18 @@ describe('NodeStylePanel Component', () => {
       const resetBtn = screen.getByText('Reset Styles');
       fireEvent.click(resetBtn);
       expect(defaultProps.onReset).toHaveBeenCalledWith(['A']);
+    });
+
+    it('should call onDelete when delete button clicked', () => {
+      const onDelete = vi.fn();
+      render(<NodeStylePanel {...defaultProps} onDelete={onDelete} />);
+      fireEvent.click(screen.getByTitle('Delete'));
+      expect(onDelete).toHaveBeenCalledTimes(1);
+    });
+
+    it('should hide the delete button when onDelete is not provided', () => {
+      render(<NodeStylePanel {...defaultProps} />);
+      expect(screen.queryByTitle('Delete')).not.toBeInTheDocument();
     });
 
     it('should call onReset with all selected node IDs for multi-selection', () => {

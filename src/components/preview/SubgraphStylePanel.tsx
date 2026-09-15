@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { X, RotateCcw, Settings2, ChevronDown } from 'lucide-react';
+import { X, RotateCcw, Settings2, ChevronDown, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 import type { NodeStyle } from '@/lib/mermaid/codeUtils';
@@ -12,6 +12,8 @@ interface SubgraphStylePanelProps {
   onStyleChange: (subgraphId: string, style: Partial<NodeStyle>) => void;
   onLabelChange: (subgraphId: string, newLabel: string) => void;
   onReset: (subgraphId: string) => void;
+  /** Callback when the subgraph is deleted (hides the button if absent) */
+  onDelete?: () => void;
 }
 
 export function SubgraphStylePanel({
@@ -22,6 +24,7 @@ export function SubgraphStylePanel({
   onStyleChange,
   onLabelChange,
   onReset,
+  onDelete,
 }: SubgraphStylePanelProps) {
   const { t } = useTranslation();
   const [label, setLabel] = useState(subgraphLabel);
@@ -389,20 +392,35 @@ export function SubgraphStylePanel({
           </div>
         </div>
 
-        {/* Reset Button */}
-        <div className="mt-auto pt-2 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+        {/* Reset / Delete Buttons */}
+        <div className="mt-auto pt-2 border-t flex gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
           <button
             onClick={() => onReset(subgraphId)}
-            className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-medium transition-colors"
+            className="flex items-center justify-center gap-1.5 flex-1 min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
             style={{
               background: 'rgba(239,68,68,0.1)',
               color: '#ef4444',
               border: '1px solid rgba(239,68,68,0.2)',
             }}
           >
-            <RotateCcw size={12} />
-            {t('subgraphStyle.resetStyle')}
+            <RotateCcw size={12} className="shrink-0" />
+            <span className="truncate">{t('subgraphStyle.resetStyle')}</span>
           </button>
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              title={t('subgraphStyle.delete')}
+              className="flex items-center justify-center gap-1.5 flex-1 min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
+              style={{
+                background: '#ef4444',
+                color: '#ffffff',
+                border: '1px solid #ef4444',
+              }}
+            >
+              <Trash2 size={12} className="shrink-0" />
+              <span className="truncate">{t('subgraphStyle.delete')}</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

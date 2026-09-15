@@ -323,6 +323,7 @@
     "borderRadiusX": "Rayon de bordure X",
     "borderRadiusY": "Rayon de bordure Y",
     "resetStyles": "Réinitialiser les styles",
+    "delete": "Supprimer",
     "mixed": "Mixte",
     "mix": "Mix",
     "solid": "Plein",
@@ -347,6 +348,7 @@
     "strokeStyle": "Style du trait",
     "opacity": "Opacité",
     "resetStyle": "Réinitialiser le style",
+    "delete": "Supprimer",
     "arrowArrow": "Flèche (-->)",
     "arrowLine": "Ligne (---)",
     "arrowDotted": "Pointillé (-.->)",
@@ -374,6 +376,7 @@
     "fontFamily": "Police",
     "fontWeight": "Graisse",
     "resetStyle": "Réinitialiser le style",
+    "delete": "Supprimer",
     "solid": "Continu",
     "dashed": "Tirets",
     "dotted": "Pointillés"

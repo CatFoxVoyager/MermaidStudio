@@ -386,6 +386,92 @@ export function removeLinkStyles(source: string, indices: number[]): string {
   return result.trimEnd();
 }
 
+/**
+ * Remove the edge line connecting srcId -> tgtId (as written in the code).
+ * The removed edge's linkStyle line is dropped and subsequent linkStyle
+ * indices are decremented, so edge styles stay attached to the right edges.
+ */
+export function removeEdge(source: string, srcId: string, tgtId: string): string {
+  const lines = source.split('\n');
+  const tgtRe = new RegExp(`\\b${escapeRegex(tgtId)}\\b`);
+  const edgeIdx = lines.findIndex(line => {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith(srcId)) {return false;}
+    const parts = splitEdgeLine(trimmed);
+    if (!parts) {return false;}
+    // Exact source-token match: "AB --> C" must not satisfy removeEdge(.., 'A', 'C')
+    return parts[0].trim() === srcId && tgtRe.test(parts[3]);
+  });
+  if (edgeIdx === -1) {return source;}
+
+  // linkStyle indices count edge lines in code order — same numbering mermaid uses
+  const isEdgeLine = (line: string): boolean => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('%%')) {return false;}
+    if (/^(flowchart|graph|style|class|classDef|linkStyle|click|subgraph|direction|end)\b/i.test(trimmed)) {return false;}
+    return splitEdgeLine(trimmed) !== null;
+  };
+  const ordinal = lines.slice(0, edgeIdx).filter(isEdgeLine).length;
+
+  return lines
+    .flatMap((line, i) => {
+      if (i === edgeIdx) {return [];}
+      const m = line.trim().match(/^linkStyle\s+(\d+)/);
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (n === ordinal) {return [];}
+        if (n > ordinal) {return [line.replace(/^(linkStyle\s+)(\d+)/, `$1${n - 1}`)];}
+      }
+      return [line];
+    })
+    .join('\n');
+}
+
+/**
+ * Remove the `subgraph <id>` block and its matching `end` while KEEPING the
+ * lines in between — child nodes de-nest to the root, nested subgraph blocks
+ * survive untouched. The subgraph's own `direction` and `style`/`class` lines
+ * are removed with it.
+ */
+export function removeSubgraph(source: string, subgraphId: string): string {
+  const lines = source.split('\n');
+  const openRe = new RegExp(`^subgraph\\s+${escapeRegex(subgraphId)}\\b`);
+  const startIdx = lines.findIndex(line => openRe.test(line.trim()));
+  if (startIdx === -1) {return source;}
+
+  // Find the matching end, counting nested subgraph opens
+  let depth = 1;
+  let endIdx = -1;
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (/^subgraph\s+\S/.test(trimmed)) {
+      depth++;
+    } else if (trimmed === 'end') {
+      depth--;
+      if (depth === 0) {
+        endIdx = i;
+        break;
+      }
+    }
+  }
+  if (endIdx === -1) {return source;}
+
+  return lines
+    .filter((line, i) => {
+      if (i === startIdx || i === endIdx) {return false;}
+      // drop the block's own direction lines; children between the braces stay
+      if (i > startIdx && i < endIdx && line.trim().startsWith('direction ')) {return false;}
+      return true;
+    })
+    .filter(line => {
+      const trimmed = line.trim();
+      if (trimmed.startsWith(`style ${subgraphId} `) || trimmed.startsWith(`style ${subgraphId}\t`)) {return false;}
+      if (trimmed.startsWith(`class ${subgraphId} `)) {return false;}
+      return true;
+    })
+    .join('\n');
+}
+
 /** Split an edge line into: [beforeArrow, arrowType, edgeLabel, afterArrow] */
 function splitEdgeLine(line: string): [string, string, string, string] | null {
   const arrowMatch = line.match(/(-->|---|-.->|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|--\|>|\|>|~~~)/);

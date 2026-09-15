@@ -21,6 +21,7 @@ vi.mock('react-i18next', () => ({
         'edgeStyle.strokeStyle': 'Stroke Style',
         'edgeStyle.opacity': 'Opacity',
         'edgeStyle.resetStyle': 'Reset Style',
+        'edgeStyle.delete': 'Delete',
         'edgeStyle.arrowArrow': 'Arrow (-->)',
         'edgeStyle.arrowLine': 'Line (---)',
         'edgeStyle.arrowDotted': 'Dotted (-.->)',
@@ -136,6 +137,21 @@ describe('EdgeStylePanel', () => {
     fireEvent.click(resetButton);
 
     expect(defaultProps.onReset).toHaveBeenCalledWith(0);
+  });
+
+  it('should call onDelete when delete button clicked', () => {
+    const onDelete = vi.fn();
+    render(<EdgeStylePanel {...defaultProps} onDelete={onDelete} />);
+
+    fireEvent.click(screen.getByTitle('Delete'));
+
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+
+  it('should hide the delete button when onDelete is not provided', () => {
+    render(<EdgeStylePanel {...defaultProps} />);
+
+    expect(screen.queryByTitle('Delete')).not.toBeInTheDocument();
   });
 
   it('should call onClose when close button clicked', () => {

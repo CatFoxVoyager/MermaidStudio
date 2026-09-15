@@ -21,6 +21,7 @@ vi.mock('react-i18next', () => ({
         'subgraphStyle.borderStyle': 'Border Style',
         'subgraphStyle.opacity': 'Opacity',
         'subgraphStyle.resetStyle': 'Reset Style',
+        'subgraphStyle.delete': 'Delete',
         'subgraphStyle.solid': 'Solid',
         'subgraphStyle.dashed': 'Dashed',
         'subgraphStyle.dotted': 'Dotted',
@@ -170,6 +171,20 @@ describe('SubgraphStylePanel Component', () => {
       const resetBtn = screen.getByText('Reset Style');
       fireEvent.click(resetBtn);
       expect(defaultProps.onReset).toHaveBeenCalledWith('S1');
+    });
+  });
+
+  describe('Delete Button', () => {
+    it('should call onDelete when delete clicked', () => {
+      const onDelete = vi.fn();
+      render(<SubgraphStylePanel {...defaultProps} onDelete={onDelete} />);
+      fireEvent.click(screen.getByTitle('Delete'));
+      expect(onDelete).toHaveBeenCalledTimes(1);
+    });
+
+    it('should hide the delete button when onDelete is not provided', () => {
+      render(<SubgraphStylePanel {...defaultProps} />);
+      expect(screen.queryByTitle('Delete')).not.toBeInTheDocument();
     });
   });
 
