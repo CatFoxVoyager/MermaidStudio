@@ -589,6 +589,34 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     return () => clearTimeout(debounceRef.current);
   }, [render, theme]);
 
+  // Re-measure node + subgraph overlays from current screen geometry. Overlays
+  // live in the unscaled relative container, so measured rects are used as-is
+  // (no /zoom division — that only applies to overlays living inside a scaled
+  // wrapper, like the visual editor's).
+  const remeasureOverlays = useCallback(() => {
+    if (!containerRef.current || !shadowHostRef.current) return;
+    setNodeOverlays(extractSvgNodes(containerRef.current, shadowHostRef.current));
+    const knownIds = subgraphList.map(sg => sg.id);
+    setSubgraphOverlays(extractSubgraphOverlays(containerRef.current, shadowHostRef.current, knownIds));
+  }, [subgraphList]);
+
+  // (Re)create the edge hit-target layer, releasing the previous one first so
+  // effect re-runs never stack stale overlays.
+  const syncEdgeTargets = useCallback(() => {
+    if (!supportsClassDef || !shadowHostRef.current || !relativeContainerRef.current) return;
+    edgeCleanupRef.current?.();
+    edgeCleanupRef.current = addEdgeClickTargets(shadowHostRef.current, relativeContainerRef.current, (index) => {
+      if (toolModeRef.current === 'connect') return;
+      setSelectedNodeIds(new Set());
+      setSelectedSubgraphId(null);
+      setSelectedEdgeIndex(prev => {
+        const willSelect = prev !== index;
+        if (willSelect) onSelectionOpen?.();
+        return willSelect ? index : null;
+      });
+    }, parsedEdges, () => toolModeRef.current === 'connect');
+  }, [supportsClassDef, parsedEdges, onSelectionOpen]);
+
   // Setup Shadow DOM for SVG isolation
   useEffect(() => {
     if (!shadowHostRef.current) return;
@@ -698,20 +726,9 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     }
 
     // Inject edge click hit targets (must be after SVG is in DOM)
-    if (supportsClassDef && relativeContainerRef.current) {
-      edgeCleanupRef.current = addEdgeClickTargets(shadowHostRef.current, relativeContainerRef.current, (index) => {
-        if (toolModeRef.current === 'connect') return;
-        setSelectedNodeIds(new Set());
-        setSelectedSubgraphId(null);
-        setSelectedEdgeIndex(prev => {
-          const willSelect = prev !== index;
-          if (willSelect) onSelectionOpen?.();
-          return willSelect ? index : null;
-        });
-      }, parsedEdges, () => toolModeRef.current === 'connect');
-    }
+    syncEdgeTargets();
 
-  }, [svg, content, parsedDiagram, parsedEdges]);
+  }, [svg, content, parsedDiagram, parsedEdges, syncEdgeTargets]);
 
   // Cleanup edge hit targets on unmount
   useEffect(() => {
@@ -775,14 +792,10 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     }
 
     const timer = setTimeout(() => {
-      const nodes = extractSvgNodes(containerRef.current!, shadowHostRef.current!);
-      setNodeOverlays(nodes);
-      const knownIds = subgraphList.map(sg => sg.id);
-      const subgraphs = extractSubgraphOverlays(containerRef.current!, shadowHostRef.current!, knownIds);
-      setSubgraphOverlays(subgraphs);
+      remeasureOverlays();
     }, 100);
     return () => clearTimeout(timer);
-  }, [svg, zoom, subgraphList]);
+  }, [svg, zoom, subgraphList, remeasureOverlays]);
 
   // Update overlay positions on scroll (immediate, not debounced)
   useEffect(() => {
@@ -790,18 +803,41 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     const scrollableContainer = containerRef.current;
 
     const handleScroll = () => {
-      const nodes = extractSvgNodes(scrollableContainer, shadowHostRef.current!);
-      setNodeOverlays(nodes);
-      const knownIds = subgraphList.map(sg => sg.id);
-      const subgraphs = extractSubgraphOverlays(scrollableContainer, shadowHostRef.current!, knownIds);
-      setSubgraphOverlays(subgraphs);
+      remeasureOverlays();
     };
 
     scrollableContainer.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       scrollableContainer.removeEventListener('scroll', handleScroll);
     };
-  }, [svg, zoom, subgraphList]);
+  }, [svg, remeasureOverlays]);
+
+  // Settle pass: the 100ms first measure above can run mid-way through the
+  // shadow host's 150ms transform transition (zoom changes), freezing overlays
+  // at an intermediate geometry — and edge hit targets need re-creating with
+  // the settled rects too. transitionend is the precise signal (it bubbles out
+  // of the shadow root); the timeout covers environments that never fire it
+  // (jsdom) and zoom changes too small to produce an event.
+  useEffect(() => {
+    if (!svg || !shadowHostRef.current) return;
+    const host = shadowHostRef.current;
+    let done = false;
+    const settle = () => {
+      if (done) return;
+      done = true;
+      remeasureOverlays();
+      syncEdgeTargets();
+    };
+    const onTransitionEnd = (e: TransitionEvent) => {
+      if (e.propertyName === 'transform') settle();
+    };
+    host.addEventListener('transitionend', onTransitionEnd);
+    const fallback = setTimeout(settle, 220);
+    return () => {
+      host.removeEventListener('transitionend', onTransitionEnd);
+      clearTimeout(fallback);
+    };
+  }, [svg, zoom, subgraphList, parsedEdges, remeasureOverlays, syncEdgeTargets]);
 
   // Highlight selected edge when selection changes
   useEffect(() => {
