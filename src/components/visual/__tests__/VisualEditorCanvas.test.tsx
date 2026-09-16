@@ -1,11 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import { VisualEditorCanvas } from '../VisualEditorCanvas';
+import { VisualEditorCanvas, extractSvgNodes, extractSvgEdges } from '../VisualEditorCanvas';
 
-// Mock the Mermaid rendering library
+// Mock the Mermaid rendering library. The returned SVG is a mutable module
+// variable so individual tests can swap in a richer diagram (e.g. edges);
+// the default keeps the original single-node diagram for legacy tests.
+let mockSvg = '<svg><g class="node" id="flowchart-A-1"><rect width="100" height="50" /></g></svg>';
+
 vi.mock('@/lib/mermaid/core', () => ({
   renderDiagram: vi.fn(async () => ({
-    svg: '<svg><g class="node" id="flowchart-A-1"><rect width="100" height="50" /></g></svg>',
+    svg: mockSvg,
     error: null,
   })),
 }));
@@ -13,6 +17,14 @@ vi.mock('@/lib/mermaid/core', () => ({
 // Mock the sanitization utility
 vi.mock('@/utils/sanitization', () => ({
   sanitizeSVG: vi.fn((svg: string) => svg),
+}));
+
+// Pass-through post-processing: jsdom's DOMParser creates SVG elements
+// without CSSOM (.style), which the real pipeline writes to — same reason
+// the PreviewPanel tests mock it. These tests target overlays and pointer
+// handling, not SVG transformation.
+vi.mock('@/utils/svgPostProcessing', () => ({
+  postProcessDiagramSvg: (svg: string) => svg,
 }));
 
 // Mock getBoundingClientRect for the SVG container
@@ -965,6 +977,287 @@ describe('VisualEditorCanvas - Pointer Events', () => {
         clientX: 300,
         clientY: 300,
         shiftKey: false,
+      });
+    });
+  });
+
+  // Utility: build a DOMRect-like object without depending on the jsdom stub.
+  const rect = (left: number, top: number, width: number, height: number) => ({
+    left,
+    top,
+    width,
+    height,
+    right: left + width,
+    bottom: top + height,
+    x: left,
+    y: top,
+    toJSON: () => ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top }),
+  });
+
+  describe('Zoom-aware node overlays (extractSvgNodes)', () => {
+    it('divides screen deltas and dimensions by zoom', () => {
+      // At zoom 1.5 the on-screen rect of a node is scaled up 1.5x; the overlay
+      // lives INSIDE the scaled wrapper, so its coordinates must be local
+      // (un-scaled): delta/zoom and size/zoom.
+      // NOTE: direct property assignment, not vi.spyOn — the file-level
+      // beforeEach makes getBoundingClientRect an own prototype property, and
+      // vi.spyOn on inherited members then mutates the shared prototype mock.
+      const div = document.createElement('div');
+      div.innerHTML = '<svg><g class="node" id="flowchart-A-1"><rect /></g></svg>';
+      const nodeEl = div.querySelector('g.node') as SVGElement;
+      nodeEl.getBoundingClientRect = () => rect(250, 140, 180, 72) as DOMRect;
+      div.getBoundingClientRect = () => rect(100, 50, 800, 600) as DOMRect;
+
+      const overlays = extractSvgNodes(div, 1.5);
+
+      expect(overlays).toHaveLength(1);
+      expect(overlays[0].id).toBe('A');
+      expect(overlays[0].x).toBeCloseTo(100); // (250-100)/1.5
+      expect(overlays[0].y).toBeCloseTo(60); // (140-50)/1.5
+      expect(overlays[0].width).toBeCloseTo(120); // 180/1.5
+      expect(overlays[0].height).toBeCloseTo(48); // 72/1.5
+    });
+
+    it('is a no-op scaling at zoom 1', () => {
+      const div = document.createElement('div');
+      div.innerHTML = '<svg><g class="node" id="flowchart-A-1"><rect /></g></svg>';
+      const nodeEl = div.querySelector('g.node') as SVGElement;
+      nodeEl.getBoundingClientRect = () => rect(150, 130, 90, 44) as DOMRect;
+      div.getBoundingClientRect = () => rect(50, 30, 800, 600) as DOMRect;
+
+      const overlays = extractSvgNodes(div, 1);
+
+      expect(overlays[0].x).toBeCloseTo(100);
+      expect(overlays[0].y).toBeCloseTo(100);
+      expect(overlays[0].width).toBeCloseTo(90);
+      expect(overlays[0].height).toBeCloseTo(44);
+    });
+
+    it('repositions overlays after the zoom changes (integration)', async () => {
+      const onChange = vi.fn();
+      const { container } = render(
+        <VisualEditorCanvas content={'graph TD\n  A[Start]'} theme="light" onChange={onChange} />,
+      );
+
+      await waitFor(() => {
+        expect(container.querySelectorAll('.visual-node-overlay').length).toBeGreaterThan(0);
+      });
+
+      // Default stubs: node rect at (100,100) size 100x50. At zoom 1.25 the
+      // overlay must be at 100/1.25 = 80.
+      // NOTE: the file-level beforeEach returns bare vi.fn objects as "rects",
+      // so rect.left is undefined and React drops the style. This geometry
+      // test needs real objects, so it re-installs the prototype mock. The
+      // next test's beforeEach restores the original one.
+      Element.prototype.getBoundingClientRect = vi.fn(function(this: Element) {
+        if (this.classList.contains('mermaid-container')) {
+          return rect(0, 0, 800, 600) as DOMRect;
+        }
+        if (this.id?.includes('flowchart-')) {
+          return rect(100, 100, 100, 50) as DOMRect;
+        }
+        return rect(0, 0, 800, 600) as DOMRect;
+      });
+
+      fireEvent.click(screen.getByTitle('Zoom in'));
+
+      await waitFor(() => {
+        const overlay = container.querySelector('.visual-node-overlay') as HTMLElement;
+        expect(overlay.style.left).toBe('80px');
+        expect(overlay.style.width).toBe('80px');
+      });
+    });
+  });
+
+  describe('Edge overlays (extractSvgEdges)', () => {
+    const twoNodesOneEdgeSvg = `
+      <svg viewBox="0 0 400 200">
+        <g class="node" id="flowchart-A-1" transform="translate(100,100)"><rect /></g>
+        <g class="node" id="flowchart-B-2" transform="translate(300,100)"><rect /></g>
+        <g class="edgePaths">
+          <path class="flowchart-link" id="L_A_B_0" d="M 100 100 L 300 100" />
+        </g>
+      </svg>`;
+
+    const parsedEdges = [{ source: 'A', target: 'B', arrowType: '-->', label: '' }];
+
+    function setupEdgeSvg() {
+      const div = document.createElement('div');
+      div.innerHTML = twoNodesOneEdgeSvg;
+      div.getBoundingClientRect = () => rect(100, 50, 800, 600) as DOMRect;
+      const svgEl = div.querySelector('svg') as SVGSVGElement;
+      svgEl.getBoundingClientRect = () => rect(250, 140, 1800, 720) as DOMRect;
+      // Node g elements get generic rects (values unused by edge extraction).
+      div.querySelectorAll('g.node').forEach(g => {
+        (g as Element).getBoundingClientRect = () => rect(0, 0, 100, 50) as DOMRect;
+      });
+      return div;
+    }
+
+    it('maps each flowchart-link path to its parsed edge', () => {
+      const div = setupEdgeSvg();
+
+      const layer = extractSvgEdges(div, 1, parsedEdges as never);
+
+      expect(layer.edges).toHaveLength(1);
+      expect(layer.edges[0].source).toBe('A');
+      expect(layer.edges[0].target).toBe('B');
+      expect(layer.edges[0].d).toBe('M 100 100 L 300 100');
+    });
+
+    it('returns local (un-scaled) svg geometry at zoom != 1', () => {
+      const div = setupEdgeSvg();
+
+      const layer = extractSvgEdges(div, 1.5, parsedEdges as never);
+
+      expect(layer.svgBox).not.toBeNull();
+      expect(layer.svgBox!.left).toBeCloseTo(100); // (250-100)/1.5
+      expect(layer.svgBox!.top).toBeCloseTo(60); // (140-50)/1.5
+      expect(layer.svgBox!.width).toBeCloseTo(1200); // 1800/1.5
+      expect(layer.svgBox!.height).toBeCloseTo(480); // 720/1.5
+      expect(layer.viewBox).toBe('0 0 400 200');
+    });
+
+    it('selects the edge on hit-path click and shows it in the properties panel', async () => {
+      mockSvg = twoNodesOneEdgeSvg;
+      const onChange = vi.fn();
+      const { container } = render(
+        <VisualEditorCanvas content={'graph TD\n  A[Start] --> B[End]'} theme="light" onChange={onChange} />,
+      );
+
+      await waitFor(() => {
+        expect(container.querySelectorAll('.visual-node-overlay').length).toBe(2);
+      });
+
+      await waitFor(() => {
+        expect(container.querySelector('[data-edge-overlay] path')).toBeInTheDocument();
+      });
+
+      const hitPath = container.querySelector('[data-edge-overlay] path[stroke-width="15"]') as SVGPathElement
+        | HTMLElement;
+      expect(hitPath).toBeInTheDocument();
+
+      fireEvent.pointerDown(hitPath, { pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 });
+
+      // Edge selection surfaces in the properties panel; no node is selected.
+      await waitFor(() => {
+        expect(screen.getByText('Edge Properties')).toBeInTheDocument();
+      });
+      expect(screen.getByText('A → B')).toBeInTheDocument();
+      expect(container.querySelector('.visual-node-overlay.selected')).not.toBeInTheDocument();
+      expect(container.querySelector('[data-selected-edge="true"]')).toBeInTheDocument();
+    });
+
+    it('does not capture edge clicks in connect mode', async () => {
+      mockSvg = twoNodesOneEdgeSvg;
+      const onChange = vi.fn();
+      const { container } = render(
+        <VisualEditorCanvas content={'graph TD\n  A[Start] --> B[End]'} theme="light" onChange={onChange} />,
+      );
+
+      await waitFor(() => {
+        expect(container.querySelector('[data-edge-overlay] path')).toBeInTheDocument();
+      });
+
+      // Enter connect mode with the keyboard shortcut.
+      fireEvent.keyDown(window, { key: 'c' });
+
+      const hitPath = container.querySelector('[data-edge-overlay] path[stroke-width="15"]') as HTMLElement;
+      fireEvent.pointerDown(hitPath, { pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 });
+
+      expect(screen.queryByText('Edge Properties')).not.toBeInTheDocument();
+      mockSvg = '<svg><g class="node" id="flowchart-A-1"><rect width="100" height="50" /></g></svg>';
+    });
+
+    // Real Mermaid 12 edge paths don't use the "M x y" space-separated format:
+    // they write comma-separated coordinates and endpoints far from node
+    // centers. Dropping unparseable paths left the visual editor with NO edge
+    // hit targets at all (verified in-browser).
+    describe('real-mermaid path tolerance', () => {
+      function setupEdgeSvgWithD(d: string) {
+        const div = document.createElement('div');
+        div.innerHTML = twoNodesOneEdgeSvg.replace('M 100 100 L 300 100', d);
+        div.getBoundingClientRect = () => rect(100, 50, 800, 600) as DOMRect;
+        const svgEl = div.querySelector('svg') as SVGSVGElement;
+        svgEl.getBoundingClientRect = () => rect(250, 140, 1800, 720) as DOMRect;
+        return div;
+      }
+
+      it('parses comma-separated coordinates ("M 100,100 C ...")', () => {
+        const div = setupEdgeSvgWithD('M 100,100 C 150,100 250,100 300,100');
+
+        const layer = extractSvgEdges(div, 1, parsedEdges as never);
+
+        expect(layer.edges).toHaveLength(1);
+        expect(layer.edges[0].source).toBe('A');
+        expect(layer.edges[0].target).toBe('B');
+        expect(layer.edges[0].d).toBe('M 100,100 C 150,100 250,100 300,100');
+      });
+
+      it('falls back to parsed-edge order when endpoints sit far from node centers', () => {
+        // Endpoints 100px away from the transform centers (beyond the
+        // heuristic tolerance) — must still produce a hit target via order
+        // fallback instead of being dropped.
+        const div = setupEdgeSvgWithD('M 0 100 L 400 100');
+
+        const layer = extractSvgEdges(div, 1, parsedEdges as never);
+
+        expect(layer.edges).toHaveLength(1);
+        expect(layer.edges[0].source).toBe('A');
+        expect(layer.edges[0].target).toBe('B');
+      });
+
+      it('still emits a hit target for a path with no parseable coordinates', () => {
+        const div = setupEdgeSvgWithD('garbage');
+
+        const layer = extractSvgEdges(div, 1, parsedEdges as never);
+
+        expect(layer.edges).toHaveLength(1);
+        expect(layer.edges[0].d).toBe('garbage');
+      });
+    });
+  });
+
+  describe('Toolbar pointer capture guard', () => {
+    it('does not capture pointers that start on toolbar buttons', async () => {
+      const { container } = render(
+        <VisualEditorCanvas content={'graph TD\n  A[Start]'} theme="light" onChange={vi.fn()} />,
+      );
+      await waitFor(() => {
+        expect(container.querySelector('.visual-node-overlay')).toBeInTheDocument();
+      });
+
+      // Pointer capture retargets the browser's synthetic click to the
+      // capture element — capturing a pointerdown that bubbled from a toolbar
+      // button kills its onClick (the zoom buttons were dead in-browser).
+      const spy = vi.spyOn(Element.prototype, 'setPointerCapture');
+      try {
+        fireEvent.pointerDown(screen.getByTitle('Zoom in'), {
+          pointerId: 1,
+          pointerType: 'mouse',
+          button: 0,
+          buttons: 1,
+        });
+        expect(spy).not.toHaveBeenCalled();
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('zoom button still zooms after a real pointerdown+click sequence', async () => {
+      const { container } = render(
+        <VisualEditorCanvas content={'graph TD\n  A[Start]'} theme="light" onChange={vi.fn()} />,
+      );
+      await waitFor(() => {
+        expect(container.querySelector('.visual-node-overlay')).toBeInTheDocument();
+      });
+
+      const zoomIn = screen.getByTitle('Zoom in');
+      fireEvent.pointerDown(zoomIn, { pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1 });
+      fireEvent.click(zoomIn);
+
+      await waitFor(() => {
+        expect(container.querySelector('[style*="scale(1.25)"]')).toBeInTheDocument();
       });
     });
   });
