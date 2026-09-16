@@ -142,6 +142,39 @@ function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTM
   return overlays;
 }
 
+// Node ids in rendered SVGs carry the render-cache prefix
+// ("preview_2_1789…_flowchart-A-0") while parsed edges keep the bare id ("A").
+// Key node maps by the bare id, like extractSvgNodes and the visual editor's
+// extractSvgEdges do — matching on the raw id never hits and everything fell
+// back to index order.
+function collectNodeCenters(svg: Element): Map<string, { x: number; y: number }> {
+  const nodePositions = new Map<string, { x: number; y: number }>();
+  svg.querySelectorAll('.node').forEach((nodeEl) => {
+    const transform = nodeEl.getAttribute('transform');
+    const idAttr = nodeEl.getAttribute('id') || nodeEl.getAttribute('data-id') || '';
+    const idMatch = idAttr.match(/flowchart-([^-]+)-\d+/);
+    if (transform && idMatch) {
+      const tMatch = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+      if (tMatch) {
+        nodePositions.set(idMatch[1], { x: parseFloat(tMatch[1]), y: parseFloat(tMatch[2]) });
+      }
+    }
+  });
+  return nodePositions;
+}
+
+// Tolerant numeric tokenization of path data — Mermaid writes coordinates
+// comma-separated ("M185,56L185,174"), which the previous space-anchored
+// regexes never matched.
+function extractPathEndpoints(d: string): { start: { x: number; y: number }; end: { x: number; y: number } } | null {
+  const coords = d.match(/-?\d*\.?\d+(?:[eE][-+]?\d+)?/g);
+  if (!coords || coords.length < 4) return null;
+  return {
+    start: { x: parseFloat(coords[0]), y: parseFloat(coords[1]) },
+    end: { x: parseFloat(coords[coords.length - 2]), y: parseFloat(coords[coords.length - 1]) },
+  };
+}
+
 function addEdgeClickTargets(
   shadowHost: HTMLDivElement,
   containerEl: HTMLDivElement,
@@ -162,35 +195,21 @@ function addEdgeClickTargets(
   const svgToParsedIndex = new Map<number, number>();
 
   // Get node positions from SVG for matching
-  const nodePositions = new Map<string, { x: number; y: number }>();
-  svg.querySelectorAll('.node').forEach((nodeEl) => {
-    const transform = nodeEl.getAttribute('transform');
-    const nodeId = nodeEl.getAttribute('id') || nodeEl.getAttribute('data-id');
-    if (transform && nodeId) {
-      const match = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
-      if (match) {
-        nodePositions.set(nodeId, { x: parseFloat(match[1]), y: parseFloat(match[2]) });
-      }
-    }
-  });
+  const nodePositions = collectNodeCenters(svg);
 
   // For each SVG edge path, find the matching parsed edge by checking path endpoints
   edgePaths.forEach((path, svgIndex) => {
     const d = path.getAttribute('d');
     if (!d) return;
 
-    // Extract path start and end points
-    const moveMatch = d.match(/M\s+([-\d.]+)\s+([-\d.]+)/);
-    const endMatch = d.match(/([-\d.]+)\s+([-\d.]+)$/);
-
-    if (!moveMatch || !endMatch) {
+    const endpoints = extractPathEndpoints(d);
+    if (!endpoints) {
       // Fallback: use SVG order if we can't parse path
       svgToParsedIndex.set(svgIndex, Math.min(svgIndex, parsedEdges.length - 1));
       return;
     }
 
-    const pathStart = { x: parseFloat(moveMatch[1]), y: parseFloat(moveMatch[2]) };
-    const pathEnd = { x: parseFloat(endMatch[1]), y: parseFloat(endMatch[2]) };
+    const { start: pathStart, end: pathEnd } = endpoints;
 
     // Find the closest matching parsed edge by checking node positions
     let bestMatch = -1;
@@ -279,7 +298,7 @@ function addEdgeClickTargets(
   return () => overlaySvg.remove();
 }
 
-function highlightSelectedEdge(shadowHost: HTMLDivElement, edgeIndex: number | null, parsedEdges: ParsedEdge[]) {
+export function highlightSelectedEdge(shadowHost: HTMLDivElement, edgeIndex: number | null, parsedEdges: ParsedEdge[]) {
   const shadowRoot = shadowHost.shadowRoot;
   if (!shadowRoot) return;
 
@@ -298,17 +317,7 @@ function highlightSelectedEdge(shadowHost: HTMLDivElement, edgeIndex: number | n
   }
 
   // Get node positions from SVG for matching
-  const nodePositions = new Map<string, { x: number; y: number }>();
-  svg.querySelectorAll('.node').forEach((nodeEl) => {
-    const transform = nodeEl.getAttribute('transform');
-    const nodeId = nodeEl.getAttribute('id') || nodeEl.getAttribute('data-id');
-    if (transform && nodeId) {
-      const match = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
-      if (match) {
-        nodePositions.set(nodeId, { x: parseFloat(match[1]), y: parseFloat(match[2]) });
-      }
-    }
-  });
+  const nodePositions = collectNodeCenters(svg);
 
   // Find the SVG path index that matches the selected parsed edge
   const selectedEdge = parsedEdges[edgeIndex];
@@ -324,12 +333,10 @@ function highlightSelectedEdge(shadowHost: HTMLDivElement, edgeIndex: number | n
       const d = path.getAttribute('d');
       if (!d) return;
 
-      const moveMatch = d.match(/M\s+([-\d.]+)\s+([-\d.]+)/);
-      const endMatch = d.match(/([-\d.]+)\s+([-\d.]+)$/);
-      if (!moveMatch || !endMatch) return;
+      const endpoints = extractPathEndpoints(d);
+      if (!endpoints) return;
 
-      const pathStart = { x: parseFloat(moveMatch[1]), y: parseFloat(moveMatch[2]) };
-      const pathEnd = { x: parseFloat(endMatch[1]), y: parseFloat(endMatch[2]) };
+      const { start: pathStart, end: pathEnd } = endpoints;
 
       const distStartToSource = Math.hypot(pathStart.x - sourcePos.x, pathStart.y - sourcePos.y);
       const distStartToTarget = Math.hypot(pathStart.x - targetPos.x, pathStart.y - targetPos.y);
@@ -417,11 +424,26 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const [subgraphList, setSubgraphList] = useState<Array<{ id: string; label: string }>>([]);
   const [selectedSubgraphId, setSelectedSubgraphId] = useState<string | null>(null);
   const [parsedStyles, setParsedStyles] = useState<Map<string, NodeStyle>>(new Map());
+  // Bumped whenever the SVG container becomes visible or changes size. On
+  // mobile the preview tab renders hidden (display:none): overlays measured at
+  // mount time collapse to 0×0 and stay stale until something re-runs the
+  // measure. The tick re-triggers it when the tab is shown — same pattern as
+  // VisualEditorCanvas.
+  const [visibilityTick, setVisibilityTick] = useState(0);
   const toolModeRef = useRef(toolMode);
+  // Latest-ref pattern: syncEdgeTargets must not depend on the onSelectionOpen
+  // prop identity. WorkspacePanel passes it as an inline arrow, so depending on
+  // it re-ran the shadow-DOM setup effect (textContent = '' + innerHTML) on
+  // every parent re-render — destroying the whole SVG and the just-applied
+  // edge highlight on every selection.
+  const onSelectionOpenRef = useRef(onSelectionOpen);
+  const selectedEdgeIndexRef = useRef<number | null>(null);
 
   // Keep refs in sync without accessing them during render
   useEffect(() => { contentRef.current = content; }, [content]);
   useEffect(() => { toolModeRef.current = toolMode; }, [toolMode]);
+  useEffect(() => { onSelectionOpenRef.current = onSelectionOpen; }, [onSelectionOpen]);
+  useEffect(() => { selectedEdgeIndexRef.current = selectedEdgeIndex; }, [selectedEdgeIndex]);
 
   // Entering connect mode closes every floating panel and clears the current
   // selection: the Node/Edge/Subgraph style panels float above the canvas
@@ -609,13 +631,19 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       if (toolModeRef.current === 'connect') return;
       setSelectedNodeIds(new Set());
       setSelectedSubgraphId(null);
-      setSelectedEdgeIndex(prev => {
-        const willSelect = prev !== index;
-        if (willSelect) onSelectionOpen?.();
-        return willSelect ? index : null;
-      });
+      // Read the previous selection from a ref instead of the setState updater:
+      // calling onSelectionOpen inside the updater fired a parent setState
+      // during this component's render pass ("Cannot update a component"), and
+      // the resulting parent re-render destroyed the shadow DOM (see
+      // onSelectionOpenRef above). Defer the open to the next frame, like the
+      // node/subgraph handlers.
+      const willSelect = selectedEdgeIndexRef.current !== index;
+      setSelectedEdgeIndex(willSelect ? index : null);
+      if (willSelect) {
+        requestAnimationFrame(() => onSelectionOpenRef.current?.());
+      }
     }, parsedEdges, () => toolModeRef.current === 'connect');
-  }, [supportsClassDef, parsedEdges, onSelectionOpen]);
+  }, [supportsClassDef, parsedEdges]);
 
   // Setup Shadow DOM for SVG isolation
   useEffect(() => {
@@ -795,7 +823,43 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       remeasureOverlays();
     }, 100);
     return () => clearTimeout(timer);
-  }, [svg, zoom, subgraphList, remeasureOverlays]);
+  }, [svg, zoom, subgraphList, remeasureOverlays, visibilityTick]);
+
+  // Watch for the container becoming visible or resized (mobile tab switches,
+  // panel layout changes): overlays measured while hidden are 0×0 and must be
+  // re-measured once real geometry exists. Feature-detected because jsdom has
+  // neither observer.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!svg || !el || typeof IntersectionObserver === 'undefined') return;
+
+    const bump = () => setVisibilityTick(t => t + 1);
+    const io = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting && entry.boundingClientRect.width > 0 && entry.boundingClientRect.height > 0) {
+          bump();
+        }
+      }
+    });
+    io.observe(el);
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+            bump();
+          }
+        }
+      });
+      ro.observe(el);
+    }
+
+    return () => {
+      io.disconnect();
+      ro?.disconnect();
+    };
+  }, [svg]);
 
   // Update overlay positions on scroll (immediate, not debounced)
   useEffect(() => {
@@ -837,7 +901,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       host.removeEventListener('transitionend', onTransitionEnd);
       clearTimeout(fallback);
     };
-  }, [svg, zoom, subgraphList, parsedEdges, remeasureOverlays, syncEdgeTargets]);
+  }, [svg, zoom, subgraphList, parsedEdges, remeasureOverlays, syncEdgeTargets, visibilityTick]);
 
   // Highlight selected edge when selection changes
   useEffect(() => {
