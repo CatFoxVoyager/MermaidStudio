@@ -1278,5 +1278,132 @@ describe('PreviewPanel Component', () => {
       // connection — not be swallowed by the edge hit area.
       expect(container.querySelector('.node-overlay.connect-source')).toBeNull();
     });
+
+    // Preview overlays (nodes, subgraphs, edge hit targets) live in the
+    // relative container, which is NOT scaled — unlike the visual editor,
+    // whose overlays sit inside the scaled wrapper. Screen rects measured at
+    // a settled zoom are therefore already correct without any /zoom
+    // compensation. The zoom bugs here are lifecycle bugs: edge targets were
+    // created in an effect without zoom in its dep list (never re-measured),
+    // node overlays were measured 100ms into a 150ms transform transition
+    // (frozen mid-flight), and re-running the main effect overwrote
+    // edgeCleanupRef without invoking the previous cleanup (overlay leak).
+    describe('zoom re-measurement', () => {
+      const rect = (left: number, top: number, width: number, height: number) =>
+        ({
+          left,
+          top,
+          width,
+          height,
+          right: left + width,
+          bottom: top + height,
+          x: left,
+          y: top,
+          toJSON: () => {},
+        }) as DOMRect;
+
+      // Mutable geometry standing in for the browser's post-transform screen
+      // rects. Tests mutate it between interactions to simulate what the SVG
+      // looks like once a zoom transition settles.
+      let svgRectState: DOMRect;
+      let originalGetBCR: typeof Element.prototype.getBoundingClientRect;
+
+      beforeEach(() => {
+        originalGetBCR = Element.prototype.getBoundingClientRect;
+        svgRectState = rect(40, 20, 800, 600);
+        // Direct prototype assignment (NOT vi.spyOn — see the visual editor
+        // test notes: spying on an own prototype property mutates the shared
+        // mock), restored in afterEach so the surrounding describes are
+        // unaffected. This file's global beforeEach does not install a
+        // getBoundingClientRect mock, so there is no shared-mock conflict.
+        Element.prototype.getBoundingClientRect = function (this: Element) {
+          if (this.hasAttribute('data-shadow-host')) return rect(0, 0, 1000, 800);
+          if (this instanceof SVGElement && this.tagName.toLowerCase() === 'svg') return svgRectState;
+          if (this.id.startsWith('flowchart-')) return rect(100, 100, 100, 50);
+          return rect(0, 0, 1000, 800);
+        } as typeof Element.prototype.getBoundingClientRect;
+      });
+
+      afterEach(() => {
+        Element.prototype.getBoundingClientRect = originalGetBCR;
+      });
+
+      const edgeOverlayGeometry = (container: HTMLElement) => {
+        const overlay = container.querySelector('[data-edge-overlay]') as HTMLElement | null;
+        expect(overlay).not.toBeNull();
+        return {
+          left: overlay!.style.left,
+          top: overlay!.style.top,
+          width: overlay!.style.width,
+          height: overlay!.style.height,
+        };
+      };
+
+      it('re-measures edge overlay geometry after a zoom change', async () => {
+        const { container } = await renderWithSubgraphOverlays();
+
+        // Initial settled geometry (zoom 1): overlay mirrors the measured SVG rect.
+        expect(edgeOverlayGeometry(container)).toEqual({
+          left: '40px',
+          top: '20px',
+          width: '800px',
+          height: '600px',
+        });
+
+        // Settle the new zoom's screen rects, then zoom in. In the browser the
+        // 150ms transform transition finishes after the component's 100ms
+        // first measure — the overlays must be re-measured once it settles
+        // (jsdom never fires transitionend, so this exercises the fallback).
+        svgRectState = rect(60, 30, 1200, 900);
+        fireEvent.click(screen.getByTitle('Zoom in'));
+
+        await waitFor(() => {
+          expect(edgeOverlayGeometry(container)).toEqual({
+            left: '60px',
+            top: '30px',
+            width: '1200px',
+            height: '900px',
+          });
+        }, { timeout: 3000 });
+
+        // The re-measure replaces the overlay instead of leaking a second one.
+        expect(container.querySelectorAll('[data-edge-overlay]').length).toBe(1);
+      });
+
+      it('releases the previous edge overlay when the main effect re-runs', async () => {
+        const onChange = vi.fn();
+        const utils = await renderWithSubgraphOverlays(onChange);
+
+        const firstOverlay = utils.container.querySelector('[data-edge-overlay]');
+        expect(firstOverlay).toBeInTheDocument();
+
+        // Changing content re-runs the main effect (content is in its dep
+        // list, after the 400ms debounce). The previous cleanup must run —
+        // otherwise the old overlay stays in the DOM and every re-render
+        // stacks another stale hit layer on top of the diagram.
+        utils.rerender(<PreviewPanel content={SUBGRAPH_CONTENT + '\n'} theme="light" onChange={onChange} />);
+
+        await waitFor(() => {
+          expect(firstOverlay!.isConnected).toBe(false);
+        }, { timeout: 3000 });
+
+        expect(utils.container.querySelectorAll('[data-edge-overlay]').length).toBe(1);
+      });
+
+      it('routes edge clicks after a zoom re-measure (listeners re-attached)', async () => {
+        const { container } = await renderWithSubgraphOverlays();
+
+        svgRectState = rect(60, 30, 1200, 900);
+        fireEvent.click(screen.getByTitle('Zoom in'));
+        await waitFor(() => {
+          expect(edgeOverlayGeometry(container).left).toBe('60px');
+        }, { timeout: 3000 });
+
+        fireEvent.click(container.querySelector('[data-edge-overlay] path')!);
+        await waitFor(() => {
+          expect(screen.getByTestId('edge-style-panel')).toBeInTheDocument();
+        });
+      });
+    });
   });
 });
