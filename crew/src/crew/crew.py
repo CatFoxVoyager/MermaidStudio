@@ -3,11 +3,21 @@ from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
 from crewai_tools import DirectoryReadTool, FileReadTool, FileWriterTool
 
+from crew.tools.repo_edit_tool import RepoEditTool
 from crew.tools.repo_shell_tool import REPO_ROOT, RepoShellTool
 
 _read_tools = [
     FileReadTool(base_dir=REPO_ROOT),
     DirectoryReadTool(directory=REPO_ROOT),
+]
+
+# Surgical edits only for existing files: FileWriterTool stays available for
+# NEW files (tests), but regenerating a 1500-line component wholesale is the
+# main corruption risk, so repo_edit is the mandated path for modifications.
+_write_tools = [
+    *_read_tools,
+    FileWriterTool(working_directory=REPO_ROOT),
+    RepoEditTool(),
 ]
 
 
@@ -30,7 +40,7 @@ class MermaidStudioCrew():
     def developer(self) -> Agent:
         return Agent(
             config=self.agents_config['developer'],  # type: ignore[index]
-            tools=[*_read_tools, FileWriterTool(working_directory=REPO_ROOT)],
+            tools=_write_tools,
             verbose=True,
         )
 

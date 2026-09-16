@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "code-review-and-quality": {
+      "source": "addyosmani/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/code-review-and-quality/SKILL.md",
+      "computedHash": "6231479cc74c7ed70a5618b81b3f94034d9806c0319a1a23d15f9b94a368c581"
+    },
     "imagegen-frontend-mobile": {
       "source": "leonxlnx/taste-skill",
       "sourceType": "github",

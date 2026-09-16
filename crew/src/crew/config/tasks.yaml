@@ -16,6 +16,9 @@ implement_task:
     Repository root: {repo_root}
     Follow the repo's conventions (React 19 + TypeScript, Tailwind utility
     classes, '@/ path aliases, tests co-located in __tests__ directories).
+    For every change to an EXISTING file use the repo_edit tool (one exact,
+    unique search-and-replace per call) — never rewrite a whole existing file
+    with file_writer; file_writer is only for creating new test files.
     Respect the mission's constraints exactly — for a read-only audit mission,
     do not modify or create any file outside the crew/ directory.
   expected_output: >
