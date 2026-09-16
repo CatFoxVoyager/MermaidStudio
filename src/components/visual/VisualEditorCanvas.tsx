@@ -7,7 +7,7 @@ import {
   addNode, removeNode, addEdge, generateNodeId, getNodeStyle,
   bodyContainsAtDirective,
 } from '@/lib/mermaid/codeUtils';
-import type { ParsedDiagram } from '@/lib/mermaid/codeUtils';
+import type { ParsedDiagram, ParsedEdge } from '@/lib/mermaid/codeUtils';
 import { ShapeToolbar } from './ShapeToolbar';
 import { PropertiesPanel } from './PropertiesPanel';
 import type { NodeShape, NodeStyle, VisualNode, VisualEdge, SelectionState, ToolMode } from './types';
@@ -20,7 +20,12 @@ interface NodeOverlay {
   height: number;
 }
 
-function extractSvgNodes(container: HTMLDivElement): NodeOverlay[] {
+// Node overlays live INSIDE the zoom-scaled wrapper, while getBoundingClientRect()
+// returns screen coordinates that the wrapper's `scale(zoom)` has already
+// multiplied. Dividing deltas and dimensions by zoom recovers the local
+// (un-scaled) coordinates the CSS left/top/width/height need — without this,
+// overlays drift away from their nodes by (zoom-1) × distance-from-origin.
+export function extractSvgNodes(container: HTMLDivElement, zoom: number): NodeOverlay[] {
   const svg = container.querySelector('svg');
   if (!svg) {return [];}
 
@@ -40,10 +45,10 @@ function extractSvgNodes(container: HTMLDivElement): NodeOverlay[] {
       const containerRect = container.getBoundingClientRect();
       overlays.push({
         id: nodeId,
-        x: rect.left - containerRect.left,
-        y: rect.top - containerRect.top,
-        width: rect.width,
-        height: rect.height,
+        x: (rect.left - containerRect.left) / zoom,
+        y: (rect.top - containerRect.top) / zoom,
+        width: rect.width / zoom,
+        height: rect.height / zoom,
       });
     } catch {
       // skip
@@ -51,6 +56,107 @@ function extractSvgNodes(container: HTMLDivElement): NodeOverlay[] {
   });
 
   return overlays;
+}
+
+export interface EdgeOverlay {
+  source: string;
+  target: string;
+  d: string;
+}
+
+export interface EdgeLayer {
+  edges: EdgeOverlay[];
+  svgBox: { left: number; top: number; width: number; height: number } | null;
+  viewBox: string | null;
+}
+
+// Extract clickable edge hit-targets from the rendered flowchart SVG. Each
+// `.edgePaths path.flowchart-link` is matched back to a parsed edge with the
+// same endpoint-distance heuristic the PreviewPanel uses (node ids in the SVG
+// are sanitized, so the path id `L_<src>_<tgt>_<n>` cannot be split reliably).
+export function extractSvgEdges(
+  container: HTMLDivElement,
+  zoom: number,
+  parsedEdges: ParsedEdge[],
+): EdgeLayer {
+  const svg = container.querySelector('svg');
+  if (!svg) {return { edges: [], svgBox: null, viewBox: null };}
+
+  const edgePaths = svg.querySelectorAll('.edgePaths path.flowchart-link');
+  if (edgePaths.length === 0) {return { edges: [], svgBox: null, viewBox: null };}
+  // Without parsed edges there is nothing to label a hit target with — the
+  // order fallback below would index out of bounds.
+  if (parsedEdges.length === 0) {return { edges: [], svgBox: null, viewBox: null };}
+
+  const containerRect = container.getBoundingClientRect();
+  const svgRect = svg.getBoundingClientRect();
+  const svgBox = {
+    left: (svgRect.left - containerRect.left) / zoom,
+    top: (svgRect.top - containerRect.top) / zoom,
+    width: svgRect.width / zoom,
+    height: svgRect.height / zoom,
+  };
+
+  // Node positions from their SVG transform, in SVG coordinates.
+  const nodePositions = new Map<string, { x: number; y: number }>();
+  svg.querySelectorAll('g.node').forEach(nodeEl => {
+    const transform = nodeEl.getAttribute('transform');
+    const idMatch = (nodeEl.id ?? '').match(/flowchart-([^-]+)-\d+/);
+    if (transform && idMatch) {
+      const tMatch = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
+      if (tMatch) {
+        nodePositions.set(idMatch[1], { x: parseFloat(tMatch[1]), y: parseFloat(tMatch[2]) });
+      }
+    }
+  });
+
+  const edges: EdgeOverlay[] = [];
+  edgePaths.forEach((path, svgIndex) => {
+    const d = path.getAttribute('d');
+    if (!d) {return;}
+
+    // Tolerant numeric tokenization — Mermaid writes edge path coordinates
+    // both space- and comma-separated ("M 100 200", "M100,200").
+    const coords = d.match(/-?\d*\.?\d+(?:[eE][-+]?\d+)?/g);
+    const pathStart = coords && coords.length >= 4
+      ? { x: parseFloat(coords[0]), y: parseFloat(coords[1]) }
+      : null;
+    const pathEnd = coords && coords.length >= 4
+      ? { x: parseFloat(coords[coords.length - 2]), y: parseFloat(coords[coords.length - 1]) }
+      : null;
+
+    let bestMatch = -1;
+    let bestDistance = Infinity;
+    if (pathStart && pathEnd) {
+      for (let i = 0; i < parsedEdges.length; i++) {
+        const sourcePos = nodePositions.get(parsedEdges[i].source);
+        const targetPos = nodePositions.get(parsedEdges[i].target);
+        if (!sourcePos || !targetPos) {continue;}
+
+        const distStartToSource = Math.hypot(pathStart.x - sourcePos.x, pathStart.y - sourcePos.y);
+        const distStartToTarget = Math.hypot(pathStart.x - targetPos.x, pathStart.y - targetPos.y);
+        const distEndToSource = Math.hypot(pathEnd.x - sourcePos.x, pathEnd.y - sourcePos.y);
+        const distEndToTarget = Math.hypot(pathEnd.x - targetPos.x, pathEnd.y - targetPos.y);
+        const minMatch = Math.min(distStartToSource + distEndToTarget, distStartToTarget + distEndToSource);
+
+        if (minMatch < bestDistance && minMatch < 50) {
+          bestDistance = minMatch;
+          bestMatch = i;
+        }
+      }
+    }
+
+    if (bestMatch !== -1) {
+      edges.push({ source: parsedEdges[bestMatch].source, target: parsedEdges[bestMatch].target, d });
+    } else {
+      // Order fallback (same policy as PreviewPanel.addEdgeClickTargets):
+      // a missing hit target is worse than a possibly-mislabelled one.
+      const fallback = Math.min(svgIndex, parsedEdges.length - 1);
+      edges.push({ source: parsedEdges[fallback].source, target: parsedEdges[fallback].target, d });
+    }
+  });
+
+  return { edges, svgBox, viewBox: svg.getAttribute('viewBox') };
 }
 
 interface Props {
@@ -80,6 +186,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const [loading, setLoading] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [overlays, setOverlays] = useState<NodeOverlay[]>([]);
+  const [edgeLayer, setEdgeLayer] = useState<EdgeLayer>({ edges: [], svgBox: null, viewBox: null });
   // Bumped whenever the SVG container becomes visible or changes size, so the
   // overlay-positioning effect re-runs even when the canvas was hidden (e.g.
   // display:none) at mount time — see the container-observer effect below.
@@ -144,11 +251,11 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     if (!svg || !svgContainerRef.current) {return;}
     const container = svgContainerRef.current;
     const timer = setTimeout(() => {
-      const nodes = extractSvgNodes(container);
-      setOverlays(nodes);
+      setOverlays(extractSvgNodes(container, zoom));
+      setEdgeLayer(extractSvgEdges(container, zoom, parsed.edges));
     }, 80);
     return () => clearTimeout(timer);
-  }, [svg, zoom, visibilityTick]);
+  }, [svg, zoom, visibilityTick, parsed]);
 
   // Observe the SVG container for visibility/size changes. When the canvas is
   // mounted inside a hidden (display:none) pane — as MobileWorkspace does for
@@ -288,6 +395,13 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   }
 
   function handleCanvasPointerDown(e: React.PointerEvent) {
+    // Never capture pointers that start on toolbar controls: capturing
+    // retargets the browser's synthetic click to the capture element (this
+    // canvas), so the button's own onClick never fires — the zoom buttons
+    // were dead in-browser. Pinch/gesture tracking only matters on the
+    // diagram itself.
+    if ((e.target as Element).closest?.('button')) {return;}
+
     // Capture pointer for reliable gesture tracking
     const target = e.currentTarget as HTMLElement;
     target.setPointerCapture(e.pointerId);
@@ -596,6 +710,66 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
                     />
                   );
                 })}
+
+                {/* Edge hit-targets: transparent 15px-wide strokes above each
+                    flowchart-link path (same pattern as PreviewPanel). Rendered
+                    inside the scaled wrapper so zoom applies to the overlay the
+                    same way it applies to the SVG beneath it. */}
+                {!readOnly && edgeLayer.svgBox && edgeLayer.edges.length > 0 && (
+                  <svg
+                    data-edge-overlay=""
+                    className="visual-edge-overlay"
+                    style={{
+                      position: 'absolute',
+                      left: edgeLayer.svgBox.left,
+                      top: edgeLayer.svgBox.top,
+                      width: edgeLayer.svgBox.width,
+                      height: edgeLayer.svgBox.height,
+                      zIndex: 10,
+                      pointerEvents: 'none',
+                      overflow: 'visible',
+                    }}
+                    viewBox={edgeLayer.viewBox ?? undefined}
+                  >
+                    {edgeLayer.edges.map((edge, i) => {
+                      const edgeKey = `${edge.source}::${edge.target}`;
+                      const isSelected = selection.edgeKey === edgeKey;
+                      return (
+                        <g key={`${edgeKey}#${i}`}>
+                          {isSelected && (
+                            <path
+                              d={edge.d}
+                              stroke="var(--accent)"
+                              strokeWidth={3}
+                              fill="none"
+                              data-selected-edge="true"
+                              pointerEvents="none"
+                            />
+                          )}
+                          <path
+                            d={edge.d}
+                            stroke="transparent"
+                            strokeWidth={15}
+                            fill="none"
+                            style={{
+                              pointerEvents: 'stroke',
+                              cursor: toolMode === 'connect' ? 'crosshair' : 'pointer',
+                            }}
+                            onPointerDown={e => {
+                              // In connect mode the click must fall through to
+                              // the canvas so it cancels a pending connectFirst —
+                              // return BEFORE stopPropagation (same contract as
+                              // the PreviewPanel edge targets).
+                              if (toolMode === 'connect') {return;}
+                              e.stopPropagation();
+                              setSelection({ nodeIds: [], edgeKey: edgeKey });
+                            }}
+                          />
+                        </g>
+                      );
+                    })}
+                  </svg>
+                )}
               </div>
             </div>
           )}
