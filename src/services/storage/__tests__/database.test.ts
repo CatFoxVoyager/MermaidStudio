@@ -414,15 +414,61 @@ describe('Database API Key Encryption', () => {
       expect(retrieved?.folder_id).toBeNull();
     });
 
-    it('should delete child folders when deleting parent', async () => {
-      const parent = await createFolder('Parent');
+    // Regression lock (audit constat 3): deleting a folder used to also
+    // delete its DIRECT child folders while leaving their diagrams pointing
+    // at them (dangling folder_id). The fixed contract splices the subtree
+    // up: only the targeted folder disappears, children re-parent to its
+    // parent, diagrams follow — nothing is orphaned, nothing is destroyed.
+    it('should keep child folders when deleting a parent, re-attached to the grandparent', async () => {
+      const grandparent = await createFolder('Grandparent');
+      const parent = await createFolder('Parent', grandparent.id);
       const child = await createFolder('Child', parent.id);
+      const grandchild = await createFolder('Grandchild', child.id);
 
       await deleteFolder(parent.id);
 
       const folders = await getFolders();
       expect(folders.some(f => f.id === parent.id)).toBe(false);
-      expect(folders.some(f => f.id === child.id)).toBe(false);
+      const reattached = folders.find(f => f.id === child.id);
+      expect(reattached).toBeDefined();
+      expect(reattached?.parent_id).toBe(grandparent.id);
+      // Deeper descendants are untouched by the splice
+      const deep = folders.find(f => f.id === grandchild.id);
+      expect(deep?.parent_id).toBe(child.id);
+    });
+
+    it('should re-attach diagrams of the deleted folder to its parent folder', async () => {
+      const grandparent = await createFolder('Grandparent');
+      const parent = await createFolder('Parent', grandparent.id);
+      const diagram = await createDiagram(
+        'Diagram in Parent',
+        'flowchart TD\n  A --> B',
+        parent.id
+      );
+
+      await deleteFolder(parent.id);
+
+      const retrieved = await getDiagram(diagram.id);
+      expect(retrieved?.folder_id).toBe(grandparent.id);
+    });
+
+    it('should not orphan diagrams living in surviving child folders', async () => {
+      const parent = await createFolder('Parent');
+      const child = await createFolder('Child', parent.id);
+      const diagram = await createDiagram(
+        'Diagram in Child',
+        'flowchart TD\n  A --> B',
+        child.id
+      );
+
+      await deleteFolder(parent.id);
+
+      // The child folder survives (re-rooted), so its diagram must still
+      // point at it — not at a folder that no longer exists.
+      const folders = await getFolders();
+      expect(folders.some(f => f.id === child.id)).toBe(true);
+      const retrieved = await getDiagram(diagram.id);
+      expect(retrieved?.folder_id).toBe(child.id);
     });
   });
 

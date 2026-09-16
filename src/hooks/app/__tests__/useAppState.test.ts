@@ -51,7 +51,7 @@ describe('useAppState', () => {
   });
 
   it('should initialize with default state', () => {
-    const { result } = renderHook(() => useAppState(false));
+    const { result } = renderHook(() => useAppState());
 
     expect(result.current.sidebarOpen).toBe(true);
     expect(result.current.focusMode).toBe(false);
@@ -60,7 +60,7 @@ describe('useAppState', () => {
   });
 
   it('should provide theme state from useTheme', () => {
-    const { result } = renderHook(() => useAppState(false));
+    const { result } = renderHook(() => useAppState());
 
     expect(result.current.theme).toBeDefined();
     expect(result.current.defaultTheme).toBeDefined();
@@ -69,7 +69,7 @@ describe('useAppState', () => {
   });
 
   it('should provide tabs state from useTabs', () => {
-    const { result } = renderHook(() => useAppState(false));
+    const { result } = renderHook(() => useAppState());
 
     expect(result.current.tabs).toBeDefined();
     expect(result.current.activeTabId).toBeDefined();
@@ -79,12 +79,12 @@ describe('useAppState', () => {
     expect(result.current.setActiveTabId).toBeDefined();
   });
 
-  it('should load diagrams when showPalette is true', async () => {
+  it('should load diagrams on mount so the command palette has data', async () => {
     const { getDiagrams } = await import('@/services/storage/database');
     const testDiagrams = [{ id: '1', title: 'Test' }];
     (getDiagrams as Mock).mockResolvedValue(testDiagrams);
 
-    const { result } = renderHook(() => useAppState(true));
+    const { result } = renderHook(() => useAppState());
 
     await waitFor(() => {
       expect(getDiagrams).toHaveBeenCalled();
@@ -93,7 +93,7 @@ describe('useAppState', () => {
   });
 
   it('should provide refresh callback that updates refreshKey', () => {
-    const { result } = renderHook(() => useAppState(false));
+    const { result } = renderHook(() => useAppState());
 
     const initialKey = result.current.refreshKey;
     act(() => {
@@ -105,29 +105,32 @@ describe('useAppState', () => {
 
   it('should initialize Mermaid with theme on mount', async () => {
     const { initMermaid } = await import('@/lib/mermaid/core');
-    renderHook(() => useAppState(false));
+    renderHook(() => useAppState());
 
     expect(initMermaid).toHaveBeenCalled();
   });
 
   it('should initialize Mermaid with light theme by default', async () => {
     const { initMermaid } = await import('@/lib/mermaid/core');
-    renderHook(() => useAppState(false));
+    renderHook(() => useAppState());
 
     expect(initMermaid).toHaveBeenCalledWith('light');
   });
 
-  it('should not load diagrams when showPalette is false', async () => {
+  // Regression lock (audit constat 1): App passes no palette flag, so
+  // gating the load on `showPalette` left `diagrams` permanently empty and
+  // the Ctrl+K "diagrams" category structurally blank. The list must load
+  // on mount regardless of any UI visibility flag.
+  it('should load diagrams on mount even when the palette has never been opened', async () => {
     const { getDiagrams } = await import('@/services/storage/database');
 
-    renderHook(() => useAppState(false));
+    renderHook(() => useAppState());
 
-    // getDiagrams should not be called when showPalette is false
-    expect(getDiagrams).not.toHaveBeenCalled();
+    expect(getDiagrams).toHaveBeenCalled();
   });
 
   it('should set sidebarOpen state', () => {
-    const { result } = renderHook(() => useAppState(false));
+    const { result } = renderHook(() => useAppState());
 
     expect(result.current.sidebarOpen).toBe(true);
 
@@ -138,7 +141,7 @@ describe('useAppState', () => {
   });
 
   it('should set focusMode state', () => {
-    const { result } = renderHook(() => useAppState(false));
+    const { result } = renderHook(() => useAppState());
 
     expect(result.current.focusMode).toBe(false);
 
@@ -149,7 +152,7 @@ describe('useAppState', () => {
   });
 
   it('should set renderTimeMs state', () => {
-    const { result } = renderHook(() => useAppState(false));
+    const { result } = renderHook(() => useAppState());
 
     expect(result.current.renderTimeMs).toBeNull();
 
@@ -160,7 +163,7 @@ describe('useAppState', () => {
   });
 
   it('should set aiSettingsKey state', () => {
-    const { result } = renderHook(() => useAppState(false));
+    const { result } = renderHook(() => useAppState());
 
     expect(result.current.aiSettingsKey).toBe(0);
 
@@ -170,12 +173,12 @@ describe('useAppState', () => {
     expect(result.current.aiSettingsKey).toBe(1);
   });
 
-  it('should reload diagrams when refresh is called with showPalette true', async () => {
+  it('should reload diagrams when refresh is called', async () => {
     const { getDiagrams } = await import('@/services/storage/database');
     const testDiagrams = [{ id: '1', title: 'Test' }];
     (getDiagrams as Mock).mockResolvedValue(testDiagrams);
 
-    const { result } = renderHook(() => useAppState(true));
+    const { result } = renderHook(() => useAppState());
 
     // Wait for initial load
     await waitFor(() => {

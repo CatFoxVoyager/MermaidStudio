@@ -266,6 +266,7 @@
     "versionRestored": "Version restored",
     "aiSuggestionApplied": "Applied AI suggestion",
     "shareLinkCopied": "Share link copied",
+    "autoSaveFailed": "Auto-save failed for “{{title}}”",
     "error": "Error",
     "success": "Success"
   },

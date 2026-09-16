@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getDiagrams } from '@/services/storage/database';
 import { initMermaid } from '@/lib/mermaid/core';
 import { useTheme, useTabs, useLanguage } from '@/hooks';
+import type { UseTabsOptions } from '@/hooks/useTabs';
 import type { Diagram } from '@/types';
 
 // Exported so hooks/index.ts can re-export them (the repaired type-check
@@ -26,9 +27,16 @@ export interface AppActions {
   setAiSettingsKey: (key: number | ((prev: number) => number)) => void;
 }
 
-export function useAppState(showPalette: boolean): AppState & AppActions & ReturnType<typeof useTheme> & ReturnType<typeof useTabs> & ReturnType<typeof useLanguage> {
+export interface UseAppStateOptions {
+  /** Surfaced as a toast when persisting a diagram fails (audit constat 4). */
+  onSaveError?: UseTabsOptions['onSaveError'];
+}
+
+export function useAppState(
+  { onSaveError }: UseAppStateOptions = {}
+): AppState & AppActions & ReturnType<typeof useTheme> & ReturnType<typeof useTabs> & ReturnType<typeof useLanguage> {
   const themeState = useTheme();
-  const tabsState = useTabs();
+  const tabsState = useTabs({ onSaveError });
   const languageState = useLanguage();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -43,12 +51,13 @@ export function useAppState(showPalette: boolean): AppState & AppActions & Retur
     initMermaid(themeState.theme);
   }, [themeState.theme]);
 
-  // Load diagrams when palette is shown
+  // Load the diagram list on mount and after every refresh() — the command
+  // palette reads it whenever it opens. Gating the load on a palette flag
+  // left `diagrams` permanently empty: App never had a truthy flag to pass
+  // (audit constat 1), so the palette's "diagrams" category stayed blank.
   useEffect(() => {
-    if (showPalette) {
-      getDiagrams().then(setDiagrams);
-    }
-  }, [showPalette, refreshKey]);
+    getDiagrams().then(setDiagrams);
+  }, [refreshKey]);
 
   const refresh = useCallback(() => {
     setRefreshKey(k => k + 1);

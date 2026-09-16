@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppLayout } from '@/components/layout/AppLayout';
@@ -27,9 +28,18 @@ export default function App() {
     });
   }, []);
 
-  // Get app state (theme, tabs, UI state)
-  const appState = useAppState(false);
   const { show: showToast, toasts, dismiss } = useToast();
+  const { t } = useTranslation();
+
+  // Get app state (theme, tabs, UI state)
+  const appState = useAppState({
+    // Persist failures were previously swallowed into console.error only
+    // (audit constat 4) — surface them to the user.
+    onSaveError: (title, err) => {
+      console.error('[App] Failed to persist diagram:', title, err);
+      showToast(t('toast.autoSaveFailed', { title }), 'error');
+    },
+  });
 
   // Get modal state with mutual exclusion logic
   const {
