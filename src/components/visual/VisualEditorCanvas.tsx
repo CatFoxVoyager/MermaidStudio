@@ -159,6 +159,32 @@ export function extractSvgEdges(
   return { edges, svgBox, viewBox: svg.getAttribute('viewBox') };
 }
 
+// Real hit-test at viewport coordinates against the edge overlay's
+// hit-paths. Chrome's touch adjustment ("aim assist") can deliver a tap
+// that actually lands on an edge to a nearby node overlay instead — the
+// visible "clickable" element — with contact coordinates outside that
+// overlay's rect; this recovers the edge the user actually tapped.
+// Returns the covering hit-path's data-edge-key, or null when nothing
+// covers the point (or the geometry APIs are unavailable, e.g. jsdom).
+function edgeKeyAtPoint(x: number, y: number): string | null {
+  for (const svg of document.querySelectorAll<SVGSVGElement>('svg[data-edge-overlay]')) {
+    const rect = svg.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {continue;}
+    const ctm = svg.getScreenCTM();
+    if (!ctm) {continue;}
+    const inv = ctm.inverse();
+    const localX = inv.a * x + inv.c * y + inv.e;
+    const localY = inv.b * x + inv.d * y + inv.f;
+    for (const path of svg.querySelectorAll<SVGPathElement>('path[data-edge-key]')) {
+      if (typeof path.isPointInStroke !== 'function') {continue;}
+      if (path.isPointInStroke({ x: localX, y: localY })) {
+        return path.getAttribute('data-edge-key');
+      }
+    }
+  }
+  return null;
+}
+
 interface Props {
   content: string;
   theme: 'dark' | 'light';
@@ -202,6 +228,10 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const renderIdRef = useRef(0);
   const debounceRef = useRef<number>(0);
   const capturedPointerIdsRef = useRef<Set<number>>(new Set());
+  // Pointers whose touch events were delivered to a node overlay by
+  // Chrome's touch adjustment while really landing on an edge hit-path
+  // (see handleNodePointerDown): pointerup must not select the node.
+  const adjustedPointerIdsRef = useRef<Set<number>>(new Set());
   const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchPrevDistanceRef = useRef<number | null>(null);
 
@@ -331,6 +361,26 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   function handleNodePointerDown(e: React.PointerEvent, nodeId: string) {
     e.stopPropagation();
 
+    // Chrome's touch adjustment can retarget a tap that really lands on
+    // an edge hit-path to the nearest visible clickable element — this
+    // node overlay — delivering pointer events whose contact coordinates
+    // lie OUTSIDE the overlay's own rect (observed on mobile: a tap on a
+    // short A->B edge selected node A instead of the edge). When the
+    // contact point is not actually inside this overlay, real-hit-test
+    // at the contact coordinates and honor the edge instead.
+    if (toolMode !== 'connect' && e.pointerType !== 'mouse') {
+      const r = e.currentTarget.getBoundingClientRect();
+      const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      if (!inside) {
+        const adjustedEdgeKey = edgeKeyAtPoint(e.clientX, e.clientY);
+        if (adjustedEdgeKey) {
+          adjustedPointerIdsRef.current.add(e.pointerId);
+          setSelection({ nodeIds: [], edgeKey: adjustedEdgeKey });
+          return;
+        }
+      }
+    }
+
     // Capture pointer for reliable gesture tracking
     const target = e.currentTarget as HTMLElement;
     target.setPointerCapture(e.pointerId);
@@ -375,6 +425,18 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
 
   function handleNodePointerUp(e: React.PointerEvent, nodeId: string) {
     const target = e.currentTarget as HTMLElement;
+
+    // Touch-adjustment guard: the pointerdown was really an edge tap —
+    // the edge is already selected, so the tap-completion path below
+    // must not select this node.
+    if (adjustedPointerIdsRef.current.has(e.pointerId)) {
+      adjustedPointerIdsRef.current.delete(e.pointerId);
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        setLongPressTimer(null);
+      }
+      return;
+    }
 
     // Release pointer capture
     if (capturedPointerIdsRef.current.has(e.pointerId)) {
@@ -751,6 +813,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
                             stroke="transparent"
                             strokeWidth={15}
                             fill="none"
+                            data-edge-key={edgeKey}
                             style={{
                               pointerEvents: 'stroke',
                               cursor: toolMode === 'connect' ? 'crosshair' : 'pointer',
