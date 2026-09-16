@@ -190,6 +190,9 @@ npm-outdated.json
 AUDIT_SUMMARY.md
 DEPENDENCY_AUDIT_REPORT.md
 
+# Generated doc reports (npm run docs / scripts/docs/check-doc-quality.cjs)
+docs/reports/
+
 # =============================================================================
 # DEBUG & OUTPUT FILES
 # =============================================================================
