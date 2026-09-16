@@ -1169,6 +1169,60 @@ describe('VisualEditorCanvas - Pointer Events', () => {
       mockSvg = '<svg><g class="node" id="flowchart-A-1"><rect width="100" height="50" /></g></svg>';
     });
 
+    // Chrome's touch adjustment ("aim assist") can retarget a tap that
+    // really lands on an edge hit-path to the nearest visible clickable
+    // element — the node overlay — delivering pointer events whose contact
+    // coordinates sit OUTSIDE that overlay's rect (observed in-browser on
+    // mobile: a tap on a short A->B edge selected node A instead of the
+    // edge; the compat mouse events even snapped into the node's rect).
+    // The node handler must real-hit-test at the contact coordinates and
+    // honor the edge.
+    it('selects the edge when touch adjustment retargets the tap to a nearby node overlay', async () => {
+      mockSvg = twoNodesOneEdgeSvg;
+      const onChange = vi.fn();
+      const { container } = render(
+        <VisualEditorCanvas content={'graph TD\n  A[Start] --> B[End]'} theme="light" onChange={onChange} />,
+      );
+
+      await waitFor(() => {
+        expect(container.querySelectorAll('.visual-node-overlay').length).toBe(2);
+      });
+      await waitFor(() => {
+        expect(container.querySelector('[data-edge-overlay] path')).toBeInTheDocument();
+      });
+
+      // jsdom has no geometry APIs: an identity CTM on the overlay and a
+      // stroke hit on the hit-path stand in for isPointInStroke().
+      const overlaySvg = container.querySelector('[data-edge-overlay]') as unknown as SVGSVGElement;
+      overlaySvg.getScreenCTM = () =>
+        ({ inverse: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }) }) as unknown as DOMMatrix;
+      const hitPath = container.querySelector(
+        '[data-edge-overlay] path[stroke-width="15"]',
+      ) as SVGPathElement;
+      hitPath.isPointInStroke = () => true;
+
+      // Node A's overlay rect is (100,100,100,50): the retargeted tap's
+      // contact point (150,175) lies OUTSIDE it, on the edge below.
+      const nodeOverlayA = container.querySelectorAll('.visual-node-overlay')[0] as HTMLElement;
+      nodeOverlayA.getBoundingClientRect = () => rect(100, 100, 100, 50) as DOMRect;
+
+      fireEvent.pointerDown(nodeOverlayA, {
+        pointerId: 7, pointerType: 'touch', button: 0, buttons: 1,
+        clientX: 150, clientY: 175,
+      });
+      fireEvent.pointerUp(nodeOverlayA, {
+        pointerId: 7, pointerType: 'touch', button: 0, buttons: 0,
+        clientX: 150, clientY: 175,
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Edge Properties')).toBeInTheDocument();
+      });
+      expect(container.querySelector('.visual-node-overlay.selected')).not.toBeInTheDocument();
+      expect(container.querySelector('[data-selected-edge="true"]')).toBeInTheDocument();
+      mockSvg = '<svg><g class="node" id="flowchart-A-1"><rect width="100" height="50" /></g></svg>';
+    });
+
     // Real Mermaid 12 edge paths don't use the "M x y" space-separated format:
     // they write comma-separated coordinates and endpoints far from node
     // centers. Dropping unparseable paths left the visual editor with NO edge
