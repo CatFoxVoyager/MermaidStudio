@@ -222,6 +222,13 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const [connectFirst, setConnectFirst] = useState<string | null>(null);
   const [dragShape, setDragShape] = useState<NodeShape | null>(null);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  // Drag-to-connect: source anchor (node center) + current pointer position
+  // (viewport coords) for the ghost line. The anchor is captured at arm time
+  // so rendering never reads a ref. The refs below hold the gesture's
+  // working state — the state only exists to render the indicator.
+  const [dragConnect, setDragConnect] = useState<
+    { sourceId: string; x1: number; y1: number; x: number; y: number } | null
+  >(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
@@ -234,6 +241,11 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const adjustedPointerIdsRef = useRef<Set<number>>(new Set());
   const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchPrevDistanceRef = useRef<number | null>(null);
+  // Drag-to-connect: overlay elements by node id (for the pointerup
+  // hit-test), the pointerdown origin, and the armed source node id.
+  const overlayElsRef = useRef<Map<string, HTMLElement>>(new Map());
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const dragConnectRef = useRef<string | null>(null);
 
   // D6 fail-safe (DIA-04): content whose BODY (outside frontmatter) carries
   // the v12 metadata-attach syntax (`@{...}`) opens read-only. The gate is
@@ -400,6 +412,11 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
       return;
     }
 
+    // Drag-to-connect candidate: remember where the gesture started so
+    // pointermove can arm the drag past the threshold. Connect mode has
+    // already returned above — its click-click flow is untouched.
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+
     // Start long-press timer for touch multi-select (500ms)
     if (e.pointerType === 'touch') {
       const timer = setTimeout(() => {
@@ -423,6 +440,64 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     // For touch, wait to see if it becomes a long-press (multi-select) or tap (single-select)
   }
 
+  const DRAG_CONNECT_THRESHOLD_PX = 6;
+
+  function resetDragConnect() {
+    dragStartRef.current = null;
+    dragConnectRef.current = null;
+    setDragConnect(null);
+  }
+
+  function handleNodePointerMove(e: React.PointerEvent, nodeId: string) {
+    // Not a drag candidate (no recent pointerdown on this overlay)
+    if (!dragStartRef.current && !dragConnectRef.current) {return;}
+
+    if (dragConnectRef.current) {
+      // Armed: follow the pointer with the ghost line.
+      setDragConnect(prev => (prev ? { ...prev, x: e.clientX, y: e.clientY } : prev));
+      return;
+    }
+
+    const start = dragStartRef.current;
+    if (!start) {return;}
+    const distance = Math.hypot(e.clientX - start.x, e.clientY - start.y);
+    if (distance <= DRAG_CONNECT_THRESHOLD_PX) {return;}
+
+    // Past the threshold: arm the drag. The long-press timer is cancelled
+    // so a touch drag never fires the 500ms multi-select, and the click
+    // interpretation of this gesture is over. The ghost line anchors on the
+    // source node's center, read here in the handler (render must not
+    // touch refs).
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    dragStartRef.current = null;
+    dragConnectRef.current = nodeId;
+    setDragConnect({
+      sourceId: nodeId,
+      x1: r.left + r.width / 2,
+      y1: r.top + r.height / 2,
+      x: e.clientX,
+      y: e.clientY,
+    });
+  }
+
+  function handleNodePointerCancel(e: React.PointerEvent) {
+    if (dragConnectRef.current || dragStartRef.current) {
+      resetDragConnect();
+    }
+    if (capturedPointerIdsRef.current.has(e.pointerId)) {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      capturedPointerIdsRef.current.delete(e.pointerId);
+    }
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  }
+
   function handleNodePointerUp(e: React.PointerEvent, nodeId: string) {
     const target = e.currentTarget as HTMLElement;
 
@@ -443,6 +518,30 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
       target.releasePointerCapture(e.pointerId);
       capturedPointerIdsRef.current.delete(e.pointerId);
     }
+
+    // Drag-to-connect drop: hit-test the release point against every other
+    // node overlay (pointer capture kept the events flowing to this
+    // overlay, so the coordinates are plain viewport clientX/Y). A completed
+    // drag never re-selects — early return skips the tap flow below.
+    if (dragConnectRef.current) {
+      const sourceId = dragConnectRef.current;
+      let targetId: string | null = null;
+      for (const [id, el] of overlayElsRef.current) {
+        if (id === sourceId) {continue;}
+        const r = el.getBoundingClientRect();
+        if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+          targetId = id;
+          break;
+        }
+      }
+      // D6 belt-and-braces: read-only content never reaches a codeUtils mutator.
+      if (targetId && !readOnly) {
+        onChange(addEdge(content, sourceId, targetId));
+      }
+      resetDragConnect();
+      return;
+    }
+    dragStartRef.current = null;
 
     // Clear long-press timer if still active (means it was a tap, not long-press)
     if (longPressTimer) {
@@ -756,8 +855,14 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
                   return (
                     <div
                       key={overlay.id}
+                      ref={el => {
+                        if (el) {overlayElsRef.current.set(overlay.id, el);}
+                        else {overlayElsRef.current.delete(overlay.id);}
+                      }}
                       onPointerDown={e => handleNodePointerDown(e, overlay.id)}
+                      onPointerMove={e => handleNodePointerMove(e, overlay.id)}
                       onPointerUp={e => handleNodePointerUp(e, overlay.id)}
+                      onPointerCancel={handleNodePointerCancel}
                       className={`visual-node-overlay ${isSelected ? 'selected' : ''} ${isConnectSource ? 'connect-source' : ''}`}
                       style={{
                         position: 'absolute',
@@ -854,6 +959,22 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
           </div>
         )}
       </div>
+
+      {/* Drag-to-connect ghost line: fixed overlay in viewport coordinates,
+          matching the clientX/Y the gesture tracks. Non-interactive. */}
+      {dragConnect && (
+        <svg
+          data-testid="drag-connect-indicator"
+          aria-hidden="true"
+          width="100%"
+          height="100%"
+          style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 50 }}>
+          <line
+            x1={dragConnect.x1} y1={dragConnect.y1} x2={dragConnect.x} y2={dragConnect.y}
+            stroke="var(--accent)" strokeWidth={2} strokeDasharray="6 4" />
+          <circle cx={dragConnect.x} cy={dragConnect.y} r={4} fill="var(--accent)" />
+        </svg>
+      )}
     </div>
   );
 }
