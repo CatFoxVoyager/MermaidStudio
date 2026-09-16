@@ -54,7 +54,9 @@
     "categoryActions": "Actions",
     "categorySettings": "Settings",
     "categoryDiagrams": "Diagrams",
-    "categoryPanels": "Panels"
+    "categoryPanels": "Panels",
+    "about": "About MermaidStudio",
+    "releaseNotes": "Release Notes"
   },
   "shortcuts": {
     "title": "Keyboard Shortcuts",
@@ -549,5 +551,14 @@
     "moreInChangelog": "See the full changelog on GitHub for the complete list.",
     "github": "View on GitHub",
     "githubCaption": "Open source — star the project and report issues"
+  },
+  "about": {
+    "title": "About MermaidStudio",
+    "why": "MermaidStudio was created by Jérémie D. (CatFoxVoyager), born out of frustration with online diagram editors: drawing a diagram shouldn't require an account, a subscription, or sending your work to someone else's server.",
+    "how": "The app runs entirely in your browser — diagrams and settings stay on your device (local storage), and even the AI assistant runs locally via WebGPU. Free, open source, no tracking.",
+    "releaseNotesButton": "What's new in this version",
+    "github": "View on GitHub",
+    "githubCaption": "Open source — star the project and report issues",
+    "license": "MIT License — © 2026 Jérémie D."
   }
 }

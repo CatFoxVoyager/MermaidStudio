@@ -37,6 +37,8 @@ interface Props {
   showAI: boolean;
   renderTimeMs: number | null;
   onRenderTime: (ms: number) => void;
+  /** Version badge click → About modal (mobile parity: MobileTopBar badge) */
+  onOpenAbout?: () => void;
   /** Diagram-specific theme ID from the active tab */
   themeId?: string;
   onOpenAIPanel?: (options?: { mode?: 'chat' | 'fix' }) => void;
@@ -50,7 +52,7 @@ export function WorkspacePanel({
   onShowHistory, onShowExport, onToggleAI, onFullscreen, onSaveTemplate,
   onNewDiagram, onShowTemplates, onShowPalette, onShowDiagramColors, onShowAdvancedStyle,
   onDiagramColorsClose, onAdvancedStyleClose, showDiagramColors, showAdvancedStyle,
-  showAI, renderTimeMs, onRenderTime, themeId, onOpenAIPanel, onPreviewError, previewError,
+  showAI, renderTimeMs, onRenderTime, themeId, onOpenAIPanel, onPreviewError, previewError, onOpenAbout,
 }: Props) {
   const { t } = useTranslation();
   const [viewMode, setViewMode] = useState<'split' | 'visual'>('split');
@@ -142,7 +144,7 @@ export function WorkspacePanel({
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
   }, [dragging]);
 
-  if (!activeTab) {return <EmptyState onNewDiagram={onNewDiagram} onShowTemplates={onShowTemplates} onShowPalette={onShowPalette} />;}
+  if (!activeTab) {return <EmptyState onNewDiagram={onNewDiagram} onShowTemplates={onShowTemplates} onShowPalette={onShowPalette} onOpenAbout={onOpenAbout} />;}
 
   const lastSaved = activeTab.is_dirty ? null : new Date().toISOString();
 
@@ -341,10 +343,11 @@ function ToolbarButton({ icon, label, showLabel, onClick, title, disabled, activ
   );
 }
 
-function EmptyState({ onNewDiagram, onShowTemplates, onShowPalette }: {
+function EmptyState({ onNewDiagram, onShowTemplates, onShowPalette, onOpenAbout }: {
   onNewDiagram: () => void;
   onShowTemplates: () => void;
   onShowPalette: () => void;
+  onOpenAbout?: () => void;
 }) {
   const { t } = useTranslation();
   const actions = [
@@ -388,7 +391,18 @@ function EmptyState({ onNewDiagram, onShowTemplates, onShowPalette }: {
             </svg>
           </div>
           <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>MermaidStudio</span>
-          <span className="text-sm font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-floating)', color: 'var(--text-secondary)' }}>v{APP_VERSION}</span>
+          {onOpenAbout ? (
+            <button
+              onClick={onOpenAbout}
+              title={t('about.title')}
+              className="text-sm font-medium px-2 py-0.5 rounded-full transition-colors hover:opacity-80 cursor-pointer"
+              style={{ background: 'var(--surface-floating)', color: 'var(--text-secondary)' }}
+            >
+              v{APP_VERSION}
+            </button>
+          ) : (
+            <span className="text-sm font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-floating)', color: 'var(--text-secondary)' }}>v{APP_VERSION}</span>
+          )}
         </div>
         <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
           {t('editor.openOrCreate')}

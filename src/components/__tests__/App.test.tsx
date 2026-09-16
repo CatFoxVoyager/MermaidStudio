@@ -499,6 +499,7 @@ describe('App Component', () => {
         modals: {
           showAI: false,
           showWelcome: false,
+          showAbout: false,
           showTemplates: false,
           showHistory: false,
           showExport: false,
@@ -534,6 +535,7 @@ describe('App Component', () => {
         modals: {
           showAI: false,
           showWelcome: false,
+          showAbout: false,
           showTemplates: false,
           showHistory: false,
           showExport: false,
@@ -568,6 +570,7 @@ describe('App Component', () => {
         modals: {
           showAI: false,
           showWelcome: false,
+          showAbout: false,
           showTemplates: false,
           showHistory: false,
           showExport: false,
@@ -602,6 +605,7 @@ describe('App Component', () => {
         modals: {
           showAI: true,
           showWelcome: false,
+          showAbout: false,
           showTemplates: true,
           showHistory: false,
           showExport: false,

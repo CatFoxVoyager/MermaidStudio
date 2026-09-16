@@ -54,7 +54,9 @@
     "categoryActions": "Actions",
     "categorySettings": "Paramètres",
     "categoryDiagrams": "Diagrammes",
-    "categoryPanels": "Panneaux"
+    "categoryPanels": "Panneaux",
+    "about": "À propos de MermaidStudio",
+    "releaseNotes": "Notes de version"
   },
   "shortcuts": {
     "title": "Raccourcis clavier",
@@ -549,5 +551,14 @@
     "moreInChangelog": "Consultez le changelog complet sur GitHub pour la liste complète.",
     "github": "Voir sur GitHub",
     "githubCaption": "Open source — mettez une étoile au projet et signalez les problèmes"
+  },
+  "about": {
+    "title": "À propos de MermaidStudio",
+    "why": "MermaidStudio a été créé par Jérémie D. (CatFoxVoyager), né de la frustration des éditeurs de diagrammes en ligne : dessiner un schéma ne devrait exiger ni compte, ni abonnement, ni envoyer son travail sur le serveur de quelqu'un d'autre.",
+    "how": "L'application fonctionne entièrement dans votre navigateur — diagrammes et réglages restent sur votre appareil (stockage local), et même l'assistant IA y tourne en local via WebGPU. Gratuit, open source, sans suivi.",
+    "releaseNotesButton": "Nouveautés de cette version",
+    "github": "Voir sur GitHub",
+    "githubCaption": "Open source — mettez une étoile au projet et signalez les problèmes",
+    "license": "Licence MIT — © 2026 Jérémie D."
   }
 }
