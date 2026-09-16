@@ -181,6 +181,7 @@ export default function App() {
           onShowDiagramColors={openDiagramColors}
           onShowAdvancedStyle={openAdvancedStyle}
           onOpenCommandPalette={modalOpen('showPalette')}
+          onOpenAbout={modalOpen('showAbout')}
           onOpenBackup={modalOpen('showBackup')}
           onFocusMode={modalHandlers.toggleFocusMode}
           onThemeIdChange={
@@ -220,6 +221,9 @@ export default function App() {
           onCloseHelp={modalClose('showHelp')}
           onCloseFullscreen={modalClose('showFullscreen')}
           onCloseWelcome={handleCloseWelcome}
+          onCloseAbout={modalClose('showAbout')}
+          onOpenAbout={modalOpen('showAbout')}
+          onOpenWelcome={modalOpen('showWelcome')}
           activeTab={appState.activeTab}
           handleTemplateSelect={handleTemplateSelect}
           handleRestore={modalHandlers.handleRestore}

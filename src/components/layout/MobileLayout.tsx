@@ -21,6 +21,7 @@ interface MobileLayoutProps {
   onSave: () => void;
   onShowExport?: () => void;
   onOpenCommandPalette: () => void;
+  onOpenAbout?: () => void;
   // Sidebar drawer props
   onOpenDiagram: (id: string) => void;
   activeDiagramId?: string | null;
@@ -53,6 +54,7 @@ export function MobileLayout({
   onSave,
   onShowExport,
   onOpenCommandPalette,
+  onOpenAbout,
   onOpenDiagram,
   activeDiagramId,
   onRefresh,
@@ -90,6 +92,7 @@ export function MobileLayout({
           onSave={onSave}
           onExport={onShowExport}
           onOpenCommandPalette={onOpenCommandPalette}
+          onOpenAbout={onOpenAbout}
         />
       </div>
 

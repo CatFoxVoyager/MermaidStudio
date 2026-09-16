@@ -7,6 +7,7 @@ export interface MobileTopBarProps {
   onSave: () => void;          // primary Save action
   onExport?: () => void;       // optional — if undefined, Export button hidden (desktop parity: WorkspacePanel export)
   onOpenCommandPalette: () => void;  // overflow trigger — REUSES the existing TopBar/CommandPalette mechanism per D-01
+  onOpenAbout?: () => void;    // version badge tap → About modal (desktop parity: WorkspacePanel empty state)
 }
 
 export function MobileTopBar({
@@ -14,6 +15,7 @@ export function MobileTopBar({
   onSave,
   onExport,
   onOpenCommandPalette,
+  onOpenAbout,
 }: MobileTopBarProps) {
   const { t } = useTranslation();
 
@@ -36,9 +38,21 @@ export function MobileTopBar({
         </div>
         <h1 className="text-sm font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
           Mermaid<span style={{ color: 'var(--accent)' }}>Studio</span>{' '}
-          <span className="text-xs font-normal" style={{ color: 'var(--text-secondary)' }}>
-            v{APP_VERSION}
-          </span>
+          {onOpenAbout ? (
+            <button
+              data-testid="mobile-topbar-about"
+              onClick={onOpenAbout}
+              className="text-xs font-normal rounded px-1 py-0.5 transition-colors hover:bg-white/8 active:bg-white/15 cursor-pointer"
+              style={{ color: 'var(--text-secondary)' }}
+              title={t('about.title')}
+            >
+              v{APP_VERSION}
+            </button>
+          ) : (
+            <span className="text-xs font-normal" style={{ color: 'var(--text-secondary)' }}>
+              v{APP_VERSION}
+            </span>
+          )}
         </h1>
       </div>
 

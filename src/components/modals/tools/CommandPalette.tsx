@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, FilePlus, FolderPlus, LayoutGrid as Layout, Clock, Download, Sun, Moon, Sparkles, Command, FileText, ChevronRight, Palette, SlidersHorizontal } from 'lucide-react';
+import { Search, FilePlus, FolderPlus, LayoutGrid as Layout, Clock, Download, Sun, Moon, Sparkles, Command, FileText, ChevronRight, Palette, SlidersHorizontal, Info, ScrollText } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
 
 interface Cmd {
@@ -21,12 +21,15 @@ interface Props {
   diagrams: { id: string; title: string }[];
   onOpenDiagram: (id: string) => void;
   onOpenStylePanel?: (id: 'colors' | 'advanced') => void;
+  onOpenAbout?: () => void;
+  onOpenReleaseNotes?: () => void;
 }
 
 export function CommandPalette({
   onClose, onNewDiagram, onNewFolder, onOpenTemplates,
   onToggleHistory, onToggleAI, onToggleTheme,
   theme, diagrams, onOpenDiagram, onOpenStylePanel,
+  onOpenAbout, onOpenReleaseNotes,
 }: Props) {
   const { t } = useTranslation();
   const [q, setQ] = useState('');
@@ -47,6 +50,12 @@ export function CommandPalette({
       { id: 'style-advanced', label: t('editor.advancedStyling'), description: 'Advanced diagram styling options', icon: <SlidersHorizontal size={14} />, category: t('commands.categoryPanels'), action: () => { onOpenStylePanel('advanced'); onClose(); } },
     ] : []),
     { id: 'theme', label: `${theme === 'dark' ? 'Light' : 'Dark'} Mode`, description: 'Toggle color theme', icon: theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />, category: t('commands.categorySettings'), action: () => { onToggleTheme(); onClose(); } },
+    ...(onOpenAbout ? [
+      { id: 'about', label: t('commands.about'), description: 'About this app and its creator', icon: <Info size={14} />, category: t('commands.categorySettings'), action: () => { onOpenAbout(); onClose(); } },
+    ] : []),
+    ...(onOpenReleaseNotes ? [
+      { id: 'release-notes', label: t('commands.releaseNotes'), description: "What's new in this version", icon: <ScrollText size={14} />, category: t('commands.categorySettings'), action: () => { onOpenReleaseNotes(); onClose(); } },
+    ] : []),
     ...diagrams.slice(0, 20).map(d => ({ id: `d_${d.id}`, label: d.title, description: 'Open diagram', icon: <FileText size={14} />, category: t('commands.categoryDiagrams'), action: () => { onOpenDiagram(d.id); onClose(); } })),
   ];
 

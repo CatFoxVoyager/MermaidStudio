@@ -8,6 +8,7 @@ import { FullscreenPreview } from '@/preview/FullscreenPreview';
 import { AISettingsModal } from '@/ai/AISettingsModal';
 import { KeyboardShortcuts } from '@/components/modals/tools/KeyboardShortcuts';
 import { WelcomeModal } from '@/components/modals/tools/WelcomeModal';
+import { AboutModal } from '@/components/modals/tools/AboutModal';
 import { Toast } from '@/components/shared/Toast';
 import type { ToastItem } from '@/hooks/useToast';
 import type { Diagram, Template } from '@/types';
@@ -35,6 +36,7 @@ interface ModalProviderProps {
   showHelp: boolean;
   showFullscreen: boolean;
   showWelcome: boolean;
+  showAbout: boolean;
   // Callbacks
   onCloseTemplates: () => void;
   onOpenTemplates: () => void;
@@ -47,6 +49,9 @@ interface ModalProviderProps {
   onCloseHelp: () => void;
   onCloseFullscreen: () => void;
   onCloseWelcome: () => void;
+  onCloseAbout: () => void;
+  onOpenAbout: () => void;
+  onOpenWelcome: () => void;
   // Modal-specific props
   activeTab?: {
     id: string;
@@ -87,6 +92,7 @@ export function ModalProvider({
   showHelp,
   showFullscreen,
   showWelcome,
+  showAbout,
   onCloseTemplates,
   onOpenTemplates,
   onCloseHistory,
@@ -98,6 +104,9 @@ export function ModalProvider({
   onCloseHelp,
   onCloseFullscreen,
   onCloseWelcome,
+  onCloseAbout,
+  onOpenAbout,
+  onOpenWelcome,
   activeTab,
   handleTemplateSelect,
   handleRestore,
@@ -162,6 +171,14 @@ export function ModalProvider({
           diagrams={diagrams}
           onOpenDiagram={onOpenDiagram}
           onOpenStylePanel={onOpenStylePanel}
+          onOpenAbout={() => {
+            onClosePalette();
+            onOpenAbout();
+          }}
+          onOpenReleaseNotes={() => {
+            onClosePalette();
+            onOpenWelcome();
+          }}
         />
       )}
       {showExport && activeTab && handleCopyLink && (
@@ -185,6 +202,15 @@ export function ModalProvider({
       )}
       {showHelp && <KeyboardShortcuts onClose={onCloseHelp} />}
       {showWelcome && <WelcomeModal onClose={onCloseWelcome} />}
+      {showAbout && (
+        <AboutModal
+          onClose={onCloseAbout}
+          onShowReleaseNotes={() => {
+            onCloseAbout();
+            onOpenWelcome();
+          }}
+        />
+      )}
       {showBackup && (
         <BackupPanel
           isOpen

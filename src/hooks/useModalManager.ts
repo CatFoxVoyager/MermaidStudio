@@ -55,6 +55,8 @@ export interface ModalState {
   showAdvancedStyle: boolean;
   /** Welcome / release notes modal visibility (first open per version) */
   showWelcome: boolean;
+  /** About modal visibility (who made the app and why) */
+  showAbout: boolean;
 }
 
 /**
@@ -79,6 +81,7 @@ const INITIAL_MODAL_STATE: ModalState = {
   showDiagramColors: false,
   showAdvancedStyle: false,
   showWelcome: false,
+  showAbout: false,
 };
 
 /**

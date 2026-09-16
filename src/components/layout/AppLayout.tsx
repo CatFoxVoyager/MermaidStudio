@@ -48,6 +48,8 @@ interface AppLayoutProps {
   onOpenCommandPalette: () => void;
   onOpenBackup: () => void;
   onFocusMode: () => void;
+  /** Version badge click → About modal (empty state desktop / mobile top bar) */
+  onOpenAbout?: () => void;
   // Panel states
   showAI: boolean;
   showDiagramColors: boolean;
@@ -105,6 +107,7 @@ export function AppLayout({
   onOpenCommandPalette,
   onOpenBackup,
   onFocusMode,
+  onOpenAbout,
   showAI,
   showDiagramColors,
   showAdvancedStyle,
@@ -135,6 +138,7 @@ export function AppLayout({
         onSave={() => activeTab && onSave(activeTab.id)}
         onShowExport={onShowExport}
         onOpenCommandPalette={onOpenCommandPalette}
+        onOpenAbout={onOpenAbout}
         onOpenDiagram={onOpenDiagram}
         activeDiagramId={activeTab?.diagram_id ?? null}
         onRefresh={onRefreshSidebar}
@@ -224,6 +228,7 @@ export function AppLayout({
             showDiagramColors={showDiagramColors}
             showAdvancedStyle={showAdvancedStyle}
             onRenderTime={onRenderTime}
+            onOpenAbout={onOpenAbout}
             onOpenAIPanel={onOpenAIPanel}
             onPreviewError={onPreviewError}
             previewError={previewError}
