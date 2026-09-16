@@ -1,4 +1,4 @@
-import { Sun, Moon, Command, LayoutGrid as Layout, PanelLeft, GitBranch, HardDrive, Focus, Globe, FilePlus } from 'lucide-react';
+import { Sun, Moon, Command, LayoutGrid as Layout, PanelLeft, GitBranch, HardDrive, Focus, Globe, FilePlus, Info, ScrollText } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { APP_VERSION } from '@/constants/app';
@@ -16,12 +16,16 @@ interface Props {
   focusMode: boolean;
   language: 'en' | 'fr';
   onChangeLanguage: (lang: 'en' | 'fr') => void;
+  /** About modal (desktop top-bar parity with palette / mobile badge) */
+  onOpenAbout?: () => void;
+  /** Re-open the first-run welcome modal (release notes) */
+  onOpenReleaseNotes?: () => void;
 }
 
 export function TopBar({
   theme, onToggleTheme, onOpenCommandPalette, onOpenTemplates, onNewDiagram,
   sidebarOpen, onToggleSidebar, onOpenBackup, onFocusMode, focusMode,
-  language, onChangeLanguage,
+  language, onChangeLanguage, onOpenAbout, onOpenReleaseNotes,
 }: Props) {
   const { t } = useTranslation();
   const [showLangMenu, setShowLangMenu] = useState(false);
@@ -46,8 +50,20 @@ export function TopBar({
               <path d="M7 10v4M7 14h10M17 14v-4" />
             </svg>
           </div>
-          <h1 className="text-sm font-semibold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-            Mermaid<span style={{ color: 'var(--accent)' }}>Studio</span> <span className="text-xs font-normal" style={{ color: 'var(--text-secondary)' }}>v{APP_VERSION}</span>
+          <h1 className="text-sm font-semibold tracking-tight flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
+            Mermaid<span style={{ color: 'var(--accent)' }}>Studio</span>{' '}
+            {onOpenAbout ? (
+              <button
+                data-testid="topbar-about-badge"
+                onClick={onOpenAbout}
+                title={t('about.title')}
+                className="text-xs font-normal rounded px-1 py-0.5 transition-colors hover:bg-white/8 active:bg-white/15 cursor-pointer"
+                style={{ color: 'var(--text-secondary)' }}>
+                v{APP_VERSION}
+              </button>
+            ) : (
+              <span className="text-xs font-normal" style={{ color: 'var(--text-secondary)' }}>v{APP_VERSION}</span>
+            )}
           </h1>
         </div>
       </div>
@@ -93,6 +109,28 @@ export function TopBar({
           <HardDrive size={13} />
           {t('header.backupImport')}
         </button>
+        {onOpenAbout && (
+          <button
+            data-testid="topbar-about"
+            onClick={onOpenAbout}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/6"
+            style={{ color: 'var(--text-secondary)' }}
+            title={t('about.title')}>
+            <Info size={13} />
+            {t('header.about')}
+          </button>
+        )}
+        {onOpenReleaseNotes && (
+          <button
+            data-testid="topbar-release-notes"
+            onClick={onOpenReleaseNotes}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/6"
+            style={{ color: 'var(--text-secondary)' }}
+            title={t('header.releaseNotes')}>
+            <ScrollText size={13} />
+            {t('header.releaseNotes')}
+          </button>
+        )}
         <div className="w-px h-5 mx-1" style={{ background: 'var(--border-subtle)' }} />
         <div className="relative">
           <button onClick={() => setShowLangMenu(!showLangMenu)}

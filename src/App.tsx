@@ -182,6 +182,7 @@ export default function App() {
           onShowAdvancedStyle={openAdvancedStyle}
           onOpenCommandPalette={modalOpen('showPalette')}
           onOpenAbout={modalOpen('showAbout')}
+          onOpenReleaseNotes={modalOpen('showWelcome')}
           onOpenBackup={modalOpen('showBackup')}
           onFocusMode={modalHandlers.toggleFocusMode}
           onThemeIdChange={

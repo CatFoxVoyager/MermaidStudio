@@ -50,6 +50,8 @@ interface AppLayoutProps {
   onFocusMode: () => void;
   /** Version badge click → About modal (empty state desktop / mobile top bar) */
   onOpenAbout?: () => void;
+  /** Top bar "Release Notes" button → re-open the welcome modal */
+  onOpenReleaseNotes?: () => void;
   // Panel states
   showAI: boolean;
   showDiagramColors: boolean;
@@ -108,6 +110,7 @@ export function AppLayout({
   onOpenBackup,
   onFocusMode,
   onOpenAbout,
+  onOpenReleaseNotes,
   showAI,
   showDiagramColors,
   showAdvancedStyle,
@@ -184,6 +187,8 @@ export function AppLayout({
         focusMode={focusMode}
         language={language}
         onChangeLanguage={onChangeLanguage}
+        onOpenAbout={onOpenAbout}
+        onOpenReleaseNotes={onOpenReleaseNotes}
       />
 
       <div className="flex flex-1 overflow-hidden">

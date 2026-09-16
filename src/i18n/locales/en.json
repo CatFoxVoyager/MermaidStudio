@@ -25,7 +25,9 @@
     "backupImport": "Backup & Import",
     "keyboardShortcuts": "Keyboard shortcuts",
     "focusMode": "Focus mode",
-    "toggleTheme": "Toggle theme"
+    "toggleTheme": "Toggle theme",
+    "about": "About",
+    "releaseNotes": "Release Notes"
   },
   "nav": {
     "files": "Files",
