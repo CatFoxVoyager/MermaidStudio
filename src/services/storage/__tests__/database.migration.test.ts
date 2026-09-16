@@ -100,5 +100,60 @@ describe('Database Migration (localStorage to IndexedDB)', () => {
       expect(settings.ai_base_url).toBe('https://existing.url');
       expect(settings.ai_model).toBe('existing-model');
     });
+
+    // Regression lock (audit constat 5): the legacy settings whitelist used
+    // to DROP seenReleaseNotesVersion and lastOpenDiagramId, so every
+    // migration re-showed release notes / forgot the last opened diagram.
+    it('should preserve seenReleaseNotesVersion and lastOpenDiagramId when migrating to IndexedDB', async () => {
+      const legacyData = {
+        folders: [],
+        diagrams: [],
+        versions: [],
+        tags: [],
+        diagramTags: [],
+        settings: {
+          theme: 'dark',
+          language: 'fr',
+          seenReleaseNotesVersion: '0.6.0',
+          lastOpenDiagramId: 'diag-42',
+        },
+        userTemplates: [],
+      };
+
+      localStorage.setItem('mermaid_studio_v1', JSON.stringify(legacyData));
+      const settings = await getSettings();
+      expect(settings.seenReleaseNotesVersion).toBe('0.6.0');
+      expect(settings.lastOpenDiagramId).toBe('diag-42');
+    });
+
+    it('should preserve seenReleaseNotesVersion and lastOpenDiagramId in the localStorage fallback path', async () => {
+      const legacyData = {
+        folders: [],
+        diagrams: [],
+        versions: [],
+        tags: [],
+        diagramTags: [],
+        settings: {
+          theme: 'dark',
+          language: 'fr',
+          seenReleaseNotesVersion: '0.6.0',
+          lastOpenDiagramId: 'diag-42',
+        },
+        userTemplates: [],
+      };
+
+      localStorage.setItem('mermaid_studio_v1', JSON.stringify(legacyData));
+      const openSpy = vi.spyOn(indexedDB, 'open').mockImplementation(() => {
+        throw new Error('Simulated IndexedDB failure');
+      });
+
+      try {
+        const settings = await getSettings();
+        expect(settings.seenReleaseNotesVersion).toBe('0.6.0');
+        expect(settings.lastOpenDiagramId).toBe('diag-42');
+      } finally {
+        openSpy.mockRestore();
+      }
+    });
   });
 });

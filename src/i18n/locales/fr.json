@@ -266,6 +266,7 @@
     "versionRestored": "Version restaurée",
     "aiSuggestionApplied": "Suggestion IA appliquée",
     "shareLinkCopied": "Lien de partage copié",
+    "autoSaveFailed": "Échec de la sauvegarde auto pour « {{title}} »",
     "error": "Erreur",
     "success": "Succès"
   },

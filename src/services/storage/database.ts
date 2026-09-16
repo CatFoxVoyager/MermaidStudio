@@ -126,6 +126,28 @@ async function save(data: DBData): Promise<void> {
 }
 
 /**
+ * Rebuild legacy settings with defaults for missing fields.
+ *
+ * Single source of truth shared by migrateFromLocalStorage and
+ * getFromLocalStorageFallback — the previous duplicated whitelists silently
+ * DROPPED seenReleaseNotesVersion and lastOpenDiagramId on every migration
+ * (audit constat 5), so keep every AppSettings field carried over here.
+ */
+function migrateSettings(parsed: Partial<DBData>): DBData['settings'] {
+  return {
+    theme: parsed.settings?.theme ?? 'light',
+    language: parsed.settings?.language ?? 'en',
+    ai_api_key: parsed.settings?.ai_api_key ?? '',
+    ai_machine_size: parsed.settings?.ai_machine_size ?? 'low',
+    ai_base_url: parsed.settings?.ai_base_url ?? '',
+    ai_model: parsed.settings?.ai_model ?? 'qwen3.5-0.8b-mermaid',
+    _encryptedKey: parsed.settings?._encryptedKey,
+    seenReleaseNotesVersion: parsed.settings?.seenReleaseNotesVersion,
+    lastOpenDiagramId: parsed.settings?.lastOpenDiagramId,
+  };
+}
+
+/**
  * Migrate data from localStorage to IndexedDB
  */
 async function migrateFromLocalStorage(): Promise<DBData> {
@@ -140,15 +162,7 @@ async function migrateFromLocalStorage(): Promise<DBData> {
         versions: parsed.versions ?? [],
         tags: parsed.tags ?? [],
         diagramTags: parsed.diagramTags ?? [],
-        settings: {
-          theme: parsed.settings?.theme ?? 'light',
-          language: parsed.settings?.language ?? 'en',
-          ai_api_key: parsed.settings?.ai_api_key ?? '',
-          ai_machine_size: parsed.settings?.ai_machine_size ?? 'low',
-          ai_base_url: parsed.settings?.ai_base_url ?? '',
-          ai_model: parsed.settings?.ai_model ?? 'qwen3.5-0.8b-mermaid',
-          _encryptedKey: parsed.settings?._encryptedKey,
-        },
+        settings: migrateSettings(parsed),
         userTemplates: parsed.userTemplates ?? [],
       };
       log.info('Migrated data from localStorage to IndexedDB');
@@ -175,15 +189,7 @@ async function getFromLocalStorageFallback(): Promise<DBData> {
         versions: parsed.versions ?? [],
         tags: parsed.tags ?? [],
         diagramTags: parsed.diagramTags ?? [],
-        settings: {
-          theme: parsed.settings?.theme ?? 'light',
-          language: parsed.settings?.language ?? 'en',
-          ai_api_key: parsed.settings?.ai_api_key ?? '',
-          ai_machine_size: parsed.settings?.ai_machine_size ?? 'low',
-          ai_base_url: parsed.settings?.ai_base_url ?? '',
-          ai_model: parsed.settings?.ai_model ?? 'qwen3.5-0.8b-mermaid',
-          _encryptedKey: parsed.settings?._encryptedKey,
-        },
+        settings: migrateSettings(parsed),
         userTemplates: parsed.userTemplates ?? [],
       };
     }
@@ -279,10 +285,20 @@ export async function updateFolder(id: string, name: string): Promise<void> {
   }
 }
 
+/**
+ * Delete a single folder and splice its contents upward: child folders are
+ * re-parented to the deleted folder's parent and its diagrams follow, so
+ * nothing is destroyed and no dangling folder_id survives. The previous
+ * version deleted direct child folders while leaving their diagrams pointing
+ * at them (audit constat 3).
+ */
 export async function deleteFolder(id: string): Promise<void> {
   const data = await load();
-  data.folders = data.folders.filter(f => f.id !== id && f.parent_id !== id);
-  data.diagrams = data.diagrams.map(d => (d.folder_id === id ? { ...d, folder_id: null } : d));
+  const parentId = data.folders.find(f => f.id === id)?.parent_id ?? null;
+  data.folders = data.folders
+    .filter(f => f.id !== id)
+    .map(f => (f.parent_id === id ? { ...f, parent_id: parentId } : f));
+  data.diagrams = data.diagrams.map(d => (d.folder_id === id ? { ...d, folder_id: parentId } : d));
   await save(data);
 }
 

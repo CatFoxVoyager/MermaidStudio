@@ -2,7 +2,8 @@
  * Tests for useTabs hook
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
+import { StrictMode } from 'react';
 import { renderHook, waitFor, act } from '@testing-library/react';
 import { useTabs } from '../useTabs';
 
@@ -384,6 +385,160 @@ describe('useTabs Hook', () => {
 
       expect(result.current.tabs[0].is_dirty).toBe(true);
       expect(result.current.tabs[1].is_dirty).toBe(true);
+    });
+  });
+
+  // ===== Audit constat 4 =====
+  // The pre-fix hook called updateDiagram from INSIDE setTabs updaters: every
+  // keystroke re-serialized the whole IndexedDB record synchronously, the
+  // impure updater fired the save twice under React StrictMode, and save
+  // failures were only swallowed into console.error. The contract below:
+  // edits are debounced (~1s after the last keystroke) and coalesced, the
+  // debounced save fires exactly once even under StrictMode, failures are
+  // surfaced through onSaveError, and closing/saving a tab flushes any
+  // pending debounce so no typing is ever lost.
+  describe('Debounced auto-save (audit constat 4)', () => {
+    // The debounce delay, in ms. Kept inline: the test locks the
+    // user-visible contract (~1s after the last keystroke), not the constant.
+    const AUTO_SAVE_DELAY = 1000;
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    async function openOneDiagram() {
+      const { result } = renderHook(() => useTabs());
+      await act(async () => {
+        await result.current.openDiagram('diagram-1');
+      });
+      return result;
+    }
+
+    it('should not persist on every keystroke — save fires after the debounce delay', async () => {
+      vi.useFakeTimers();
+      const { updateDiagram } = await import('@/services/storage/database');
+      const result = await openOneDiagram();
+
+      act(() => {
+        result.current.updateTabContent('tab_diagram-1', 'typing…');
+      });
+
+      expect(updateDiagram).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_SAVE_DELAY);
+      });
+
+      expect(updateDiagram).toHaveBeenCalledTimes(1);
+      expect(updateDiagram).toHaveBeenCalledWith('diagram-1', { content: 'typing…' });
+    });
+
+    it('should coalesce rapid edits into a single save with the final content', async () => {
+      vi.useFakeTimers();
+      const { updateDiagram } = await import('@/services/storage/database');
+      const result = await openOneDiagram();
+
+      act(() => {
+        result.current.updateTabContent('tab_diagram-1', 'version 1');
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_SAVE_DELAY / 2);
+      });
+      act(() => {
+        result.current.updateTabContent('tab_diagram-1', 'version 2');
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_SAVE_DELAY);
+      });
+
+      expect(updateDiagram).toHaveBeenCalledTimes(1);
+      expect(updateDiagram).toHaveBeenCalledWith('diagram-1', { content: 'version 2' });
+    });
+
+    it('should fire the debounced save exactly once under StrictMode', async () => {
+      vi.useFakeTimers();
+      const { updateDiagram } = await import('@/services/storage/database');
+      const { result } = renderHook(() => useTabs(), { wrapper: StrictMode });
+      await act(async () => {
+        await result.current.openDiagram('diagram-1');
+      });
+
+      act(() => {
+        result.current.updateTabContent('tab_diagram-1', 'strict mode edit');
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_SAVE_DELAY);
+      });
+
+      expect(updateDiagram).toHaveBeenCalledTimes(1);
+    });
+
+    it('should report auto-save failures through onSaveError', async () => {
+      vi.useFakeTimers();
+      const { updateDiagram } = await import('@/services/storage/database');
+      (updateDiagram as unknown as Mock).mockRejectedValueOnce(new Error('quota exceeded'));
+      const onSaveError = vi.fn();
+      const { result } = renderHook(() => useTabs({ onSaveError }));
+      await act(async () => {
+        await result.current.openDiagram('diagram-1');
+      });
+
+      act(() => {
+        result.current.updateTabContent('tab_diagram-1', 'unsavable');
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_SAVE_DELAY);
+      });
+
+      expect(onSaveError).toHaveBeenCalledWith('diagram-1', expect.any(Error));
+    });
+
+    it('should flush a pending auto-save when the tab is closed', async () => {
+      vi.useFakeTimers();
+      const { updateDiagram } = await import('@/services/storage/database');
+      const result = await openOneDiagram();
+
+      act(() => {
+        result.current.updateTabContent('tab_diagram-1', 'last words');
+      });
+      expect(updateDiagram).not.toHaveBeenCalled();
+
+      act(() => {
+        result.current.closeTab('tab_diagram-1');
+      });
+      expect(updateDiagram).toHaveBeenCalledTimes(1);
+      expect(updateDiagram).toHaveBeenCalledWith('diagram-1', { content: 'last words' });
+
+      // The debounce must not fire a second time after the flush
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_SAVE_DELAY * 2);
+      });
+      expect(updateDiagram).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not double-save when a manual save lands while a debounce is pending', async () => {
+      vi.useFakeTimers();
+      const { updateDiagram } = await import('@/services/storage/database');
+      const result = await openOneDiagram();
+
+      act(() => {
+        result.current.updateTabContent('tab_diagram-1', 'manual content');
+      });
+      expect(updateDiagram).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await result.current.saveTab('tab_diagram-1');
+      });
+      expect(updateDiagram).toHaveBeenCalledTimes(1);
+      expect(updateDiagram).toHaveBeenCalledWith('diagram-1', {
+        content: 'manual content',
+        title: 'diagram-1',
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(AUTO_SAVE_DELAY * 2);
+      });
+      expect(updateDiagram).toHaveBeenCalledTimes(1);
     });
   });
 });

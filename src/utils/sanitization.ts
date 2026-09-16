@@ -120,27 +120,38 @@ export function validateBackupData(raw: unknown): BackupData {
  * foreignObject content before sanitization, then restoring it after.
  */
 export function sanitizeMermaidSVG(svg: string): string {
-  const foContents: string[] = [];
-  const placeholder = '%%MMPRESERVE';
-  const withPlaceholders = svg.replace(
-    /<foreignObject([^>]*)>([\s\S]*?)<\/foreignObject>/g,
-    (_, attrs, content) => {
-      foContents.push(content);
-      return `<foreignObject${attrs}>${placeholder}${foContents.length - 1}%%</foreignObject>`;
-    }
-  );
-
-  const forbiddenTags = ['iframe', 'form', 'input', 'textarea', 'select', 'button', 'script', 'object', 'embed', 'applet'];
   // FORBID_TAGS/FORBID_ATTR must be ARRAYS: DOMPurify's _resolveSetOption
   // falls back to an empty set for any non-array value, so the previous
   // object form ({ tag: true }) was silently ignored at runtime and these
   // tags/attributes were NOT actually forbidden. The html USE_PROFILE alone
   // allows form/input/button/iframe, so the explicit forbid list matters.
+  const forbiddenTags = ['iframe', 'form', 'input', 'textarea', 'select', 'button', 'script', 'object', 'embed', 'applet'];
+  const forbiddenAttrs = ['onerror', 'onload', 'onclick', 'onmouseover'];
+
+  const foContents: string[] = [];
+  const placeholder = '%%MMPRESERVE';
+  const withPlaceholders = svg.replace(
+    /<foreignObject([^>]*)>([\s\S]*?)<\/foreignObject>/g,
+    (_, attrs, content) => {
+      // The extracted HTML label content never crosses the outer SVG-profile
+      // pass (DOMPurify does not traverse the SVG↔HTML namespace boundary),
+      // so restoring it verbatim would be an XSS bypass — sanitize it here
+      // with the HTML profile and the same deny lists, before it is
+      // reinjected into the sanitized document.
+      foContents.push(DOMPurify.sanitize(content, {
+        USE_PROFILES: { html: true },
+        FORBID_TAGS: forbiddenTags,
+        FORBID_ATTR: forbiddenAttrs,
+      }));
+      return `<foreignObject${attrs}>${placeholder}${foContents.length - 1}%%</foreignObject>`;
+    }
+  );
+
   const sanitized = DOMPurify.sanitize(withPlaceholders, {
     USE_PROFILES: { html: true, svg: true, svgFilters: true },
     ADD_TAGS: ['foreignObject'],
     FORBID_TAGS: forbiddenTags,
-    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover'],
+    FORBID_ATTR: forbiddenAttrs,
   });
 
   const restored = sanitized.replace(
