@@ -5,7 +5,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { fireEvent } from '@testing-library/react';
-import { PreviewPanel } from '../PreviewPanel';
+import { useState } from 'react';
+import { PreviewPanel, highlightSelectedEdge } from '../PreviewPanel';
 
 // Mock i18n
 vi.mock('react-i18next', () => ({
@@ -1403,6 +1404,273 @@ describe('PreviewPanel Component', () => {
         await waitFor(() => {
           expect(screen.getByTestId('edge-style-panel')).toBeInTheDocument();
         });
+      });
+    });
+
+    // ---------------------------------------------------------------------
+    // Selection lifecycle stability (regression suite for the "clicking an
+    // edge does nothing visible" bug family). Real-browser findings:
+    //
+    // 1. The shadow-DOM setup effect lists `syncEdgeTargets` in its deps,
+    //    and that callback depends on the `onSelectionOpen` prop — which the
+    //    parent (WorkspacePanel) passes as an inline arrow. Every parent
+    //    re-render recreates it, re-running the shadow effect, which does
+    //    `shadowRoot.textContent = ''` + innerHTML — the whole SVG (and the
+    //    just-applied edge highlight) is destroyed on every selection.
+    // 2. The edge updater calls onSelectionOpen INSIDE the setState updater
+    //    (setState of App during PreviewPanelInner's render — the React
+    //    "Cannot update a component" warning, and the trigger for (1)).
+    // 3. highlightSelectedEdge/addEdgeClickTargets match parsed ids ('A')
+    //    against raw SVG node ids ('preview_2_..._flowchart-A-0') and parse
+    //    path data with space-tolerant regexes — Mermaid 12 writes
+    //    "M185,56L185,174" (commas), so endpoint matching never matches and
+    //    everything falls back to index order.
+    // 4. Mobile: the panel renders hidden (display:none tab); overlays are
+    //    measured at 0×0 and never re-measured when the tab becomes visible.
+    // ---------------------------------------------------------------------
+    describe('selection lifecycle stability', () => {
+      // Mermaid 12-shaped fixture: prefixed node ids, comma transforms and
+      // comma path data. SVG path order is B→C FIRST, A→B second — the
+      // opposite of the parsed order — so order-based fallbacks mislabel.
+      const EDGE_SVG = [
+        '<svg id="edge-svg" viewBox="0 0 370 420">',
+        '<g class="node" id="preview_2_1789539815916-flowchart-A-0" transform="translate(185,32)"><rect/><text class="nodeLabel">Start</text></g>',
+        '<g class="node" id="preview_2_1789539815916-flowchart-B-1" transform="translate(185,198)"><rect/><text class="nodeLabel">Choice</text></g>',
+        '<g class="node" id="preview_2_1789539815916-flowchart-C-3" transform="translate(94,388)"><rect/><text class="nodeLabel">OK</text></g>',
+        '<g class="edgePaths">',
+        '<path class="flowchart-link" id="L_B_C_0" d="M185,222C185,240,94,340,94,364"/>',
+        '<path class="flowchart-link" id="L_A_B_1" d="M185,56L185,174"/>',
+        '</g>',
+        '</svg>',
+      ].join('');
+
+      const edgeParsedDiagram = {
+        nodes: [
+          { id: 'A', label: 'Start', shape: 'rect', raw: 'A[Start]', parentSubgraphId: null },
+          { id: 'B', label: 'Choice', shape: 'diamond', raw: 'B{Choice}', parentSubgraphId: null },
+          { id: 'C', label: 'OK', shape: 'rect', raw: 'C[OK]', parentSubgraphId: null },
+        ],
+        edges: [
+          { source: 'A', target: 'B', label: '', arrowType: '-->', raw: 'A --> B' },
+          { source: 'B', target: 'C', label: 'yes', arrowType: '-->', raw: 'B -->|yes| C' },
+        ],
+        styles: new Map(),
+        classDefs: new Map(),
+        nodeClasses: new Map(),
+        linkStyles: new Map(),
+        subgraphs: [],
+      };
+
+      const rect = (left: number, top: number, width: number, height: number) =>
+        ({
+          left, top, width, height,
+          right: left + width, bottom: top + height,
+          x: left, y: top, toJSON: () => {},
+        }) as DOMRect;
+
+      let originalGetBCR: typeof Element.prototype.getBoundingClientRect;
+
+      beforeEach(() => {
+        originalGetBCR = Element.prototype.getBoundingClientRect;
+        // Node rects sit ~24px from their transform center (border vs center),
+        // which is what endpoint matching must tolerate (< 50 threshold).
+        Element.prototype.getBoundingClientRect = function (this: Element) {
+          if (this.hasAttribute?.('data-shadow-host')) return rect(40, 20, 800, 600);
+          const id = this.id || '';
+          if (id.endsWith('flowchart-A-0')) return rect(145, 12, 80, 40);
+          if (id.endsWith('flowchart-B-1')) return rect(145, 178, 80, 40);
+          if (id.endsWith('flowchart-C-3')) return rect(54, 368, 80, 40);
+          if (this instanceof SVGElement && this.tagName.toLowerCase() === 'svg') return rect(40, 20, 800, 600);
+          return rect(0, 0, 1000, 800);
+        } as typeof Element.prototype.getBoundingClientRect;
+      });
+
+      afterEach(() => {
+        Element.prototype.getBoundingClientRect = originalGetBCR;
+      });
+
+      async function renderWithEdges(onSelectionOpen?: () => void) {
+        const { parseDiagram } = await import('@/lib/mermaid/codeUtils');
+        const { renderDiagram, detectDiagramType } = await import('@/lib/mermaid/core');
+        vi.mocked(renderDiagram).mockReset();
+        vi.mocked(renderDiagram).mockResolvedValue({ svg: EDGE_SVG, error: null });
+        vi.mocked(parseDiagram).mockReset();
+        vi.mocked(parseDiagram).mockReturnValue(edgeParsedDiagram as Awaited<ReturnType<typeof parseDiagram>>);
+        vi.mocked(detectDiagramType).mockReset();
+        vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+
+        const utils = render(
+          <PreviewPanel content="flowchart TD\nA --> B\nB -->|yes| C" theme="light" onSelectionOpen={onSelectionOpen} />,
+        );
+        await waitFor(() => {
+          expect(utils.container.querySelector('[data-edge-overlay] path')).toBeInTheDocument();
+        }, { timeout: 3000 });
+        return utils;
+      }
+
+      it('highlightSelectedEdge matches comma path data and prefixed node ids (not index order)', () => {
+        const host = document.createElement('div');
+        host.attachShadow({ mode: 'open' });
+        host.shadowRoot!.innerHTML = EDGE_SVG;
+
+        highlightSelectedEdge(host, 0, edgeParsedDiagram.edges as any);
+
+        const links = [...host.shadowRoot!.querySelectorAll('path.flowchart-link')];
+        // Parsed edge 0 is A→B whose path is SECOND in the SVG. Index-order
+        // fallback highlights the first path (B→C) — the wrong edge.
+        expect(links[0].hasAttribute('data-selected-edge')).toBe(false);
+        expect(links[1].getAttribute('data-selected-edge')).toBe('true');
+      });
+
+      it('clearing the selection removes the highlight from every path', () => {
+        const host = document.createElement('div');
+        host.attachShadow({ mode: 'open' });
+        host.shadowRoot!.innerHTML = EDGE_SVG;
+
+        highlightSelectedEdge(host, 1, edgeParsedDiagram.edges as any);
+        highlightSelectedEdge(host, null, edgeParsedDiagram.edges as any);
+
+        const links = [...host.shadowRoot!.querySelectorAll('path.flowchart-link')];
+        expect(links.every(l => !l.hasAttribute('data-selected-edge'))).toBe(true);
+      });
+
+      it('a parent re-render (fresh inline onSelectionOpen) must not rebuild the shadow DOM', async () => {
+        const utils = await renderWithEdges(() => {});
+        const host = utils.container.querySelector('[data-shadow-host]') as HTMLDivElement;
+        const linkBefore = host.shadowRoot!.querySelector('path.flowchart-link')!;
+        expect(linkBefore).toBeTruthy();
+
+        // Select an edge (applies the highlight), then simulate what App does
+        // on every selection: re-render the parent with a NEW inline callback.
+        fireEvent.click(utils.container.querySelector('[data-edge-overlay] path')!);
+        await waitFor(() => {
+          expect(screen.getByTestId('edge-style-panel')).toBeInTheDocument();
+        });
+        await waitFor(() => {
+          expect(host.shadowRoot!.querySelector('path[data-selected-edge]')).not.toBeNull();
+        });
+
+        utils.rerender(
+          <PreviewPanel
+            content="flowchart TD\nA --> B\nB -->|yes| C"
+            theme="light"
+            onSelectionOpen={() => {}}
+          />,
+        );
+        // Let any spurious effect fire before asserting stability.
+        await new Promise(r => setTimeout(r, 250));
+
+        const linkAfter = host.shadowRoot!.querySelector('path.flowchart-link');
+        expect(linkAfter).not.toBeNull();
+        expect(linkAfter!.isSameNode(linkBefore)).toBe(true);
+        expect(linkAfter!.hasAttribute('data-selected-edge')).toBe(true);
+      });
+
+      it('clicking an edge does not call the parent during PreviewPanel render (no setState-in-render)', async () => {
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+          // Parent harness: onSelectionOpen triggers a parent state update,
+          // exactly like App does.
+          function Harness() {
+            const [, setTick] = useState(0);
+            return (
+              <PreviewPanel
+                content="flowchart TD\nA --> B\nB -->|yes| C"
+                theme="light"
+                onSelectionOpen={() => setTick(t => t + 1)}
+              />
+            );
+          }
+          const utils = render(<Harness />);
+          await waitFor(() => {
+            expect(utils.container.querySelector('[data-edge-overlay] path')).toBeInTheDocument();
+          }, { timeout: 3000 });
+
+          fireEvent.click(utils.container.querySelector('[data-edge-overlay] path')!);
+          await waitFor(() => {
+            expect(screen.getByTestId('edge-style-panel')).toBeInTheDocument();
+          });
+          // requestAnimationFrame deferral is the fix — give it a beat.
+          await new Promise(r => setTimeout(r, 50));
+
+          const renderPhaseUpdates = errorSpy.mock.calls
+            .map(args => String(args[0]))
+            .filter(msg => msg.includes('Cannot update a component'));
+          expect(renderPhaseUpdates).toEqual([]);
+        } finally {
+          errorSpy.mockRestore();
+        }
+      });
+
+      it('re-measures node overlays when a hidden pane becomes visible (mobile tabs)', async () => {
+        // Minimal IO/RO stand-ins: instances register themselves so the test
+        // can flip visibility the way the browser does when a display:none
+        // tab is shown.
+        const ioCallbacks: IntersectionObserverCallback[] = [];
+        const roCallbacks: ResizeObserverCallback[] = [];
+        const IOStub = class {
+          constructor(cb: IntersectionObserverCallback) { ioCallbacks.push(cb); }
+          observe() {} unobserve() {} disconnect() {}
+        };
+        const ROStub = class {
+          constructor(cb: ResizeObserverCallback) { roCallbacks.push(cb); }
+          observe() {} unobserve() {} disconnect() {}
+        };
+        (globalThis as any).IntersectionObserver = IOStub;
+        (globalThis as any).ResizeObserver = ROStub;
+
+        let visible = false;
+        const bcr = Element.prototype.getBoundingClientRect;
+        Element.prototype.getBoundingClientRect = function (this: Element) {
+          const r = bcr.call(this);
+          if (!visible && (this.id.endsWith('flowchart-A-0') || this.id.endsWith('flowchart-B-1') || this.id.endsWith('flowchart-C-3'))) {
+            return rect(0, 0, 0, 0);
+          }
+          return r;
+        };
+
+        try {
+          const { parseDiagram } = await import('@/lib/mermaid/codeUtils');
+          const { renderDiagram, detectDiagramType } = await import('@/lib/mermaid/core');
+          vi.mocked(renderDiagram).mockReset();
+          vi.mocked(renderDiagram).mockResolvedValue({ svg: EDGE_SVG, error: null });
+          vi.mocked(parseDiagram).mockReset();
+          vi.mocked(parseDiagram).mockReturnValue(edgeParsedDiagram as Awaited<ReturnType<typeof parseDiagram>>);
+          vi.mocked(detectDiagramType).mockReset();
+          vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+
+          const utils = render(<PreviewPanel content="flowchart TD\nA --> B\nB -->|yes| C" theme="light" />);
+          await waitFor(() => {
+            expect(utils.container.querySelector('.node-overlay')).toBeInTheDocument();
+          }, { timeout: 3000 });
+
+          // Let every mount-time measure settle (100ms first measure, 220ms
+          // settle fallback, parse-driven re-runs) so the visibility flip is
+          // the ONLY thing that can trigger a re-measure afterwards.
+          await new Promise(r => setTimeout(r, 700));
+
+          // Measured while hidden: overlays collapsed to 0×0.
+          const hiddenOverlay = utils.container.querySelector('.node-overlay') as HTMLElement;
+          expect(hiddenOverlay.style.width).toBe('0px');
+
+          // Tab becomes visible: observers fire with non-zero geometry.
+          visible = true;
+          for (const cb of ioCallbacks.splice(0)) {
+            cb([{ isIntersecting: true, boundingClientRect: { width: 800, height: 600 } } as any], {} as any);
+          }
+          for (const cb of roCallbacks.splice(0)) {
+            cb([{ contentRect: { width: 800, height: 600 }, target: document.body } as any], {} as any);
+          }
+
+          await waitFor(() => {
+            const overlay = utils.container.querySelector('.node-overlay') as HTMLElement;
+            expect(overlay.style.width).toBe('80px');
+          }, { timeout: 2000 });
+        } finally {
+          delete (globalThis as any).IntersectionObserver;
+          delete (globalThis as any).ResizeObserver;
+          Element.prototype.getBoundingClientRect = bcr;
+        }
       });
     });
   });
