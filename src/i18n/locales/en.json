@@ -177,6 +177,7 @@
     "openSettings": "Open settings",
     "switchProviderHint": "to add one, or switch to a local provider like Ollama.",
     "describeDefault": "Ask me to explain, improve, or transform your diagram",
+    "modelDownloadNotice": "First request downloads the AI model (about 400–700 MB, once) — then everything runs offline on your GPU.",
     "configureProvider": "Click the settings icon above to configure an AI provider (OpenAI, Claude, Gemini, Ollama, LM Studio, or any OpenAI-compatible endpoint).",
     "providerSettings": "AI Provider Settings",
     "errorPrefix": "Failed to get a response: {{msg}}\n\nCheck your provider settings and try again.",
@@ -542,18 +543,17 @@
   "welcome": {
     "title": "Welcome to MermaidStudio",
     "intro": "A fast, fully client-side editor for Mermaid diagrams. Your diagrams, settings, and AI models stay in your browser — nothing is sent to a server.",
-    "whatsNew": "What's new in this version",
-    "releaseNotes": {
-      "navFlush": "Bottom navigation sits flush against the bottom edge on mobile — no more gap between the nav and the Android gesture bar",
-      "mermaid12": "Diagram engine upgraded to Mermaid 12 — same familiar look by design (v11 dagre/classic defaults pinned)",
-      "elk": "ELK layout engine now bundled with Mermaid 12 — available in the layout picker, no double download",
-      "svgPipeline": "SVG post-processing pipeline locked against real Mermaid 12 output: preview/export parity, hardened XSS sanitization",
-      "cdnSri": "Embeddable CDN build re-pinned with an integrity hash (SRI sha384)",
-      "usecaseDiagram": "New usecaseDiagram type and expanded autocomplete: railroad, cynefin, swimlane, and new shapes"
-    },
-    "moreInChangelog": "See the full changelog on GitHub for the complete list.",
+    "valueProp1": "In-browser AI — generate and fix diagrams with a local LLM running on your GPU. Your code never leaves your machine.",
+    "valueProp2": "Visual editor — drag and drop nodes over the live preview, with folders, tags and version history.",
+    "valueProp3": "Free & private — open source (MIT), no account, no telemetry, works offline.",
+    "changelogLink": "What's new in v{{version}}?",
     "github": "View on GitHub",
     "githubCaption": "Open source — star the project and report issues"
+  },
+  "support": {
+    "caption": "Support MermaidStudio",
+    "koFi": "Ko-Fi",
+    "liberapay": "Liberapay"
   },
   "about": {
     "title": "About MermaidStudio",

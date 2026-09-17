@@ -177,6 +177,7 @@
     "openSettings": "Ouvrir les paramètres",
     "switchProviderHint": "pour en ajouter une, ou passer à un fournisseur local comme Ollama.",
     "describeDefault": "Demandez-moi d'expliquer, d'améliorer ou de transformer votre diagramme",
+    "modelDownloadNotice": "La première requête télécharge le modèle IA (environ 400–700 Mo, une seule fois) — ensuite tout fonctionne hors ligne sur votre GPU.",
     "configureProvider": "Cliquez sur l'icône de paramètres ci-dessus pour configurer un fournisseur IA (OpenAI, Claude, Gemini, Ollama, LM Studio ou tout point de terminaison compatible OpenAI).",
     "providerSettings": "Paramètres du fournisseur IA",
     "errorPrefix": "Échec de la réponse : {{msg}}\n\nVérifiez vos paramètres de fournisseur et réessayez.",
@@ -542,18 +543,17 @@
   "welcome": {
     "title": "Bienvenue sur MermaidStudio",
     "intro": "Un éditeur de diagrammes Mermaid rapide et entièrement côté client. Vos diagrammes, paramètres et modèles d'IA restent dans votre navigateur — rien n'est envoyé vers un serveur.",
-    "whatsNew": "Nouveautés de cette version",
-    "releaseNotes": {
-      "navFlush": "La navigation inférieure est collée au bord bas sur mobile — plus aucun espace entre la barre et la zone de gestes Android",
-      "mermaid12": "Moteur de diagrammes mis à niveau vers Mermaid 12 — rendu identique par conception (défauts v11 dagre/classic conservés)",
-      "elk": "Moteur de mise en page ELK désormais inclus avec Mermaid 12 — disponible dans le sélecteur de disposition, sans double téléchargement",
-      "svgPipeline": "Pipeline de post-traitement SVG verrouillé sur la sortie réelle de Mermaid 12 : parité aperçu/export, sanitisation XSS renforcée",
-      "cdnSri": "Build CDN intégrable épinglé avec un hash d'intégrité (SRI sha384)",
-      "usecaseDiagram": "Nouveau type de diagramme usecaseDiagram et autocomplétion étendue : railroad, cynefin, swimlane et nouvelles formes"
-    },
-    "moreInChangelog": "Consultez le changelog complet sur GitHub pour la liste complète.",
+    "valueProp1": "IA dans le navigateur — générez et corrigez vos diagrammes avec un LLM local qui tourne sur votre GPU. Votre code ne quitte jamais votre machine.",
+    "valueProp2": "Éditeur visuel — glissez-déposez les nœuds sur l'aperçu live, avec dossiers, tags et historique de versions.",
+    "valueProp3": "Gratuit & privé — open source (MIT), sans compte, sans télémétrie, fonctionne hors ligne.",
+    "changelogLink": "Nouveautés de la v{{version}}",
     "github": "Voir sur GitHub",
     "githubCaption": "Open source — mettez une étoile au projet et signalez les problèmes"
+  },
+  "support": {
+    "caption": "Soutenir MermaidStudio",
+    "koFi": "Ko-Fi",
+    "liberapay": "Liberapay"
   },
   "about": {
     "title": "À propos de MermaidStudio",

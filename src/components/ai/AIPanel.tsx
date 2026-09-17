@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import Markdown from 'react-markdown';
 import type { AIMessage } from '@/types';
+import { isModelLoaded } from '@/services/ai/providers';
 import { useAIChat } from '@/hooks/ai/useAIChat';
 import { useAISend, extractMermaidCode } from '@/hooks/ai/useAISend';
 import { useAISettings } from '@/hooks/ai/useAISettings';
@@ -160,11 +161,11 @@ function CodeBlock({
               unclosed brackets or extra text.
             </p>
             <div className="flex gap-2 mt-1.5">
-                <button
-                  onClick={() => {
-                    onApply?.(extractMermaidCode(code));
-                    setShowWarning(false);
-                  }}
+              <button
+                onClick={() => {
+                  onApply?.(extractMermaidCode(code));
+                  setShowWarning(false);
+                }}
                 className="px-2 py-0.5 rounded-sm text-[9px] font-medium"
                 style={{ background: 'rgba(245,158,11,0.2)' }}
               >
@@ -192,12 +193,20 @@ function CodeBlock({
 }
 
 function looksLikeMermaid(text: string): boolean {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const lines = text
+    .split('\n')
+    .map(l => l.trim())
+    .filter(Boolean);
   if (lines.length === 0) return false;
   return lines.some(line => {
     if (/^class\s+\w+\s*\{/.test(line)) return true;
     if (/^\w+\s*(-->|->|==>|\.\.>|--|---)\s*\w+/.test(line)) return true;
-    if (/^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|mindmap|gitGraph|journey|timeline|pie|quadrantChart|block|kanban|C4|architecture|sankey|xychart|radar)\b/i.test(line)) return true;
+    if (
+      /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|mindmap|gitGraph|journey|timeline|pie|quadrantChart|block|kanban|C4|architecture|sankey|xychart|radar)\b/i.test(
+        line
+      )
+    )
+      return true;
     return false;
   });
 }
@@ -304,6 +313,11 @@ export function AIPanel({
   }, [fixTrigger, isConfigured, t]);
 
   const shouldShowSuggestions = messages.length === 0 && !fixMode;
+
+  // Audit M5: a first message triggers a ~400–700 MB one-off model download
+  // (cached by the browser, offline afterwards). The empty state must frame
+  // that cost before the user commits to it — not after the progress bar.
+  const modelLoaded = isModelLoaded();
 
   const SUGGESTIONS = [
     t('ai.suggestion1'),
@@ -442,6 +456,14 @@ export function AIPanel({
             >
               {t('ai.describeDefault')}
             </p>
+            {!modelLoaded && (
+              <p
+                className="text-[10px] leading-relaxed max-w-[190px] mt-2"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                {t('ai.modelDownloadNotice')}
+              </p>
+            )}
           </div>
         )}
         {messages.map(m => (

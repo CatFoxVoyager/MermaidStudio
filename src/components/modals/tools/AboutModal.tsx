@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { ExternalLink, ScrollText } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
+import { SupportLinks } from '@/components/shared/SupportLinks';
 import { APP_VERSION } from '@/constants/app';
 import { GitHubIcon, GITHUB_URL } from './WelcomeModal';
 
@@ -19,13 +20,7 @@ export function AboutModal({ onClose, onShowReleaseNotes }: Props) {
   const { t } = useTranslation();
 
   return (
-    <Modal
-      isOpen
-      onClose={onClose}
-      title={t('about.title')}
-      subtitle={`v${APP_VERSION}`}
-      size="md"
-    >
+    <Modal isOpen onClose={onClose} title={t('about.title')} subtitle={`v${APP_VERSION}`} size="md">
       <div className="p-6 space-y-5">
         <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
           {t('about.why')}
@@ -72,6 +67,8 @@ export function AboutModal({ onClose, onShowReleaseNotes }: Props) {
           </span>
           <ExternalLink size={15} style={{ color: 'var(--text-secondary)' }} aria-hidden="true" />
         </a>
+
+        <SupportLinks />
 
         <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
           {t('about.license')}

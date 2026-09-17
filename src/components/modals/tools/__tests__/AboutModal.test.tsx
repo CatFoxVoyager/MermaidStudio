@@ -42,10 +42,21 @@ describe('AboutModal', () => {
 
   it('links to the public GitHub repository', () => {
     render(<AboutModal onClose={onClose} onShowReleaseNotes={onShowReleaseNotes} />);
-    const link = screen.getByRole('link');
+    // Scoped by name: the modal also carries Ko-Fi / Liberapay links.
+    const link = screen.getByRole('link', { name: /about\.github/ });
     expect(link).toHaveAttribute('href', 'https://github.com/CatFoxVoyager/MermaidStudio');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('shows the Ko-Fi and Liberapay support links next to the GitHub card', () => {
+    render(<AboutModal onClose={onClose} onShowReleaseNotes={onShowReleaseNotes} />);
+    const koFi = screen.getByRole('link', { name: /support\.koFi/ });
+    expect(koFi).toHaveAttribute('href', 'https://ko-fi.com/jeremie93407');
+    expect(koFi).toHaveAttribute('target', '_blank');
+    const liberapay = screen.getByRole('link', { name: /support\.liberapay/ });
+    expect(liberapay).toHaveAttribute('href', 'https://liberapay.com/Jeremie/');
+    expect(liberapay).toHaveAttribute('target', '_blank');
   });
 
   it('opens the release-notes modal when the button is clicked', async () => {
