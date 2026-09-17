@@ -12,16 +12,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- Primary Meta Tags -->
-    <title>MermaidStudio v%APP_VERSION% - Advanced Mermaid Diagram Editor</title>
-    <meta name="title" content="MermaidStudio - Advanced Mermaid Diagram Editor">
-    <meta name="description" content="Create, edit, and export beautiful Mermaid diagrams with our advanced editor. Supports flowcharts, sequence diagrams, class diagrams, Gantt charts, and more.">
+    <title>MermaidStudio — Free Open-Source Mermaid Diagram Editor with In-Browser AI</title>
+    <meta name="title" content="MermaidStudio — Free Open-Source Mermaid Diagram Editor with In-Browser AI">
+    <meta name="description" content="Free, open-source Mermaid diagram editor: in-browser AI (WebGPU), drag-and-drop visual editor, folders and version history. No account — everything stays on your device.">
     <link rel="canonical" href="https://www.mermaidstudio.net/">
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://www.mermaidstudio.net/">
-    <meta property="og:title" content="MermaidStudio - Advanced Mermaid Diagram Editor">
-    <meta property="og:description" content="Create, edit, and export beautiful Mermaid diagrams with our advanced editor.">
+    <meta property="og:title" content="MermaidStudio — Free Open-Source Mermaid Diagram Editor">
+    <meta property="og:description" content="In-browser AI (WebGPU), drag-and-drop visual editor, folders and version history. Free, open source, no account — everything stays on your device.">
     <meta property="og:image" content="https://www.mermaidstudio.net/og-image.png">
     <meta property="og:locale" content="en_US">
     <meta property="og:locale:alternate" content="fr_FR">
@@ -29,8 +29,8 @@
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://www.mermaidstudio.net/">
-    <meta property="twitter:title" content="MermaidStudio - Advanced Mermaid Diagram Editor">
-    <meta property="twitter:description" content="Create, edit, and export beautiful Mermaid diagrams.">
+    <meta property="twitter:title" content="MermaidStudio — Free Open-Source Mermaid Diagram Editor">
+    <meta property="twitter:description" content="In-browser AI, visual editor, version history. Free and open source — runs entirely in your browser.">
     <meta property="twitter:image" content="https://www.mermaidstudio.net/og-image.png">
 
     <!-- Additional SEO -->
@@ -40,6 +40,35 @@
     <!-- hreflang /en /fr retirés : ces routes n'existent pas (404). L'i18n FR/EN
          est un switcher in-app sur une URL unique ; réintroduire des hreflang
          seulement si des routes localisées voient le jour. -->
+
+    <!-- Structured data: WebApplication. No fabricated aggregateRating,
+         no HowTo (deprecated Sept 2023), no FAQPage (rich results retired
+         May 2026). -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "MermaidStudio",
+      "url": "https://www.mermaidstudio.net/",
+      "description": "Free, open-source Mermaid diagram editor with in-browser AI (WebGPU), drag-and-drop visual editor, folders and version history. No account — everything stays on your device.",
+      "applicationCategory": "DesignApplication",
+      "operatingSystem": "Any",
+      "browserRequirements": "Requires JavaScript. AI features require a WebGPU-capable browser.",
+      "inLanguage": ["en", "fr"],
+      "isAccessibleForFree": true,
+      "image": "https://www.mermaidstudio.net/og-image.png",
+      "license": "https://opensource.org/licenses/MIT",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": { "@type": "Person", "name": "Jérémie Dufault", "url": "https://jeremiedufault.ca" },
+      "featureList": [
+        "In-browser AI diagram generation via WebGPU (local LLM)",
+        "Drag-and-drop visual editor over the live Mermaid preview",
+        "Multi-tab workspace with folders, tags and version history",
+        "SVG/PNG export with themes and custom styling",
+        "Offline-capable PWA with English and French UI"
+      ]
+    }
+    </script>
 
     <!-- PWA -->
     <!-- First-paint fallbacks follow the system scheme; useTheme then syncs
@@ -57,17 +86,48 @@
     <!-- Resource Hints for Performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="dns-prefetch" href="https://api.openai.com">
-    <link rel="dns-prefetch" href="https://api.anthropic.com">
 
     <!-- Google Fonts with display swap for non-blocking render -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
     <!-- Note: Content Security Policy and security headers should be set via server HTTP headers, not meta tags.
          Configure these in your web server (nginx, Apache, Vite preview server, etc.) -->
+
+    <!-- Static shell styles for the crawlable pre-hydration content below.
+         React replaces #root's children on first render, after which none of
+         this applies. -->
+    <style>
+      .shell{min-height:100vh;box-sizing:border-box;max-width:52rem;margin:0 auto;padding:4.5rem 1.5rem;background:#0d1117;color:#e6edf3;font-family:Inter,system-ui,-apple-system,sans-serif}
+      .shell h1{font-size:2rem;line-height:1.25;margin:0 0 1rem;font-weight:600}
+      .shell p{line-height:1.65;margin:0 0 1.25rem}
+      .shell ul{line-height:1.65;margin:0 0 1.5rem;padding-left:1.25rem}
+      .shell li{margin-bottom:.4rem}
+      .shell a{color:#58a6ff}
+      .shell .trust{font-size:.95rem;opacity:.85}
+      @media (prefers-color-scheme:light){.shell{background:#fafaf9;color:#1f2328}.shell a{color:#0969da}}
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Crawlable shell content: indexed by search engines and AI crawlers,
+           and shown while the app bundle loads. React replaces these children
+           on first render — keep an equivalent fallback if this block changes. -->
+      <main class="shell">
+        <h1>MermaidStudio — Free &amp; Open-Source Mermaid Diagram Editor</h1>
+        <p>Draw flowcharts, sequence diagrams, class diagrams, Gantt charts and mind maps directly in your browser — with a drag-and-drop visual editor, folders and version history, and an AI assistant that runs locally on your GPU. No account, no server: everything stays on your device.</p>
+        <ul>
+          <li><strong>In-browser AI (WebGPU)</strong> — generate and fix diagrams with a local LLM; your code never leaves the machine.</li>
+          <li><strong>Visual editor</strong> — drag-and-drop nodes and edges over the live Mermaid preview.</li>
+          <li><strong>Organize</strong> — multi-tab workspace with folders, tags and full version history.</li>
+          <li><strong>Export &amp; themes</strong> — SVG/PNG export with custom styling.</li>
+          <li><strong>Private by design</strong> — open source (MIT), no account, no telemetry, works offline (PWA), English and French.</li>
+        </ul>
+        <p class="trust">Free &amp; open source (MIT) · Runs entirely in your browser — even the AI · <a href="https://github.com/CatFoxVoyager/MermaidStudio">★ GitHub</a> · <a href="https://ko-fi.com/jeremie93407">☕ Ko-Fi</a> · <a href="https://liberapay.com/Jeremie/">Liberapay</a></p>
+      </main>
+      <noscript>
+        <p>MermaidStudio is a browser-based Mermaid diagram editor and needs JavaScript to run. Source code and documentation live on <a href="https://github.com/CatFoxVoyager/MermaidStudio">GitHub</a>.</p>
+      </noscript>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
