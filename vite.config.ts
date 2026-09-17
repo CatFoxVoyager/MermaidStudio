@@ -83,59 +83,102 @@ export default defineConfig({
     // Improve chunk splitting for better caching
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            // AI - Transformers.js and ONNX
-            if (id.includes('@huggingface/transformers') || id.includes('onnxruntime-web')) {
-              return 'ai-transformers';
-            }
-            if (id.includes('@mlc-ai/web-llm')) {
-              return 'ai-webgpu';
-            }
+        // Rolldown's advancedChunks replaces manualChunks (the two cannot
+        // coexist — declaring advancedChunks makes Rolldown ignore
+        // manualChunks entirely). Manual chunks were migrated rule-for-rule
+        // as ordered groups: with equal priority the earlier group wins,
+        // matching the old first-match-wins cascade.
+        advancedChunks: {
+          groups: [
+            {
+              // Vite's \0-prefixed runtime helpers (dynamic-import preload
+              // helper, modulepreload polyfill, browser-external stub).
+              // manualChunks cannot capture them — its return value is
+              // ignored for virtual modules — and Rolldown otherwise parks
+              // the shared preload helper inside ai-webgpu, making the ~2 MB
+              // web-llm chunk a static dependency of the entry chunk.
+              name: 'vite-helpers',
+              test: (id: string) =>
+                id.includes('vite/preload-helper') ||
+                id.includes('vite/modulepreload-polyfill') ||
+                id === '__vite-browser-external',
+            },
+            {
+              // AI - Transformers.js and ONNX
+              name: 'ai-transformers',
+              test: (id: string) =>
+                id.includes('node_modules') &&
+                (id.includes('@huggingface/transformers') || id.includes('onnxruntime-web')),
+            },
+            {
+              // AI - web-llm (LAZY: only reached through the dynamic import
+              // in WebGPUMLCProvider)
+              name: 'ai-webgpu',
+              test: (id: string) => id.includes('node_modules') && id.includes('@mlc-ai/web-llm'),
+            },
             // React core
-            if (id.includes('/react/') || id.includes('/react-dom/')) {
-              return 'react-vendor';
-            }
-            // Mermaid - core and parser chunks; mermaid 12 bundles ELK itself and
-            // loads it lazily through its own dynamic import
-            if (id.includes('mermaid')) {
-              if (id.includes('@mermaid-js/parser')) return 'mermaid-parser';
-              // Mermaid's internal ELK async chunk (dist/chunks/*/elk-*.mjs) and
-              // the elkjs engine package it statically imports
-              // (elkjs/lib/elk.bundled.js, ~1.6 MB min) must keep mermaid's own
-              // dynamic-import boundary: returning undefined here stops the
-              // mermaid-core catch-all from collapsing the ELK code into the
-              // eagerly-loaded mermaid-core chunk.
-              if (/mermaid[/\\]dist[/\\]chunks[/\\].*elk-.+\.mjs(\?|$)/.test(id) || id.includes('elkjs')) {
-                return undefined;
-              }
-              return 'mermaid-core';
-            }
-            // CodeMirror - separate core and features
-            if (
-              id.includes('@codemirror/') ||
-              id.includes('codemirror') ||
-              id.includes('@lezer/')
-            ) {
-              if (
-                id.includes('language') ||
-                id.includes('autocomplete') ||
-                id.includes('commands') ||
-                id.includes('search')
-              ) {
-                return 'codemirror-features';
-              }
-              return 'codemirror-core';
-            }
+            {
+              name: 'react-vendor',
+              test: (id: string) =>
+                id.includes('node_modules') && (id.includes('/react/') || id.includes('/react-dom/')),
+            },
+            // Mermaid parser chunk
+            {
+              name: 'mermaid-parser',
+              test: (id: string) => id.includes('node_modules') && id.includes('@mermaid-js/parser'),
+            },
+            // Mermaid core. Deliberately NOT matching mermaid's internal ELK
+            // async chunk (dist/chunks/*/elk-*.mjs) nor elkjs: they must fall
+            // through to automatic chunking so mermaid's own dynamic-import
+            // boundary (lazy elk-*.js chunks) survives.
+            {
+              name: 'mermaid-core',
+              test: (id: string) =>
+                id.includes('node_modules') &&
+                id.includes('mermaid') &&
+                !/mermaid[/\\]dist[/\\]chunks[/\\].*elk-.+\.mjs(\?|$)/.test(id) &&
+                !id.includes('elkjs'),
+            },
+            // CodeMirror - features first, then core
+            {
+              name: 'codemirror-features',
+              test: (id: string) =>
+                id.includes('node_modules') &&
+                (id.includes('@codemirror/') || id.includes('codemirror') || id.includes('@lezer/')) &&
+                (id.includes('language') ||
+                  id.includes('autocomplete') ||
+                  id.includes('commands') ||
+                  id.includes('search')),
+            },
+            {
+              name: 'codemirror-core',
+              test: (id: string) =>
+                id.includes('node_modules') &&
+                (id.includes('@codemirror/') || id.includes('codemirror') || id.includes('@lezer/')),
+            },
             // Other major libraries
-            if (id.includes('lucide-react')) return 'lucide';
-            if (id.includes('i18next')) return 'i18n';
-            if (id.includes('dompurify')) return 'dompurify';
-            if (id.includes('d3-') || id.includes('dagre')) return 'chart-libs';
-            if (id.includes('langium') || id.includes('chevrotain')) return 'parsing-libs';
-
-            return 'vendor';
-          }
+            { name: 'lucide', test: (id: string) => id.includes('node_modules') && id.includes('lucide-react') },
+            { name: 'i18n', test: (id: string) => id.includes('node_modules') && id.includes('i18next') },
+            { name: 'dompurify', test: (id: string) => id.includes('node_modules') && id.includes('dompurify') },
+            {
+              name: 'chart-libs',
+              test: (id: string) => id.includes('node_modules') && (id.includes('d3-') || id.includes('dagre')),
+            },
+            {
+              name: 'parsing-libs',
+              test: (id: string) => id.includes('node_modules') && (id.includes('langium') || id.includes('chevrotain')),
+            },
+            // vendor catch-all. Deliberately NOT capturing elkjs (nor
+            // mermaid's elk-*.mjs above): under manualChunks these returned
+            // undefined to stay out of every manual chunk, and letting the
+            // catch-all swallow elkjs would inline ~1.6 MB of ELK into this
+            // eager chunk (caught by scripts/check-elk-chunk.mjs).
+            {
+              name: 'vendor',
+              test: (id: string) =>
+                id.includes('node_modules') && !id.includes('elkjs') && !/elk-.+\.mjs(\?|$)/.test(id),
+            },
+          ],
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
