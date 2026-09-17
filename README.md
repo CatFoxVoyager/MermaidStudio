@@ -3,12 +3,13 @@
 [![Version](https://img.shields.io/github/package-json/v/CatFoxVoyager/MermaidStudio?label=version&color=blue)](https://github.com/CatFoxVoyager/MermaidStudio/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/typescript-6.0.3-blue.svg)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/vite-8.1.2-green.svg)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/tailwind-4.3.2-cyan.svg)](https://tailwindcss.com/)
+[![Vite](https://img.shields.io/badge/vite-8.3.0-green.svg)](https://vitejs.dev/)
+[![Tailwind CSS](https://img.shields.io/badge/tailwind-4.3.3-cyan.svg)](https://tailwindcss.com/)
 [![Node](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org/)
 [![Ko-Fi](https://img.shields.io/badge/Ko--Fi-Support%20Me-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/jeremie93407)
+[![Liberapay](https://img.shields.io/badge/Liberapay-Donate-F6C915?logo=liberapay&logoColor=white)](https://liberapay.com/Jeremie/)
 
-**🚀 Try the demo: [https://mermaid.jeremiedufault.ca/](https://mermaid.jeremiedufault.ca/)**
+**🚀 Try the demo: [https://www.mermaidstudio.net/](https://www.mermaidstudio.net/)**
 
 ## 🎯 Open-Source Alternative to Mermaid Live Editor
 
@@ -45,22 +46,10 @@ Run AI models directly in your browser via WebGPU — no API keys, no server, co
 
 Models are downloaded once and cached. Works offline after initial load.
 
-#### Supported Providers
+#### Requirements
 
-**Local AI (Private and Free):**
-- ⚡ **WebGPU** — In-browser inference via @mlc-ai/web-llm (no server needed)
-- 🦙 **Ollama** - Recommended models:
-  - `qwen2.5:4b` - Qwen3.5-4B
-  - `ministral-3b-instruct-2512` - Ministral 3B Instruct
-  - `llama3.1:8b` - Meta-Llama-3-8B-Instruct
-- 🎨 **LM Studio** - Interface for running local models
-- 🔧 **Others** - Any OpenAI-compatible provider
-
-**Cloud Services (Require API Key):**
-- 🔵 **OpenAI** - GPT-5.4 Pro/Mini
-- 🟣 **Anthropic** - Claude 4.6 Opus/Sonnet
-- 🟢 **Google AI** - Gemini 3.1 Pro
-- 🟠 **xAI Grok** - Grok 4.20
+- 🖥️ **A WebGPU-capable browser** — Chrome or Edge 113+ recommended (Firefox/Safari support still experimental)
+- 🎛️ **No API keys, no server** — inference runs entirely on your GPU; nothing ever leaves your machine
 
 #### AI Features
 - ✨ **Diagram Generation** - Create diagrams from natural language prompts
@@ -70,11 +59,11 @@ Models are downloaded once and cached. Works offline after initial load.
 - 📊 **Download Progress** - Real-time model download percentage for WebGPU models
 
 ### 📄 Data Management
-- 💾 **Local Storage** - Persistent storage with browser localStorage
+- 💾 **Local Storage** - Persistent storage with browser IndexedDB (legacy localStorage data is migrated automatically)
 - 📜 **Version History** - Track changes with 50 versions per diagram
 - 🗂️ **Folder Organization** - Organize diagrams into folders
 - 🏷️ **Tag System** - Categorize and search with tags
-- 📤 **Import/Export** - Export to PNG, JPEG, SVG, or PDF
+- 📤 **Import/Export** - Export to SVG or PNG, copy as Markdown, embed code, or share link
 
 ### 🚀 Productivity Features
 - 🎯 **Template Library** - Pre-built templates for common diagram types
@@ -191,53 +180,15 @@ Developers: see [docs/developer-guide/browser-support.md](./docs/developer-guide
 
 ## 🤖 AI Configuration
 
-### Option 1: Local AI (Recommended - Free and Private)
+AI runs entirely in your browser via WebGPU — there is no server and no API key to configure.
 
-#### With Ollama
+1. Open the AI panel (⚡ button in the toolbar)
+2. Pick a model based on your hardware:
+   - **Low-end machine** → `qwen3.5-0.8b-mermaid` (~400MB download)
+   - **High-end machine** → `qwen3.5-2b-mermaid` (~700MB download)
+3. Wait for the one-time model download, then generate, fix, and refine diagrams — works offline afterwards
 
-1. **Install Ollama**: https://ollama.ai/
-2. **Download a model**:
-   ```bash
-   ollama pull llama3.2
-   # or
-   ollama pull mistral
-   ```
-3. **Configure MermaidStudio**:
-   - Open AI settings panel (⚙️ icon)
-   - Select "Ollama" as provider
-   - Default URL is `http://localhost:11434/api/generate`
-   - Default model is `llama3.2`
-
-#### With LM Studio
-
-1. **Install LM Studio**: https://lmstudio.ai/
-2. **Start local server**:
-   - Load a model in LM Studio
-   - Enable API server (usually at `http://localhost:1234/v1`)
-3. **Configure MermaidStudio**:
-   - Provider: "Custom OpenAI-Compatible"
-   - API URL: `http://localhost:1234/v1/chat/completions`
-   - Model: the one loaded in LM Studio
-
-### Option 2: Cloud Services
-
-#### Create a `.env.local` file
-
-```env
-# OpenAI (GPT-4, GPT-3.5)
-VITE_OPENAI_API_KEY=sk-...
-VITE_OPENAI_MODEL=gpt-4
-
-# Anthropic Claude (Claude 3.5 Sonnet)
-VITE_ANTHROPIC_API_KEY=sk-ant-...
-VITE_ANTHROPIC_MODEL=claude-3-5-sonnet-20241022
-
-# Google AI (Gemini)
-VITE_GOOGLE_AI_API_KEY=...
-VITE_GOOGLE_AI_MODEL=gemini-pro
-```
-
-**⚠️ Security**: Never commit your API keys! The `.env.local` file is already in `.gitignore`.
+> **Requirements**: a WebGPU-capable browser (Chrome/Edge 113+ recommended). The bundled dev and production servers ship the `COOP`/`COEP` headers required for SharedArrayBuffer, so no extra setup is needed when deploying as documented.
 
 ---
 
@@ -256,7 +207,7 @@ flowchart TD
 
 ### AI Generation
 
-Click the ⚡ (lightning) icon in the interface and type:
+Click the AI (⚡) button in the toolbar and type:
 
 ```
 Create a flowchart for a user registration process with email verification
@@ -314,8 +265,8 @@ src/
 ├── lib/               # Utilities
 │   └── mermaid/       # Mermaid integration
 ├── services/          # Business services
-│   ├── ai/            # AI services (Ollama, OpenAI, etc.)
-│   └── storage/       # Local storage
+│   ├── ai/            # AI provider (in-browser WebGPU/MLC)
+│   └── storage/       # IndexedDB persistence
 ├── hooks/             # Custom React hooks
 ├── types/             # TypeScript types
 └── utils/             # Utility functions
@@ -349,12 +300,12 @@ npm run test:e2e       # Playwright E2E tests
 
 | Dependency | Version | Description |
 |-------------|---------|-------------|
-| **React** | 19.2.4 | UI framework with concurrent features |
-| **TypeScript** | 5.9.3 | Static typing |
-| **Vite** | 8.0.2 | Ultra-fast build and dev server |
-| **Tailwind CSS** | 4.2.2 | Utility-first CSS framework |
-| **Mermaid** | 11.13.0 | Diagram rendering |
-| **@mlc-ai/web-llm** | - | In-browser WebGPU inference |
+| **React** | 19.3.0 | UI framework with concurrent features |
+| **TypeScript** | 6.0.3 | Static typing |
+| **Vite** | 8.3.0 | Ultra-fast build and dev server |
+| **Tailwind CSS** | 4.3.3 | Utility-first CSS framework |
+| **Mermaid** | 12.0.0 | Diagram rendering |
+| **@mlc-ai/web-llm** | 0.2.83 (vendored) | In-browser WebGPU inference |
 | **@huggingface/transformers** | 4.2.0 | ONNX/Transformer models in browser |
 | **Node.js** | ≥24.0.0 | Required runtime |
 
@@ -371,12 +322,9 @@ VITE_DEFAULT_LANGUAGE=en
 
 # Development
 VITE_DEV_SERVER_PORT=5173
-
-# AI Providers (optional - one or more required for AI)
-VITE_OPENAI_API_KEY=sk-...
-VITE_ANTHROPIC_API_KEY=sk-ant-...
-VITE_GOOGLE_AI_API_KEY=...
 ```
+
+No AI keys are needed — the only AI provider is in-browser WebGPU/MLC.
 
 ### Ports
 
@@ -468,7 +416,7 @@ npm run test:coverage
 ### Vercel (Recommended)
 
 1. Connect your GitHub repository to Vercel
-2. Configure environment variables
+2. Deploy — no environment variables needed (fully client-side)
 3. Automatically deploy on `main` push
 
 ### Other Platforms
@@ -491,7 +439,7 @@ npm run test:coverage
 
 - **XSS Protection**: SVG sanitized with DOMPurify
 - **Validation**: Content validated before processing
-- **API Keys**: Stored locally (user control)
+- **No API keys**: AI runs in-browser via WebGPU — nothing sensitive to store or leak
 - **CSP**: Headers for production
 
 ---
@@ -515,9 +463,9 @@ lsof -i :3000                 # macOS/Linux
 ### AI features not working
 
 - ⚠️ **AI is experimental** - May not work as expected
-- Check provider configuration
-- For Ollama/LM Studio: verify local server is running
-- For cloud providers: verify your API keys
+- Check that your browser supports WebGPU (see `chrome://gpu` in Chrome/Edge)
+- The first model download is large (~400-700MB) — check your connection
+- Serve the app over HTTPS or localhost — WebGPU and SharedArrayBuffer require a secure context
 
 ### Build errors
 
@@ -539,9 +487,7 @@ This project is licensed under MIT - see the [LICENSE](LICENSE) file for details
 - [CodeMirror](https://codemirror.net/) - Code editor
 - [Radix UI](https://www.radix-ui.com/) - Headless UI components
 - [Tailwind CSS](https://tailwindcss.com/) - CSS framework
-- [Ollama](https://ollama.ai/) - Open-source local AI
-- [LM Studio](https://lmstudio.ai/) - Local model interface
-- [MLC Web-LLM](https://github.com/anthropics/mlc-llm) - In-browser WebGPU inference
+- [MLC Web-LLM](https://github.com/mlc-ai/mlc-llm) - In-browser WebGPU inference
 - [Qwen3.5 Fine-Tuned Models](https://huggingface.co/SpongeBOB9684) - Custom Mermaid models
 - [Mermaid Text-to-Diagram Dataset](https://huggingface.co/datasets/SpongeBOB9684/mermaid-text-to-diagram)
 
@@ -551,4 +497,5 @@ Created with ❤️ by [Jérémie Dufault](https://jeremiedufault.ca)
 
 📧 [Email](mailto:rlc9rl0ut@mozmail.com)
 🌐 [Website](https://jeremiedufault.ca)
-☕ [Support the project](https://ko-fi.com/jeremie93407)
+☕ [Support on Ko-Fi](https://ko-fi.com/jeremie93407)
+💜 [Donate on Liberapay](https://liberapay.com/Jeremie/)
