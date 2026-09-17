@@ -1,17 +1,11 @@
 import { useTranslation } from 'react-i18next';
-import {
-  ExternalLink,
-  PanelBottom,
-  Workflow,
-  Network,
-  ShieldCheck,
-  Lock,
-  Shapes,
-} from 'lucide-react';
+import { ExternalLink, Cpu, MousePointerClick, ShieldCheck, History } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
+import { SupportLinks } from '@/components/shared/SupportLinks';
 import { APP_VERSION } from '@/constants/app';
 
 export const GITHUB_URL = 'https://github.com/CatFoxVoyager/MermaidStudio';
+export const CHANGELOG_URL = `${GITHUB_URL}/blob/main/CHANGELOG.md`;
 
 export function GitHubIcon({ size = 18 }: { size?: number }) {
   return (
@@ -26,21 +20,22 @@ interface Props {
 }
 
 /**
- * First-run / release-notes modal.
- * Shown automatically when the installed app version differs from the one the
- * user has already seen (tracked via `seenReleaseNotesVersion` in AppSettings).
- * The X close button is provided natively by the shared `Modal` component.
+ * First-run modal (SXO/audit M4 + Phase 4). Leads with a three-bullet value
+ * proposition — what the app does for a first-time visitor — instead of
+ * per-version release notes in contributor jargon; the changelog is demoted
+ * to a link, and support links (Ko-Fi / Liberapay) sit next to the GitHub
+ * card. Shown automatically when the installed app version differs from the
+ * one the user has already seen (tracked via `seenReleaseNotesVersion` in
+ * AppSettings). The X close button is provided natively by the shared
+ * `Modal` component.
  */
 export function WelcomeModal({ onClose }: Props) {
   const { t } = useTranslation();
 
-  const releaseNotes = [
-    { icon: PanelBottom, key: 'navFlush' as const },
-    { icon: Workflow, key: 'mermaid12' as const },
-    { icon: Network, key: 'elk' as const },
-    { icon: ShieldCheck, key: 'svgPipeline' as const },
-    { icon: Lock, key: 'cdnSri' as const },
-    { icon: Shapes, key: 'usecaseDiagram' as const },
+  const valueProps = [
+    { icon: Cpu, key: 'valueProp1' as const },
+    { icon: MousePointerClick, key: 'valueProp2' as const },
+    { icon: ShieldCheck, key: 'valueProp3' as const },
   ];
 
   return (
@@ -56,32 +51,33 @@ export function WelcomeModal({ onClose }: Props) {
           {t('welcome.intro')}
         </p>
 
-        <div>
-          <h4
-            className="text-[10px] font-semibold uppercase tracking-wider mb-3"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
-            {t('welcome.whatsNew')}
-          </h4>
-          <ul className="space-y-2.5">
-            {releaseNotes.map(({ icon: Icon, key }) => (
-              <li key={key} className="flex items-start gap-3">
-                <span
-                  className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
-                  style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}
-                >
-                  <Icon size={14} />
-                </span>
-                <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                  {t(`welcome.releaseNotes.${key}`)}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
-            {t('welcome.moreInChangelog')}
-          </p>
-        </div>
+        <ul className="space-y-2.5">
+          {valueProps.map(({ icon: Icon, key }) => (
+            <li key={key} className="flex items-start gap-3">
+              <span
+                className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}
+              >
+                <Icon size={14} />
+              </span>
+              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                {t(`welcome.${key}`)}
+              </span>
+            </li>
+          ))}
+        </ul>
+
+        <a
+          href={CHANGELOG_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 text-xs transition-colors hover:opacity-80"
+          style={{ color: 'var(--text-secondary)' }}
+        >
+          <History size={13} aria-hidden="true" />
+          {t('welcome.changelogLink', { version: APP_VERSION })}
+          <ExternalLink size={12} style={{ color: 'var(--text-tertiary)' }} aria-hidden="true" />
+        </a>
 
         <a
           href={GITHUB_URL}
@@ -105,6 +101,8 @@ export function WelcomeModal({ onClose }: Props) {
           </span>
           <ExternalLink size={15} style={{ color: 'var(--text-secondary)' }} />
         </a>
+
+        <SupportLinks />
       </div>
     </Modal>
   );
