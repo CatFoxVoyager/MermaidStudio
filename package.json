@@ -8,6 +8,7 @@
     "build": "npm run type-check && vite build",
     "build:analyze": "vite build",
     "check:elk": "node scripts/check-elk-chunk.mjs",
+    "check:ai-lazy": "node scripts/check-ai-lazy.mjs",
     "check:cdn-embed": "vitest run src/constants/__tests__/cdnEmbed.test.ts",
     "preview": "vite preview",
     "benchmark": "node scripts/build/benchmark.mjs",

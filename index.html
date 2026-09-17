@@ -87,8 +87,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-    <!-- Google Fonts with display swap for non-blocking render -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Google Fonts with display swap for non-blocking render.
+         crossorigin: required under COEP require-corp (see vercel.json) —
+         fonts.googleapis.com serves ACAO:* so the CORS-qualified fetch passes. -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" crossorigin>
 
     <!-- Note: Content Security Policy and security headers should be set via server HTTP headers, not meta tags.
          Configure these in your web server (nginx, Apache, Vite preview server, etc.) -->

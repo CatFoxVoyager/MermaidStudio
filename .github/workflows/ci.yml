@@ -237,6 +237,13 @@ jobs:
       - name: Verify ELK stays lazy
         run: pnpm run check:elk
 
+      # Post-build guard (SEO audit H4): a Vite/Rolldown bump can re-park the
+      # shared dynamic-import preload helper inside ai-webgpu, silently making
+      # the ~6 MB web-llm chunk an eager dependency (~half the initial
+      # payload). Red build instead of a silent regression.
+      - name: Verify AI chunks stay lazy
+        run: pnpm run check:ai-lazy
+
       # Blocking (WR-04): the `test` job is advisory (continue-on-error: true),
       # so a mermaid bump with a stale CDN version/SRI pair would otherwise
       # ship green end-to-end (build -> docker -> deploy) with only a red,
