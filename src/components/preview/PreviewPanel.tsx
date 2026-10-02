@@ -412,6 +412,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const shadowHostRef = useRef<HTMLDivElement>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
   const svgNaturalSizeRef = useRef({ width: 0, height: 0 });
+  const [svgNaturalSize, setSvgNaturalSize] = useState({ width: 0, height: 0 });
   const zoomRef = useRef(1);
   const renderIdRef = useRef(0);
   const contentRef = useRef(content);
@@ -751,6 +752,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           svgNaturalSizeRef.current = { width: w, height: h };
         }
       }
+      setSvgNaturalSize(svgNaturalSizeRef.current);
     }
 
     // Inject edge click hit targets (must be after SVG is in DOM)
@@ -1313,8 +1315,8 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       if (!containerRef.current) return;
       const dx = e.clientX - panStart.x;
       const dy = e.clientY - panStart.y;
-      containerRef.current.scrollLeft -= dx;
-      containerRef.current.scrollTop -= dy;
+      containerRef.current.scrollLeft -= dx / zoomRef.current;
+      containerRef.current.scrollTop -= dy / zoomRef.current;
       setPanStart({ x: e.clientX, y: e.clientY });
     };
 
@@ -1327,6 +1329,45 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isPanning, panStart]);
+
+  const zoomBy = useCallback((delta: number) => {
+    setZoom(z => Math.max(0.25, Math.min(10, z + delta)));
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) {return;}
+      if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        zoomBy(0.25);
+      } else if (e.key === '-') {
+        e.preventDefault();
+        zoomBy(-0.25);
+      } else if (e.key === '0') {
+        e.preventDefault();
+        setZoom(1);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [zoomBy]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) {return;}
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) {return;}
+      e.preventDefault();
+      e.stopPropagation();
+
+      const clampedDeltaY = Math.max(-50, Math.min(50, e.deltaY));
+      zoomBy(-clampedDeltaY * 0.0025);
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [zoomBy]);
 
   async function copySvg() {
     if (!svg) {return;}
@@ -1385,14 +1426,14 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           {loading && <RefreshCw size={11} style={{ color: 'var(--text-tertiary)' }} className="animate-spin" />}
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} title={t('preview.zoomOut')}
+          <button onClick={() => zoomBy(-0.25)} title={t('preview.zoomOut')}
             className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
             <ZoomOut size={13} />
           </button>
           <span className="text-xs w-8 text-center" style={{ color: 'var(--text-secondary)' }}>
             {Math.round(zoom * 100)}%
           </span>
-          <button onClick={() => setZoom(z => Math.min(10, z + 0.25))} title={t('preview.zoomIn')}
+          <button onClick={() => zoomBy(0.25)} title={t('preview.zoomIn')}
             className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
             <ZoomIn size={13} />
           </button>
@@ -1482,18 +1523,29 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{t('preview.startTyping')}</p>
           </div>
         ) : (
-          <div ref={relativeContainerRef} className="relative min-h-full flex items-center justify-center p-8">
+          <div ref={relativeContainerRef} className="relative min-h-full p-8"
+            style={{ display: 'flex', justifyContent: 'safe center', alignItems: 'safe center' }}>
             <div
-              ref={shadowHostRef}
-              data-shadow-host=""
-              className="transition-transform duration-150"
               style={{
-                transform: `scale(${zoom})`,
-                transformOrigin: 'center center',
-                width: '100%',
-                height: '100%'
+                position: 'relative',
+                width: svgNaturalSize.width ? svgNaturalSize.width * zoom : '100%',
+                height: svgNaturalSize.height ? svgNaturalSize.height * zoom : '100%',
               }}
-            />
+            >
+              <div
+                ref={shadowHostRef}
+                data-shadow-host=""
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  transform: `scale(${zoom})`,
+                  transformOrigin: 'top left',
+                  width: svgNaturalSize.width || '100%',
+                  height: svgNaturalSize.height || '100%',
+                }}
+              />
+            </div>
 
             {nodeOverlays.map(overlay => {
               const isSelected = selectedNodeIds.has(overlay.id);
