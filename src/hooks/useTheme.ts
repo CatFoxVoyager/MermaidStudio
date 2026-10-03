@@ -66,6 +66,6 @@ export function useTheme() {
     theme,
     defaultTheme,
     setDefaultTheme,
-    toggleTheme: () => setTheme(t => t === 'dark' ? 'light' : 'dark'),
+    toggleTheme: () => setTheme(t => (t === 'dark' ? 'light' : 'dark')),
   };
 }

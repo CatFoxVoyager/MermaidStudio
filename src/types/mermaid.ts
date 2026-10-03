@@ -2,11 +2,29 @@
 // Mermaid-specific types extracted from types/index.ts
 
 export type DiagramType =
-  | 'flowchart' | 'sequence' | 'classDiagram' | 'stateDiagram'
-  | 'erDiagram' | 'gantt' | 'pie' | 'mindmap' | 'gitGraph'
-  | 'journey' | 'quadrantChart' | 'requirementDiagram' | 'timeline'
-  | 'sankey' | 'xyChart' | 'packetDiagram' | 'kanban'
-  | 'architectureDiagram' | 'usecaseDiagram' | 'zenuml' | 'blockDiagram' | 'c4' | 'unknown';
+  | 'flowchart'
+  | 'sequence'
+  | 'classDiagram'
+  | 'stateDiagram'
+  | 'erDiagram'
+  | 'gantt'
+  | 'pie'
+  | 'mindmap'
+  | 'gitGraph'
+  | 'journey'
+  | 'quadrantChart'
+  | 'requirementDiagram'
+  | 'timeline'
+  | 'sankey'
+  | 'xyChart'
+  | 'packetDiagram'
+  | 'kanban'
+  | 'architectureDiagram'
+  | 'usecaseDiagram'
+  | 'zenuml'
+  | 'blockDiagram'
+  | 'c4'
+  | 'unknown';
 
 export interface Template {
   id: string;
@@ -81,7 +99,8 @@ export interface DiagramStyleOptions extends BaseStyleOptions {
   nodePadding?: number;
   nodeSpacing?: number;
   rankSpacing?: number;
-  curveStyle?: 'basis' | 'linear' | 'stepBefore' | 'stepAfter' | 'cardinal' | 'catmullRom' | 'natural';
+  curveStyle?:
+    'basis' | 'linear' | 'stepBefore' | 'stepAfter' | 'cardinal' | 'catmullRom' | 'natural';
   borderRadius?: number;
   borderWidth?: number;
   useMaxWidth?: boolean;
@@ -162,69 +181,103 @@ export const DEFAULT_STYLE_OPTIONS: DiagramStyleOptions = {
 
 // Styling capabilities per diagram type
 export interface StylingCapabilities {
-  supportsClassDef: boolean;  // Can use classDef/class for reusable styles (flowcharts only)
-  supportsStyleKeyword: boolean;  // Can use style keyword for individual elements (state, class diagrams)
-  supportsRectBlocks: boolean;  // Can use rect blocks for background highlighting (sequence diagrams)
-  supportsFlowchartConfig: boolean;  // Can use flowchart config (curve, spacing, etc.)
-  supportsSequenceConfig: boolean;  // Can use sequence config
-  supportsGanttConfig: boolean;  // Can use gantt config
-  supportsC4Style: boolean;  // Can use UpdateElementStyle/UpdateRelStyle (C4 diagrams)
-  supportsThemeVariablesOnly: boolean;  // Only theme variables, no per-element styling
-  availableConfigOptions: string[];  // List of available config option names
+  supportsClassDef: boolean; // Can use classDef/class for reusable styles (flowcharts only)
+  supportsStyleKeyword: boolean; // Can use style keyword for individual elements (state, class diagrams)
+  supportsRectBlocks: boolean; // Can use rect blocks for background highlighting (sequence diagrams)
+  supportsFlowchartConfig: boolean; // Can use flowchart config (curve, spacing, etc.)
+  supportsSequenceConfig: boolean; // Can use sequence config
+  supportsGanttConfig: boolean; // Can use gantt config
+  supportsC4Style: boolean; // Can use UpdateElementStyle/UpdateRelStyle (C4 diagrams)
+  supportsThemeVariablesOnly: boolean; // Only theme variables, no per-element styling
+  availableConfigOptions: string[]; // List of available config option names
 }
 
 export function getStylingCapabilities(diagramType: DiagramType): StylingCapabilities {
   switch (diagramType) {
     case 'flowchart':
       return {
-        supportsClassDef: true,  // classDef/class only for flowcharts
-        supportsStyleKeyword: true,  // Also supports style keyword
+        supportsClassDef: true, // classDef/class only for flowcharts
+        supportsStyleKeyword: true, // Also supports style keyword
         supportsRectBlocks: false,
         supportsFlowchartConfig: true,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
-        availableConfigOptions: ['curve', 'padding', 'nodeSpacing', 'rankSpacing', 'useMaxWidth', 'htmlLabels', 'layoutEngine'],
+        availableConfigOptions: [
+          'curve',
+          'padding',
+          'nodeSpacing',
+          'rankSpacing',
+          'useMaxWidth',
+          'htmlLabels',
+          'layoutEngine',
+        ],
       };
 
     case 'journey':
       return {
-        supportsClassDef: true,  // classDef/class supported
-        supportsStyleKeyword: true,  // Also supports style keyword
+        supportsClassDef: true, // classDef/class supported
+        supportsStyleKeyword: true, // Also supports style keyword
         supportsRectBlocks: false,
-        supportsFlowchartConfig: true,  // Uses flowchart config
+        supportsFlowchartConfig: true, // Uses flowchart config
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
-        availableConfigOptions: ['curve', 'padding', 'nodeSpacing', 'rankSpacing', 'useMaxWidth', 'htmlLabels', 'layoutEngine', 'taskMargin'],
+        availableConfigOptions: [
+          'curve',
+          'padding',
+          'nodeSpacing',
+          'rankSpacing',
+          'useMaxWidth',
+          'htmlLabels',
+          'layoutEngine',
+          'taskMargin',
+        ],
       };
 
     case 'blockDiagram':
       return {
-        supportsClassDef: true,  // classDef/class supported
-        supportsStyleKeyword: true,  // Also supports style keyword
+        supportsClassDef: true, // classDef/class supported
+        supportsStyleKeyword: true, // Also supports style keyword
         supportsRectBlocks: false,
-        supportsFlowchartConfig: true,  // Uses flowchart config
+        supportsFlowchartConfig: true, // Uses flowchart config
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
-        availableConfigOptions: ['curve', 'padding', 'nodeSpacing', 'rankSpacing', 'useMaxWidth', 'htmlLabels', 'layoutEngine'],
+        availableConfigOptions: [
+          'curve',
+          'padding',
+          'nodeSpacing',
+          'rankSpacing',
+          'useMaxWidth',
+          'htmlLabels',
+          'layoutEngine',
+        ],
       };
 
     case 'architectureDiagram':
       return {
-        supportsClassDef: true,  // classDef/class supported
-        supportsStyleKeyword: true,  // Also supports style keyword
+        supportsClassDef: true, // classDef/class supported
+        supportsStyleKeyword: true, // Also supports style keyword
         supportsRectBlocks: false,
-        supportsFlowchartConfig: true,  // Uses flowchart config
+        supportsFlowchartConfig: true, // Uses flowchart config
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
-        availableConfigOptions: ['curve', 'padding', 'nodeSpacing', 'rankSpacing', 'useMaxWidth', 'htmlLabels', 'layoutEngine', 'randomize'],
+        availableConfigOptions: [
+          'curve',
+          'padding',
+          'nodeSpacing',
+          'rankSpacing',
+          'useMaxWidth',
+          'htmlLabels',
+          'layoutEngine',
+          'randomize',
+        ],
       };
 
     case 'c4':
@@ -236,47 +289,67 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: true,
-        supportsThemeVariablesOnly: true,  // C4 uses built-in styling + theme vars
-        availableConfigOptions: ['personBgColor', 'personFontColor', 'systemBgColor', 'systemFontColor', 'containerBgColor', 'containerFontColor'],
+        supportsThemeVariablesOnly: true, // C4 uses built-in styling + theme vars
+        availableConfigOptions: [
+          'personBgColor',
+          'personFontColor',
+          'systemBgColor',
+          'systemFontColor',
+          'containerBgColor',
+          'containerFontColor',
+        ],
       };
 
     case 'stateDiagram':
       return {
-        supportsClassDef: false,  // NO classDef support
-        supportsStyleKeyword: true,  // Uses style keyword for individual states
+        supportsClassDef: false, // NO classDef support
+        supportsStyleKeyword: true, // Uses style keyword for individual states
         supportsRectBlocks: false,
-        supportsFlowchartConfig: false,  // Does NOT support flowchart config options
+        supportsFlowchartConfig: false, // Does NOT support flowchart config options
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
-        supportsThemeVariablesOnly: false,  // Supports themeVariables for global styling
-        availableConfigOptions: ['useMaxWidth'],  // Very limited config support
+        supportsThemeVariablesOnly: false, // Supports themeVariables for global styling
+        availableConfigOptions: ['useMaxWidth'], // Very limited config support
       };
 
     case 'classDiagram':
       return {
-        supportsClassDef: false,  // NO classDef support
-        supportsStyleKeyword: true,  // Uses style keyword for individual classes
+        supportsClassDef: false, // NO classDef support
+        supportsStyleKeyword: true, // Uses style keyword for individual classes
         supportsRectBlocks: false,
-        supportsFlowchartConfig: false,  // Does NOT support flowchart config options
+        supportsFlowchartConfig: false, // Does NOT support flowchart config options
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
-        supportsThemeVariablesOnly: false,  // Supports themeVariables for global styling
-        availableConfigOptions: ['useMaxWidth'],  // Very limited config support
+        supportsThemeVariablesOnly: false, // Supports themeVariables for global styling
+        availableConfigOptions: ['useMaxWidth'], // Very limited config support
       };
 
     case 'sequence':
       return {
         supportsClassDef: false,
         supportsStyleKeyword: false,
-        supportsRectBlocks: true,  // Uses rect for section highlighting
+        supportsRectBlocks: true, // Uses rect for section highlighting
         supportsFlowchartConfig: false,
         supportsSequenceConfig: true,
         supportsGanttConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
-        availableConfigOptions: ['diagramMarginX', 'diagramMarginY', 'actorMargin', 'width', 'height', 'boxMargin', 'mirrorActors', 'useMaxWidth', 'messageAlign', 'rightAngles', 'showSequenceNumbers', 'wrap'],
+        availableConfigOptions: [
+          'diagramMarginX',
+          'diagramMarginY',
+          'actorMargin',
+          'width',
+          'height',
+          'boxMargin',
+          'mirrorActors',
+          'useMaxWidth',
+          'messageAlign',
+          'rightAngles',
+          'showSequenceNumbers',
+          'wrap',
+        ],
       };
 
     case 'gantt':
@@ -289,7 +362,24 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsGanttConfig: true,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
-        availableConfigOptions: ['titleTopMargin', 'barHeight', 'barGap', 'topPadding', 'leftPadding', 'rightPadding', 'axisFormat', 'tickInterval', 'topAxis', 'displayMode', 'weekday', 'fontSize', 'sectionFontSize', 'numberSectionStyles', 'gridLineStartPadding', 'useMaxWidth'],
+        availableConfigOptions: [
+          'titleTopMargin',
+          'barHeight',
+          'barGap',
+          'topPadding',
+          'leftPadding',
+          'rightPadding',
+          'axisFormat',
+          'tickInterval',
+          'topAxis',
+          'displayMode',
+          'weekday',
+          'fontSize',
+          'sectionFontSize',
+          'numberSectionStyles',
+          'gridLineStartPadding',
+          'useMaxWidth',
+        ],
       };
 
     case 'erDiagram':
@@ -297,12 +387,21 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsClassDef: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
-        supportsFlowchartConfig: true,  // Some flowchart config applies
+        supportsFlowchartConfig: true, // Some flowchart config applies
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
-        supportsThemeVariablesOnly: true,  // ER diagrams only support theme variables
-        availableConfigOptions: ['curve', 'padding', 'nodeSpacing', 'rankSpacing', 'useMaxWidth', 'minEntityWidth', 'minEntityHeight', 'layoutEngine'],
+        supportsThemeVariablesOnly: true, // ER diagrams only support theme variables
+        availableConfigOptions: [
+          'curve',
+          'padding',
+          'nodeSpacing',
+          'rankSpacing',
+          'useMaxWidth',
+          'minEntityWidth',
+          'minEntityHeight',
+          'layoutEngine',
+        ],
       };
 
     case 'mindmap':
@@ -314,8 +413,15 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
-        supportsThemeVariablesOnly: true,  // Theme variables only
-        availableConfigOptions: ['maxNodeWidth', 'maxNodeHeight', 'maxTextWidth', 'padding', 'useMaxWidth', 'layoutEngine'],
+        supportsThemeVariablesOnly: true, // Theme variables only
+        availableConfigOptions: [
+          'maxNodeWidth',
+          'maxNodeHeight',
+          'maxTextWidth',
+          'padding',
+          'useMaxWidth',
+          'layoutEngine',
+        ],
       };
 
     case 'pie':
@@ -327,7 +433,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
-        supportsThemeVariablesOnly: true,  // Theme variables only
+        supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: ['textPosition', 'useMaxWidth'],
       };
 
@@ -340,7 +446,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
-        supportsThemeVariablesOnly: true,  // Theme variables only
+        supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: ['disableMulticolor', 'htmlLabels', 'useMaxWidth'],
       };
 
@@ -353,7 +459,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
-        supportsThemeVariablesOnly: true,  // Theme variables only
+        supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: ['chartWidth', 'chartHeight', 'quadrantPadding', 'useMaxWidth'],
       };
 
@@ -366,13 +472,20 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
-        supportsThemeVariablesOnly: true,  // Theme variables only
-        availableConfigOptions: ['width', 'height', 'showDataLabel', 'xAxisTitle', 'yAxisTitle', 'useMaxWidth'],
+        supportsThemeVariablesOnly: true, // Theme variables only
+        availableConfigOptions: [
+          'width',
+          'height',
+          'showDataLabel',
+          'xAxisTitle',
+          'yAxisTitle',
+          'useMaxWidth',
+        ],
       };
 
     case 'requirementDiagram':
       return {
-        supportsClassDef: true,  // Requirement diagrams DO support classDef
+        supportsClassDef: true, // Requirement diagrams DO support classDef
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
@@ -392,7 +505,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
-        supportsThemeVariablesOnly: true,  // Theme variables only
+        supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: [],
       };
 
@@ -405,8 +518,17 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
-        supportsThemeVariablesOnly: true,  // Theme variables only
-        availableConfigOptions: ['width', 'height', 'linkColor', 'nodeAlignment', 'showValues', 'prefix', 'suffix', 'useMaxWidth'],
+        supportsThemeVariablesOnly: true, // Theme variables only
+        availableConfigOptions: [
+          'width',
+          'height',
+          'linkColor',
+          'nodeAlignment',
+          'showValues',
+          'prefix',
+          'suffix',
+          'useMaxWidth',
+        ],
       };
 
     case 'packetDiagram':
@@ -418,7 +540,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
-        supportsThemeVariablesOnly: true,  // Theme variables only
+        supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: ['showBits'],
       };
 
@@ -431,21 +553,21 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
-        supportsThemeVariablesOnly: true,  // Theme variables only
+        supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: ['ticketBaseUrl'],
       };
 
     case 'usecaseDiagram':
       return {
-        supportsClassDef: true,  // classDef token verified in the v12 usecase grammar
-        supportsStyleKeyword: true,  // style token verified in the v12 usecase grammar
+        supportsClassDef: true, // classDef token verified in the v12 usecase grammar
+        supportsStyleKeyword: true, // style token verified in the v12 usecase grammar
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
-        availableConfigOptions: ['direction'],  // TD/TB/BT/LR/RL verified in the grammar
+        availableConfigOptions: ['direction'], // TD/TB/BT/LR/RL verified in the grammar
       };
 
     case 'zenuml':
@@ -457,7 +579,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
-        supportsThemeVariablesOnly: true,  // Theme variables only
+        supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: [],
       };
 
@@ -471,7 +593,7 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
         supportsC4Style: false,
-        supportsThemeVariablesOnly: true,  // Default to theme variables
+        supportsThemeVariablesOnly: true, // Default to theme variables
         availableConfigOptions: [],
       };
   }

@@ -48,9 +48,9 @@ export function generateUrlSafeId(): string {
 
   // Convert to base64 and make URL-safe
   const base64 = btoa(String.fromCharCode(...randomBytes))
-    .replace(/\+/g, '-')  // Replace + with -
-    .replace(/\//g, '_')  // Replace / with _
-    .replace(/=/g, '');   // Remove padding
+    .replace(/\+/g, '-') // Replace + with -
+    .replace(/\//g, '_') // Replace / with _
+    .replace(/=/g, ''); // Remove padding
 
   return base64;
 }
