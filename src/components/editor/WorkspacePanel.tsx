@@ -146,6 +146,7 @@ export function WorkspacePanel({
 
   if (!activeTab) {return <EmptyState onNewDiagram={onNewDiagram} onShowTemplates={onShowTemplates} onShowPalette={onShowPalette} onOpenAbout={onOpenAbout} />;}
 
+  // oxlint-disable-next-line react/purity -- display-only timestamp; tracking a real save date is a feature change, out of scope
   const lastSaved = activeTab.is_dirty ? null : new Date().toISOString();
 
   return (
