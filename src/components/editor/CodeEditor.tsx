@@ -62,8 +62,9 @@ export const CodeEditor = forwardRef<CodeEditorRef, Props>(function CodeEditor({
   // masked it by winning the race (VAL-02, plan 24-05).
   const onChangeRef = useRef(onChange);
   const onSaveRef = useRef(onSave);
-  onChangeRef.current = onChange;
-  onSaveRef.current = onSave;
+  // Latest-ref assignment during render is deliberate (VAL-02, see above)
+  onChangeRef.current = onChange; // oxlint-disable-line react/refs
+  onSaveRef.current = onSave; // oxlint-disable-line react/refs
 
   useImperativeHandle(ref, () => ({
     highlightLine(line: number) {
