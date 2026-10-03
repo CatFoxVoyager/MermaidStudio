@@ -49,14 +49,14 @@ export interface MermaidTheme {
 /** Group definition for the theme editor UI */
 export interface ThemeSlotGroup {
   id: string;
-  labelKey: string;           // i18n key
+  labelKey: string; // i18n key
   slots: ThemeSlotDef[];
 }
 
 export interface ThemeSlotDef {
   key: keyof ThemeCoreColors;
-  labelKey: string;           // i18n key
-  descriptionKey?: string;    // i18n key
+  labelKey: string; // i18n key
+  descriptionKey?: string; // i18n key
   defaultValue: string;
 }
 

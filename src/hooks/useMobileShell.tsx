@@ -89,7 +89,7 @@ export function useMobileShell(): MobileShellApi {
   // - If the same drawer is clicked, close it
   // - If a different drawer is clicked, switch to it (mutual exclusion)
   const setActiveDrawer = useCallback((drawer: MobileDrawerId) => {
-    setOpenDrawerState((prev) => (prev === drawer ? null : drawer));
+    setOpenDrawerState(prev => (prev === drawer ? null : drawer));
   }, []);
 
   // Close the currently open drawer
@@ -130,9 +130,7 @@ export function MobileShellProvider({ children }: { children: React.ReactNode })
   const mobileShellState = useMobileShell();
 
   return (
-    <MobileShellContext.Provider value={mobileShellState}>
-      {children}
-    </MobileShellContext.Provider>
+    <MobileShellContext.Provider value={mobileShellState}>{children}</MobileShellContext.Provider>
   );
 }
 

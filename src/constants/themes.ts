@@ -21,10 +21,10 @@ export const builtinThemes: MermaidTheme[] = [
     isBuiltin: true,
     baseTheme: 'base',
     coreColors: {
-      primaryColor: '#daeaf2',       // Light blue node fill (Mermaid convention)
-      secondaryColor: '#b3d4e8',     // Secondary node fill
+      primaryColor: '#daeaf2', // Light blue node fill (Mermaid convention)
+      secondaryColor: '#b3d4e8', // Secondary node fill
       background: '#F5F7FA',
-      lineColor: '#0066CC',          // Edges use the bold palette primary
+      lineColor: '#0066CC', // Edges use the bold palette primary
       primaryTextColor: '#1A1F2E',
       successColor: '#00AA44',
       warningColor: '#FF9900',
@@ -65,7 +65,7 @@ export const builtinThemes: MermaidTheme[] = [
       successColor: '#00E676',
       warningColor: '#FFD600',
       errorColor: '#FF3D00',
-      infoColor: '#FF006E',          // Changed from #00B8D4 to use original accent color
+      infoColor: '#FF006E', // Changed from #00B8D4 to use original accent color
     },
   },
   {
@@ -344,7 +344,7 @@ export const THEME_SLOT_GROUPS: ThemeSlotGroup[] = [
  */
 export function getThemeById(id: string): MermaidTheme | undefined {
   // First, search in builtin themes
-  const builtinTheme = builtinThemes.find((t) => t.id === id);
+  const builtinTheme = builtinThemes.find(t => t.id === id);
   if (builtinTheme) return builtinTheme;
 
   // Then, search in localStorage custom themes
@@ -352,7 +352,7 @@ export function getThemeById(id: string): MermaidTheme | undefined {
     const stored = localStorage.getItem('mermaid-studio-custom-themes');
     if (stored) {
       const customThemes: MermaidTheme[] = JSON.parse(stored);
-      return customThemes.find((t) => t.id === id);
+      return customThemes.find(t => t.id === id);
     }
   } catch (err) {
     console.warn('Failed to load custom themes from localStorage:', err);
@@ -366,5 +366,5 @@ export function getThemeById(id: string): MermaidTheme | undefined {
  */
 export function getThemeByName(name: string): MermaidTheme | undefined {
   const lowerName = name.toLowerCase();
-  return builtinThemes.find((t) => t.name.toLowerCase() === lowerName);
+  return builtinThemes.find(t => t.name.toLowerCase() === lowerName);
 }

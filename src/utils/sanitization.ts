@@ -12,14 +12,8 @@ import type { BackupData } from '@/types';
 export function sanitizeSVG(html: string): string {
   return DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true, svg: true, svgFilters: true },
-    ADD_TAGS: [
-      'foreignObject',
-      'div', 'span', 'p', 'a'
-    ],
-    ADD_ATTR: [
-      'requiredFeatures', 'overflow',
-      'data-rendered', 'data-testid'
-    ]
+    ADD_TAGS: ['foreignObject', 'div', 'span', 'p', 'a'],
+    ADD_ATTR: ['requiredFeatures', 'overflow', 'data-rendered', 'data-testid'],
   });
 }
 
@@ -125,7 +119,18 @@ export function sanitizeMermaidSVG(svg: string): string {
   // object form ({ tag: true }) was silently ignored at runtime and these
   // tags/attributes were NOT actually forbidden. The html USE_PROFILE alone
   // allows form/input/button/iframe, so the explicit forbid list matters.
-  const forbiddenTags = ['iframe', 'form', 'input', 'textarea', 'select', 'button', 'script', 'object', 'embed', 'applet'];
+  const forbiddenTags = [
+    'iframe',
+    'form',
+    'input',
+    'textarea',
+    'select',
+    'button',
+    'script',
+    'object',
+    'embed',
+    'applet',
+  ];
   const forbiddenAttrs = ['onerror', 'onload', 'onclick', 'onmouseover'];
 
   const foContents: string[] = [];
@@ -138,11 +143,13 @@ export function sanitizeMermaidSVG(svg: string): string {
       // so restoring it verbatim would be an XSS bypass — sanitize it here
       // with the HTML profile and the same deny lists, before it is
       // reinjected into the sanitized document.
-      foContents.push(DOMPurify.sanitize(content, {
-        USE_PROFILES: { html: true },
-        FORBID_TAGS: forbiddenTags,
-        FORBID_ATTR: forbiddenAttrs,
-      }));
+      foContents.push(
+        DOMPurify.sanitize(content, {
+          USE_PROFILES: { html: true },
+          FORBID_TAGS: forbiddenTags,
+          FORBID_ATTR: forbiddenAttrs,
+        })
+      );
       return `<foreignObject${attrs}>${placeholder}${foContents.length - 1}%%</foreignObject>`;
     }
   );

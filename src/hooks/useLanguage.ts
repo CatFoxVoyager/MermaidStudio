@@ -15,13 +15,15 @@ export function useLanguage() {
   }, []);
 
   useEffect(() => {
-    if (!initialized) {return;}
+    if (!initialized) {
+      return;
+    }
     i18n.changeLanguage(language);
     updateSettings({ language });
   }, [language, initialized]); // Remove i18n from deps since it's stable
 
   const setLang = (lang: 'en' | 'fr') => setLanguage(lang);
-  const toggle = () => setLanguage(l => l === 'en' ? 'fr' : 'en');
+  const toggle = () => setLanguage(l => (l === 'en' ? 'fr' : 'en'));
 
   return { language, setLanguage: setLang, toggle };
 }

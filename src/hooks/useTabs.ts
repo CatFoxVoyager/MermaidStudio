@@ -1,6 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Tab } from '@/types';
-import { getDiagram, getDiagrams, updateDiagram, saveVersion, getSettings, updateSettings } from '@/services/storage/database';
+import {
+  getDiagram,
+  getDiagrams,
+  updateDiagram,
+  saveVersion,
+  getSettings,
+  updateSettings,
+} from '@/services/storage/database';
 import { extractThemeIdFromContent } from '@/constants/themeDerivation';
 
 // Auto-save fires once the user pauses typing. Persisting on every keystroke
@@ -50,7 +57,9 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
 
   const cancelPendingSave = useCallback((diagramId: string) => {
     const pending = pendingSavesRef.current.get(diagramId);
-    if (!pending) {return;}
+    if (!pending) {
+      return;
+    }
     window.clearTimeout(pending.timer);
     pendingSavesRef.current.delete(diagramId);
   }, []);
@@ -60,8 +69,9 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
       cancelPendingSave(diagramId);
       const timer = window.setTimeout(() => {
         pendingSavesRef.current.delete(diagramId);
-        updateDiagram(diagramId, { content, themeId })
-          .catch(err => reportSaveError(diagramId, err));
+        updateDiagram(diagramId, { content, themeId }).catch(err =>
+          reportSaveError(diagramId, err)
+        );
       }, AUTO_SAVE_DELAY_MS);
       pendingSavesRef.current.set(diagramId, { content, themeId, timer });
     },
@@ -71,10 +81,13 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
   const flushPendingSave = useCallback(
     (diagramId: string) => {
       const pending = pendingSavesRef.current.get(diagramId);
-      if (!pending) {return;}
+      if (!pending) {
+        return;
+      }
       cancelPendingSave(diagramId);
-      updateDiagram(diagramId, { content: pending.content, themeId: pending.themeId })
-        .catch(err => reportSaveError(diagramId, err));
+      updateDiagram(diagramId, { content: pending.content, themeId: pending.themeId }).catch(err =>
+        reportSaveError(diagramId, err)
+      );
     },
     [cancelPendingSave, reportSaveError]
   );
@@ -86,8 +99,9 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
     return () => {
       pending.forEach((p, diagramId) => {
         window.clearTimeout(p.timer);
-        updateDiagram(diagramId, { content: p.content, themeId: p.themeId })
-          .catch(err => reportSaveError(diagramId, err));
+        updateDiagram(diagramId, { content: p.content, themeId: p.themeId }).catch(err =>
+          reportSaveError(diagramId, err)
+        );
       });
       pending.clear();
     };
@@ -132,7 +146,9 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
 
   // Save last opened diagram when active tab changes
   useEffect(() => {
-    if (!initialized) {return;}
+    if (!initialized) {
+      return;
+    }
     const activeTab = tabs.find(t => t.id === activeTabId);
     if (activeTab) {
       updateSettings({ lastOpenDiagramId: activeTab.diagram_id });
@@ -141,7 +157,9 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
 
   const openDiagram = useCallback(async (diagramId: string) => {
     const diagram = await getDiagram(diagramId);
-    if (!diagram) {return;}
+    if (!diagram) {
+      return;
+    }
 
     const tab: Tab = {
       id: `tab_${diagramId}`,
@@ -156,7 +174,9 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
     const existing = tabsRef.current.find(t => t.diagram_id === diagramId);
     if (existing) {
       // Update existing tab with fresh content from IndexedDB
-      tabsRef.current = tabsRef.current.map(t => (t.id === existing.id ? { ...tab, id: existing.id } : t));
+      tabsRef.current = tabsRef.current.map(t =>
+        t.id === existing.id ? { ...tab, id: existing.id } : t
+      );
       setTabs(tabsRef.current);
       setActiveTabId(existing.id);
     } else {
@@ -170,7 +190,9 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
     (tabId: string) => {
       const prev = tabsRef.current;
       const idx = prev.findIndex(t => t.id === tabId);
-      if (idx === -1) {return;}
+      if (idx === -1) {
+        return;
+      }
 
       const updated = prev.filter(t => t.id !== tabId);
       tabsRef.current = updated;
@@ -178,7 +200,9 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
       // Closing a tab must not lose the last second of typing.
       flushPendingSave(prev[idx].diagram_id);
       setActiveTabId(cur => {
-        if (cur !== tabId) {return cur;}
+        if (cur !== tabId) {
+          return cur;
+        }
         return updated[idx]?.id ?? updated[idx - 1]?.id ?? null;
       });
     },
@@ -189,17 +213,25 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
     (diagramIds: string[]) => {
       const idSet = new Set(diagramIds);
       const prev = tabsRef.current;
-      if (!prev.some(t => idSet.has(t.diagram_id))) {return;}
+      if (!prev.some(t => idSet.has(t.diagram_id))) {
+        return;
+      }
 
       const updated = prev.filter(t => !idSet.has(t.diagram_id));
       tabsRef.current = updated;
       setTabs(updated);
       prev.forEach(t => {
-        if (idSet.has(t.diagram_id)) {flushPendingSave(t.diagram_id);}
+        if (idSet.has(t.diagram_id)) {
+          flushPendingSave(t.diagram_id);
+        }
       });
       setActiveTabId(cur => {
-        if (cur && !idSet.has(prev.find(t => t.id === cur)?.diagram_id ?? '')) {return cur;}
-        if (updated.length > 0) {return updated[0].id;}
+        if (cur && !idSet.has(prev.find(t => t.id === cur)?.diagram_id ?? '')) {
+          return cur;
+        }
+        if (updated.length > 0) {
+          return updated[0].id;
+        }
         return null;
       });
     },
@@ -210,7 +242,9 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
     (tabId: string, content: string) => {
       const themeFromContent = extractThemeIdFromContent(content);
       const tab = tabsRef.current.find(t => t.id === tabId);
-      if (!tab) {return;}
+      if (!tab) {
+        return;
+      }
 
       const updates: Partial<Tab> = { content, is_dirty: content !== tab.saved_content };
       if (themeFromContent !== null) {
@@ -234,7 +268,9 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
   const saveTab = useCallback(
     async (tabId: string) => {
       const tab = tabsRef.current.find(t => t.id === tabId);
-      if (!tab) {return;}
+      if (!tab) {
+        return;
+      }
 
       // The manual save covers the pending debounce — cancel it or the
       // auto-save would duplicate the write a second later.
@@ -246,7 +282,11 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
       setTabs(tabsRef.current);
 
       try {
-        await updateDiagram(tab.diagram_id, { content: tab.content, title: tab.title, themeId: tab.themeId });
+        await updateDiagram(tab.diagram_id, {
+          content: tab.content,
+          title: tab.title,
+          themeId: tab.themeId,
+        });
         await saveVersion(tab.diagram_id, tab.content);
       } catch (err) {
         console.error('[useTabs] Failed to save diagram:', err);
@@ -258,5 +298,16 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
 
   const activeTab = tabs.find(t => t.id === activeTabId) ?? null;
 
-  return { tabs, activeTabId, activeTab, setActiveTabId, openDiagram, closeTab, closeTabsByDiagramIds, updateTabContent, updateTabTheme, saveTab };
+  return {
+    tabs,
+    activeTabId,
+    activeTab,
+    setActiveTabId,
+    openDiagram,
+    closeTab,
+    closeTabsByDiagramIds,
+    updateTabContent,
+    updateTabTheme,
+    saveTab,
+  };
 }
