@@ -104,7 +104,7 @@ export function CommandPalette({
             }
             return (
               <div key={cat}>
-                <p className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider"
+                <p className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider"
                   style={{ color: 'var(--text-tertiary)' }}>{cat}</p>
                 {items.map((cmd, i) => {
                   const idx = offset + i;
@@ -137,7 +137,7 @@ export function CommandPalette({
       </div>
 
       <div className="flex items-center justify-center px-4 py-2.5 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-        <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>Use ↑↓ to navigate, Enter to select</span>
+        <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Use ↑↓ to navigate, Enter to select</span>
       </div>
     </Modal>
   );

@@ -69,9 +69,16 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
       cancelPendingSave(diagramId);
       const timer = window.setTimeout(() => {
         pendingSavesRef.current.delete(diagramId);
-        updateDiagram(diagramId, { content, themeId }).catch(err =>
-          reportSaveError(diagramId, err)
-        );
+        updateDiagram(diagramId, { content, themeId })
+          .then(() => {
+            // Record the real persist time so the status bar never invents one.
+            const now = new Date().toISOString();
+            tabsRef.current = tabsRef.current.map(t =>
+              t.diagram_id === diagramId ? { ...t, last_saved_at: now } : t
+            );
+            setTabs(tabsRef.current);
+          })
+          .catch(err => reportSaveError(diagramId, err));
       }, AUTO_SAVE_DELAY_MS);
       pendingSavesRef.current.set(diagramId, { content, themeId, timer });
     },
@@ -85,9 +92,15 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
         return;
       }
       cancelPendingSave(diagramId);
-      updateDiagram(diagramId, { content: pending.content, themeId: pending.themeId }).catch(err =>
-        reportSaveError(diagramId, err)
-      );
+      updateDiagram(diagramId, { content: pending.content, themeId: pending.themeId })
+        .then(() => {
+          const now = new Date().toISOString();
+          tabsRef.current = tabsRef.current.map(t =>
+            t.diagram_id === diagramId ? { ...t, last_saved_at: now } : t
+          );
+          setTabs(tabsRef.current);
+        })
+        .catch(err => reportSaveError(diagramId, err));
     },
     [cancelPendingSave, reportSaveError]
   );
@@ -132,6 +145,7 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
             content: diagram.content,
             saved_content: diagram.content,
             is_dirty: false,
+            last_saved_at: diagram.updated_at,
             themeId: diagram.themeId ?? themeFromContent ?? undefined,
           };
           tabsRef.current = [tab];
@@ -168,6 +182,7 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
       content: diagram.content,
       saved_content: diagram.content,
       is_dirty: false,
+      last_saved_at: diagram.updated_at,
       themeId: diagram.themeId ?? extractThemeIdFromContent(diagram.content) ?? undefined,
     };
 
@@ -288,6 +303,14 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
           themeId: tab.themeId,
         });
         await saveVersion(tab.diagram_id, tab.content);
+        // Stamp the real persist time here too — a manual save that leaves a
+        // stale "Saved Ns ago" in the status bar breaks the honesty contract
+        // harder than not having it (critique iter-3 P2, proven live).
+        const now = new Date().toISOString();
+        tabsRef.current = tabsRef.current.map(t =>
+          t.id === tabId ? { ...t, last_saved_at: now } : t
+        );
+        setTabs(tabsRef.current);
       } catch (err) {
         console.error('[useTabs] Failed to save diagram:', err);
         onSaveErrorRef.current?.(tab.title, err);

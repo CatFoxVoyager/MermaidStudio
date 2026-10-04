@@ -120,7 +120,7 @@ function CodeBlock({
         className="flex items-center justify-between px-3 py-1.5 border-b"
         style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}
       >
-        <span className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+        <span className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
           {lang || 'code'}
         </span>
         <div className="flex items-center gap-1.5">
@@ -128,7 +128,7 @@ function CodeBlock({
             <button
               data-testid="apply-ai"
               onClick={handleApply}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium text-white transition-all ${!isValid ? 'opacity-50' : ''}`}
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-sm text-[11px] font-medium text-white transition-all ${!isValid ? 'opacity-50' : ''}`}
               style={{ background: !isValid ? 'var(--text-tertiary)' : 'var(--accent)' }}
               title={!isValid ? 'Code may have syntax issues' : t('ai.apply')}
             >
@@ -141,7 +141,7 @@ function CodeBlock({
               setCopied(true);
               setTimeout(() => setCopied(false), 2000);
             }}
-            className="p-1 rounded-sm transition-colors hover:bg-white/8"
+            className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {copied ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
@@ -150,7 +150,7 @@ function CodeBlock({
       </div>
       {showWarning && (
         <div
-          className="px-3 py-2 text-[10px] flex items-start gap-2"
+          className="px-3 py-2 text-[11px] flex items-start gap-2"
           style={{ background: 'rgba(245,158,11,0.1)', color: '#f59e0b' }}
         >
           <AlertCircle size={11} className="shrink-0 mt-0.5" />
@@ -166,14 +166,14 @@ function CodeBlock({
                   onApply?.(extractMermaidCode(code));
                   setShowWarning(false);
                 }}
-                className="px-2 py-0.5 rounded-sm text-[9px] font-medium"
+                className="px-2 py-0.5 rounded-sm text-[11px] font-medium"
                 style={{ background: 'rgba(245,158,11,0.2)' }}
               >
                 Apply Anyway
               </button>
               <button
                 onClick={() => setShowWarning(false)}
-                className="px-2 py-0.5 rounded-sm text-[9px] font-medium"
+                className="px-2 py-0.5 rounded-sm text-[11px] font-medium"
                 style={{ background: 'rgba(255,255,255,0.1)' }}
               >
                 Cancel
@@ -274,7 +274,7 @@ function Bubble({ msg, onApply }: { msg: AIMessage; onApply?: (c: string) => voi
             <RotateCcw size={11} /> {t('ai.apply')}
           </button>
         )}
-        <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+        <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </span>
       </div>
@@ -358,7 +358,7 @@ export function AIPanel({
             {t('ai.panelTitle')}
           </span>
           <span
-            className="inline-flex items-center justify-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full border text-center"
+            className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-full border text-center"
             style={{
               background: 'rgba(34,197,94,0.1)',
               borderColor: 'rgba(34,197,94,0.3)',
@@ -372,7 +372,7 @@ export function AIPanel({
           {messages.length > 0 && (
             <button
               onClick={resetChat}
-              className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
+              className="p-1.5 rounded-sm transition-colors hover:bg-[var(--hover)]"
               style={{ color: 'var(--text-secondary)' }}
               title={t('ai.resetChat')}
             >
@@ -394,7 +394,7 @@ export function AIPanel({
           <button
             data-testid="ai-settings"
             onClick={onOpenSettings}
-            className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
+            className="p-1.5 rounded-sm transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}
             title={t('ai.providerSettings')}
           >
@@ -403,7 +403,7 @@ export function AIPanel({
           <button
             data-testid="close-ai"
             onClick={onClose}
-            className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
+            className="p-1.5 rounded-sm transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}
           >
             <X size={14} />
@@ -422,7 +422,7 @@ export function AIPanel({
               AI model not available
             </p>
             <p
-              className="text-[10px] mt-0.5 leading-relaxed"
+              className="text-[11px] mt-0.5 leading-relaxed"
               style={{ color: 'var(--text-secondary)' }}
             >
               {config.description}{' '}
@@ -458,7 +458,7 @@ export function AIPanel({
             </p>
             {!modelLoaded && (
               <p
-                className="text-[10px] leading-relaxed max-w-[190px] mt-2"
+                className="text-[11px] leading-relaxed max-w-[190px] mt-2"
                 style={{ color: 'var(--text-tertiary)' }}
               >
                 {t('ai.modelDownloadNotice')}
@@ -589,7 +589,7 @@ export function AIPanel({
             <Send size={14} />
           </button>
         </div>
-        <p className="text-[10px] mt-1 text-right" style={{ color: 'var(--text-tertiary)' }}>
+        <p className="text-[11px] mt-1 text-right" style={{ color: 'var(--text-tertiary)' }}>
           {t('ai.send')}
         </p>
       </div>

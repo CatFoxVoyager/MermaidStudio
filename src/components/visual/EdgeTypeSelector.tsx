@@ -84,7 +84,7 @@ export function EdgeTypeSelector({ className = '' }: Props) {
   return (
     <div className={`flex items-center gap-1 px-3 py-2 ${className}`}
       style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
-      <span className="text-[10px] font-medium shrink-0 mr-2" style={{ color: 'var(--text-tertiary)' }}>
+      <span className="text-[11px] font-medium shrink-0 mr-2" style={{ color: 'var(--text-tertiary)' }}>
         EDGE TYPES
       </span>
       <div className="flex items-center gap-1 shrink-0 overflow-x-auto">

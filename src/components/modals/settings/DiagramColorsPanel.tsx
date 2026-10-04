@@ -184,7 +184,7 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
         <div className="flex items-center gap-2">
           <button
             onClick={() => { setEditingTheme(null); setShowThemeEditor(true); }}
-            className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-medium transition-colors hover:bg-white/5"
+            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}
             title={t('themeEditor.createTheme')}
           >
@@ -194,7 +194,7 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
           <button
             data-testid="close-theme close-settings"
             onClick={onClose}
-            className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
+            className="p-1.5 rounded-sm transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}>
             <X size={14} />
           </button>
@@ -221,7 +221,7 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
               <p className="text-[11px] font-semibold" style={{ color: isDark ? '#f87171' : '#dc2626' }}>
                 Reset to Default
               </p>
-              <p className="text-[9px] mt-0.5 leading-snug" style={{ color: 'var(--text-tertiary)' }}>
+              <p className="text-[11px] mt-0.5 leading-snug" style={{ color: 'var(--text-tertiary)' }}>
                 Remove custom theme and use default
               </p>
             </div>
@@ -268,7 +268,7 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
                             e.stopPropagation();
                             handleEditTheme(themeItem);
                           }}
-                          className="p-1 rounded transition-colors hover:bg-white/10"
+                          className="p-1 rounded transition-colors hover:bg-[var(--hover)]"
                           style={{ color: 'var(--text-secondary)' }}
                           title={t('themeEditor.editTheme')}
                         >
@@ -291,7 +291,7 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
                             e.stopPropagation();
                             handleApplyTheme(themeItem);
                           }}
-                          className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-medium text-white transition-colors hover:opacity-90"
+                          className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium text-white transition-colors hover:opacity-90"
                           style={{ background: 'var(--accent)' }}
                         >
                           <Check size={10} />
@@ -303,10 +303,10 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
                               e.stopPropagation();
                               onSetDefaultTheme(themeItem);
                             }}
-                            className={`flex items-center gap-1 px-2 py-1 rounded text-[9px] font-medium transition-colors ${
+                            className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
                               defaultThemeId === themeItem.id
                                 ? 'text-green-400 bg-green-500/10'
-                                : 'hover:bg-white/5'
+                                : 'hover:bg-[var(--hover)]'
                             }`}
                             style={{ color: defaultThemeId === themeItem.id ? '#4ade80' : 'var(--text-secondary)' }}
                             title={defaultThemeId === themeItem.id ? 'Current default theme' : 'Set as app default'}
@@ -334,7 +334,7 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
               {showPreview && (
                 <div className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
                   <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+                    <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>
                       Preview
                     </span>
                   </div>

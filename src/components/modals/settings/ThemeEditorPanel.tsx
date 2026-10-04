@@ -146,7 +146,7 @@ ${SAMPLE_DIAGRAM}`;
         <div className="flex items-center gap-2">
           <button
             onClick={handleSave}
-            className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium text-white transition-colors hover:opacity-90"
+            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium text-white transition-colors hover:opacity-90"
             style={{ background: 'var(--accent)' }}
             title={t('themeEditor.saveTheme')}
           >
@@ -155,7 +155,7 @@ ${SAMPLE_DIAGRAM}`;
           </button>
           <button
             onClick={handleReset}
-            className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
+            className="p-1.5 rounded-sm transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}
             title={t('themeEditor.resetToDefault')}
           >
@@ -164,7 +164,7 @@ ${SAMPLE_DIAGRAM}`;
           <button
             data-testid="close-theme-editor"
             onClick={onClose}
-            className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
+            className="p-1.5 rounded-sm transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}
           >
             <X size={14} />
@@ -174,7 +174,7 @@ ${SAMPLE_DIAGRAM}`;
 
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
         <div>
-          <label className="text-[10px] font-medium uppercase tracking-wider block mb-1" style={{ color: 'var(--text-tertiary)' }}>
+          <label className="text-[11px] font-medium uppercase tracking-wider block mb-1" style={{ color: 'var(--text-tertiary)' }}>
             {t('themeEditor.themeName')}
           </label>
           <input
@@ -200,7 +200,7 @@ ${SAMPLE_DIAGRAM}`;
               if (slot.key === 'fontFamily') {
                 return (
                   <div key={slot.key} className="space-y-1">
-                    <label className="text-[10px] font-medium uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>
+                    <label className="text-[11px] font-medium uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>
                       {t(slot.labelKey)}
                     </label>
                     <select
@@ -226,7 +226,7 @@ ${SAMPLE_DIAGRAM}`;
               if (slot.key === 'fontSize') {
                 return (
                   <div key={slot.key} className="space-y-1">
-                    <label className="text-[10px] font-medium uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>
+                    <label className="text-[11px] font-medium uppercase tracking-wider block" style={{ color: 'var(--text-tertiary)' }}>
                       {t(slot.labelKey)}
                     </label>
                     <input
@@ -259,7 +259,7 @@ ${SAMPLE_DIAGRAM}`;
 
         <div className="border rounded-lg overflow-hidden" style={{ borderColor: 'var(--border-subtle)' }}>
           <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-base)' }}>
-            <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+            <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>
               {t('themeEditor.preview')}
             </span>
           </div>
@@ -276,7 +276,7 @@ ${SAMPLE_DIAGRAM}`;
                 dangerouslySetInnerHTML={{ __html: sanitizeSVG(previewSvg) }}
               />
             ) : (
-              <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+              <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
                 {t('themeEditor.loadingPreview')}
               </span>
             )}

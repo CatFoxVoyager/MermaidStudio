@@ -95,7 +95,7 @@ export function EdgeStylePanel({
         <button
           onClick={onClose}
           aria-label="Close"
-          className="flex items-center justify-center w-6 h-6 rounded-md transition-colors hover:bg-white/10 shrink-0 max-md:min-w-[44px] max-md:min-h-[44px]"
+          className="flex items-center justify-center w-6 h-6 rounded-md transition-colors hover:bg-[var(--hover)] shrink-0 max-md:min-w-[44px] max-md:min-h-[44px]"
           style={{ color: 'var(--text-tertiary)' }}
         >
           <X size={14} />
@@ -107,7 +107,7 @@ export function EdgeStylePanel({
         {/* Connection Info */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[10px] font-medium uppercase tracking-wider"
+            className="text-[11px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('edgeStyle.connection')}
@@ -127,7 +127,7 @@ export function EdgeStylePanel({
         {/* Arrow Type */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[10px] font-medium uppercase tracking-wider"
+            className="text-[11px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('edgeStyle.arrowType')}
@@ -161,7 +161,7 @@ export function EdgeStylePanel({
         {/* Label */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[10px] font-medium uppercase tracking-wider"
+            className="text-[11px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('edgeStyle.label')}
@@ -191,7 +191,7 @@ export function EdgeStylePanel({
         {/* Stroke Width */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[10px] font-medium uppercase tracking-wider"
+            className="text-[11px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('edgeStyle.strokeWidth')}
@@ -218,7 +218,7 @@ export function EdgeStylePanel({
         {/* Stroke Style */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[10px] font-medium uppercase tracking-wider"
+            className="text-[11px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('edgeStyle.strokeStyle')}
@@ -234,7 +234,7 @@ export function EdgeStylePanel({
                   onClick={() =>
                     handleStyleChange('strokeDasharray', opt.value || undefined)
                   }
-                  className="flex-1 py-1.5 rounded-md border text-[10px] font-medium transition-all"
+                  className="flex-1 py-1.5 rounded-md border text-[11px] font-medium transition-all"
                   style={{
                     borderColor: isActive ? 'var(--accent)' : 'var(--border-subtle)',
                     background: isActive ? 'var(--accent-dim)' : 'var(--surface-base)',
@@ -271,7 +271,7 @@ export function EdgeStylePanel({
         {/* Label Font Size */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[10px] font-medium uppercase tracking-wider"
+            className="text-[11px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('edgeStyle.labelFontSize')}

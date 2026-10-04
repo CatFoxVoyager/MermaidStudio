@@ -94,7 +94,7 @@ export function SubgraphStylePanel({
         <button
           onClick={onClose}
           aria-label="Close"
-          className="flex items-center justify-center w-6 h-6 rounded-md transition-colors hover:bg-white/10 shrink-0 max-md:min-w-[44px] max-md:min-h-[44px]"
+          className="flex items-center justify-center w-6 h-6 rounded-md transition-colors hover:bg-[var(--hover)] shrink-0 max-md:min-w-[44px] max-md:min-h-[44px]"
           style={{ color: 'var(--text-tertiary)' }}
         >
           <X size={14} />
@@ -106,7 +106,7 @@ export function SubgraphStylePanel({
         {/* Subgraph ID */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[10px] font-medium uppercase tracking-wider"
+            className="text-[11px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('subgraphStyle.subgraphId')}
@@ -126,7 +126,7 @@ export function SubgraphStylePanel({
         {/* Label */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[10px] font-medium uppercase tracking-wider"
+            className="text-[11px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('subgraphStyle.label')}
@@ -163,7 +163,7 @@ export function SubgraphStylePanel({
         {/* Stroke Width */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[10px] font-medium uppercase tracking-wider"
+            className="text-[11px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('subgraphStyle.strokeWidth')}
@@ -190,7 +190,7 @@ export function SubgraphStylePanel({
         {/* Border Style */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[10px] font-medium uppercase tracking-wider"
+            className="text-[11px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('subgraphStyle.borderStyle')}
@@ -206,7 +206,7 @@ export function SubgraphStylePanel({
                   onClick={() =>
                     handleStyleChange('strokeDasharray', opt.value || undefined)
                   }
-                  className="flex-1 py-1.5 rounded-md border text-[10px] font-medium transition-all"
+                  className="flex-1 py-1.5 rounded-md border text-[11px] font-medium transition-all"
                   style={{
                     borderColor: isActive ? 'var(--accent)' : 'var(--border-subtle)',
                     background: isActive ? 'var(--accent-dim)' : 'var(--surface-base)',
@@ -235,7 +235,7 @@ export function SubgraphStylePanel({
         {/* Advanced Toggle */}
         <button
           onClick={() => setAdvancedOpen(v => !v)}
-          className="flex items-center gap-1 py-1 text-[10px] font-medium uppercase tracking-wider transition-colors"
+          className="flex items-center gap-1 py-1 text-[11px] font-medium uppercase tracking-wider transition-colors"
           style={{ color: 'var(--text-tertiary)' }}
         >
           <ChevronDown
@@ -254,7 +254,7 @@ export function SubgraphStylePanel({
             {/* Font Family */}
             <div className="flex flex-col gap-1">
               <span
-                className="text-[10px] font-medium uppercase tracking-wider"
+                className="text-[11px] font-medium uppercase tracking-wider"
                 style={{ color: 'var(--text-tertiary)' }}
               >
                 {t('subgraphStyle.fontFamily')}
@@ -292,7 +292,7 @@ export function SubgraphStylePanel({
             {/* Font Weight */}
             <div className="flex flex-col gap-1">
               <span
-                className="text-[10px] font-medium uppercase tracking-wider"
+                className="text-[11px] font-medium uppercase tracking-wider"
                 style={{ color: 'var(--text-tertiary)' }}
               >
                 {t('subgraphStyle.fontWeight')}
@@ -328,7 +328,7 @@ export function SubgraphStylePanel({
             {/* Font Size */}
             <div className="flex flex-col gap-1">
               <span
-                className="text-[10px] font-medium uppercase tracking-wider"
+                className="text-[11px] font-medium uppercase tracking-wider"
                 style={{ color: 'var(--text-tertiary)' }}
               >
                 {t('subgraphStyle.fontSize')}
@@ -368,7 +368,7 @@ export function SubgraphStylePanel({
         {/* Opacity */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[10px] font-medium uppercase tracking-wider"
+            className="text-[11px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('subgraphStyle.opacity')}

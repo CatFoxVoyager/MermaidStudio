@@ -26,6 +26,7 @@
     "keyboardShortcuts": "Raccourcis clavier",
     "focusMode": "Mode focus",
     "toggleTheme": "Changer le thème",
+    "changeLanguage": "Changer de langue",
     "about": "À propos",
     "releaseNotes": "Notes de version"
   },
@@ -117,7 +118,13 @@
     "importBackupDesc": "Restaurer les diagrammes, modèles et paramètres depuis un fichier de sauvegarde",
     "description": "Sauvegardez tous vos diagrammes et paramètres ou restaurez à partir d'une sauvegarde précédente",
     "invalidFile": "Fichier de sauvegarde invalide",
-    "parseFailed": "Échec de l'analyse du fichier de sauvegarde"
+    "parseFailed": "Échec de l'analyse du fichier de sauvegarde",
+    "imported": "Importé : {{details}}",
+    "partDiagrams_one": "{{count}} diagramme",
+    "partDiagrams_other": "{{count}} diagrammes",
+    "partFolders_one": "{{count}} dossier",
+    "partFolders_other": "{{count}} dossiers",
+    "partSettings": "paramètres"
   },
   "templates": {
     "title": "Bibliothèque de modèles",
@@ -215,6 +222,14 @@
     "showLabels": "Afficher les étiquettes",
     "hideLabels": "Masquer les étiquettes",
     "collapse": "Réduire",
+    "copyCode": "Copier le code",
+    "autoSnapshot": "Point de contrôle auto",
+    "autoSnapshotEvery": "Point de contrôle auto toutes les {{interval}}",
+    "autoSnapshotOff": "Point de contrôle auto : désactivé",
+    "autoSnapshotMenuOff": "Désactivé",
+    "closeTab": "Fermer {{name}}",
+    "openDiagrams": "Diagrammes ouverts",
+    "autosaved": "Enregistré auto",
     "openOrCreate": "Ouvrez ou créez un diagramme pour commencer.",
     "newDiagram": "Nouveau diagramme",
     "newDiagramDesc": "Démarrer avec un organigramme vierge par défaut",
@@ -231,7 +246,10 @@
     "justSaved": "Vient d'être enregistré",
     "savedSecsAgo": "Enregistré il y a {{count}}s",
     "savedMinsAgo": "Enregistré il y a {{count}} min",
-    "savedHoursAgo": "Enregistré il y a {{count}} h"
+    "savedHoursAgo": "Enregistré il y a {{count}} h",
+    "editedAutosave": "Modifié · enregistré auto",
+    "editedAutosaveHint": "Ctrl+S enregistre une version (checkpoint)",
+    "openSource": "MermaidStudio est open source"
   },
   "sidebar": {
     "explorer": "Explorateur",
@@ -258,8 +276,16 @@
     "selectFolder": "Sélectionner le dossier de destination",
     "rootFolder": "Racine (sans dossier)",
     "deleteConfirmTitle": "Supprimer le diagramme ?",
-    "deleteMultipleConfirmTitle": "Supprimer {{count}} diagrammes ?",
-    "deleteConfirmMessage": "Cette action ne peut pas être annulée."
+    "deleteMultipleConfirmTitle_one": "Supprimer {{count}} diagramme ?",
+    "deleteMultipleConfirmTitle_other": "Supprimer {{count}} diagrammes ?",
+    "deleteConfirmMessage": "Cette action ne peut pas être annulée.",
+    "deleteFolderConfirmTitle": "Supprimer le dossier ?",
+    "deleteFolderConfirmMessage_zero": "« {{name}} » sera retiré de la barre latérale. Il ne contient aucun diagramme — ses sous-dossiers restent intacts et remontent au dossier parent.",
+    "deleteFolderConfirmMessage_one": "« {{name}} » sera retiré de la barre latérale. Son {{count}} diagramme et ses sous-dossiers restent intacts et remontent au dossier parent.",
+    "deleteFolderConfirmMessage_other": "« {{name}} » sera retiré de la barre latérale. Ses {{count}} diagrammes et sous-dossiers restent intacts et remontent au dossier parent.",
+    "optionsFor": "Options de {{name}}",
+    "addTag": "Ajouter un tag",
+    "clearSearch": "Effacer la recherche"
   },
   "toast": {
     "saved": "Enregistré",
