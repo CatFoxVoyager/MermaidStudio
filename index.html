@@ -107,10 +107,28 @@
       .shell a{color:#58a6ff}
       .shell .trust{font-size:.95rem;opacity:.85}
       @media (prefers-color-scheme:light){.shell{background:#fafaf9;color:#1f2328}.shell a{color:#0969da}}
+      /* Boot splash: covers the crawlable shell while the bundle loads (a
+         cold Wi-Fi fetch shows it for seconds — without it users see the
+         marketing shell flash and read it as a nag screen). Lives INSIDE
+         #root so React's first render removes it; the 8s CSS timeout fades
+         it anyway if the bundle fails, revealing the crawlable shell. */
+      #boot-splash{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.1rem;background:#0d1117;color:#e6edf3;font-family:Inter,system-ui,-apple-system,sans-serif;animation:boot-splash-out 0s 8s forwards}
+      #boot-splash .boot-title{font-size:1.05rem;font-weight:600;letter-spacing:.01em}
+      #boot-splash .boot-spinner{width:28px;height:28px;border:3px solid rgba(128,128,128,.25);border-top-color:#2dd4bf;border-radius:50%;animation:boot-spin 1s linear infinite}
+      @media (prefers-color-scheme:light){#boot-splash{background:#fafaf9;color:#1f2328}#boot-splash .boot-spinner{border-top-color:#0d7377}}
+      @keyframes boot-spin{to{transform:rotate(360deg)}}
+      @keyframes boot-splash-out{to{opacity:0;visibility:hidden}}
+      @media (prefers-reduced-motion:reduce){#boot-splash .boot-spinner{animation-duration:2s}}
     </style>
   </head>
   <body>
     <div id="root">
+      <!-- Boot splash: removed by React's first render (it replaces #root's
+           children), or self-fades after 8s if the bundle fails. -->
+      <div id="boot-splash" aria-hidden="true">
+        <div class="boot-spinner"></div>
+        <div class="boot-title">MermaidStudio</div>
+      </div>
       <!-- Crawlable shell content: indexed by search engines and AI crawlers,
            and shown while the app bundle loads. React replaces these children
            on first render — keep an equivalent fallback if this block changes. -->
