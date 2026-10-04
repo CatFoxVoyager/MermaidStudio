@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, Clock, Download, Sparkles, AlignLeft, Maximize, GitCompare, BookmarkPlus, FilePlus, LayoutTemplate, Terminal, Palette, SlidersHorizontal, Undo, Copy, Check, RotateCw, Wrench, Shapes } from 'lucide-react';
+import { Save, Clock, Download, Sparkles, AlignLeft, Maximize, GitCompare, BookmarkPlus, FilePlus, LayoutTemplate, Terminal, Palette, SlidersHorizontal, Undo, Copy, Check, RotateCw, Wrench, Shapes, MoreHorizontal } from 'lucide-react';
 import { CodeEditor } from './CodeEditor';
 import type { CodeEditorRef } from './CodeEditor';
 import { PreviewPanel } from '@/preview/PreviewPanel';
@@ -75,8 +75,33 @@ export function WorkspacePanel({
   const [autoSaveInterval, setAutoSaveInterval] = useState<number | null>(null);
   const [showAutoSaveMenu, setShowAutoSaveMenu] = useState(false);
   const autoSaveMenuRef = useRef<HTMLDivElement>(null);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const codeEditorRef = useRef<CodeEditorRef>(null);
+
+  // Dismiss either toolbar popover on Escape or any click outside it —
+  // sibling menus obey the same laws (critique iter-6 P4).
+  useEffect(() => {
+    if (!showMoreMenu && !showAutoSaveMenu) {return;}
+    function onPointerDown(e: MouseEvent) {
+      if (showMoreMenu && moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+      if (showAutoSaveMenu && autoSaveMenuRef.current && !autoSaveMenuRef.current.contains(e.target as Node)) {
+        setShowAutoSaveMenu(false);
+      }
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {setShowMoreMenu(false); setShowAutoSaveMenu(false);}
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [showMoreMenu, showAutoSaveMenu]);
 
   function escapeRegExp(str: string) {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -167,8 +192,9 @@ export function WorkspacePanel({
 
       <div className="flex items-center justify-between px-3 h-10 shrink-0 border-b"
         style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}>
+        {/* No repeated title here: the active tab (24px above) already names
+            the document — the toolbar keeps only the dirty state (iter-5). */}
         <div className="flex items-center gap-2 mr-4">
-          <span className="text-xs truncate max-w-[200px]" style={{ color: 'var(--text-secondary)' }}>{activeTab.title}</span>
           {activeTab.is_dirty && <div className="w-1.5 h-1.5 rounded-full bg-amber-400" title={t('status.editedAutosave')} />}
         </div>
         <div className="flex items-center gap-0.5">
@@ -193,6 +219,7 @@ export function WorkspacePanel({
           <div className="relative" ref={autoSaveMenuRef}>
             <button onClick={() => setShowAutoSaveMenu(v => !v)}
               aria-label={t('editor.autoSnapshot')}
+              aria-haspopup="menu" aria-expanded={showAutoSaveMenu}
               title={autoSaveInterval ? t('editor.autoSnapshotEvery', { interval: formatInterval(autoSaveInterval) }) : t('editor.autoSnapshotOff')}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-all hover:bg-[var(--hover)]"
               style={{ color: autoSaveInterval ? 'var(--accent)' : 'var(--text-tertiary)', background: autoSaveInterval ? 'var(--accent-dim)' : undefined }}>
@@ -200,7 +227,7 @@ export function WorkspacePanel({
               <RotateCw size={11} />
             </button>
             {showAutoSaveMenu && (
-              <div className="absolute top-full left-0 mt-1 z-50 rounded-md border py-1 min-w-[100px]"
+              <div className="absolute top-full left-0 mt-1 z-50 rounded-md border py-1 min-w-[150px]"
                 style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}>
                 {([
                   { value: null, label: t('editor.autoSnapshotMenuOff') },
@@ -220,12 +247,8 @@ export function WorkspacePanel({
             )}
           </div>
           <div className="w-px h-4 mx-1.5" style={{ background: 'var(--border-subtle)' }} />
-          <ToolbarButton icon={<BookmarkPlus size={13} />} label={t('editor.saveAsTemplate')} showLabel={false}
-            onClick={onSaveTemplate} title={t('editor.saveAsTemplate')} />
           <ToolbarButton icon={<GitCompare size={13} />} label="Diff" showLabel={showLabels}
             onClick={() => setShowDiff(v => !v)} title={t('editor.compareWithSaved')} active={showDiff} />
-          <ToolbarButton icon={<Clock size={13} />} label={t('editor.versionHistory')} showLabel={false}
-            onClick={onShowHistory} title={t('editor.versionHistory')} />
           <ToolbarButton icon={<Download size={13} />} label={t('editor.export')} showLabel={showLabels}
             onClick={onShowExport} title={t('editor.export')} />
           <ToolbarButton
@@ -240,14 +263,38 @@ export function WorkspacePanel({
             onClick={() => onOpenAIPanel?.({ mode: 'fix' })}
             disabled={!previewError}
             title={previewError ? t('ai.fixDiagram') : t('ai.noErrors')} />
-          <ToolbarButton icon={<Palette size={13} />} label={t('editor.diagramColors')} showLabel={false}
-            onClick={onShowDiagramColors} title={t('editor.diagramColors')} />
-          <ToolbarButton icon={<SlidersHorizontal size={13} />} label={t('editor.advancedStyling')} showLabel={false}
-            onClick={onShowAdvancedStyle} title={t('editor.advancedStyling')} />
-          <ToolbarButton icon={<Maximize size={13} />} label={t('editor.fullscreenPreview')} showLabel={false}
-            onClick={onFullscreen} title={t('editor.fullscreenPreview')} />
-          <ToolbarButton icon={<AlignLeft size={13} />} label={t('editor.resetSplit')} showLabel={false}
-            onClick={() => setSplitPos(40)} title={t('editor.resetSplit')} />
+          {/* Secondary actions live in the More menu — ten icon-only buttons
+              of equal weight failed the ≤4-choices chunk (critique iter-3). */}
+          <div className="relative" ref={moreMenuRef}>
+            <button onClick={() => setShowMoreMenu(v => !v)} aria-label={t('editor.moreActions')} aria-haspopup="menu" aria-expanded={showMoreMenu}
+              title={t('editor.moreActions')}
+              className="flex items-center px-2 py-1 rounded-sm text-xs transition-colors hover:bg-[var(--hover)]"
+              style={{ color: 'var(--text-tertiary)' }}>
+              <MoreHorizontal size={13} />
+            </button>
+            {showMoreMenu && (
+              /* Plain button list, no role="menu" — that role promises arrow-key
+                 navigation this popover does not implement (iter-6 P4). */
+              <div className="absolute top-full left-0 mt-1 z-50 rounded-md border py-1 min-w-[190px]"
+                style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}>
+                {([
+                  { icon: <BookmarkPlus size={13} />, label: t('editor.saveAsTemplate'), onClick: onSaveTemplate },
+                  { icon: <Clock size={13} />, label: t('editor.versionHistory'), onClick: onShowHistory },
+                  { icon: <Palette size={13} />, label: t('editor.diagramColors'), onClick: onShowDiagramColors },
+                  { icon: <SlidersHorizontal size={13} />, label: t('editor.advancedStyling'), onClick: onShowAdvancedStyle },
+                  { icon: <Maximize size={13} />, label: t('editor.fullscreenPreview'), onClick: onFullscreen },
+                  { icon: <AlignLeft size={13} />, label: t('editor.resetSplit'), onClick: () => setSplitPos(40) },
+                ]).map(item => (
+                  <button key={item.label}
+                    onClick={() => { item.onClick(); setShowMoreMenu(false); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-left transition-colors hover:bg-[var(--hover)]"
+                    style={{ color: 'var(--text-secondary)' }}>
+                    {item.icon} {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="w-px h-4 mx-1.5" style={{ background: 'var(--border-subtle)' }} />
           <ToolbarButton
             data-testid="workspace-view-split"

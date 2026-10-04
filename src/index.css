@@ -120,6 +120,11 @@ layer(base);
   /* Interactive hover feedback — visible on white (hover:bg-white/8 is a
      zero-delta wash on light surfaces, see critique iter-1 P2) */
   --hover: rgba(0,0,0,0.05);
+  /* Destructive action background: white text on #dc2626 is 4.8:1 (AA) —
+     #ef4444 was 3.76:1 (critique iter-6 P3) */
+  --danger: #dc2626;
+  /* Tinted wash for danger surfaces — derives from --danger, not the old red */
+  --danger-dim: rgba(220,38,38,0.08);
 
   /* ─── Z-index layering (Phase 14, MFDN-04) ─── */
   --z-base: 0;
@@ -145,6 +150,8 @@ layer(base);
   --accent-dim: rgba(45,212,191,0.12);
   --accent-rgb: 45,212,191;
   --hover: rgba(255,255,255,0.08);
+  --danger: #dc2626;
+  --danger-dim: rgba(220,38,38,0.08);
 }
 
 /* ─── Base ───────────────────────────────────────────────────── */

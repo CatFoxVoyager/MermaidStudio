@@ -376,10 +376,8 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
           </label>
           {options.map(opt => (
             <button key={opt.id} onClick={opt.action}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left border transition-all duration-150"
-              style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}>
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left border border-[var(--border-subtle)] hover:border-[var(--accent)] transition-all duration-150"
+              style={{ background: 'var(--surface-floating)', color: 'var(--text-primary)' }}>
               <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
                 style={{ background: 'var(--accent-dim)', color: done === opt.id ? '#22c55e' : 'var(--accent)' }}>
                 {done === opt.id ? <Check size={16} /> : opt.icon}

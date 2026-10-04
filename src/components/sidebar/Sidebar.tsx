@@ -9,6 +9,7 @@ import {
 } from '@/services/storage/database';
 import { ContextMenu } from '../shared/ContextMenu';
 import type { ContextMenuItem } from '../shared/ContextMenu';
+import { Modal } from '../shared/Modal';
 
 interface Props {
   onOpenDiagram: (id: string) => void;
@@ -224,7 +225,7 @@ flowchart TD
         }}
         onContextMenu={e => showDiagramCtx(e, d)}>
         {isSelectMode && (
-          <button onClick={handleSelect} className="shrink-0 p-0.5 rounded-sm hover:bg-[var(--hover)]" style={{ color: 'var(--text-secondary)' }}>
+          <button onClick={handleSelect} aria-label={isSelected ? t('sidebar.diagramSelected') : t('sidebar.enterSelectMode')} className="shrink-0 p-0.5 rounded-sm hover:bg-[var(--hover)]" style={{ color: 'var(--text-secondary)' }}>
             {isSelected ? <CheckSquare size={13} /> : <Square size={13} />}
           </button>
         )}
@@ -439,7 +440,13 @@ flowchart TD
         {filtered.length === 0 && isFiltering && (
           <div className="flex flex-col items-center justify-center py-10 text-center">
             <Search size={16} className="mb-2 opacity-30" style={{ color: 'var(--text-secondary)' }} />
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t('sidebar.noMatchingDiagrams')}</p>
+            <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>{t('sidebar.noMatchingDiagrams')}</p>
+            {/* Dead-end exit: an empty filter state without a way out reads as
+                a bug (critique iter-5 P2, Riley). */}
+            <button onClick={() => { setSearch(''); setActiveTagId(null); }}
+              className="text-xs hover:underline" style={{ color: 'var(--accent)' }}>
+              {t('sidebar.clearFilters')}
+            </button>
           </div>
         )}
         {allDiagrams.length === 0 && !isFiltering && (
@@ -458,90 +465,75 @@ flowchart TD
 
       {ctx && <ContextMenu {...ctx} onClose={() => setCtx(null)} />}
 
-      {/* Folder Picker Modal */}
+      {/* Folder Picker Modal — shared Modal gives trap, focus restore, Escape */}
       {showFolderPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}
-          onClick={e => { if (e.target === e.currentTarget) {setShowFolderPicker(false); setPickerDiagramIds([]);} }}>
-          <div className="w-80 rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'var(--surface-raised)', border: '1px solid var(--border-subtle)' }}>
-            <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-              <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{t('sidebar.selectFolder')}</span>
-              <button autoFocus onClick={() => { setShowFolderPicker(false); setPickerDiagramIds([]); }} aria-label={t('common.close')} className="p-1 rounded-sm hover:bg-[var(--hover)]" style={{ color: 'var(--text-secondary)' }}>
-                <X size={14} />
-              </button>
-            </div>
-            <div className="p-2 max-h-80 overflow-y-auto">
-              <button onClick={() => handleMoveToFolder(null)}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors hover:bg-[var(--hover)]"
-                style={{ color: 'var(--text-secondary)' }}>
-                <FolderOpen size={14} />
-                <span className="text-xs">{t('sidebar.rootFolder')}</span>
-              </button>
-              {allFolders.filter(f => f.parent_id === null).map(f => (
-                <div key={f.id}>
-                  <button onClick={() => handleMoveToFolder(f.id)}
+        <Modal isOpen onClose={() => { setShowFolderPicker(false); setPickerDiagramIds([]); }} title={t('sidebar.selectFolder')} size="sm">
+          <div className="p-2 max-h-80 overflow-y-auto">
+            <button onClick={() => handleMoveToFolder(null)}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors hover:bg-[var(--hover)]"
+              style={{ color: 'var(--text-secondary)' }}>
+              <FolderOpen size={14} />
+              <span className="text-xs">{t('sidebar.rootFolder')}</span>
+            </button>
+            {allFolders.filter(f => f.parent_id === null).map(f => (
+              <div key={f.id}>
+                <button onClick={() => handleMoveToFolder(f.id)}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors hover:bg-[var(--hover)]"
+                  style={{ color: 'var(--text-secondary)' }}>
+                  <Folder size={14} />
+                  <span className="text-xs truncate">{f.name}</span>
+                </button>
+                {allFolders.filter(sub => sub.parent_id === f.id).map(sub => (
+                  <button key={sub.id} onClick={() => handleMoveToFolder(sub.id)}
                     className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors hover:bg-[var(--hover)]"
-                    style={{ color: 'var(--text-secondary)' }}>
+                    style={{ color: 'var(--text-secondary)', paddingLeft: '2rem' }}>
                     <Folder size={14} />
-                    <span className="text-xs truncate">{f.name}</span>
+                    <span className="text-xs truncate">{sub.name}</span>
                   </button>
-                  {allFolders.filter(sub => sub.parent_id === f.id).map(sub => (
-                    <button key={sub.id} onClick={() => handleMoveToFolder(sub.id)}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors hover:bg-[var(--hover)]"
-                      style={{ color: 'var(--text-secondary)', paddingLeft: '2rem' }}>
-                      <Folder size={14} />
-                      <span className="text-xs truncate">{sub.name}</span>
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ))}
           </div>
-        </div>
+        </Modal>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Confirmation Modal — shared Modal gives trap, focus restore, Escape */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}
-          onClick={e => { if (e.target === e.currentTarget) {setDeleteConfirm(null);} }}
-          onKeyDown={e => { if (e.key === 'Escape') {setDeleteConfirm(null);} }}>
-          <div role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title"
-            className="w-80 rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'var(--surface-raised)', border: '1px solid var(--border-subtle)' }}>
-            <div className="p-4">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center mb-3 mx-auto" style={{ background: deleteConfirm.folder ? 'rgba(59,130,246,0.1)' : 'rgba(239,68,68,0.1)' }}>
-                {deleteConfirm.folder
-                  ? <Folder size={20} style={{ color: '#3b82f6' }} />
-                  : <Trash2 size={20} style={{ color: '#ef4444' }} />}
-              </div>
-              <h3 id="delete-confirm-title" className="text-sm font-semibold text-center mb-1" style={{ color: 'var(--text-primary)' }}>
-                {deleteConfirm.folder
-                  ? t('sidebar.deleteFolderConfirmTitle')
-                  : deleteConfirm.isSingle
-                    ? t('sidebar.deleteConfirmTitle')
-                    : t('sidebar.deleteMultipleConfirmTitle', { count: deleteConfirm.ids.length })}
-              </h3>
-              <p className="text-xs text-center mb-4" style={{ color: 'var(--text-secondary)' }}>
-                {deleteConfirm.folder
-                  ? t('sidebar.deleteFolderConfirmMessage', {
-                      name: deleteConfirm.folder.name,
-                      count: allDiagrams.filter(d => d.folder_id === deleteConfirm.folder!.id).length,
-                    })
-                  : t('sidebar.deleteConfirmMessage')}
-              </p>
-              <div className="flex gap-2">
-                <button autoFocus onClick={() => setDeleteConfirm(null)}
-                  className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-                  style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
-                  {t('common.cancel')}
-                </button>
-                <button onClick={handleDeleteConfirm}
-                  className="flex-1 px-3 py-2 rounded-lg text-xs font-medium text-white transition-colors"
-                  style={{ background: deleteConfirm.folder ? 'var(--accent)' : '#ef4444' }}>
-                  {t('common.delete')}
-                </button>
-              </div>
+        <Modal isOpen onClose={() => setDeleteConfirm(null)} title={
+          deleteConfirm.folder
+            ? t('sidebar.deleteFolderConfirmTitle')
+            : deleteConfirm.isSingle
+              ? t('sidebar.deleteConfirmTitle')
+              : t('sidebar.deleteMultipleConfirmTitle', { count: deleteConfirm.ids.length })
+        } size="sm">
+          <div className="p-4 text-center">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center mb-3 mx-auto" style={{ background: deleteConfirm.folder ? 'rgba(59,130,246,0.1)' : 'var(--danger-dim)' }}>
+              {deleteConfirm.folder
+                ? <Folder size={20} style={{ color: '#3b82f6' }} />
+                : <Trash2 size={20} style={{ color: 'var(--danger)' }} />}
+            </div>
+            <p className="text-xs text-center mb-4" style={{ color: 'var(--text-secondary)' }}>
+              {deleteConfirm.folder
+                ? t('sidebar.deleteFolderConfirmMessage', {
+                    name: deleteConfirm.folder.name,
+                    count: allDiagrams.filter(d => d.folder_id === deleteConfirm.folder!.id).length,
+                  })
+                : t('sidebar.deleteConfirmMessage')}
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setDeleteConfirm(null)}
+                className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+                style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
+                {t('common.cancel')}
+              </button>
+              <button onClick={handleDeleteConfirm}
+                className="flex-1 px-3 py-2 rounded-lg text-xs font-medium text-white transition-colors"
+                style={{ background: deleteConfirm.folder ? 'var(--accent)' : 'var(--danger)' }}>
+                {t('common.delete')}
+              </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

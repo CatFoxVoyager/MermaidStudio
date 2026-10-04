@@ -38,21 +38,64 @@ export function Modal({
 }: ModalProps) {
   const { t } = useTranslation();
   const panelRef = useRef<HTMLDivElement>(null);
-  // Pull focus into the dialog on open: without it, Escape and Tab stay
-  // attached to the page behind the modal (critique iter-4 P1).
+  // Capture the trigger so focus can return there on close — a dialog that
+  // drops focus on BODY throws keyboard users back to the top of the page
+  // (critique iter-5 P1: focus restoration).
+  const triggerRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
+    if (!isOpen) {return;}
+    // Pull focus into the dialog on open: without it, Escape and Tab stay
+    // attached to the page behind the modal (critique iter-4 P1).
+    triggerRef.current = document.activeElement as HTMLElement | null;
     panelRef.current?.focus();
-  }, []);
+    return () => {
+      triggerRef.current?.focus?.();
+    };
+  }, [isOpen]);
+
   if (!isOpen) {return null;}
 
   const sizeClass = sizeClasses[size];
   const positionClass = positionClasses[position];
   const isRightPanel = position === 'right';
 
-  // Handle Esc key press
+  // Handle Esc key press and keep Tab cycling inside the panel (critique
+  // iter-5 P1: Tab used to escape the overlay to focusable-but-hidden page
+  // content behind the dialog).
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       onClose();
+      return;
+    }
+    if (e.key === 'Tab' && panelRef.current) {
+      // Visibility filter is the fix for the iter-6 live failure: a hidden
+      // <input type="file"> matches the selector but .focus() on it is a
+      // no-op, so Tab escaped through it. Computed display works in both
+      // worlds — jsdom resolves inline styles, browsers resolve stylesheets.
+      const focusables = Array.from(
+        panelRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+        )
+      ).filter(el => window.getComputedStyle(el).display !== 'none');
+      if (focusables.length === 0) {return;}
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      // When focus sits on the panel itself (initial pull-in), Tab must move
+      // INTO the cycle, not escape past it.
+      if (active === panelRef.current) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
   };
 

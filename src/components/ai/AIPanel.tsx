@@ -538,14 +538,11 @@ export function AIPanel({
             <button
               key={s}
               onClick={() => handleSend(s)}
-              className="px-2.5 py-1 rounded-full text-[11px] border transition-all duration-150"
+              className="px-2.5 py-1 rounded-full text-[11px] border border-[var(--border-subtle)] hover:border-[var(--accent)] transition-all duration-150"
               style={{
                 background: 'var(--surface-floating)',
-                borderColor: 'var(--border-subtle)',
                 color: 'var(--text-secondary)',
               }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}
             >
               {s}
             </button>

@@ -67,6 +67,27 @@ function openDB(): Promise<IDBDatabase> {
 /**
  * Get data from IndexedDB, migrating from localStorage if needed
  */
+/**
+ * One-shot backfill for stores created before the seed linked tags to the
+ * Welcome Diagram: without it, existing users hit an empty list on their
+ * first tag-chip click and read it as a bug (critique iter-5 P2). Runs only
+ * when the relation table is empty AND the seed tags are present — a user
+ * who removed tags or created relations is left untouched. The condition
+ * clears itself once the relations are written.
+ */
+function backfillSeedTagRelations(data: DBData): void {
+  if (data.diagramTags.length > 0) {return;}
+  const welcome = data.diagrams.find(d => d.title === 'Welcome Diagram');
+  const architecture = data.tags.find(t => t.name === 'architecture');
+  const workflow = data.tags.find(t => t.name === 'workflow');
+  if (!welcome || !architecture || !workflow) {return;}
+  data.diagramTags = [
+    { diagram_id: welcome.id, tag_id: architecture.id },
+    { diagram_id: welcome.id, tag_id: workflow.id },
+  ];
+  void save(data);
+}
+
 async function load(): Promise<DBData> {
   if (dataCache) {
     return dataCache;
@@ -84,6 +105,7 @@ async function load(): Promise<DBData> {
     });
 
     if (data) {
+      backfillSeedTagRelations(data);
       dataCache = data;
       return data;
     }
