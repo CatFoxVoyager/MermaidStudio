@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { Modal } from '../Modal';
 
@@ -172,17 +173,63 @@ describe('Modal Component', () => {
       expect(closeButton).toBeInTheDocument();
     });
 
-    it('should trap focus within modal', () => {
+    it('should trap focus within modal (hidden file input must not break the cycle)', async () => {
+      // Real confinement test (was vacuous: only asserted elements existed).
+      // The hidden <input type="file"> reproduces the real BackupPanel DOM —
+      // it matched the focusable selector and its no-op .focus() let Tab
+      // escape in the browser even though jsdom stayed green (iter-6 P1).
+      const user = userEvent.setup();
       render(
         <Modal isOpen={true} onClose={mockOnClose} title="Test">
           <input type="text" placeholder="Input" />
           <button>Button</button>
+          {/* Inline display:none — the jsdom-resolvable form of the hidden
+              file input that broke the trap live (iter-6). */}
+          <input type="file" style={{ display: 'none' }} readOnly />
         </Modal>
       );
       const input = screen.getByPlaceholderText('Input');
-      const button = screen.getByText('Button');
-      expect(input).toBeInTheDocument();
-      expect(button).toBeInTheDocument();
+      const closeButton = screen.getByRole('button', { name: /close/i });
+      const contentButton = screen.getByText('Button');
+
+      // Cycle inside: input -> Button -> close -> wraps to input.
+      contentButton.focus();
+      await user.tab();
+      expect(document.activeElement).toBe(closeButton);
+      await user.tab();
+      expect(document.activeElement).toBe(input);
+
+      await user.tab({ shift: true });
+      expect(document.activeElement).toBe(closeButton);
+      contentButton.focus();
+      await user.tab({ shift: true });
+      expect(document.activeElement).toBe(input);
+
+      // Tab from the panel itself (initial pull-in state) enters the cycle.
+      const panel = screen.getByTestId('modal');
+      panel.focus();
+      await user.tab();
+      expect([input, contentButton, closeButton]).toContain(document.activeElement);
+    });
+
+    it('should restore focus to the trigger on close', async () => {
+      // Focus must return to the element that opened the dialog, not BODY.
+      // The real close path re-renders with isOpen=false — the trigger stays
+      // mounted (unmounting it would destroy the focus target itself).
+      function Harness({ isOpen }: { isOpen: boolean }) {
+        return (
+          <>
+            <button>Trigger</button>
+            <Modal isOpen={isOpen} onClose={mockOnClose} title="Test">
+              Content
+            </Modal>
+          </>
+        );
+      }
+      const { rerender } = render(<Harness isOpen={true} />);
+      screen.getByText('Trigger').focus();
+      rerender(<Harness isOpen={false} />);
+      expect(document.activeElement).toBe(screen.getByText('Trigger'));
     });
   });
 

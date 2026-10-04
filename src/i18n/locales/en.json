@@ -115,7 +115,7 @@
     "exportAll": "Export All",
     "exportAllDesc": "Download all diagrams, folders, templates, and settings (including AI config) as JSON",
     "importBackup": "Import Backup",
-    "importBackupDesc": "Restore diagrams, templates, and settings from a backup file",
+    "importBackupDesc": "Restore diagrams, folders, templates, and settings from a backup file",
     "description": "Backup all your diagrams and settings or restore from a previous backup",
     "invalidFile": "Invalid backup file",
     "parseFailed": "Failed to parse backup file",
@@ -124,7 +124,18 @@
     "partDiagrams_other": "{{count}} diagrams",
     "partFolders_one": "{{count}} folder",
     "partFolders_other": "{{count}} folders",
-    "partSettings": "settings"
+    "partSettings": "settings",
+    "replaceConfirmTitle": "Replace current data?",
+    "replaceConfirmLead": "Importing replaces on this device: {{details}}.",
+    "confirmDiagrams_zero": "no diagrams",
+    "confirmDiagrams_one": "ALL {{count}} diagram",
+    "confirmDiagrams_other": "ALL {{count}} diagrams",
+    "confirmFolders_zero": "no folders",
+    "confirmFolders_one": "ALL {{count}} folder",
+    "confirmFolders_other": "ALL {{count}} folders",
+    "replaceConfirmEmpty": "Your library is empty — nothing can be lost; importing just loads the backup's content.",
+    "replaceConfirmHint": "Unsure? Cancel and export a backup first, then import again.",
+    "replaceEverything": "Replace everything"
   },
   "templates": {
     "title": "Template Library",
@@ -228,6 +239,7 @@
     "autoSnapshotOff": "Auto-checkpoint: Off",
     "autoSnapshotMenuOff": "Off",
     "closeTab": "Close {{name}}",
+    "moreActions": "More actions",
     "openDiagrams": "Open diagrams",
     "autosaved": "Autosaved",
     "openOrCreate": "Open or create a diagram to get started.",
@@ -285,7 +297,8 @@
     "deleteFolderConfirmMessage_other": "\"{{name}}\" will be removed from the sidebar. Its {{count}} diagrams and any subfolders stay safe and move up to the parent folder.",
     "optionsFor": "Options for {{name}}",
     "addTag": "Add tag",
-    "clearSearch": "Clear search"
+    "clearSearch": "Clear search",
+    "clearFilters": "Clear search & filters"
   },
   "toast": {
     "saved": "Saved",

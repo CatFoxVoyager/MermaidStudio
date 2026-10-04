@@ -32,10 +32,8 @@ function TemplateCard({ template, onSelect, onDelete }: { template: Template | U
     <div
       data-testid="template-item"
       onClick={onSelect}
-      className="group cursor-pointer rounded-xl overflow-hidden border transition-all duration-200 hover:scale-[1.02] relative"
-      style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-floating)' }}
-      onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
-      onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border-subtle)')}>
+      className="group cursor-pointer rounded-xl overflow-hidden border border-[var(--border-subtle)] hover:border-[var(--accent)] transition-all duration-200 hover:scale-[1.02] relative"
+      style={{ background: 'var(--surface-floating)' }}>
 
       <div className="h-28 overflow-hidden flex items-center justify-center relative preview-grid"
         style={{ background: 'var(--surface-base)' }}>
