@@ -38,7 +38,7 @@ function ShapeButton({ shape, label, onDragStart, onClick }: ShapeButtonProps) {
       className="flex flex-col items-center gap-1 px-2 py-2 rounded-lg border transition-all hover:scale-105 active:scale-95 cursor-grab active:cursor-grabbing"
       style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)', minWidth: 52 }}>
       <ShapePreview shape={shape} />
-      <span className="text-[9px] font-medium leading-none">{label}</span>
+      <span className="text-[11px] font-medium leading-none">{label}</span>
     </button>
   );
 }
@@ -103,7 +103,7 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
 
       <div className="w-px h-8 shrink-0 mx-1" style={{ background: 'var(--border-subtle)' }} />
 
-      <span className="text-[10px] font-medium shrink-0 mr-1" style={{ color: 'var(--text-tertiary)' }}>SHAPES</span>
+      <span className="text-[11px] font-medium shrink-0 mr-1" style={{ color: 'var(--text-tertiary)' }}>SHAPES</span>
 
       <div className="flex items-center gap-1 shrink-0">
         {SHAPES.map(({ shape, label }) => (

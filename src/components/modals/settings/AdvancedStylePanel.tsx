@@ -36,9 +36,9 @@ function SliderControl({ label, icon, value, min, max, step, unit, onChange, the
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <span style={{ color: 'var(--text-tertiary)' }}>{icon}</span>
-          <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{label}</span>
+          <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{label}</span>
         </div>
-        <span className="text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded-sm"
+        <span className="text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded-sm"
           style={{
             color: 'var(--text-primary)',
             background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'
@@ -235,10 +235,10 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{t('advancedStyle.title')}</span>
-            <span className="text-[9px]" style={{ color: 'var(--text-tertiary)' }}>{t('advancedStyle.type')} {diagramType}</span>
+            <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{t('advancedStyle.type')} {diagramType}</span>
           </div>
         </div>
-        <button onClick={handleClose} className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
+        <button onClick={handleClose} className="p-1.5 rounded-sm transition-colors hover:bg-[var(--hover)]"
           style={{ color: 'var(--text-secondary)' }}>
           <X size={14} />
         </button>
@@ -248,7 +248,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
         <div className="space-y-1.5">
           <div className="flex items-center gap-1.5">
             <Type size={11} style={{ color: 'var(--text-tertiary)' }} />
-            <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.fontFamily')}</span>
+            <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.fontFamily')}</span>
           </div>
           <select
             value={styleOptions.fontFamily}
@@ -285,12 +285,12 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
 
         {!hasConfigOptions && (
           <div className="text-center py-6 px-3 rounded-lg border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-floating)' }}>
-            <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+            <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
               {isThemeOnly ? (
                 <>
                   <strong>{diagramType}</strong> diagrams support styling through <strong>theme variables</strong> only.
                   <br /><br />
-                  Use the <strong>Diagram Colors</strong> panel to customize colors, or manually add <code className="px-1 py-0.5 rounded text-[9px]" style={{ background: 'var(--surface-base)' }}>%%&#123;init: &#123;...&#125;%%&#125;</code> directives to set theme variables.
+                  Use the <strong>Diagram Colors</strong> panel to customize colors, or manually add <code className="px-1 py-0.5 rounded text-[11px]" style={{ background: 'var(--surface-base)' }}>%%&#123;init: &#123;...&#125;%%&#125;</code> directives to set theme variables.
                   <br /><br />
                   <span style={{ color: 'var(--text-tertiary)' }}>Examples: <code>primaryColor</code>, <code>lineColor</code>, <code>fontSize</code></span>
                 </>
@@ -303,11 +303,11 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
 
         {supportsStyleKeyword && !isFlowchart && (
           <div className="py-3 px-3 rounded-lg border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-floating)' }}>
-            <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              <strong>{diagramType}</strong> styling: Use the <code className="px-1 py-0.5 rounded text-[9px]" style={{ background: 'var(--surface-base)' }}>style</code> keyword for individual elements.
+            <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              <strong>{diagramType}</strong> styling: Use the <code className="px-1 py-0.5 rounded text-[11px]" style={{ background: 'var(--surface-base)' }}>style</code> keyword for individual elements.
               <br /><br />
               <span style={{ color: 'var(--text-tertiary)' }}>Example:</span>
-              <pre className="mt-2 text-[9px] p-2 rounded overflow-x-auto" style={{ background: 'var(--surface-base)', color: 'var(--text-primary)' }}>
+              <pre className="mt-2 text-[11px] p-2 rounded overflow-x-auto" style={{ background: 'var(--surface-base)', color: 'var(--text-primary)' }}>
 {diagramType === 'stateDiagram' ? `style StateName fill:#6f6,stroke:#0f0,color:#000` : `style ClassName fill:#dbeafe,stroke:#1d4ed8`}
               </pre>
             </p>
@@ -316,11 +316,11 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
 
         {supportsRectBlocks && (
           <div className="py-3 px-3 rounded-lg border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-floating)' }}>
-            <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              <strong>{diagramType}</strong> styling: Use <code className="px-1 py-0.5 rounded text-[9px]" style={{ background: 'var(--surface-base)' }}>rect</code> blocks to highlight sections.
+            <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              <strong>{diagramType}</strong> styling: Use <code className="px-1 py-0.5 rounded text-[11px]" style={{ background: 'var(--surface-base)' }}>rect</code> blocks to highlight sections.
               <br /><br />
               <span style={{ color: 'var(--text-tertiary)' }}>Example:</span>
-              <pre className="mt-2 text-[9px] p-2 rounded overflow-x-auto" style={{ background: 'var(--surface-base)', color: 'var(--text-primary)' }}>
+              <pre className="mt-2 text-[11px] p-2 rounded overflow-x-auto" style={{ background: 'var(--surface-base)', color: 'var(--text-primary)' }}>
 {`rect rgb(59, 130, 246)
     A->>B: Message in highlighted section
 end`}
@@ -336,7 +336,7 @@ end`}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
                   <Compass size={11} style={{ color: 'var(--text-tertiary)' }} />
-                  <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.direction')}</span>
+                  <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.direction')}</span>
                 </div>
                 <div className="grid grid-cols-4 gap-1">
                   {DIRECTION_OPTIONS.map(opt => (
@@ -356,7 +356,7 @@ end`}
                           : 'var(--text-secondary)',
                       }}
                     >
-                      <span className="text-[9px] font-medium">{opt.label}</span>
+                      <span className="text-[11px] font-medium">{opt.label}</span>
                     </button>
                   ))}
                 </div>
@@ -397,7 +397,7 @@ end`}
             {isElkLayout && (
               <div className="px-3 py-2 rounded-lg border"
                 style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
-                <p className="text-[9px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
                   {t('advancedStyle.elkSpacingNote')}
                 </p>
               </div>
@@ -406,7 +406,7 @@ end`}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
                 <LayoutGrid size={11} style={{ color: 'var(--text-tertiary)' }} />
-                <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.layoutEngine')}</span>
+                <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.layoutEngine')}</span>
               </div>
               <div className="grid grid-cols-3 gap-1">
                 {LAYOUT_OPTIONS.map(opt => (
@@ -427,7 +427,7 @@ end`}
                     }}
                     title={opt.description}
                   >
-                    <span className="text-[9px] font-medium">{opt.label}</span>
+                    <span className="text-[11px] font-medium">{opt.label}</span>
                   </button>
                 ))}
               </div>
@@ -436,14 +436,14 @@ end`}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
                 <Spline size={11} style={{ color: 'var(--text-tertiary)' }} />
-                <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.edgeStyle', 'Edge Curve Style')}</span>
+                <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.edgeStyle', 'Edge Curve Style')}</span>
               </div>
               <div className="grid grid-cols-3 gap-1">
                 {CURVE_OPTIONS.map(opt => (
                   <button
                     key={opt.value}
                     onClick={() => update({ curveStyle: opt.value })}
-                    className="text-[9px] py-1.5 rounded-sm border transition-all text-center font-medium"
+                    className="text-[11px] py-1.5 rounded-sm border transition-all text-center font-medium"
                     style={{
                       background: styleOptions.curveStyle === opt.value
                         ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
@@ -526,7 +526,7 @@ end`}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
                   <Spline size={11} style={{ color: 'var(--text-tertiary)' }} />
-                  <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>Line Style</span>
+                  <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>Line Style</span>
                 </div>
                 <div className="grid grid-cols-3 gap-1">
                   {[
@@ -537,7 +537,7 @@ end`}
                     <button
                       key={opt.label}
                       onClick={() => update({ edgeDasharray: opt.value })}
-                      className="text-[9px] py-1.5 rounded-sm border transition-all text-center font-medium"
+                      className="text-[11px] py-1.5 rounded-sm border transition-all text-center font-medium"
                       style={{
                         background: (styleOptions.edgeDasharray || '') === opt.value
                           ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
@@ -609,7 +609,7 @@ end`}
 
             <div className="flex items-center justify-between px-3 py-2 rounded-lg border"
               style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
-              <span className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.mirrorActors')}</span>
+              <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.mirrorActors')}</span>
               <button
                 onClick={() => update({ mirrorActors: !(styleOptions.mirrorActors ?? false) })}
                 className={`w-8 h-4 rounded-full transition-colors relative`}
@@ -670,7 +670,7 @@ end`}
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">
                 <Type size={11} style={{ color: 'var(--text-tertiary)' }} />
-                <span className="text-[10px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.axisFormat')}</span>
+                <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.axisFormat')}</span>
               </div>
               <select
                 value={styleOptions.axisFormat ?? '%Y-%m-%d'}
@@ -695,7 +695,7 @@ end`}
         {!isDefault && (
           <button
             onClick={handleReset}
-            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border text-[10px] font-medium transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border text-[11px] font-medium transition-colors"
             style={{
               borderColor: isDark ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.15)',
               color: isDark ? '#f87171' : '#dc2626',

@@ -21,9 +21,10 @@ interface Props {
   content: string;
   lastSaved: string | null;
   renderTimeMs: number | null;
+  isDirty: boolean;
 }
 
-export function StatusBar({ content, lastSaved, renderTimeMs }: Props) {
+export function StatusBar({ content, lastSaved, renderTimeMs, isDirty }: Props) {
   const { t } = useTranslation();
   const [now, setNow] = useState(() => Date.now());
   const timerRef = useRef<number>(0);
@@ -38,7 +39,12 @@ export function StatusBar({ content, lastSaved, renderTimeMs }: Props) {
   const type = detectDiagramType(content);
 
   function relSaved() {
-    if (!lastSaved) {return t('status.notSaved');}
+    // Honest save status: the auto-save persists content to IndexedDB within a
+    // second, so "dirty" only means "no checkpointed version yet" — never
+    // claim work is at risk when it is already on disk. Relative times are
+    // computed from the REAL persist timestamp, never fabricated.
+    if (isDirty) {return t('status.editedAutosave');}
+    if (!lastSaved) {return t('status.autosaved');}
     const diff = (now - new Date(lastSaved).getTime()) / 1000;
     if (diff < 5) {return t('status.justSaved');}
     if (diff < 60) {return t('status.savedSecsAgo', { count: Math.floor(diff) });}
@@ -47,8 +53,8 @@ export function StatusBar({ content, lastSaved, renderTimeMs }: Props) {
   }
 
   return (
-    <div data-testid="status" className="flex items-center justify-between px-3 h-6 shrink-0 border-t text-[10px]"
-      style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}>
+    <div data-testid="status" className="flex items-center justify-between px-3 h-6 shrink-0 border-t text-[12px]"
+      style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
       <div className="flex items-center gap-3">
         <span className="font-medium" style={{ color: 'var(--accent)' }}>{TYPE_LABELS[type]}</span>
         <span>{t('status.lines', { count: lines })}</span>
@@ -56,7 +62,7 @@ export function StatusBar({ content, lastSaved, renderTimeMs }: Props) {
       </div>
       <div className="flex items-center gap-3">
         {renderTimeMs !== null && <span data-testid="render-time">{t('status.render', { ms: renderTimeMs })}</span>}
-        <span>{relSaved()}</span>
+        <span title={isDirty ? t('status.editedAutosaveHint') : undefined}>{relSaved()}</span>
         <span className="mx-1 opacity-30">|</span>
         <a
           href="https://github.com/CatFoxVoyager/MermaidStudio"
@@ -65,7 +71,7 @@ export function StatusBar({ content, lastSaved, renderTimeMs }: Props) {
           className="flex items-center gap-1 hover:opacity-80 transition-opacity"
         >
           <GitHubIcon size={12} />
-          <span>MermaidStudio is open source</span>
+          <span>{t('status.openSource')}</span>
         </a>
       </div>
     </div>

@@ -47,7 +47,7 @@ function TemplateCard({ template, onSelect, onDelete }: { template: Template | U
           <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
             style={{ borderColor: 'var(--border-strong)', borderTopColor: 'transparent' }} />
         )}
-        <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full text-[9px] font-bold"
+        <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full text-[11px] font-bold"
           style={{ background: c.bg, color: c.color }}>{t(`templates.${template.complexity}`)}</span>
         {onDelete && (
           <button onClick={e => { e.stopPropagation(); onDelete(); }}
@@ -126,13 +126,13 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
           </div>
           <div>
             <span className="text-sm font-semibold block" style={{ color: 'var(--text-primary)' }}>{t('templates.title')}</span>
-            <span className="text-[10px] block" style={{ color: 'var(--text-tertiary)' }}>{totalCount} {t('templates.templates')}{userTemplates.length > 0 ? ` (${userTemplates.length} ${t('templates.custom')})` : ''}</span>
+            <span className="text-[11px] block" style={{ color: 'var(--text-tertiary)' }}>{totalCount} {t('templates.templates')}{userTemplates.length > 0 ? ` (${userTemplates.length} ${t('templates.custom')})` : ''}</span>
           </div>
         </div>
         <button
           data-testid="close-templates"
           onClick={onClose}
-          className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
+          className="p-1.5 rounded-sm transition-colors hover:bg-[var(--hover)]"
           style={{ color: 'var(--text-secondary)' }}>
           <X size={14} />
         </button>
@@ -158,7 +158,7 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
         style={{ borderColor: 'var(--border-subtle)' }}>
         {['All', ...allCategories].map(c => (
           <button key={c} onClick={() => setCat(c)}
-            className="px-2 py-1 rounded-full text-[10px] font-medium whitespace-nowrap transition-all duration-150 border"
+            className="px-2 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-150 border"
             style={cat === c
               ? { background: 'var(--accent)', color: '#fff', borderColor: 'transparent' }
               : { background: 'var(--surface-floating)', color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}>

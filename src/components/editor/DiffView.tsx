@@ -86,11 +86,11 @@ export function DiffView({ original, modified }: Props) {
         const s = lineStyles[line.type];
         return (
           <div key={i} className="flex" style={{ background: s.bg }}>
-            <span className="w-8 text-right pr-2 select-none shrink-0 text-[10px] leading-[1.65]"
+            <span className="w-8 text-right pr-2 select-none shrink-0 text-[11px] leading-[1.65]"
               style={{ color: s.gutter }}>
               {line.type === 'removed' ? '-' : line.type === 'added' ? '+' : ' '}
             </span>
-            <span className="w-8 text-right pr-2 select-none shrink-0 text-[10px] leading-[1.65]"
+            <span className="w-8 text-right pr-2 select-none shrink-0 text-[11px] leading-[1.65]"
               style={{ color: 'var(--text-tertiary)', borderRight: '1px solid var(--border-subtle)' }}>
               {line.origLineNum ?? line.lineNum ?? ''}
             </span>

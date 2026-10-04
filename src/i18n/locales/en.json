@@ -26,6 +26,7 @@
     "keyboardShortcuts": "Keyboard shortcuts",
     "focusMode": "Focus mode",
     "toggleTheme": "Toggle theme",
+    "changeLanguage": "Change language",
     "about": "About",
     "releaseNotes": "Release Notes"
   },
@@ -117,7 +118,13 @@
     "importBackupDesc": "Restore diagrams, templates, and settings from a backup file",
     "description": "Backup all your diagrams and settings or restore from a previous backup",
     "invalidFile": "Invalid backup file",
-    "parseFailed": "Failed to parse backup file"
+    "parseFailed": "Failed to parse backup file",
+    "imported": "Imported {{details}}",
+    "partDiagrams_one": "{{count}} diagram",
+    "partDiagrams_other": "{{count}} diagrams",
+    "partFolders_one": "{{count}} folder",
+    "partFolders_other": "{{count}} folders",
+    "partSettings": "settings"
   },
   "templates": {
     "title": "Template Library",
@@ -215,6 +222,14 @@
     "showLabels": "Show labels",
     "hideLabels": "Hide labels",
     "collapse": "Collapse",
+    "copyCode": "Copy code",
+    "autoSnapshot": "Auto-checkpoint",
+    "autoSnapshotEvery": "Auto-checkpoint every {{interval}}",
+    "autoSnapshotOff": "Auto-checkpoint: Off",
+    "autoSnapshotMenuOff": "Off",
+    "closeTab": "Close {{name}}",
+    "openDiagrams": "Open diagrams",
+    "autosaved": "Autosaved",
     "openOrCreate": "Open or create a diagram to get started.",
     "newDiagram": "New Diagram",
     "newDiagramDesc": "Start from a blank canvas with a default flowchart",
@@ -231,7 +246,10 @@
     "justSaved": "Just saved",
     "savedSecsAgo": "Saved {{count}}s ago",
     "savedMinsAgo": "Saved {{count}}m ago",
-    "savedHoursAgo": "Saved {{count}}h ago"
+    "savedHoursAgo": "Saved {{count}}h ago",
+    "editedAutosave": "Edited · autosaved",
+    "editedAutosaveHint": "Ctrl+S saves a version (checkpoint)",
+    "openSource": "MermaidStudio is open source"
   },
   "sidebar": {
     "explorer": "Explorer",
@@ -258,8 +276,16 @@
     "selectFolder": "Select destination folder",
     "rootFolder": "Root (no folder)",
     "deleteConfirmTitle": "Delete diagram?",
-    "deleteMultipleConfirmTitle": "Delete {{count}} diagrams?",
-    "deleteConfirmMessage": "This action cannot be undone."
+    "deleteMultipleConfirmTitle_one": "Delete {{count}} diagram?",
+    "deleteMultipleConfirmTitle_other": "Delete {{count}} diagrams?",
+    "deleteConfirmMessage": "This action cannot be undone.",
+    "deleteFolderConfirmTitle": "Delete folder?",
+    "deleteFolderConfirmMessage_zero": "\"{{name}}\" will be removed from the sidebar. It holds no diagrams — its subfolders stay safe and move up to the parent folder.",
+    "deleteFolderConfirmMessage_one": "\"{{name}}\" will be removed from the sidebar. Its {{count}} diagram and any subfolders stay safe and move up to the parent folder.",
+    "deleteFolderConfirmMessage_other": "\"{{name}}\" will be removed from the sidebar. Its {{count}} diagrams and any subfolders stay safe and move up to the parent folder.",
+    "optionsFor": "Options for {{name}}",
+    "addTag": "Add tag",
+    "clearSearch": "Clear search"
   },
   "toast": {
     "saved": "Saved",

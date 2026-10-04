@@ -339,10 +339,10 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
             </div>
             <div>
               <span className="text-sm font-semibold block" style={{ color: 'var(--text-primary)' }}>{t('export.title')}</span>
-              <span className="text-[10px] truncate max-w-[150px] block" style={{ color: 'var(--text-tertiary)' }}>{diagramTitle}</span>
+              <span className="text-[11px] truncate max-w-[150px] block" style={{ color: 'var(--text-tertiary)' }}>{diagramTitle}</span>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-sm transition-colors hover:bg-white/8"
+          <button onClick={onClose} className="p-1.5 rounded-sm transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}>
             <X size={14} />
           </button>
@@ -368,7 +368,7 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
                 <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
                   {t('export.transparentBackground')}
                 </p>
-                <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
                   {t('export.transparentBackgroundDesc')}
                 </p>
               </div>

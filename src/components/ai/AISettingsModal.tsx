@@ -172,7 +172,7 @@ export function AISettingsModal({ onClose }: Props) {
                     <span className="text-xs font-semibold leading-tight">{opt.label}</span>
                     {!opt.available && (
                       <span
-                        className="ml-auto flex items-center gap-1 text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                        className="ml-auto flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-full"
                         style={{ background: 'rgba(107,114,128,0.15)', color: '#9ca3af' }}
                       >
                         <Lock size={8} />
@@ -189,7 +189,7 @@ export function AISettingsModal({ onClose }: Props) {
                     )}
                   </div>
                   <span
-                    className="text-[10px] leading-relaxed"
+                    className="text-[11px] leading-relaxed"
                     style={{ color: 'var(--text-tertiary)' }}
                   >
                     {opt.description}
@@ -214,7 +214,7 @@ export function AISettingsModal({ onClose }: Props) {
               </span>
               {webgpuStatus === 'loaded' && (
                 <span
-                  className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                  className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full"
                   style={{ background: 'rgba(34,197,94,0.15)', color: '#22c55e' }}
                 >
                   Loaded & Ready
@@ -222,7 +222,7 @@ export function AISettingsModal({ onClose }: Props) {
               )}
               {webgpuStatus === 'supported' && (
                 <span
-                  className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                  className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full"
                   style={{ background: 'rgba(59,130,246,0.15)', color: '#3b82f6' }}
                 >
                   Ready to Load
@@ -230,7 +230,7 @@ export function AISettingsModal({ onClose }: Props) {
               )}
               {webgpuStatus === 'loading' && (
                 <span
-                  className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+                  className="text-[11px] font-semibold px-1.5 py-0.5 rounded-full"
                   style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}
                 >
                   Loading... {webgpuLoadProgress}%
@@ -258,13 +258,13 @@ export function AISettingsModal({ onClose }: Props) {
             )}
 
             {webgpuMessage && webgpuStatus !== 'loaded' && (
-              <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+              <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
                 {webgpuMessage}
               </p>
             )}
 
             {webgpuStatus === 'unsupported' && (
-              <p className="text-[10px] leading-relaxed" style={{ color: '#ef4444' }}>
+              <p className="text-[11px] leading-relaxed" style={{ color: '#ef4444' }}>
                 {webgpuMessage}
               </p>
             )}
@@ -273,7 +273,7 @@ export function AISettingsModal({ onClose }: Props) {
               {webgpuStatus === 'supported' && (
                 <button
                   onClick={handleLoad}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-medium text-white transition-all hover:opacity-90"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium text-white transition-all hover:opacity-90"
                   style={{ background: 'var(--accent)' }}
                 >
                   <Download size={10} />
@@ -283,7 +283,7 @@ export function AISettingsModal({ onClose }: Props) {
               {webgpuStatus === 'loaded' && (
                 <button
                   onClick={handleUnload}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-medium border transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium border transition-all"
                   style={{
                     background: 'var(--surface-floating)',
                     borderColor: 'var(--border-subtle)',

@@ -214,11 +214,15 @@ function saveToLocalStorageFallback(data: DBData): void {
  * Create fresh default data
  */
 function createFreshData(): DBData {
+  const welcomeId = generateSecureId();
+  const architectureTagId = generateSecureId();
+  const workflowTagId = generateSecureId();
+  const draftTagId = generateSecureId();
   return {
     folders: [],
     diagrams: [
       {
-        id: generateSecureId(),
+        id: welcomeId,
         title: 'Welcome Diagram',
         content: `---
 config:
@@ -237,11 +241,17 @@ flowchart TD
     ],
     versions: [],
     tags: [
-      { id: generateSecureId(), name: 'architecture', color: '#3b82f6' },
-      { id: generateSecureId(), name: 'workflow', color: '#22c55e' },
-      { id: generateSecureId(), name: 'draft', color: '#f59e0b' },
+      { id: architectureTagId, name: 'architecture', color: '#3b82f6' },
+      { id: workflowTagId, name: 'workflow', color: '#22c55e' },
+      { id: draftTagId, name: 'draft', color: '#f59e0b' },
     ],
-    diagramTags: [],
+    // Two seeded relations: a first click on a tag chip must filter to a
+    // non-empty list — an empty result on first touch reads as a bug
+    // (critique iter-4 P2).
+    diagramTags: [
+      { diagram_id: welcomeId, tag_id: architectureTagId },
+      { diagram_id: welcomeId, tag_id: workflowTagId },
+    ],
     settings: {
       theme: 'light',
       language: 'en',
@@ -417,6 +427,11 @@ export async function getDiagramTags(diagram_id: string): Promise<Tag[]> {
   const data = await load();
   const ids = data.diagramTags.filter(dt => dt.diagram_id === diagram_id).map(dt => dt.tag_id);
   return data.tags.filter(t => ids.includes(t.id));
+}
+
+/** Full tag↔diagram relation list — lets the sidebar filter by tag without N calls. */
+export async function getAllDiagramTags(): Promise<{ diagram_id: string; tag_id: string }[]> {
+  return (await load()).diagramTags;
 }
 
 export async function toggleDiagramTag(diagram_id: string, tag_id: string): Promise<void> {

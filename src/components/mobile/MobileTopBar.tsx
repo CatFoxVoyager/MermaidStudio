@@ -42,7 +42,7 @@ export function MobileTopBar({
             <button
               data-testid="mobile-topbar-about"
               onClick={onOpenAbout}
-              className="text-xs font-normal rounded px-1 py-0.5 transition-colors hover:bg-white/8 active:bg-white/15 cursor-pointer"
+              className="text-xs font-normal rounded px-1 py-0.5 transition-colors hover:bg-[var(--hover)] active:bg-white/15 cursor-pointer"
               style={{ color: 'var(--text-secondary)' }}
               title={t('about.title')}
             >
@@ -62,7 +62,7 @@ export function MobileTopBar({
           <button
             data-testid="mobile-topbar-new"
             onClick={onNewDiagram}
-            className="p-3 rounded-lg transition-colors hover:bg-white/8 active:bg-white/15 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="p-3 rounded-lg transition-colors hover:bg-[var(--hover)] active:bg-white/15 min-w-[44px] min-h-[44px] flex items-center justify-center"
             style={{ color: 'var(--text-secondary)' }}
             aria-label={t('header.newDiagram')}
             title={t('header.newDiagram')}
@@ -73,7 +73,7 @@ export function MobileTopBar({
         <button
           data-testid="mobile-topbar-save"
           onClick={onSave}
-          className="p-3 rounded-lg transition-colors hover:bg-white/8 active:bg-white/15 min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className="p-3 rounded-lg transition-colors hover:bg-[var(--hover)] active:bg-white/15 min-w-[44px] min-h-[44px] flex items-center justify-center"
           style={{ color: 'var(--text-secondary)' }}
           aria-label={t('common.save')}
           title={t('common.save')}
@@ -84,7 +84,7 @@ export function MobileTopBar({
           <button
             data-testid="mobile-topbar-export"
             onClick={onExport}
-            className="p-3 rounded-lg transition-colors hover:bg-white/8 active:bg-white/15 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="p-3 rounded-lg transition-colors hover:bg-[var(--hover)] active:bg-white/15 min-w-[44px] min-h-[44px] flex items-center justify-center"
             style={{ color: 'var(--text-secondary)' }}
             aria-label={t('common.export')}
             title={t('common.export')}
@@ -95,7 +95,7 @@ export function MobileTopBar({
         <button
           data-testid="mobile-topbar-overflow"
           onClick={onOpenCommandPalette}
-          className="p-3 rounded-lg transition-colors hover:bg-white/8 active:bg-white/15 min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className="p-3 rounded-lg transition-colors hover:bg-[var(--hover)] active:bg-white/15 min-w-[44px] min-h-[44px] flex items-center justify-center"
           style={{ color: 'var(--text-secondary)' }}
           aria-label={t('header.commandPalette')}
           title={t('header.commandPalette')}

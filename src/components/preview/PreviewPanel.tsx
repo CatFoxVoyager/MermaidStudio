@@ -1378,7 +1378,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         style={{ borderColor: 'var(--border-subtle)' }}>
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{t('preview.title')}</span>
-          <span className="px-1.5 py-0.5 rounded-sm text-[10px] font-semibold border"
+          <span className="px-1.5 py-0.5 rounded-sm text-[11px] font-semibold border"
             style={{ background: 'var(--accent-dim)', color: 'var(--accent)', borderColor: 'rgba(var(--accent-rgb),0.2)' }}>
             {TYPE_LABELS[type] ?? 'Diagram'}
           </span>
@@ -1386,31 +1386,31 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         </div>
         <div className="flex items-center gap-1">
           <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} title={t('preview.zoomOut')}
-            className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
+            className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }}>
             <ZoomOut size={13} />
           </button>
           <span className="text-xs w-8 text-center" style={{ color: 'var(--text-secondary)' }}>
             {Math.round(zoom * 100)}%
           </span>
           <button onClick={() => setZoom(z => Math.min(10, z + 0.25))} title={t('preview.zoomIn')}
-            className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
+            className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }}>
             <ZoomIn size={13} />
           </button>
           <button onClick={() => setZoom(1)} title={t('preview.resetZoom')}
-            className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
+            className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }}>
             <RefreshCw size={13} />
           </button>
           <button
             data-testid="fit-button"
             onClick={handleFitToScreen}
-            title={t('preview.fitToScreen')} className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
+            title={t('preview.fitToScreen')} className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }}>
             <Move size={13} />
           </button>
           {onFullscreen && (
             <button
               data-testid="fullscreen-button"
               onClick={onFullscreen}
-              title={t('preview.fullscreenPreview')} className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
+              title={t('preview.fullscreenPreview')} className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }}>
               <Maximize2 size={13} />
             </button>
           )}
@@ -1419,7 +1419,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
               data-testid="add-subgraph-button"
               onClick={handleAddSubgraph}
               title={t('preview.addSubgraph')}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-sm text-xs font-medium transition-colors hover:bg-white/8"
+              className="flex items-center gap-1.5 px-2 py-1 rounded-sm text-xs font-medium transition-colors hover:bg-[var(--hover)]"
               style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
               <Group size={13} />
               <span>{t('preview.subgraph')}</span>
@@ -1427,12 +1427,12 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           )}
           <div className="w-px h-4 mx-1" style={{ background: 'var(--border-subtle)' }} />
           <button onClick={copySvg} title={t('preview.copySvg')}
-            className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
+            className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }}>
             {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
           </button>
           {onExport && (
             <button onClick={onExport} title={t('preview.export')}
-              className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }}>
+              className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }}>
               <Download size={13} />
             </button>
           )}

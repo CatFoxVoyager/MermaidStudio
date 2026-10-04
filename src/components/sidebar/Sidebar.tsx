@@ -5,7 +5,7 @@ import type { Diagram, Folder as FolderType, Tag } from '@/types';
 import {
   getFolders, getDiagrams, createFolder, createDiagram,
   deleteFolder, deleteDiagram, deleteDiagrams, updateFolder, updateDiagram,
-  getTags, getDiagramTags, toggleDiagramTag, createTag, moveDiagramsToFolder
+  getTags, getDiagramTags, getAllDiagramTags, toggleDiagramTag, createTag, moveDiagramsToFolder
 } from '@/services/storage/database';
 import { ContextMenu } from '../shared/ContextMenu';
 import type { ContextMenuItem } from '../shared/ContextMenu';
@@ -41,29 +41,34 @@ export function Sidebar({ onOpenDiagram, activeDiagramId, onRefresh, onDiagramDe
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [pickerDiagramIds, setPickerDiagramIds] = useState<string[]>([]);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ ids: string[]; isSingle?: boolean } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ ids: string[]; isSingle?: boolean; folder?: { id: string; name: string } } | null>(null);
 
   // Load data from IndexedDB
   const [allFolders, setAllFolders] = useState<FolderType[]>([]);
   const [allDiagrams, setAllDiagrams] = useState<Diagram[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  // Full tag→diagram relation list so a tag chip can actually filter (the
+  // chips used to light up without changing the list — silent no-op, iter-3).
+  const [allDiagramTags, setAllDiagramTags] = useState<{ diagram_id: string; tag_id: string }[]>([]);
 
   const refresh = useCallback(() => {
     onRefresh();
     // Reload data
-    Promise.all([getFolders(), getDiagrams(), getTags()]).then(([folders, diagrams, tagsData]) => {
+    Promise.all([getFolders(), getDiagrams(), getTags(), getAllDiagramTags()]).then(([folders, diagrams, tagsData, diagramTags]) => {
       setAllFolders(folders);
       setAllDiagrams(diagrams);
       setTags(tagsData);
+      setAllDiagramTags(diagramTags);
     });
   }, [onRefresh]);
 
   // Initial load
   useEffect(() => {
-    Promise.all([getFolders(), getDiagrams(), getTags()]).then(([folders, diagrams, tagsData]) => {
+    Promise.all([getFolders(), getDiagrams(), getTags(), getAllDiagramTags()]).then(([folders, diagrams, tagsData, diagramTags]) => {
       setAllFolders(folders);
       setAllDiagrams(diagrams);
       setTags(tagsData);
+      setAllDiagramTags(diagramTags);
     });
   }, []);
 
@@ -124,7 +129,7 @@ flowchart TD
     setCtx({ x: e.clientX, y: e.clientY, items: [
       { label: t('sidebar.newDiagram'), icon: <FilePlus size={13} />, onClick: () => newDiagram(f.id) },
       { label: t('sidebar.rename'), icon: <Edit3 size={13} />, onClick: () => { setEditingId(f.id); setEditValue(f.name); } },
-      { label: t('sidebar.deleteFolder'), icon: <Trash2 size={13} />, danger: true, divider: true, onClick: async () => { await deleteFolder(f.id); refresh(); } },
+      { label: t('sidebar.deleteFolder'), icon: <Trash2 size={13} />, danger: true, divider: true, onClick: () => { setDeleteConfirm({ ids: [], folder: { id: f.id, name: f.name } }); setCtx(null); } },
     ]});
   }
 
@@ -151,12 +156,16 @@ flowchart TD
 
   async function handleDeleteConfirm() {
     if (!deleteConfirm) {return;}
-    if (deleteConfirm.isSingle) {
+    if (deleteConfirm.folder) {
+      await deleteFolder(deleteConfirm.folder.id);
+    } else if (deleteConfirm.isSingle) {
       await deleteDiagram(deleteConfirm.ids[0]);
     } else {
       await deleteDiagrams(deleteConfirm.ids);
     }
-    onDiagramDeleted?.(deleteConfirm.ids);
+    if (deleteConfirm.ids.length > 0) {
+      onDiagramDeleted?.(deleteConfirm.ids);
+    }
     setDeleteConfirm(null);
     setSelectedIds(new Set());
     setIsSelectMode(false);
@@ -165,10 +174,12 @@ flowchart TD
 
   const filtered = allDiagrams.filter(d => {
     if (!search && !activeTagId) {return true;}
-    const q = search.toLowerCase();
-    const matchesSearch = !search || d.title.toLowerCase().includes(q) || d.content.toLowerCase().includes(q);
+    const matchesSearch = !search
+      || d.title.toLowerCase().includes(search.toLowerCase())
+      || d.content.toLowerCase().includes(search.toLowerCase());
     if (!matchesSearch) {return false;}
-    // Tag filtering would be async, so we'll skip it for now or handle it differently
+    // Tag filter is now real (was a silent no-op): keep diagrams carrying the active tag.
+    if (activeTagId && !allDiagramTags.some(dt => dt.diagram_id === d.id && dt.tag_id === activeTagId)) {return false;}
     return true;
   });
 
@@ -213,7 +224,7 @@ flowchart TD
         }}
         onContextMenu={e => showDiagramCtx(e, d)}>
         {isSelectMode && (
-          <button onClick={handleSelect} className="shrink-0 p-0.5 rounded-sm hover:bg-white/10" style={{ color: 'var(--text-secondary)' }}>
+          <button onClick={handleSelect} className="shrink-0 p-0.5 rounded-sm hover:bg-[var(--hover)]" style={{ color: 'var(--text-secondary)' }}>
             {isSelected ? <CheckSquare size={13} /> : <Square size={13} />}
           </button>
         )}
@@ -233,7 +244,7 @@ flowchart TD
                 {d.title}
               </span>
               {snippet && (
-                <span className="text-[10px] truncate block font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                <span className="text-[11px] truncate block font-mono" style={{ color: 'var(--text-tertiary)' }}>
                   {snippet}
                 </span>
               )}
@@ -247,10 +258,10 @@ flowchart TD
             </>
           )}
         </div>
-        <button className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-sm"
+        <button className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity p-0.5 rounded-sm"
           style={{ color: 'var(--text-tertiary)' }}
           onClick={e => showDiagramCtx(e, d)}
-          aria-label={`Options for ${d.title}`}>
+          aria-label={t('sidebar.optionsFor', { name: d.title })}>
           <MoreHorizontal size={11} />
         </button>
       </div>
@@ -278,9 +289,9 @@ flowchart TD
           ) : (
             <span className="flex-1 text-xs truncate">{f.name}</span>
           )}
-          <button className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-sm"
+          <button className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity p-0.5 rounded-sm"
             onClick={e => showFolderCtx(e, f)} style={{ color: 'var(--text-tertiary)' }}
-            aria-label={`Options for ${f.name}`}>
+            aria-label={t('sidebar.optionsFor', { name: f.name })}>
             <MoreHorizontal size={11} />
           </button>
         </div>
@@ -302,20 +313,21 @@ flowchart TD
     <div className="flex flex-col h-full border-r" style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}>
       <div className="flex items-center justify-between px-3 py-2.5 border-b shrink-0"
         style={{ borderColor: 'var(--border-subtle)' }}>
-        <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('sidebar.explorer')}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('sidebar.explorer')}</span>
         <div className="flex gap-1">
           <button onClick={() => setIsSelectMode(!isSelectMode)} title={isSelectMode ? t('sidebar.exitSelectMode') : t('sidebar.enterSelectMode')}
-            className={`p-1 rounded-md transition-colors ${isSelectMode ? 'bg-white/10' : 'hover:bg-white/8'}`}
+            aria-label={isSelectMode ? t('sidebar.exitSelectMode') : t('sidebar.enterSelectMode')}
+            className={`p-1 rounded-md transition-colors ${isSelectMode ? 'bg-[var(--accent-dim)]' : 'hover:bg-[var(--hover)]'}`}
             style={{ color: isSelectMode ? 'var(--accent)' : 'var(--text-secondary)' }}>
             <CheckSquare size={13} />
           </button>
-          <button onClick={() => newDiagram(null)} title={t('sidebar.newDiagram')}
-            className="p-1 rounded-md transition-colors hover:bg-white/8"
+          <button onClick={() => newDiagram(null)} title={t('sidebar.newDiagram')} aria-label={t('sidebar.newDiagram')}
+            className="p-1 rounded-md transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}>
             <FilePlus size={13} />
           </button>
-          <button onClick={async () => { await createFolder(t('sidebar.newFolder')); refresh(); }} title={t('sidebar.newFolder')}
-            className="p-1 rounded-md transition-colors hover:bg-white/8"
+          <button onClick={async () => { await createFolder(t('sidebar.newFolder')); refresh(); }} title={t('sidebar.newFolder')} aria-label={t('sidebar.newFolder')}
+            className="p-1 rounded-md transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}>
             <FolderPlus size={13} />
           </button>
@@ -334,7 +346,8 @@ flowchart TD
               color: 'var(--text-primary)',
             }} />
           {search && (
-            <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2"
+            <button onClick={() => setSearch('')} aria-label={t('sidebar.clearSearch')}
+              className="absolute right-2 top-1/2 -translate-y-1/2"
               style={{ color: 'var(--text-tertiary)' }}>
               <X size={10} />
             </button>
@@ -346,7 +359,7 @@ flowchart TD
         <div className="px-2 py-1.5 border-b shrink-0 flex flex-wrap gap-1 items-center" style={{ borderColor: 'var(--border-subtle)' }}>
           {tags.map(t => (
             <button key={t.id} onClick={() => setActiveTagId(prev => prev === t.id ? null : t.id)}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-all duration-150"
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium border transition-all duration-150"
               style={{
                 background: activeTagId === t.id ? t.color + '22' : 'transparent',
                 borderColor: activeTagId === t.id ? t.color : 'var(--border-subtle)',
@@ -356,8 +369,8 @@ flowchart TD
               {t.name}
             </button>
           ))}
-          <button onClick={() => setShowNewTag(v => !v)} title="Add tag"
-            className="p-0.5 rounded-full transition-colors hover:bg-white/8"
+          <button onClick={() => setShowNewTag(v => !v)} title={t('sidebar.addTag')} aria-label={t('sidebar.addTag')}
+            className="p-0.5 rounded-full transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-tertiary)' }}>
             <Plus size={10} />
           </button>
@@ -379,8 +392,8 @@ flowchart TD
             ))}
           </div>
           <div className="flex gap-1">
-            <button onClick={handleCreateTag} className="px-2 py-1 text-[10px] font-medium rounded-sm text-white" style={{ background: 'var(--accent)' }}>{t('common.save')}</button>
-            <button onClick={() => setShowNewTag(false)} className="px-2 py-1 text-[10px] rounded-sm" style={{ color: 'var(--text-secondary)' }}>{t('common.cancel')}</button>
+            <button onClick={handleCreateTag} className="px-2 py-1 text-[11px] font-medium rounded-sm text-white" style={{ background: 'var(--accent)' }}>{t('common.save')}</button>
+            <button onClick={() => setShowNewTag(false)} className="px-2 py-1 text-[11px] rounded-sm" style={{ color: 'var(--text-secondary)' }}>{t('common.cancel')}</button>
           </div>
         </div>
       )}
@@ -391,18 +404,18 @@ flowchart TD
             <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
               {selectedIds.size} {selectedIds.size === 1 ? t('sidebar.diagramSelected') : t('sidebar.diagramsSelected')}
             </span>
-            <button onClick={() => { setIsSelectMode(false); setSelectedIds(new Set()); }} className="p-0.5 rounded-sm hover:bg-white/10" style={{ color: 'var(--text-secondary)' }}>
+            <button onClick={() => { setIsSelectMode(false); setSelectedIds(new Set()); }} aria-label={t('common.close')} className="p-0.5 rounded-sm hover:bg-[var(--hover)]" style={{ color: 'var(--text-secondary)' }}>
               <X size={12} />
             </button>
           </div>
           <div className="flex gap-1">
             <button onClick={() => setDeleteConfirm({ ids: Array.from(selectedIds) })}
-              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] font-medium rounded-sm text-white"
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-medium rounded-sm text-white"
               style={{ background: 'var(--accent)' }}>
               <Trash2 size={11} /> {t('sidebar.deleteSelected')}
             </button>
             <button onClick={() => { setPickerDiagramIds(Array.from(selectedIds)); setShowFolderPicker(true); }}
-              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[10px] font-medium rounded-sm border"
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-medium rounded-sm border"
               style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
               <FolderOpenIcon size={11} /> {t('sidebar.moveToFolder')}
             </button>
@@ -413,7 +426,7 @@ flowchart TD
       {tags.length === 0 && (
         <div className="px-2 py-1.5 border-b shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
           <button onClick={() => setShowNewTag(true)}
-            className="flex items-center gap-1.5 text-[10px] w-full px-2 py-1 rounded-sm transition-colors hover:bg-white/5"
+            className="flex items-center gap-1.5 text-[11px] w-full px-2 py-1 rounded-sm transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-tertiary)' }}>
             <TagIcon size={10} /> {t('sidebar.addTags')}
           </button>
@@ -447,17 +460,18 @@ flowchart TD
 
       {/* Folder Picker Modal */}
       {showFolderPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}
+          onClick={e => { if (e.target === e.currentTarget) {setShowFolderPicker(false); setPickerDiagramIds([]);} }}>
           <div className="w-80 rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'var(--surface-raised)', border: '1px solid var(--border-subtle)' }}>
             <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
               <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{t('sidebar.selectFolder')}</span>
-              <button onClick={() => { setShowFolderPicker(false); setPickerDiagramIds([]); }} className="p-1 rounded-sm hover:bg-white/8" style={{ color: 'var(--text-secondary)' }}>
+              <button autoFocus onClick={() => { setShowFolderPicker(false); setPickerDiagramIds([]); }} aria-label={t('common.close')} className="p-1 rounded-sm hover:bg-[var(--hover)]" style={{ color: 'var(--text-secondary)' }}>
                 <X size={14} />
               </button>
             </div>
             <div className="p-2 max-h-80 overflow-y-auto">
               <button onClick={() => handleMoveToFolder(null)}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors hover:bg-white/6"
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors hover:bg-[var(--hover)]"
                 style={{ color: 'var(--text-secondary)' }}>
                 <FolderOpen size={14} />
                 <span className="text-xs">{t('sidebar.rootFolder')}</span>
@@ -465,14 +479,14 @@ flowchart TD
               {allFolders.filter(f => f.parent_id === null).map(f => (
                 <div key={f.id}>
                   <button onClick={() => handleMoveToFolder(f.id)}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors hover:bg-white/6"
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors hover:bg-[var(--hover)]"
                     style={{ color: 'var(--text-secondary)' }}>
                     <Folder size={14} />
                     <span className="text-xs truncate">{f.name}</span>
                   </button>
                   {allFolders.filter(sub => sub.parent_id === f.id).map(sub => (
                     <button key={sub.id} onClick={() => handleMoveToFolder(sub.id)}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors hover:bg-white/6"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors hover:bg-[var(--hover)]"
                       style={{ color: 'var(--text-secondary)', paddingLeft: '2rem' }}>
                       <Folder size={14} />
                       <span className="text-xs truncate">{sub.name}</span>
@@ -487,27 +501,41 @@ flowchart TD
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}>
-          <div className="w-80 rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'var(--surface-raised)', border: '1px solid var(--border-subtle)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }}
+          onClick={e => { if (e.target === e.currentTarget) {setDeleteConfirm(null);} }}
+          onKeyDown={e => { if (e.key === 'Escape') {setDeleteConfirm(null);} }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title"
+            className="w-80 rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'var(--surface-raised)', border: '1px solid var(--border-subtle)' }}>
             <div className="p-4">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center mb-3 mx-auto" style={{ background: 'rgba(239,68,68,0.1)' }}>
-                <Trash2 size={20} style={{ color: '#ef4444' }} />
+              <div className="w-10 h-10 rounded-full flex items-center justify-center mb-3 mx-auto" style={{ background: deleteConfirm.folder ? 'rgba(59,130,246,0.1)' : 'rgba(239,68,68,0.1)' }}>
+                {deleteConfirm.folder
+                  ? <Folder size={20} style={{ color: '#3b82f6' }} />
+                  : <Trash2 size={20} style={{ color: '#ef4444' }} />}
               </div>
-              <h3 className="text-sm font-semibold text-center mb-1" style={{ color: 'var(--text-primary)' }}>
-                {deleteConfirm.isSingle ? t('sidebar.deleteConfirmTitle') : t('sidebar.deleteMultipleConfirmTitle', { count: deleteConfirm.ids.length })}
+              <h3 id="delete-confirm-title" className="text-sm font-semibold text-center mb-1" style={{ color: 'var(--text-primary)' }}>
+                {deleteConfirm.folder
+                  ? t('sidebar.deleteFolderConfirmTitle')
+                  : deleteConfirm.isSingle
+                    ? t('sidebar.deleteConfirmTitle')
+                    : t('sidebar.deleteMultipleConfirmTitle', { count: deleteConfirm.ids.length })}
               </h3>
               <p className="text-xs text-center mb-4" style={{ color: 'var(--text-secondary)' }}>
-                {t('sidebar.deleteConfirmMessage')}
+                {deleteConfirm.folder
+                  ? t('sidebar.deleteFolderConfirmMessage', {
+                      name: deleteConfirm.folder.name,
+                      count: allDiagrams.filter(d => d.folder_id === deleteConfirm.folder!.id).length,
+                    })
+                  : t('sidebar.deleteConfirmMessage')}
               </p>
               <div className="flex gap-2">
-                <button onClick={() => setDeleteConfirm(null)}
+                <button autoFocus onClick={() => setDeleteConfirm(null)}
                   className="flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-colors"
                   style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
                   {t('common.cancel')}
                 </button>
                 <button onClick={handleDeleteConfirm}
                   className="flex-1 px-3 py-2 rounded-lg text-xs font-medium text-white transition-colors"
-                  style={{ background: '#ef4444' }}>
+                  style={{ background: deleteConfirm.folder ? 'var(--accent)' : '#ef4444' }}>
                   {t('common.delete')}
                 </button>
               </div>

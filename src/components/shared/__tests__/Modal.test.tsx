@@ -367,7 +367,8 @@ describe('Modal Component', () => {
             Content
           </Modal>
         );
-        const closeButton = container.querySelector('button[aria-label="Close modal"]');
+        // aria-label comes from i18n (common.close → "Close" in the test mock)
+        const closeButton = container.querySelector('button[aria-label="Close"]');
         expect(closeButton).toHaveClass('max-md:p-2');
         expect(closeButton).toHaveClass('min-w-[44px]');
         expect(closeButton).toHaveClass('min-h-[44px]');

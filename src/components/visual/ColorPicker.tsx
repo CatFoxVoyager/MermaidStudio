@@ -65,7 +65,7 @@ export function ColorPicker({ label, value, onChange }: Props) {
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+      <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
         {label}
       </span>
       <div ref={containerRef} className="relative">
@@ -128,7 +128,7 @@ export function ColorPicker({ label, value, onChange }: Props) {
                   e.preventDefault();
                   nativeRef.current?.click();
                 }}
-                className="flex items-center justify-center w-8 h-7 rounded-md border transition-colors hover:bg-white/5"
+                className="flex items-center justify-center w-8 h-7 rounded-md border transition-colors hover:bg-[var(--hover)]"
                 style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
                 title="Custom color">
                 <Pipette size={12} />
