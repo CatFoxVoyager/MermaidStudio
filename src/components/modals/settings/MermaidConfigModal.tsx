@@ -245,7 +245,7 @@ export function MermaidConfigModal({ isOpen, onClose, onApply, currentContent = 
                 <RotateCcw size={14} className="text-red-500 dark:text-red-400 shrink-0" />
                 <div>
                   <p className="text-xs font-semibold text-red-600 dark:text-red-400">{t('mermaidConfig.resetToDefault')}</p>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{t('mermaidConfig.removeCustomPalette')}</p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{t('mermaidConfig.removeCustomPalette')}</p>
                 </div>
               </button>
             )}

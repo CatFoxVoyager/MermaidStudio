@@ -39,7 +39,7 @@ export function ContextMenu({ items, x, y, onClose }: Props) {
           <button
             onClick={() => { item.onClick(); onClose(); }}
             className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-sm transition-colors duration-100
-              ${item.danger ? 'text-red-400 hover:bg-red-400/10' : 'hover:bg-white/5 dark:hover:bg-white/5'}`}
+              ${item.danger ? 'text-red-700 dark:text-red-400 hover:bg-red-500/10' : 'hover:bg-[var(--hover)] dark:hover:bg-[var(--hover)]'}`}
             style={item.danger ? {} : { color: 'var(--text-primary)' }}>
             {item.icon && <span className="w-4 shrink-0 opacity-60">{item.icon}</span>}
             {item.label}

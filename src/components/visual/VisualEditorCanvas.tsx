@@ -793,18 +793,18 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
             style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
             {loading && <RefreshCw size={11} className="animate-spin mr-1" style={{ color: 'var(--text-tertiary)' }} />}
             <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))}
-              className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }} title="Zoom out">
+              className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }} title="Zoom out">
               <ZoomOut size={11} />
             </button>
-            <span className="text-[10px] w-7 text-center" style={{ color: 'var(--text-secondary)' }}>
+            <span className="text-[11px] w-7 text-center" style={{ color: 'var(--text-secondary)' }}>
               {Math.round(zoom * 100)}%
             </span>
             <button onClick={() => setZoom(z => Math.min(3, z + 0.25))}
-              className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }} title="Zoom in">
+              className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }} title="Zoom in">
               <ZoomIn size={11} />
             </button>
             <button onClick={() => setZoom(1)}
-              className="p-1 rounded-sm transition-colors hover:bg-white/8" style={{ color: 'var(--text-tertiary)' }} title="Reset zoom">
+              className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }} title="Reset zoom">
               <Maximize2 size={11} />
             </button>
           </div>
@@ -813,7 +813,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
             <div
               data-testid="visual-editor-readonly"
               aria-live="polite"
-              className="absolute top-2 left-2 z-10 px-2 py-1 rounded-lg border text-[10px] font-medium"
+              className="absolute top-2 left-2 z-10 px-2 py-1 rounded-lg border text-[11px] font-medium"
               style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
               {'Read-only — v12 metadata syntax (@{...}) cannot be edited here'}
             </div>

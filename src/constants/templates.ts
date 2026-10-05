@@ -2,8 +2,12 @@ import type { Template } from '@/types';
 
 export const TEMPLATES: Template[] = [
   {
-    id: 'flowchart-basic', title: 'Basic Flowchart', description: 'A simple decision-based flow',
-    category: 'Flowchart', complexity: 'simple', type: 'flowchart',
+    id: 'flowchart-basic',
+    title: 'Basic Flowchart',
+    description: 'A simple decision-based flow',
+    category: 'Flowchart',
+    complexity: 'simple',
+    type: 'flowchart',
     content: `---
 config:
   theme: 'base'
@@ -17,8 +21,12 @@ flowchart TD
     E --> F`,
   },
   {
-    id: 'flowchart-cicd', title: 'CI/CD Pipeline', description: 'Software delivery pipeline with stages',
-    category: 'Flowchart', complexity: 'advanced', type: 'flowchart',
+    id: 'flowchart-cicd',
+    title: 'CI/CD Pipeline',
+    description: 'Software delivery pipeline with stages',
+    category: 'Flowchart',
+    complexity: 'advanced',
+    type: 'flowchart',
     content: `---
 config:
   theme: 'base'
@@ -40,8 +48,12 @@ flowchart LR
     D --> E`,
   },
   {
-    id: 'sequence-api', title: 'API Request Flow', description: 'REST API sequence with auth',
-    category: 'Sequence', complexity: 'moderate', type: 'sequence',
+    id: 'sequence-api',
+    title: 'API Request Flow',
+    description: 'REST API sequence with auth',
+    category: 'Sequence',
+    complexity: 'moderate',
+    type: 'sequence',
     content: `---
 config:
   theme: 'base'
@@ -62,8 +74,12 @@ sequenceDiagram
     G-->>C: JSON Response`,
   },
   {
-    id: 'sequence-oauth', title: 'OAuth2 Flow', description: 'OAuth2 authorization code flow',
-    category: 'Sequence', complexity: 'advanced', type: 'sequence',
+    id: 'sequence-oauth',
+    title: 'OAuth2 Flow',
+    description: 'OAuth2 authorization code flow',
+    category: 'Sequence',
+    complexity: 'advanced',
+    type: 'sequence',
     content: `---
 config:
   theme: 'base'
@@ -84,8 +100,12 @@ sequenceDiagram
     RS-->>App: Protected Resource`,
   },
   {
-    id: 'class-ecommerce', title: 'E-Commerce Domain', description: 'Core e-commerce class relationships',
-    category: 'Class Diagram', complexity: 'moderate', type: 'erDiagram',
+    id: 'class-ecommerce',
+    title: 'E-Commerce Domain',
+    description: 'Core e-commerce class relationships',
+    category: 'Class Diagram',
+    complexity: 'moderate',
+    type: 'erDiagram',
     content: `---
 config:
   theme: 'base'
@@ -96,8 +116,12 @@ erDiagram
     ORDER_ITEM }o--|| PRODUCT : references`,
   },
   {
-    id: 'er-blog', title: 'Blog Database Schema', description: 'Entity relationships for a blog',
-    category: 'ER Diagram', complexity: 'moderate', type: 'erDiagram',
+    id: 'er-blog',
+    title: 'Blog Database Schema',
+    description: 'Entity relationships for a blog',
+    category: 'ER Diagram',
+    complexity: 'moderate',
+    type: 'erDiagram',
     content: `---
 config:
   theme: 'base'
@@ -109,8 +133,12 @@ erDiagram
     POST }o--o{ TAG : tagged`,
   },
   {
-    id: 'state-order', title: 'Order State Machine', description: 'E-commerce order lifecycle',
-    category: 'State Diagram', complexity: 'moderate', type: 'stateDiagram',
+    id: 'state-order',
+    title: 'Order State Machine',
+    description: 'E-commerce order lifecycle',
+    category: 'State Diagram',
+    complexity: 'moderate',
+    type: 'stateDiagram',
     content: `---
 config:
   theme: 'base'
@@ -130,8 +158,12 @@ stateDiagram-v2
     Delivered --> [*]`,
   },
   {
-    id: 'gantt-sprint', title: 'Sprint Planning', description: 'Two-week sprint task timeline',
-    category: 'Gantt', complexity: 'moderate', type: 'gantt',
+    id: 'gantt-sprint',
+    title: 'Sprint Planning',
+    description: 'Two-week sprint task timeline',
+    category: 'Gantt',
+    complexity: 'moderate',
+    type: 'gantt',
     content: `---
 config:
   theme: 'base'
@@ -150,8 +182,12 @@ gantt
     Database Migrate  :         b2, after b1, 2d`,
   },
   {
-    id: 'pie-market', title: 'Market Share', description: 'Simple pie chart visualization',
-    category: 'Pie Chart', complexity: 'simple', type: 'pie',
+    id: 'pie-market',
+    title: 'Market Share',
+    description: 'Simple pie chart visualization',
+    category: 'Pie Chart',
+    complexity: 'simple',
+    type: 'pie',
     content: `---
 config:
   theme: 'base'
@@ -164,8 +200,12 @@ pie title Browser Market Share 2024
     "Other" : 6.6`,
   },
   {
-    id: 'mindmap-product', title: 'Product Roadmap', description: 'Feature planning mindmap',
-    category: 'Mindmap', complexity: 'moderate', type: 'mindmap',
+    id: 'mindmap-product',
+    title: 'Product Roadmap',
+    description: 'Feature planning mindmap',
+    category: 'Mindmap',
+    complexity: 'moderate',
+    type: 'mindmap',
     content: `---
 config:
   theme: 'base'
@@ -186,8 +226,12 @@ mindmap
       AI Features`,
   },
   {
-    id: 'git-feature', title: 'Git Feature Branch', description: 'Git branching strategy',
-    category: 'Git Graph', complexity: 'moderate', type: 'gitGraph',
+    id: 'git-feature',
+    title: 'Git Feature Branch',
+    description: 'Git branching strategy',
+    category: 'Git Graph',
+    complexity: 'moderate',
+    type: 'gitGraph',
     content: `---
 config:
   theme: 'base'
@@ -211,8 +255,12 @@ gitGraph
     merge feature/auth id: "Merge auth"`,
   },
   {
-    id: 'journey-onboarding', title: 'User Onboarding', description: 'Customer onboarding journey',
-    category: 'User Journey', complexity: 'moderate', type: 'journey',
+    id: 'journey-onboarding',
+    title: 'User Onboarding',
+    description: 'Customer onboarding journey',
+    category: 'User Journey',
+    complexity: 'moderate',
+    type: 'journey',
     content: `---
 config:
   theme: 'base'
@@ -233,8 +281,12 @@ journey
       Get first results: 4: User`,
   },
   {
-    id: 'quadrant-priorities', title: 'Priority Matrix', description: 'Importance vs Urgency matrix',
-    category: 'Quadrant Chart', complexity: 'simple', type: 'quadrantChart',
+    id: 'quadrant-priorities',
+    title: 'Priority Matrix',
+    description: 'Importance vs Urgency matrix',
+    category: 'Quadrant Chart',
+    complexity: 'simple',
+    type: 'quadrantChart',
     content: `---
 config:
   theme: 'base'
@@ -249,8 +301,12 @@ quadrantChart
     Distraction: [0.2, 0.2]`,
   },
   {
-    id: 'requirement-system', title: 'System Requirements', description: 'System requirements specification',
-    category: 'Requirement Diagram', complexity: 'moderate', type: 'flowchart',
+    id: 'requirement-system',
+    title: 'System Requirements',
+    description: 'System requirements specification',
+    category: 'Requirement Diagram',
+    complexity: 'moderate',
+    type: 'flowchart',
     content: `---
 config:
   theme: 'base'
@@ -270,8 +326,12 @@ flowchart TD
     style C fill:#ffe1e1`,
   },
   {
-    id: 'timeline-product', title: 'Product Evolution', description: 'Timeline of product milestones',
-    category: 'Timeline', complexity: 'moderate', type: 'timeline',
+    id: 'timeline-product',
+    title: 'Product Evolution',
+    description: 'Timeline of product milestones',
+    category: 'Timeline',
+    complexity: 'moderate',
+    type: 'timeline',
     content: `---
 config:
   theme: 'base'
@@ -292,8 +352,12 @@ timeline
         : 50000 users`,
   },
   {
-    id: 'sankey-traffic', title: 'Traffic Flow', description: 'Website traffic flow analysis',
-    category: 'Sankey', complexity: 'moderate', type: 'sankey',
+    id: 'sankey-traffic',
+    title: 'Traffic Flow',
+    description: 'Website traffic flow analysis',
+    category: 'Sankey',
+    complexity: 'moderate',
+    type: 'sankey',
     content: `---
 config:
   theme: 'base'
@@ -311,8 +375,12 @@ sankey
     Product,Signup,150`,
   },
   {
-    id: 'xy-scatter', title: 'Performance Analysis', description: 'XY scatter plot for data analysis',
-    category: 'XY Chart', complexity: 'moderate', type: 'xyChart',
+    id: 'xy-scatter',
+    title: 'Performance Analysis',
+    description: 'XY scatter plot for data analysis',
+    category: 'XY Chart',
+    complexity: 'moderate',
+    type: 'xyChart',
     content: `---
 config:
   theme: 'base'
@@ -324,8 +392,12 @@ xychart-beta
     line [100, 250, 450]`,
   },
   {
-    id: 'kanban-sprint', title: 'Sprint Board', description: 'Kanban board for sprint tracking',
-    category: 'Kanban', complexity: 'simple', type: 'kanban',
+    id: 'kanban-sprint',
+    title: 'Sprint Board',
+    description: 'Kanban board for sprint tracking',
+    category: 'Kanban',
+    complexity: 'simple',
+    type: 'kanban',
     content: `---
 config:
   theme: 'base'
@@ -343,8 +415,12 @@ kanban
     - Architecture design`,
   },
   {
-    id: 'architecture-system', title: 'System Architecture', description: 'High-level system architecture',
-    category: 'Architecture Diagram', complexity: 'advanced', type: 'architectureDiagram',
+    id: 'architecture-system',
+    title: 'System Architecture',
+    description: 'High-level system architecture',
+    category: 'Architecture Diagram',
+    complexity: 'advanced',
+    type: 'architectureDiagram',
     content: `---
 config:
   theme: 'base'
@@ -373,8 +449,12 @@ architecture-beta
     orders:B -- T:orderdb`,
   },
   {
-    id: 'block-network', title: 'Network Design', description: 'Block diagram for network topology',
-    category: 'Block Diagram', complexity: 'moderate', type: 'blockDiagram',
+    id: 'block-network',
+    title: 'Network Design',
+    description: 'Block diagram for network topology',
+    category: 'Block Diagram',
+    complexity: 'moderate',
+    type: 'blockDiagram',
     content: `---
 config:
   theme: 'base'
@@ -398,8 +478,12 @@ block-beta
     G["Database"]`,
   },
   {
-    id: 'class-animals', title: 'UML Class Diagram', description: 'Object-oriented class relationships',
-    category: 'Class Diagram', complexity: 'moderate', type: 'classDiagram',
+    id: 'class-animals',
+    title: 'UML Class Diagram',
+    description: 'Object-oriented class relationships',
+    category: 'Class Diagram',
+    complexity: 'moderate',
+    type: 'classDiagram',
     content: `---
 config:
   theme: 'base'
@@ -436,8 +520,12 @@ classDiagram
     Vehicle o-- Manufacturer : made by`,
   },
   {
-    id: 'c4-system-context', title: 'System Context Diagram', description: 'C4 architecture showing services and users',
-    category: 'C4 Diagram', complexity: 'advanced', type: 'c4',
+    id: 'c4-system-context',
+    title: 'System Context Diagram',
+    description: 'C4 architecture showing services and users',
+    category: 'C4 Diagram',
+    complexity: 'advanced',
+    type: 'c4',
     content: `---
 config:
   theme: 'base'
@@ -455,8 +543,12 @@ C4Context
     Rel(store, payment, "Processes payments", "HTTPS/API")`,
   },
   {
-    id: 'packet-udp', title: 'UDP Packet', description: 'Network packet structure',
-    category: 'Packet Diagram', complexity: 'simple', type: 'packetDiagram',
+    id: 'packet-udp',
+    title: 'UDP Packet',
+    description: 'Network packet structure',
+    category: 'Packet Diagram',
+    complexity: 'simple',
+    type: 'packetDiagram',
     content: `---
 config:
   theme: 'base'
@@ -469,8 +561,12 @@ packet-beta
     48-63: "Checksum"`,
   },
   {
-    id: 'requirement-auth', title: 'System Requirements', description: 'Requirements traceability',
-    category: 'Requirement Diagram', complexity: 'moderate', type: 'requirementDiagram',
+    id: 'requirement-auth',
+    title: 'System Requirements',
+    description: 'Requirements traceability',
+    category: 'Requirement Diagram',
+    complexity: 'moderate',
+    type: 'requirementDiagram',
     content: `---
 config:
   theme: 'base'
@@ -503,8 +599,12 @@ requirementDiagram
     user_mgmt - refines -> user_service`,
   },
   {
-    id: 'usecase-system', title: 'Use Case Overview', description: 'Actor goals inside a system boundary',
-    category: 'Usecase', complexity: 'simple', type: 'usecaseDiagram',
+    id: 'usecase-system',
+    title: 'Use Case Overview',
+    description: 'Actor goals inside a system boundary',
+    category: 'Usecase',
+    complexity: 'simple',
+    type: 'usecaseDiagram',
     content: `---
 config:
   theme: 'base'

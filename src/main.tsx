@@ -10,7 +10,7 @@ import './index.css';
 // Initialize Vercel Analytics
 inject();
 
-// Register Service Worker for PWA/offline support
+// Register Service Worker for PWA support
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
     // Service worker registration + "new version" prompt is owned by
@@ -26,14 +26,10 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
     });
   });
 
-  // Listen for online/offline events
-  window.addEventListener('online', () => {
-    document.body.classList.remove('offline');
-  });
-
-  window.addEventListener('offline', () => {
-    document.body.classList.add('offline');
-  });
+  // No offline banner: the app is fully client-side (IndexedDB + local
+  // inference), it works identically offline — an "offline mode" notice would
+  // only spread anxiety (critique iter-2 P3: stale copy naming providers that
+  // were never wired in).
 }
 
 createRoot(document.getElementById('root')!).render(

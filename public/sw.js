@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mermaidstudio-v3';
+const CACHE_NAME = 'mermaidstudio-v4';
 const CACHE_VERSION = '2026-09-14';
 
 // Core assets to cache immediately

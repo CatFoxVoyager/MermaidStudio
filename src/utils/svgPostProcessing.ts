@@ -23,7 +23,10 @@ export type ParsedDiagramStyles = Pick<ParsedDiagram, 'styles' | 'linkStyles' | 
  */
 export function postProcessDiagramSvg(svg: string, parsed: ParsedDiagramStyles): string {
   // Extract font-related node styles (font-related subset of node styles)
-  const nodeFontStyles = new Map<string, { fontSize?: string; fontWeight?: string; color?: string }>();
+  const nodeFontStyles = new Map<
+    string,
+    { fontSize?: string; fontWeight?: string; color?: string }
+  >();
   parsed.styles.forEach((style, nodeId) => {
     const fontStyle: { fontSize?: string; fontWeight?: string; color?: string } = {};
     if (style.fontSize) fontStyle.fontSize = style.fontSize;
@@ -69,7 +72,12 @@ function parseSvgDocument(svgString: string, allowHtmlFallback: boolean): Docume
  * Resize background rect and center text within it.
  * Uses dominant-baseline for reliable SVG text centering.
  */
-function resizeBackgroundRect(text: Element, rect: Element, fontSize: number, fontFamily?: string): void {
+function resizeBackgroundRect(
+  text: Element,
+  rect: Element,
+  fontSize: number,
+  fontFamily?: string
+): void {
   const content = text.textContent?.trim() ?? '';
   if (!content) return;
 
@@ -134,8 +142,16 @@ function addSankeyGradients(doc: Document, svg: SVGSVGElement): boolean {
 
   // Sankey color palette (Tableau 10 colors)
   const colors = [
-    '#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F',
-    '#EDC948', '#B07AA1', '#FF9DA7', '#9C755F', '#BAB0AC'
+    '#4E79A7',
+    '#F28E2B',
+    '#E15759',
+    '#76B7B2',
+    '#59A14F',
+    '#EDC948',
+    '#B07AA1',
+    '#FF9DA7',
+    '#9C755F',
+    '#BAB0AC',
   ];
 
   let colorIndex = 0;
@@ -186,12 +202,12 @@ function fixNodeLabels(doc: Document, svg: SVGSVGElement, fontFamily: string): b
       globalFontSize = parseFloat(match[1]);
     }
   });
-  
+
   doc.querySelectorAll('.node').forEach(node => {
     // 1. Find text elements or foreignObjects (Mermaid 11 uses foreignObject for labels)
     const textElements = Array.from(node.querySelectorAll<SVGTextElement>('text'));
     const foreignObjects = Array.from(node.querySelectorAll('foreignObject'));
-    
+
     if (textElements.length === 0 && foreignObjects.length === 0) return;
 
     // Use the first text element or foreignObject for measurements
@@ -210,7 +226,7 @@ function fixNodeLabels(doc: Document, svg: SVGSVGElement, fontFamily: string): b
       const fo = foreignObjects[0];
       const textSource = fo.querySelector('span, div, p') || fo;
       content = textSource.textContent?.trim() ?? '';
-      
+
       // Attempt to extract font size from style or parent g
       const styleAttr = fo.getAttribute('style') || '';
       const fontSizeMatch = styleAttr.match(/font-size:\s*([\d.]+)px/);
@@ -294,7 +310,7 @@ function fixNodeLabels(doc: Document, svg: SVGSVGElement, fontFamily: string): b
       const lowerFont = fontFamily.toLowerCase();
       const isImpact = lowerFont.includes('impact');
       const isOswald = lowerFont.includes('oswald');
-      text.setAttribute('dy', (isImpact || isOswald) ? '0.15em' : '0.1em');
+      text.setAttribute('dy', isImpact || isOswald ? '0.15em' : '0.1em');
       text.style.setProperty('alignment-baseline', 'central', 'important');
     }
   });
@@ -412,14 +428,16 @@ function fixDiagramLabelsInDoc(doc: Document, source: string): boolean {
   // This ensures label backgrounds with opaque colors cover the edge lines.
   const root = svg.querySelector('.root') || svg;
   const nodes = Array.from(root.children).filter(el => el.classList.contains('nodes'));
-  const edgePaths = Array.from(root.children).filter(el => el.classList.contains('edgePaths') || el.classList.contains('edges'));
+  const edgePaths = Array.from(root.children).filter(
+    el => el.classList.contains('edgePaths') || el.classList.contains('edges')
+  );
   const edgeLabels = Array.from(root.children).filter(el => el.classList.contains('edgeLabels'));
 
   if (nodes.length || edgePaths.length || edgeLabels.length) {
     const parent = root;
     nodes.forEach(node => parent.appendChild(node));
-    edgePaths.forEach(edge => parent.appendChild(edge));      // Paths FIRST (bottom)
-    edgeLabels.forEach(label => parent.appendChild(label));  // Labels LAST (on top)
+    edgePaths.forEach(edge => parent.appendChild(edge)); // Paths FIRST (bottom)
+    edgeLabels.forEach(label => parent.appendChild(label)); // Labels LAST (on top)
     changed = true;
   }
 
@@ -439,7 +457,7 @@ function fixDiagramLabelsInDoc(doc: Document, source: string): boolean {
       marker.setAttribute('markerUnits', 'strokeWidth');
       const mw = parseFloat(marker.getAttribute('markerWidth') || '0');
       const mh = parseFloat(marker.getAttribute('markerHeight') || '0');
-      
+
       // If no viewBox exists, add one based on original dimensions to prevent clipping when scaling down
       if (!marker.getAttribute('viewBox') && mw > 0 && mh > 0) {
         marker.setAttribute('viewBox', `0 0 ${mw} ${mh}`);
@@ -455,43 +473,46 @@ function fixDiagramLabelsInDoc(doc: Document, source: string): boolean {
   });
 
   // Sync edge arrowheads with edge colors
-  const defs = svg.querySelector('defs') || doc.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  const defs =
+    svg.querySelector('defs') || doc.createElementNS('http://www.w3.org/2000/svg', 'defs');
   if (!svg.querySelector('defs')) svg.insertBefore(defs, svg.firstChild);
 
   // Expanded selector to include sequence diagram message lines
-  doc.querySelectorAll('.edgePaths path, .messageLine0, .messageLine1, .messageLine').forEach((path, idx) => {
-    const stroke = (path as SVGPathElement).style.stroke || path.getAttribute('stroke');
-    if (!stroke || stroke === 'none') return;
+  doc
+    .querySelectorAll('.edgePaths path, .messageLine0, .messageLine1, .messageLine')
+    .forEach((path, idx) => {
+      const stroke = (path as SVGPathElement).style.stroke || path.getAttribute('stroke');
+      if (!stroke || stroke === 'none') return;
 
-    const markerEnd = path.getAttribute('marker-end');
-    if (markerEnd) {
-      const markerIdMatch = markerEnd.match(/url\(#([^)]+)\)/);
-      if (markerIdMatch) {
-        const originalMarkerId = markerIdMatch[1];
-        const originalMarker = arrowheadMarkers.get(originalMarkerId);
-        
-        if (originalMarker) {
-          // Create a unique marker for this color if it doesn't exist
-          const cleanStroke = stroke.replace('#', '');
-          const newMarkerId = `${originalMarkerId}-${cleanStroke}`;
-          
-          if (!doc.getElementById(newMarkerId)) {
-            const newMarker = originalMarker.cloneNode(true) as SVGMarkerElement;
-            newMarker.id = newMarkerId;
-            const pathInMarker = newMarker.querySelector('path');
-            if (pathInMarker) {
-              pathInMarker.setAttribute('fill', stroke);
-              pathInMarker.style.fill = stroke;
+      const markerEnd = path.getAttribute('marker-end');
+      if (markerEnd) {
+        const markerIdMatch = markerEnd.match(/url\(#([^)]+)\)/);
+        if (markerIdMatch) {
+          const originalMarkerId = markerIdMatch[1];
+          const originalMarker = arrowheadMarkers.get(originalMarkerId);
+
+          if (originalMarker) {
+            // Create a unique marker for this color if it doesn't exist
+            const cleanStroke = stroke.replace('#', '');
+            const newMarkerId = `${originalMarkerId}-${cleanStroke}`;
+
+            if (!doc.getElementById(newMarkerId)) {
+              const newMarker = originalMarker.cloneNode(true) as SVGMarkerElement;
+              newMarker.id = newMarkerId;
+              const pathInMarker = newMarker.querySelector('path');
+              if (pathInMarker) {
+                pathInMarker.setAttribute('fill', stroke);
+                pathInMarker.style.fill = stroke;
+              }
+              defs.appendChild(newMarker);
             }
-            defs.appendChild(newMarker);
+
+            path.setAttribute('marker-end', `url(#${newMarkerId})`);
+            changed = true;
           }
-          
-          path.setAttribute('marker-end', `url(#${newMarkerId})`);
-          changed = true;
         }
       }
-    }
-  });
+    });
 
   return changed;
 }
@@ -506,7 +527,7 @@ function fixDiagramLabelsInDoc(doc: Document, source: string): boolean {
  */
 function buildSvgToParsedEdgeMap(
   doc: Document,
-  parsedEdges: Array<{ source: string; target: string; label?: string }>,
+  parsedEdges: Array<{ source: string; target: string; label?: string }>
 ): Map<number, number> {
   const svg = doc.querySelector('svg');
   if (!svg) return new Map();
@@ -573,9 +594,10 @@ function buildSvgToParsedEdgeMap(
     // Phase 2: geometric matching among candidates
     // If multiple text-matched candidates exist, disambiguate among them;
     // otherwise fall back to all unmatched parsed edges.
-    const geoCandidates = textCandidates.length > 1
-      ? textCandidates
-      : parsedEdges.map((_, i) => i).filter(i => !matchedParsed.has(i));
+    const geoCandidates =
+      textCandidates.length > 1
+        ? textCandidates
+        : parsedEdges.map((_, i) => i).filter(i => !matchedParsed.has(i));
 
     if (!hasPathData) {
       if (geoCandidates.length > 0) {
@@ -633,8 +655,11 @@ function buildSvgToParsedEdgeMap(
  */
 export function applyEdgeFontStyles(
   svgString: string,
-  linkStyles: Map<number | 'default', { fontSize?: string; fontWeight?: string; stroke?: string; fill?: string; fillOpacity?: string }>,
-  parsedEdges?: Array<{ source: string; target: string; label?: string }>,
+  linkStyles: Map<
+    number | 'default',
+    { fontSize?: string; fontWeight?: string; stroke?: string; fill?: string; fillOpacity?: string }
+  >,
+  parsedEdges?: Array<{ source: string; target: string; label?: string }>
 ): string {
   const doc = parseSvgDocument(svgString, false);
   if (!doc) return svgString;
@@ -648,19 +673,27 @@ export function applyEdgeFontStyles(
  */
 function applyEdgeFontStylesInDoc(
   doc: Document,
-  linkStyles: Map<number | 'default', { fontSize?: string; fontWeight?: string; stroke?: string; fill?: string; fillOpacity?: string }>,
-  parsedEdges?: Array<{ source: string; target: string; label?: string }>,
+  linkStyles: Map<
+    number | 'default',
+    { fontSize?: string; fontWeight?: string; stroke?: string; fill?: string; fillOpacity?: string }
+  >,
+  parsedEdges?: Array<{ source: string; target: string; label?: string }>
 ): void {
   const svg = doc.querySelector('svg');
   if (!svg) return;
 
   const edgeLabelsContainer = doc.querySelector('g.edgeLabels');
   // Include sequence diagram message lines (line elements) in addition to flowchart paths
-  const edgePaths = Array.from(doc.querySelectorAll('.edgePaths path.flowchart-link, line.messageLine0, line.messageLine1, line.messageLine'));
+  const edgePaths = Array.from(
+    doc.querySelectorAll(
+      '.edgePaths path.flowchart-link, line.messageLine0, line.messageLine1, line.messageLine'
+    )
+  );
   const labelChildren = edgeLabelsContainer ? Array.from(edgeLabelsContainer.children) : [];
 
   // Collect all arrowhead markers
-  const defs = svg.querySelector('defs') || doc.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  const defs =
+    svg.querySelector('defs') || doc.createElementNS('http://www.w3.org/2000/svg', 'defs');
   if (!svg.querySelector('defs')) svg.insertBefore(defs, svg.firstChild);
 
   const arrowheadMarkers = new Map<string, SVGMarkerElement>();
@@ -670,7 +703,16 @@ function applyEdgeFontStylesInDoc(
     }
   });
 
-  const applyToEdge = (svgPathIdx: number, style: { fontSize?: string; fontWeight?: string; stroke?: string; fill?: string; fillOpacity?: string }) => {
+  const applyToEdge = (
+    svgPathIdx: number,
+    style: {
+      fontSize?: string;
+      fontWeight?: string;
+      stroke?: string;
+      fill?: string;
+      fillOpacity?: string;
+    }
+  ) => {
     // 1. Apply to Path (Stroke & Arrowhead)
     const path = edgePaths[svgPathIdx];
     if (path instanceof SVGElement) {
@@ -714,18 +756,20 @@ function applyEdgeFontStylesInDoc(
 
       // Find the background rect - in Mermaid 11.x, it may be a sibling of the label group,
       // not nested inside it. Check the label itself first, then adjacent children.
-      let rectEl = label.querySelector('rect.background') ||
-                   label.querySelector('g.label rect.background') ||
-                   label.querySelector('g rect') ||
-                   label.querySelector('rect');
+      let rectEl =
+        label.querySelector('rect.background') ||
+        label.querySelector('g.label rect.background') ||
+        label.querySelector('g rect') ||
+        label.querySelector('rect');
 
       // If not found in the label itself, check the next sibling (Mermaid 11.x pattern)
       if (!rectEl && svgPathIdx + 1 < labelChildren.length) {
         const nextSibling = labelChildren[svgPathIdx + 1];
         if (nextSibling) {
-          rectEl = nextSibling.querySelector('rect.background') ||
-                   nextSibling.querySelector('rect') ||
-                   (nextSibling instanceof SVGRectElement ? nextSibling : null);
+          rectEl =
+            nextSibling.querySelector('rect.background') ||
+            nextSibling.querySelector('rect') ||
+            (nextSibling instanceof SVGRectElement ? nextSibling : null);
         }
       }
 
@@ -871,19 +915,19 @@ function applyEdgeFontStylesInDoc(
       path.removeAttribute('fill-opacity');
       path.setAttribute('fill', 'none');
       path.setAttribute('fill-opacity', '0');
-      
+
       // Also try style attribute if it exists
       const currentStyle = path.getAttribute('style') || '';
       if (currentStyle) {
-        const newStyle = currentStyle
-          .replace(/fill\s*:\s*[^;]+;?/g, '')
-          .replace(/fill-opacity\s*:\s*[^;]+;?/g, '') + 
+        const newStyle =
+          currentStyle
+            .replace(/fill\s*:\s*[^;]+;?/g, '')
+            .replace(/fill-opacity\s*:\s*[^;]+;?/g, '') +
           'fill: none !important; fill-opacity: 0 !important;';
         path.setAttribute('style', newStyle);
       }
     }
   });
-
 }
 
 /**

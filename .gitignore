@@ -259,6 +259,9 @@ tests/e2e/tests/visual/
 
 # Local dev cert + convenience scripts
 .cert/
+
+# Impeccable design-workflow artifacts (local snapshots, runtime state)
+.impeccable/
 start-dev.bat
 
 # Local agent/tool workspaces

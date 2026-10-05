@@ -67,6 +67,27 @@ function openDB(): Promise<IDBDatabase> {
 /**
  * Get data from IndexedDB, migrating from localStorage if needed
  */
+/**
+ * One-shot backfill for stores created before the seed linked tags to the
+ * Welcome Diagram: without it, existing users hit an empty list on their
+ * first tag-chip click and read it as a bug (critique iter-5 P2). Runs only
+ * when the relation table is empty AND the seed tags are present — a user
+ * who removed tags or created relations is left untouched. The condition
+ * clears itself once the relations are written.
+ */
+function backfillSeedTagRelations(data: DBData): void {
+  if (data.diagramTags.length > 0) {return;}
+  const welcome = data.diagrams.find(d => d.title === 'Welcome Diagram');
+  const architecture = data.tags.find(t => t.name === 'architecture');
+  const workflow = data.tags.find(t => t.name === 'workflow');
+  if (!welcome || !architecture || !workflow) {return;}
+  data.diagramTags = [
+    { diagram_id: welcome.id, tag_id: architecture.id },
+    { diagram_id: welcome.id, tag_id: workflow.id },
+  ];
+  void save(data);
+}
+
 async function load(): Promise<DBData> {
   if (dataCache) {
     return dataCache;
@@ -84,6 +105,7 @@ async function load(): Promise<DBData> {
     });
 
     if (data) {
+      backfillSeedTagRelations(data);
       dataCache = data;
       return data;
     }
@@ -214,11 +236,15 @@ function saveToLocalStorageFallback(data: DBData): void {
  * Create fresh default data
  */
 function createFreshData(): DBData {
+  const welcomeId = generateSecureId();
+  const architectureTagId = generateSecureId();
+  const workflowTagId = generateSecureId();
+  const draftTagId = generateSecureId();
   return {
     folders: [],
     diagrams: [
       {
-        id: generateSecureId(),
+        id: welcomeId,
         title: 'Welcome Diagram',
         content: `---
 config:
@@ -237,11 +263,17 @@ flowchart TD
     ],
     versions: [],
     tags: [
-      { id: generateSecureId(), name: 'architecture', color: '#3b82f6' },
-      { id: generateSecureId(), name: 'workflow', color: '#22c55e' },
-      { id: generateSecureId(), name: 'draft', color: '#f59e0b' },
+      { id: architectureTagId, name: 'architecture', color: '#3b82f6' },
+      { id: workflowTagId, name: 'workflow', color: '#22c55e' },
+      { id: draftTagId, name: 'draft', color: '#f59e0b' },
     ],
-    diagramTags: [],
+    // Two seeded relations: a first click on a tag chip must filter to a
+    // non-empty list — an empty result on first touch reads as a bug
+    // (critique iter-4 P2).
+    diagramTags: [
+      { diagram_id: welcomeId, tag_id: architectureTagId },
+      { diagram_id: welcomeId, tag_id: workflowTagId },
+    ],
     settings: {
       theme: 'light',
       language: 'en',
@@ -417,6 +449,11 @@ export async function getDiagramTags(diagram_id: string): Promise<Tag[]> {
   const data = await load();
   const ids = data.diagramTags.filter(dt => dt.diagram_id === diagram_id).map(dt => dt.tag_id);
   return data.tags.filter(t => ids.includes(t.id));
+}
+
+/** Full tag↔diagram relation list — lets the sidebar filter by tag without N calls. */
+export async function getAllDiagramTags(): Promise<{ diagram_id: string; tag_id: string }[]> {
+  return (await load()).diagramTags;
 }
 
 export async function toggleDiagramTag(diagram_id: string, tag_id: string): Promise<void> {

@@ -1,5 +1,5 @@
 import { Sun, Moon, Command, LayoutGrid as Layout, PanelLeft, GitBranch, HardDrive, Focus, Globe, FilePlus, Info, ScrollText } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { APP_VERSION } from '@/constants/app';
 
@@ -29,6 +29,27 @@ export function TopBar({
 }: Props) {
   const { t } = useTranslation();
   const [showLangMenu, setShowLangMenu] = useState(false);
+  const langMenuRef = useRef<HTMLDivElement>(null);
+
+  // Dismiss the language menu on Escape or any click outside it — previously
+  // it had no dismissal path at all (critique iter-1, heuristic 3 / Sam).
+  useEffect(() => {
+    if (!showLangMenu) {return;}
+    function onPointerDown(e: MouseEvent) {
+      if (langMenuRef.current && !langMenuRef.current.contains(e.target as Node)) {
+        setShowLangMenu(false);
+      }
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {setShowLangMenu(false);}
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [showLangMenu]);
 
   return (
     <header className="flex items-center justify-between h-11 px-3 shrink-0 border-b z-20"
@@ -37,8 +58,8 @@ export function TopBar({
         <button
           data-testid="sidebar-toggle"
           onClick={onToggleSidebar}
-          className="p-1.5 rounded-lg transition-colors hover:bg-white/8"
-          style={{ color: 'var(--text-secondary)' }} title={t('header.toggleSidebar')}>
+          className="p-1.5 rounded-lg transition-colors hover:bg-[var(--hover)]"
+          style={{ color: 'var(--text-secondary)' }} title={t('header.toggleSidebar')} aria-label={t('header.toggleSidebar')}>
           <PanelLeft size={15} className={`transition-transform duration-200 ${sidebarOpen ? '' : 'scale-x-[-1]'}`} />
         </button>
         <div className="flex items-center gap-2">
@@ -57,7 +78,8 @@ export function TopBar({
                 data-testid="topbar-about-badge"
                 onClick={onOpenAbout}
                 title={t('about.title')}
-                className="text-xs font-normal rounded px-1 py-0.5 transition-colors hover:bg-white/8 active:bg-white/15 cursor-pointer"
+                aria-label={t('about.title')}
+                className="text-xs font-normal rounded px-1 py-0.5 transition-colors hover:bg-[var(--hover)] active:bg-[var(--hover)] cursor-pointer"
                 style={{ color: 'var(--text-secondary)' }}>
                 v{APP_VERSION}
               </button>
@@ -72,13 +94,13 @@ export function TopBar({
         <button onClick={onFocusMode}
           className="p-1.5 rounded-lg transition-colors"
           style={{ color: focusMode ? 'var(--accent)' : 'var(--text-secondary)', background: focusMode ? 'var(--accent-dim)' : undefined }}
-          title={t('header.focusMode')}>
+          title={t('header.focusMode')} aria-label={t('header.focusMode')}>
           <Focus size={14} />
         </button>
         <button
           data-testid="palette-button"
           onClick={onOpenCommandPalette}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/6"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--hover)]"
           style={{ color: 'var(--text-secondary)' }}
           aria-label={t('header.commandPalette')}>
           <Command size={13} />
@@ -87,7 +109,7 @@ export function TopBar({
           <button
             data-testid="new-diagram-button"
             onClick={onNewDiagram}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/6"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}>
             <FilePlus size={13} />
             {t('header.newDiagram')}
@@ -96,7 +118,7 @@ export function TopBar({
         <button
           data-testid="templates-button"
           onClick={onOpenTemplates}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/6"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--hover)]"
           style={{ color: 'var(--text-secondary)' }}>
           <Layout size={13} />
           {t('header.templates')}
@@ -104,7 +126,7 @@ export function TopBar({
         <button
           data-testid="backup-button"
           onClick={onOpenBackup}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/6"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--hover)]"
           style={{ color: 'var(--text-secondary)' }}>
           <HardDrive size={13} />
           {t('header.backupImport')}
@@ -113,7 +135,7 @@ export function TopBar({
           <button
             data-testid="topbar-about"
             onClick={onOpenAbout}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/6"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}
             title={t('about.title')}>
             <Info size={13} />
@@ -124,7 +146,7 @@ export function TopBar({
           <button
             data-testid="topbar-release-notes"
             onClick={onOpenReleaseNotes}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-white/6"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}
             title={t('header.releaseNotes')}>
             <ScrollText size={13} />
@@ -132,23 +154,26 @@ export function TopBar({
           </button>
         )}
         <div className="w-px h-5 mx-1" style={{ background: 'var(--border-subtle)' }} />
-        <div className="relative">
+        <div className="relative" ref={langMenuRef}>
           <button onClick={() => setShowLangMenu(!showLangMenu)}
-            className="p-1.5 rounded-lg transition-colors hover:bg-white/6"
+            className="p-1.5 rounded-lg transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}
+            aria-label={t('header.changeLanguage')}
+            aria-haspopup="menu"
+            aria-expanded={showLangMenu}
             title={language === 'en' ? 'Français' : 'English'}>
             <Globe size={14} />
           </button>
           {showLangMenu && (
-            <div className="absolute right-0 mt-1 w-24 rounded-lg shadow-lg z-50"
+            <div role="menu" className="absolute right-0 mt-1 w-24 rounded-lg shadow-lg z-50"
               style={{ background: 'var(--surface-raised)', border: '1px solid var(--border-subtle)' }}>
-              <button onClick={() => { onChangeLanguage('en'); setShowLangMenu(false); }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-white/6 rounded-t-lg transition-colors"
+              <button role="menuitemradio" aria-checked={language === 'en'} onClick={() => { onChangeLanguage('en'); setShowLangMenu(false); }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--hover)] rounded-t-lg transition-colors"
                 style={{ color: language === 'en' ? 'var(--accent)' : 'var(--text-secondary)' }}>
                 English
               </button>
-              <button onClick={() => { onChangeLanguage('fr'); setShowLangMenu(false); }}
-                className="w-full text-left px-3 py-2 text-xs hover:bg-white/6 rounded-b-lg transition-colors"
+              <button role="menuitemradio" aria-checked={language === 'fr'} onClick={() => { onChangeLanguage('fr'); setShowLangMenu(false); }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--hover)] rounded-b-lg transition-colors"
                 style={{ color: language === 'fr' ? 'var(--accent)' : 'var(--text-secondary)' }}>
                 Français
               </button>
@@ -158,9 +183,9 @@ export function TopBar({
         <button
           data-testid="theme-toggle"
           onClick={onToggleTheme}
-          className="p-1.5 rounded-lg transition-colors hover:bg-white/6"
+          className="p-1.5 rounded-lg transition-colors hover:bg-[var(--hover)]"
           style={{ color: 'var(--text-secondary)' }}
-          aria-label="Toggle theme"
+          aria-label={t('header.toggleTheme')}
           title={t('header.toggleTheme')}>
           {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
         </button>

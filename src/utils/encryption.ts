@@ -35,13 +35,9 @@ async function deriveKey(): Promise<CryptoKey> {
   const saltBytes = encoder.encode(SALT);
 
   // Import key material
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    keyMaterialBytes,
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  );
+  const keyMaterial = await crypto.subtle.importKey('raw', keyMaterialBytes, 'PBKDF2', false, [
+    'deriveKey',
+  ]);
 
   // Derive the actual encryption key
   return crypto.subtle.deriveKey(

@@ -56,7 +56,7 @@ export function KeyboardShortcuts({ onClose }: Props) {
       <div className="p-6 grid grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto">
         {GROUPS.map(g => (
           <div key={g.title}>
-            <h3 className="text-[10px] font-semibold uppercase tracking-wider mb-2.5" style={{ color: 'var(--text-tertiary)' }}>
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider mb-2.5" style={{ color: 'var(--text-tertiary)' }}>
               {g.title}
             </h3>
             <div className="space-y-1.5">

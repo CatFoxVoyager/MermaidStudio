@@ -171,7 +171,7 @@ export function NodeStylePanel({
         <button
           onClick={onClose}
           aria-label="Close"
-          className="flex items-center justify-center w-6 h-6 rounded-md transition-colors hover:bg-white/10 shrink-0 max-md:min-w-[44px] max-md:min-h-[44px]"
+          className="flex items-center justify-center w-6 h-6 rounded-md transition-colors hover:bg-[var(--hover)] shrink-0 max-md:min-w-[44px] max-md:min-h-[44px]"
           style={{ color: 'var(--text-tertiary)' }}
         >
           <X size={14} />
@@ -196,7 +196,7 @@ export function NodeStylePanel({
         {singleNodeId && onLabelChange && (
           <div className="flex flex-col gap-1">
             <span
-              className="text-[10px] font-medium uppercase tracking-wider"
+              className="text-[11px] font-medium uppercase tracking-wider"
               style={{ color: 'var(--text-tertiary)' }}
             >
               {t('nodeStyle.label')}
@@ -222,7 +222,7 @@ export function NodeStylePanel({
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-1">
               <Zap size={11} style={{ color: 'var(--text-tertiary)' }} />
-              <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
                 {t('nodeStyle.presets') || 'Presets'}
               </span>
             </div>
@@ -231,7 +231,7 @@ export function NodeStylePanel({
               <button
                 key={preset.label}
                 onClick={() => onPresetApply?.(selectedNodeIds, preset.presetType)}
-                className="flex items-center gap-1 px-2 py-1.5 rounded-lg border text-[10px] font-medium transition-all hover:scale-105 active:scale-95 min-w-0"
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all hover:scale-105 active:scale-95 min-w-0"
                 title={preset.label}
                 style={{
                   borderColor: preset.color,
@@ -262,7 +262,7 @@ export function NodeStylePanel({
         {/* Border Width */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[10px] font-medium uppercase tracking-wider"
+            className="text-[11px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('nodeStyle.borderWidth')}
@@ -289,7 +289,7 @@ export function NodeStylePanel({
         {/* Border Style */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[10px] font-medium uppercase tracking-wider"
+            className="text-[11px] font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('nodeStyle.borderStyle')}
@@ -306,7 +306,7 @@ export function NodeStylePanel({
                   onClick={() =>
                     handleStyleChange('strokeDasharray', opt.value || undefined)
                   }
-                  className="flex-1 py-1.5 rounded-md border text-[10px] font-medium transition-all"
+                  className="flex-1 py-1.5 rounded-md border text-[11px] font-medium transition-all"
                   style={{
                     borderColor: isActive ? 'var(--accent)' : 'var(--border-subtle)',
                     background: isActive ? 'var(--accent-dim)' : 'var(--surface-base)',
@@ -336,7 +336,7 @@ export function NodeStylePanel({
         {selectedNodeIds.length === 1 && nodeSubgraphIds && subgraphs && onSubgraphChange && (
           <div className="flex flex-col gap-1">
             <span
-              className="text-[10px] font-medium uppercase tracking-wider"
+              className="text-[11px] font-medium uppercase tracking-wider"
               style={{ color: 'var(--text-tertiary)' }}
             >
               {t('nodeStyle.subgraph')}
@@ -375,7 +375,7 @@ export function NodeStylePanel({
         {/* Advanced Toggle */}
         <button
           onClick={() => setAdvancedOpen(v => !v)}
-          className="flex items-center gap-1 py-1 text-[10px] font-medium uppercase tracking-wider transition-colors"
+          className="flex items-center gap-1 py-1 text-[11px] font-medium uppercase tracking-wider transition-colors"
           style={{ color: 'var(--text-tertiary)' }}
         >
           <ChevronDown
@@ -394,7 +394,7 @@ export function NodeStylePanel({
             {/* Font Weight */}
             <div className="flex flex-col gap-1">
               <span
-                className="text-[10px] font-medium uppercase tracking-wider"
+                className="text-[11px] font-medium uppercase tracking-wider"
                 style={{ color: 'var(--text-tertiary)' }}
               >
                 {t('nodeStyle.fontWeight')}
@@ -433,7 +433,7 @@ export function NodeStylePanel({
             {/* Font Size */}
             <div className="flex flex-col gap-1">
               <span
-                className="text-[10px] font-medium uppercase tracking-wider"
+                className="text-[11px] font-medium uppercase tracking-wider"
                 style={{ color: 'var(--text-tertiary)' }}
               >
                 {t('nodeStyle.fontSize')}
@@ -475,7 +475,7 @@ export function NodeStylePanel({
             {!hideBorderRadius && (
               <div className="flex flex-col gap-1">
                 <span
-                  className="text-[10px] font-medium uppercase tracking-wider"
+                  className="text-[11px] font-medium uppercase tracking-wider"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
                   {t('nodeStyle.borderRadiusX')}
@@ -504,7 +504,7 @@ export function NodeStylePanel({
             {!hideBorderRadius && (
               <div className="flex flex-col gap-1">
                 <span
-                  className="text-[10px] font-medium uppercase tracking-wider"
+                  className="text-[11px] font-medium uppercase tracking-wider"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
                   {t('nodeStyle.borderRadiusY')}

@@ -39,11 +39,7 @@ const isDevelopment = import.meta.env.DEV;
 function formatLogEntry(entry: LogEntry): string {
   const { level, message, timestamp, context, error } = entry;
 
-  const parts = [
-    `[${timestamp}]`,
-    `[${level.toUpperCase()}]`,
-    message,
-  ];
+  const parts = [`[${timestamp}]`, `[${level.toUpperCase()}]`, message];
 
   if (context) {
     parts.push(JSON.stringify(context));
@@ -147,16 +143,13 @@ export const logger = {
   scope(scopeName: string) {
     const prefix = `[${scopeName}]`;
     return {
-      debug: (message: string, context?: unknown) =>
-        logger.debug(`${prefix} ${message}`, context),
-      info: (message: string, context?: unknown) =>
-        logger.info(`${prefix} ${message}`, context),
-      warn: (message: string, context?: unknown) =>
-        logger.warn(`${prefix} ${message}`, context),
+      debug: (message: string, context?: unknown) => logger.debug(`${prefix} ${message}`, context),
+      info: (message: string, context?: unknown) => logger.info(`${prefix} ${message}`, context),
+      warn: (message: string, context?: unknown) => logger.warn(`${prefix} ${message}`, context),
       error: (message: string, error?: unknown, context?: unknown) =>
         logger.error(`${prefix} ${message}`, error, context),
     };
-  }
+  },
 };
 
 // Export a default 'log' object for convenience

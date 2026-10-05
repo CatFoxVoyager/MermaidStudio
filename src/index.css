@@ -111,11 +111,20 @@ layer(base);
   --border-subtle: rgba(0,0,0,0.07);
   --border-strong: rgba(0,0,0,0.14);
   --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --text-tertiary: #787f8a;
+  /* #67707a: ≥4.5:1 on --surface-floating (was #6b7280 at 4.39:1, critique iter-1 P3) */
+  --text-secondary: #67707a;
+  --text-tertiary: #6d7580; /* was #787f8a at 4.04:1 on white — critique iter-2 */
   --accent: #0d7377;
   --accent-dim: rgba(13,115,119,0.1);
   --accent-rgb: 13,115,119;
+  /* Interactive hover feedback — visible on white (hover:bg-white/8 is a
+     zero-delta wash on light surfaces, see critique iter-1 P2) */
+  --hover: rgba(0,0,0,0.05);
+  /* Destructive action background: white text on #dc2626 is 4.8:1 (AA) —
+     #ef4444 was 3.76:1 (critique iter-6 P3) */
+  --danger: #dc2626;
+  /* Tinted wash for danger surfaces — derives from --danger, not the old red */
+  --danger-dim: rgba(220,38,38,0.08);
 
   /* ─── Z-index layering (Phase 14, MFDN-04) ─── */
   --z-base: 0;
@@ -136,10 +145,13 @@ layer(base);
   --border-strong: rgba(255,255,255,0.16);
   --text-primary: #f0f6fc;
   --text-secondary: #8b949e;
-  --text-tertiary: #6e7681;
+  --text-tertiary: #7d8590; /* was #6e7681 at 3.77:1 on raised — critique iter-2 */
   --accent: #2dd4bf;
   --accent-dim: rgba(45,212,191,0.12);
   --accent-rgb: 45,212,191;
+  --hover: rgba(255,255,255,0.08);
+  --danger: #dc2626;
+  --danger-dim: rgba(220,38,38,0.08);
 }
 
 /* ─── Base ───────────────────────────────────────────────────── */
@@ -166,7 +178,7 @@ kbd {
   align-items: center;
   padding: 1px 5px;
   border-radius: 4px;
-  font-size: 10px;
+  font-size: 11px; /* floor 11px — was 10px (critique iter-2 residu) */
   font-family: 'JetBrains Mono', monospace;
   background: var(--surface-floating);
   color: var(--text-secondary);
@@ -343,23 +355,6 @@ kbd {
 .animate-fade-in { animation: fadeIn 0.15s ease-out; }
 .animate-slide-up { animation: slideUp 0.2s ease-out; }
 .animate-slide-in-right { animation: slideInRight 0.2s ease-out; }
-
-/* ─── Offline State ───────────────────────────────────────────── */
-body.offline::before {
-  content: '📴 Offline Mode - Local AI (Ollama/LM Studio) available';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  background: #f59e0b;
-  color: #fff;
-  text-align: center;
-  padding: 8px;
-  font-size: 12px;
-  font-weight: 500;
-  z-index: 9999;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
 
 /* ─── Keyframes ──────────────────────────────────────────────── */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

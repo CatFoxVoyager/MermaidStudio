@@ -46,7 +46,9 @@ export interface Shortcut {
  * shortcuts should be ignored.
  */
 function isInputLikeElement(eventTarget: EventTarget | null): boolean {
-  if (!eventTarget) {return false;}
+  if (!eventTarget) {
+    return false;
+  }
   const target = eventTarget as HTMLElement;
   // Check basic properties first
   if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
@@ -71,8 +73,8 @@ function matchesShortcut(event: KeyboardEvent, shortcut: Shortcut): boolean {
   const shift = event.shiftKey;
 
   // Check key match (case-insensitive for single characters)
-  const keyMatch = event.key.toLowerCase() === shortcut.key.toLowerCase() ||
-                   event.key === shortcut.key;
+  const keyMatch =
+    event.key.toLowerCase() === shortcut.key.toLowerCase() || event.key === shortcut.key;
 
   // Check modifier keys
   const ctrlMatch = shortcut.ctrl === true ? ctrl : shortcut.ctrl === false ? !ctrl : true;

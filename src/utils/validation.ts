@@ -36,12 +36,12 @@ export interface ValidationResult {
  * These patterns are detected case-insensitively
  */
 const SUSPICIOUS_PATTERNS = [
-  /<script/i,           // Script tags
-  /javascript:/i,       // JavaScript protocol
-  /on\w+\s*=/i,         // Event handlers (onclick, onerror, etc.)
-  /<iframe/i,           // Iframe tags
-  /<object/i,           // Object tags
-  /<embed/i,            // Embed tags
+  /<script/i, // Script tags
+  /javascript:/i, // JavaScript protocol
+  /on\w+\s*=/i, // Event handlers (onclick, onerror, etc.)
+  /<iframe/i, // Iframe tags
+  /<object/i, // Object tags
+  /<embed/i, // Embed tags
 ];
 
 /**
@@ -89,7 +89,8 @@ export function validateDiagramContent(content: string): ValidationResult {
     if (pattern.test(content)) {
       return {
         valid: false,
-        error: 'Content contains potentially malicious code (script tags, event handlers, or dangerous HTML elements)',
+        error:
+          'Content contains potentially malicious code (script tags, event handlers, or dangerous HTML elements)',
       };
     }
   }

@@ -181,7 +181,11 @@ describe('EdgeStylePanel', () => {
     render(<EdgeStylePanel {...defaultProps} edgeStyle={edgeStyle} />);
 
     expect(screen.getByRole('slider')).toHaveValue('3');
-    expect(screen.getByText('Dashed').closest('button')).toHaveStyle({ borderWidth: '2px' });
+    // jsdom 30 computes border-width per the CSS spec (0px when border-style
+    // is none — no Tailwind stylesheet is loaded here), so getComputedStyle no
+    // longer reflects the inline value. The panel's contract is the inline
+    // style it writes, so read that directly.
+    expect(screen.getByText('Dashed').closest('button')?.style.borderWidth).toBe('2px');
   });
 
   describe('Phase 17 mobile responsiveness (MDRW-02)', () => {

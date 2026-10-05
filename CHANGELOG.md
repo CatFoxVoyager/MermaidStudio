@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-10-04
+
+### Added
+- **Import safety confirmation** - Importing a backup now shows exactly what it will replace (live diagram/folder counts, pluralized, with a dedicated "your library is empty" variant) and requires an explicit "Replace everything" action; an "export first" hint precedes the point of no return
+- **Keyboard-complete dialogs** - Every dialog (Backup & Import, folder picker, delete confirmations) traps Tab inside the panel, restores focus to its trigger on close, and answers Escape from the first keystroke; document tabs are keyboard-operable (arrows, Home/End, Enter/Space) with a visible focus ring
+- **"More" actions menu** - Save as Template, Version History, Diagram Colors, Advanced Styling, Fullscreen and Reset Split moved into an overflow menu; the editor toolbar now leads with Save, Diff, Export, AI and Fix
+- **Clear-filters exit** - Empty search results gain a "Clear search & filters" action instead of a dead end
+- **Boot splash** - Themed loading screen (spinner + app name) replaces the static SEO shell flash during cold loads; auto-dismisses when the app is ready, falls back to the crawlable shell if loading fails
+
+### Changed
+- **Honest save status** - The status bar no longer claims unsaved work: "Edited · autosaved" while typing, and real "Saved Nm ago" timestamps after each persist (previously "Not saved" showed while content was already stored); the amber dirty dot explains itself on hover, in both tab bar and toolbar
+- **Dependencies refreshed, majors included** - vitest 5, jsdom 30, jest-dom 7, TypeScript 7 (native compiler); ESLint + typescript-eslint replaced by OxLint (Rust-based linter, TypeScript-version independent); Vite 8.3.2, ESLint ecosystem removal, lucide-react 1.51, transformers 4.3
+- **Mermaid 12.1.0** - Engine unpinned from 12.0.0; CDN embed snippet and SRI hash re-pinned together
+- **Tag chips really filter** - Clicking a tag now filters the file list (previously lit up without changing it); existing libraries get the seed tags backfilled on first load
+- **Unified hover and danger theming** - Hover feedback is visible in light theme via a themed `--hover` token (all 71 white washes migrated); destructive buttons and surfaces use AA-contrast `--danger` tokens
+
+### Fixed
+- **Folder deletion confirms first** - Deleting a folder asks for confirmation and tells the truth: its diagrams and subfolders are re-parented to the parent folder, never destroyed (pluralized copy, zero-diagram variant)
+- **Accessibility sweep** - aria-labels across all icon-only buttons; language menu closes on Escape and outside-click; sidebar "⋯" buttons reachable by keyboard focus; `html lang` follows the UI language; destructive contrast raised to AA (white on `#dc2626` = 4.8:1, was 3.76:1)
+- **Typography floor** - No interface text below 11px (9-10px text in 25+ places raised); status bar at 12px; keyboard shortcut badges at 11px
+- **Stale offline banner removed** - It advertised local AI providers that were never wired in
+
 ## [0.8.1] - 2026-09-15
 
 ### Fixed
