@@ -46,7 +46,7 @@ export function SaveTemplateModal({ content, onClose, onSaved }: Props) {
     <Modal isOpen={true} onClose={onClose} title={t('templates.saveAsTemplate')} size="sm" footer={footer}>
       <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
         <div>
-          <label className="text-[10px] uppercase tracking-wider font-semibold mb-1 block" style={{ color: 'var(--text-tertiary)' }}>{t('templates.templateTitle')}</label>
+          <label className="text-[11px] uppercase tracking-wider font-semibold mb-1 block" style={{ color: 'var(--text-tertiary)' }}>{t('templates.templateTitle')}</label>
           <input value={title} onChange={e => setTitle(e.target.value)}
             placeholder={t('templates.templateTitlePlaceholder')}
             className="w-full px-3 py-2 text-sm rounded-lg border outline-hidden transition-colors"
@@ -56,7 +56,7 @@ export function SaveTemplateModal({ content, onClose, onSaved }: Props) {
         </div>
 
         <div>
-          <label className="text-[10px] uppercase tracking-wider font-semibold mb-1 block" style={{ color: 'var(--text-tertiary)' }}>{t('templates.templateDescription')}</label>
+          <label className="text-[11px] uppercase tracking-wider font-semibold mb-1 block" style={{ color: 'var(--text-tertiary)' }}>{t('templates.templateDescription')}</label>
           <input value={description} onChange={e => setDescription(e.target.value)}
             placeholder={t('templates.templateDescPlaceholder')}
             className="w-full px-3 py-2 text-sm rounded-lg border outline-hidden transition-colors"
@@ -66,7 +66,7 @@ export function SaveTemplateModal({ content, onClose, onSaved }: Props) {
         </div>
 
         <div>
-          <label className="text-[10px] uppercase tracking-wider font-semibold mb-1 block" style={{ color: 'var(--text-tertiary)' }}>{t('templates.templateCategory')}</label>
+          <label className="text-[11px] uppercase tracking-wider font-semibold mb-1 block" style={{ color: 'var(--text-tertiary)' }}>{t('templates.templateCategory')}</label>
           <div className="flex flex-wrap gap-1.5">
             {ALL_CATS.map(c => (
               <button key={c} onClick={() => setCategory(c)}
@@ -81,7 +81,7 @@ export function SaveTemplateModal({ content, onClose, onSaved }: Props) {
         </div>
 
         <div>
-          <label className="text-[10px] uppercase tracking-wider font-semibold mb-1 block" style={{ color: 'var(--text-tertiary)' }}>{t('templates.templateComplexity')}</label>
+          <label className="text-[11px] uppercase tracking-wider font-semibold mb-1 block" style={{ color: 'var(--text-tertiary)' }}>{t('templates.templateComplexity')}</label>
           <div className="flex gap-2">
             {(['simple', 'moderate', 'advanced'] as const).map(c => (
               <button key={c} onClick={() => setComplexity(c)}

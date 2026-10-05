@@ -15,13 +15,18 @@ export function useLanguage() {
   }, []);
 
   useEffect(() => {
-    if (!initialized) {return;}
+    if (!initialized) {
+      return;
+    }
     i18n.changeLanguage(language);
+    // Keep the document language in sync so screen readers pronounce the UI
+    // with the right rules (critique iter-2 P2: lang="en" under a French UI).
+    document.documentElement.lang = language;
     updateSettings({ language });
   }, [language, initialized]); // Remove i18n from deps since it's stable
 
   const setLang = (lang: 'en' | 'fr') => setLanguage(lang);
-  const toggle = () => setLanguage(l => l === 'en' ? 'fr' : 'en');
+  const toggle = () => setLanguage(l => (l === 'en' ? 'fr' : 'en'));
 
   return { language, setLanguage: setLang, toggle };
 }

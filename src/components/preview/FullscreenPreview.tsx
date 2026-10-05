@@ -90,24 +90,24 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
         style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-raised)' }}>
         <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{t('fullscreen.title')}</span>
         <div className="flex items-center gap-2">
-          <button onClick={() => zoomBy(-0.25)}
-            className="p-1.5 rounded-lg transition-colors hover:bg-white/8" style={{ color: 'var(--text-secondary)' }}>
+          <button onClick={() => setZoom(z => Math.max(0.1, z - 0.25))}
+            className="p-1.5 rounded-lg transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-secondary)' }}>
             <ZoomOut size={16} />
           </button>
           <span className="text-xs w-12 text-center font-mono" style={{ color: 'var(--text-secondary)' }}>
             {Math.round(zoom * 100)}%
           </span>
-          <button onClick={() => zoomBy(0.25)}
-            className="p-1.5 rounded-lg transition-colors hover:bg-white/8" style={{ color: 'var(--text-secondary)' }}>
+          <button onClick={() => setZoom(z => Math.min(5, z + 0.25))}
+            className="p-1.5 rounded-lg transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-secondary)' }}>
             <ZoomIn size={16} />
           </button>
           <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
-            className="p-1.5 rounded-lg transition-colors hover:bg-white/8" style={{ color: 'var(--text-secondary)' }}>
+            className="p-1.5 rounded-lg transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-secondary)' }}>
             <Maximize2 size={16} />
           </button>
           <div className="w-px h-5 mx-1" style={{ background: 'var(--border-subtle)' }} />
           <button onClick={onClose}
-            className="p-1.5 rounded-lg transition-colors hover:bg-white/8" style={{ color: 'var(--text-secondary)' }}>
+            className="p-1.5 rounded-lg transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-secondary)' }}>
             <X size={16} />
           </button>
         </div>
@@ -135,7 +135,7 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
         </div>
       </div>
 
-      <div className="flex items-center justify-center gap-4 px-4 h-8 shrink-0 border-t text-[10px]"
+      <div className="flex items-center justify-center gap-4 px-4 h-8 shrink-0 border-t text-[11px]"
         style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-tertiary)' }}>
         <span>{t('fullscreen.scrollToZoom')}</span>
         <span>{t('fullscreen.dragToPan')}</span>

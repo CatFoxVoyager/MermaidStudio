@@ -18,7 +18,7 @@ export function SupportLinks() {
   return (
     <div>
       <p
-        className="text-[10px] font-semibold uppercase tracking-wider mb-2"
+        className="text-[11px] font-semibold uppercase tracking-wider mb-2"
         style={{ color: 'var(--text-tertiary)' }}
       >
         {t('support.caption')}

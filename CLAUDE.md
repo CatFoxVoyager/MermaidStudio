@@ -15,8 +15,8 @@ npm run preview          # Preview production build locally
 npm run benchmark        # Run scripts/benchmark.mjs
 
 # Code Quality
-npm run lint             # ESLint check (eslint src --max-warnings 999)
-npm run lint:fix         # ESLint auto-fix
+npm run lint             # OxLint check (oxlint src)
+npm run lint:fix         # OxLint auto-fix
 npm run type-check       # TypeScript type check (tsc --noEmit)
 npm run format           # Prettier write on src/**/*.{ts,tsx}
 npm run format:check     # Prettier check (CI gate)
@@ -160,7 +160,7 @@ WebGPU requires cross-origin isolation; `vite.config.ts` sets `COOP`/`COEP` head
 
 - Husky pre-commit hooks (`prepare: husky install`) run lint, type-check, and tests
 - Commitlint (`commitlint.config.cjs`) enforces conventional commits: `feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`
-- Lint-staged runs ESLint + Prettier on staged `.ts` and `.tsx` files
+- Lint-staged runs OxLint --fix + Prettier on staged `.ts` and `.tsx` files
 
 ### Build & Bundle
 
@@ -178,13 +178,19 @@ WebGPU requires cross-origin isolation; `vite.config.ts` sets `COOP`/`COEP` head
 - **Docs**: GitHub Pages (via `.github/workflows/ci.yml`)
 - PWA: service worker `public/sw.js` registered from `src/main.tsx` (prod only)
 
-### ESLint Rules
+### Lint Rules (OxLint)
 
-Notable project-specific rules (`eslint.config.js`, flat config):
+Linting runs **OxLint** (`.oxlintrc.json`) — ESLint and typescript-eslint were
+removed because typescript-eslint's peer range capped TypeScript below 7.
+Notable project-specific settings:
 - `react-hooks/exhaustive-deps: off` - Dependencies disabled for flexibility
-- `@typescript-eslint/no-unused-vars: off` - Unused vars allowed
+- `no-unused-vars: off` / `typescript/no-unused-vars: off` - Unused vars allowed
 - `no-console: off` - Console logging allowed (prefer the scoped `logger` from `src/utils/logger.ts`)
-- `@typescript-eslint/no-explicit-any: off` - `any` type allowed
+- `typescript/no-explicit-any: off` - `any` type allowed
+- `correctness: error` - OxLint's default category (includes react refs/purity
+  rules the old ESLint setup did not have; the two deliberate violations —
+  CodeEditor latest-ref, WorkspacePanel display timestamp — carry inline
+  `oxlint-disable-line` justifications)
 
 ### Engine Requirements
 

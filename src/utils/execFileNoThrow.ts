@@ -23,19 +23,19 @@ export async function execFileNoThrow(
       encoding: 'utf8',
       maxBuffer: 1024 * 1024, // 1MB
       timeout: options?.timeout || 30000,
-      ...options
+      ...options,
     });
 
     return {
       stdout: result.stdout,
       stderr: result.stderr,
-      status: 0
+      status: 0,
     };
   } catch (error: any) {
     return {
       stdout: '',
       stderr: error.message || String(error),
-      status: error.code || 1
+      status: error.code || 1,
     };
   }
 }

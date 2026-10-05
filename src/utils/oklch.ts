@@ -38,8 +38,7 @@ export function parseOklch(oklchStr: string): OklchComponents | null {
 
   // Per CSS Color 4, lightness and alpha accept either a number (0..1) or a
   // percentage — `oklch(0.5 ...)` and `oklch(50% ...)` are the same color.
-  const toUnit = (raw: string) =>
-    raw.endsWith('%') ? parseFloat(raw) / 100 : parseFloat(raw);
+  const toUnit = (raw: string) => (raw.endsWith('%') ? parseFloat(raw) / 100 : parseFloat(raw));
 
   return {
     l: toUnit(match[1]),

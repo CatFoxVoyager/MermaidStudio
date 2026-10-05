@@ -64,7 +64,7 @@ function NodePanel({ nodes, onLabelChange, onShapeChange, onStyleChange }: NodeP
     <div className="flex flex-col gap-4">
       {single && (
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Label</span>
+          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Label</span>
           <input
             type="text"
             value={label}
@@ -78,7 +78,7 @@ function NodePanel({ nodes, onLabelChange, onShapeChange, onStyleChange }: NodeP
       )}
 
       <div className="flex flex-col gap-1">
-        <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Shape</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Shape</span>
         <div className="relative">
           <select
             value={sharedShape === 'mixed' ? '' : sharedShape}
@@ -102,7 +102,7 @@ function NodePanel({ nodes, onLabelChange, onShapeChange, onStyleChange }: NodeP
       <ColorPicker label="Text Color" value={sharedStyle.color ?? ''} onChange={v => handleStyleField('color', v)} />
 
       <div className="flex flex-col gap-1">
-        <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
           Border Width
         </span>
         <div className="flex items-center gap-2">
@@ -121,14 +121,14 @@ function NodePanel({ nodes, onLabelChange, onShapeChange, onStyleChange }: NodeP
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-1">
           <Zap size={11} style={{ color: 'var(--text-tertiary)' }} />
-          <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Presets</span>
+          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Presets</span>
         </div>
         <div className="grid grid-cols-2 gap-1.5">
           {PRESETS.map(p => (
             <button
               key={p.label}
               onClick={() => nodes.forEach(n => onStyleChange(n.id, p.style))}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg border text-[10px] font-medium transition-all hover:scale-105 active:scale-95 min-w-0"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all hover:scale-105 active:scale-95 min-w-0"
               title={p.label}
               style={{ borderColor: p.color, color: p.label === 'Dark' ? '#ffffff' : p.color, background: p.style.fill }}>
               <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
@@ -140,7 +140,7 @@ function NodePanel({ nodes, onLabelChange, onShapeChange, onStyleChange }: NodeP
 
       {single && (
         <div className="pt-1 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-          <span className="text-[9px] font-mono" style={{ color: 'var(--text-tertiary)' }}>ID: {single.id}</span>
+          <span className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>ID: {single.id}</span>
         </div>
       )}
     </div>
@@ -163,14 +163,14 @@ function EdgePanel({ edge, onArrowChange, onLabelChange, onDeleteEdge }: EdgePan
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Connection</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Connection</span>
         <div className="text-xs px-2.5 py-2 rounded-md border font-mono" style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
           {edge.source} → {edge.target}
         </div>
       </div>
 
       <div className="flex flex-col gap-1">
-        <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Arrow Type</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Arrow Type</span>
         <div className="relative">
           <select
             value={edge.arrowType}
@@ -186,7 +186,7 @@ function EdgePanel({ edge, onArrowChange, onLabelChange, onDeleteEdge }: EdgePan
       </div>
 
       <div className="flex flex-col gap-1">
-        <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Label</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Label</span>
         <input
           type="text"
           value={label}

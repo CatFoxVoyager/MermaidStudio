@@ -13,162 +13,538 @@ const THEME_COLOR_LIMIT = 12;
 
 /** Keys that should NEVER be inside themeVariables because they are top-level config properties */
 const RESTRICTED_THEME_VARIABLES = new Set([
-  'flowchart', 'sequence', 'gantt', 'journey', 'class', 'state', 'er',
-  'pie', 'mindmap', 'git', 'quadrantChart', 'xyChart', 'sankey',
-  'timeline', 'packet', 'kanban', 'architecture', 'zenuml', 'block',
-  'c4', 'layout', 'look', 'theme', 'config', 'darkMode'
+  'flowchart',
+  'sequence',
+  'gantt',
+  'journey',
+  'class',
+  'state',
+  'er',
+  'pie',
+  'mindmap',
+  'git',
+  'quadrantChart',
+  'xyChart',
+  'sankey',
+  'timeline',
+  'packet',
+  'kanban',
+  'architecture',
+  'zenuml',
+  'block',
+  'c4',
+  'layout',
+  'look',
+  'theme',
+  'config',
+  'darkMode',
 ]);
 
 const DIAGRAM_TYPE_VARIABLES: Record<DiagramType, string[]> = {
   flowchart: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'arrowheadColor',
-    'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
-    'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor', 'border2',
-    'nodeBkg', 'mainBkg', 'nodeBorder', 'clusterBkg', 'clusterBorder',
-    'defaultLinkColor', 'titleColor', 'edgeLabelBackground', 'nodeTextColor',
-    'fontFamily', 'fontSize',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'arrowheadColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'border2',
+    'nodeBkg',
+    'mainBkg',
+    'nodeBorder',
+    'clusterBkg',
+    'clusterBorder',
+    'defaultLinkColor',
+    'titleColor',
+    'edgeLabelBackground',
+    'nodeTextColor',
+    'fontFamily',
+    'fontSize',
   ],
   sequence: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'arrowheadColor',
-    'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
-    'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor',
-    'actorBorder', 'actorBkg', 'actorTextColor', 'actorLineColor',
-    'labelBoxBkgColor', 'signalColor', 'signalTextColor', 'labelBoxBorderColor', 'labelTextColor',
-    'loopTextColor', 'activationBorderColor', 'activationBkgColor', 'sequenceNumberColor',
-    'noteBkgColor', 'noteBorderColor', 'noteTextColor',
-    'sectionBkgColor', 'altSectionBkgColor', 'sectionBkgColor2', 'excludeBkgColor',
-    'fontFamily', 'fontSize',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'arrowheadColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'actorBorder',
+    'actorBkg',
+    'actorTextColor',
+    'actorLineColor',
+    'labelBoxBkgColor',
+    'signalColor',
+    'signalTextColor',
+    'labelBoxBorderColor',
+    'labelTextColor',
+    'loopTextColor',
+    'activationBorderColor',
+    'activationBkgColor',
+    'sequenceNumberColor',
+    'noteBkgColor',
+    'noteBorderColor',
+    'noteTextColor',
+    'sectionBkgColor',
+    'altSectionBkgColor',
+    'sectionBkgColor2',
+    'excludeBkgColor',
+    'fontFamily',
+    'fontSize',
   ],
   classDiagram: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'arrowheadColor',
-    'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
-    'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor',
-    'nodeBkg', 'mainBkg', 'nodeBorder', 'clusterBkg', 'clusterBorder',
-    'classText', 'fillType0', 'fillType1', 'fillType2', 'fillType3', 'fillType4', 'fillType5', 'fillType6', 'fillType7',
-    'fontFamily', 'fontSize',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'arrowheadColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'nodeBkg',
+    'mainBkg',
+    'nodeBorder',
+    'clusterBkg',
+    'clusterBorder',
+    'classText',
+    'fillType0',
+    'fillType1',
+    'fillType2',
+    'fillType3',
+    'fillType4',
+    'fillType5',
+    'fillType6',
+    'fillType7',
+    'fontFamily',
+    'fontSize',
   ],
   stateDiagram: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'arrowheadColor',
-    'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
-    'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor',
-    'transitionColor', 'transitionLabelColor', 'stateLabelColor', 'stateBkg', 'labelBackgroundColor',
-    'compositeBackground', 'altBackground', 'compositeTitleBackground', 'compositeBorder',
-    'innerEndBackground', 'errorBkgColor', 'errorTextColor', 'specialStateColor',
-    'fontFamily', 'fontSize',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'arrowheadColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'transitionColor',
+    'transitionLabelColor',
+    'stateLabelColor',
+    'stateBkg',
+    'labelBackgroundColor',
+    'compositeBackground',
+    'altBackground',
+    'compositeTitleBackground',
+    'compositeBorder',
+    'innerEndBackground',
+    'errorBkgColor',
+    'errorTextColor',
+    'specialStateColor',
+    'fontFamily',
+    'fontSize',
   ],
   erDiagram: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'arrowheadColor',
-    'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
-    'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor',
-    'entityBkg', 'entityBorder', 'attributeBkg', 'attributeBorder', 'relationshipBkg', 'relationshipBorder',
-    'fontFamily', 'fontSize',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'arrowheadColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'entityBkg',
+    'entityBorder',
+    'attributeBkg',
+    'attributeBorder',
+    'relationshipBkg',
+    'relationshipBorder',
+    'fontFamily',
+    'fontSize',
   ],
   gantt: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor',
-    'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
-    'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor',
-    'taskBorderColor', 'taskBkgColor', 'activeTaskBorderColor', 'activeTaskBkgColor',
-    'gridColor', 'doneTaskBkgColor', 'doneTaskBorderColor',
-    'critBorderColor', 'critBkgColor', 'todayLineColor', 'vertLineColor',
-    'taskTextColor', 'taskTextOutsideColor', 'taskTextLightColor', 'taskTextDarkColor', 'taskTextClickableColor',
-    'sectionBkgColor', 'altSectionBkgColor', 'sectionBkgColor2', 'excludeBkgColor',
-    'fontFamily', 'fontSize',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'taskBorderColor',
+    'taskBkgColor',
+    'activeTaskBorderColor',
+    'activeTaskBkgColor',
+    'gridColor',
+    'doneTaskBkgColor',
+    'doneTaskBorderColor',
+    'critBorderColor',
+    'critBkgColor',
+    'todayLineColor',
+    'vertLineColor',
+    'taskTextColor',
+    'taskTextOutsideColor',
+    'taskTextLightColor',
+    'taskTextDarkColor',
+    'taskTextClickableColor',
+    'sectionBkgColor',
+    'altSectionBkgColor',
+    'sectionBkgColor2',
+    'excludeBkgColor',
+    'fontFamily',
+    'fontSize',
   ],
   pie: [
-    'background', 'primaryTextColor',
-    'pie1', 'pie2', 'pie3', 'pie4', 'pie5', 'pie6', 'pie7', 'pie8', 'pie9', 'pie10', 'pie11', 'pie12',
-    'pieTitleTextSize', 'pieTitleTextColor', 'pieSectionTextSize', 'pieSectionTextColor',
-    'pieLegendTextSize', 'pieLegendTextColor', 'pieStrokeColor', 'pieStrokeWidth',
-    'pieOuterStrokeWidth', 'pieOuterStrokeColor', 'pieOpacity',
-    'fontFamily', 'fontSize',
+    'background',
+    'primaryTextColor',
+    'pie1',
+    'pie2',
+    'pie3',
+    'pie4',
+    'pie5',
+    'pie6',
+    'pie7',
+    'pie8',
+    'pie9',
+    'pie10',
+    'pie11',
+    'pie12',
+    'pieTitleTextSize',
+    'pieTitleTextColor',
+    'pieSectionTextSize',
+    'pieSectionTextColor',
+    'pieLegendTextSize',
+    'pieLegendTextColor',
+    'pieStrokeColor',
+    'pieStrokeWidth',
+    'pieOuterStrokeWidth',
+    'pieOuterStrokeColor',
+    'pieOpacity',
+    'fontFamily',
+    'fontSize',
   ],
   mindmap: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor',
-    'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
-    'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor',
-    'fontFamily', 'fontSize',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'fontFamily',
+    'fontSize',
   ],
   gitGraph: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor',
-    'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
-    'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor',
-    'git0', 'git1', 'git2', 'git3', 'git4', 'git5', 'git6', 'git7',
-    'gitInv0', 'gitInv1', 'gitInv2', 'gitInv3', 'gitInv4', 'gitInv5', 'gitInv6', 'gitInv7',
-    'branchLabelColor', 'gitBranchLabel0', 'gitBranchLabel1', 'gitBranchLabel2', 'gitBranchLabel3', 'gitBranchLabel4', 'gitBranchLabel5', 'gitBranchLabel6', 'gitBranchLabel7',
-    'tagLabelColor', 'tagLabelBackground', 'tagLabelBorder', 'tagLabelFontSize',
-    'commitLabelColor', 'commitLabelBackground', 'commitLabelFontSize',
-    'fontFamily', 'fontSize',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'git0',
+    'git1',
+    'git2',
+    'git3',
+    'git4',
+    'git5',
+    'git6',
+    'git7',
+    'gitInv0',
+    'gitInv1',
+    'gitInv2',
+    'gitInv3',
+    'gitInv4',
+    'gitInv5',
+    'gitInv6',
+    'gitInv7',
+    'branchLabelColor',
+    'gitBranchLabel0',
+    'gitBranchLabel1',
+    'gitBranchLabel2',
+    'gitBranchLabel3',
+    'gitBranchLabel4',
+    'gitBranchLabel5',
+    'gitBranchLabel6',
+    'gitBranchLabel7',
+    'tagLabelColor',
+    'tagLabelBackground',
+    'tagLabelBorder',
+    'tagLabelFontSize',
+    'commitLabelColor',
+    'commitLabelBackground',
+    'commitLabelFontSize',
+    'fontFamily',
+    'fontSize',
   ],
   journey: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor',
-    'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
-    'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor',
-    'fillType0', 'fillType1', 'fillType2', 'fillType3', 'fillType4', 'fillType5', 'fillType6', 'fillType7',
-    'fontFamily', 'fontSize',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'fillType0',
+    'fillType1',
+    'fillType2',
+    'fillType3',
+    'fillType4',
+    'fillType5',
+    'fillType6',
+    'fillType7',
+    'fontFamily',
+    'fontSize',
   ],
   quadrantChart: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor',
-    'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
-    'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor',
-    'quadrant1Fill', 'quadrant2Fill', 'quadrant3Fill', 'quadrant4Fill',
-    'quadrant1TextFill', 'quadrant2TextFill', 'quadrant3TextFill', 'quadrant4TextFill',
-    'quadrantPointFill', 'quadrantPointTextFill', 'quadrantXAxisTextFill', 'quadrantYAxisTextFill',
-    'quadrantInternalBorderStrokeFill', 'quadrantExternalBorderStrokeFill', 'quadrantTitleFill',
-    'fontFamily', 'fontSize',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'quadrant1Fill',
+    'quadrant2Fill',
+    'quadrant3Fill',
+    'quadrant4Fill',
+    'quadrant1TextFill',
+    'quadrant2TextFill',
+    'quadrant3TextFill',
+    'quadrant4TextFill',
+    'quadrantPointFill',
+    'quadrantPointTextFill',
+    'quadrantXAxisTextFill',
+    'quadrantYAxisTextFill',
+    'quadrantInternalBorderStrokeFill',
+    'quadrantExternalBorderStrokeFill',
+    'quadrantTitleFill',
+    'fontFamily',
+    'fontSize',
   ],
   requirementDiagram: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor',
-    'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
-    'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor',
-    'requirementBackground', 'requirementBorderColor', 'requirementBorderSize', 'requirementTextColor',
-    'relationColor', 'relationLabelBackground', 'relationLabelColor',
-    'fontFamily', 'fontSize',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'requirementBackground',
+    'requirementBorderColor',
+    'requirementBorderSize',
+    'requirementTextColor',
+    'relationColor',
+    'relationLabelBackground',
+    'relationLabelColor',
+    'fontFamily',
+    'fontSize',
   ],
   timeline: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor',
-    'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
-    'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor',
-    'fontFamily', 'fontSize',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'fontFamily',
+    'fontSize',
   ],
   sankey: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor',
-    'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
-    'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor',
-    'fontFamily', 'fontSize',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'fontFamily',
+    'fontSize',
   ],
-  xyChart: [
-    'background', 'primaryTextColor',
-    'xyChart',
-    'fontFamily', 'fontSize',
+  xyChart: ['background', 'primaryTextColor', 'xyChart', 'fontFamily', 'fontSize'],
+  packetDiagram: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'fontFamily',
+    'fontSize',
   ],
-  packetDiagram: ['primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'primaryTextColor', 'fontFamily', 'fontSize'],
-  kanban: ['primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'primaryTextColor', 'fontFamily', 'fontSize'],
-  architectureDiagram: ['primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'primaryTextColor', 'archEdgeColor', 'archEdgeArrowColor', 'archEdgeWidth', 'archGroupBorderColor', 'archGroupBorderWidth', 'fontFamily', 'fontSize'],
+  kanban: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'fontFamily',
+    'fontSize',
+  ],
+  architectureDiagram: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'archEdgeColor',
+    'archEdgeArrowColor',
+    'archEdgeWidth',
+    'archGroupBorderColor',
+    'archGroupBorderWidth',
+    'fontFamily',
+    'fontSize',
+  ],
   // Union-membership forces this Record key (compiler-required data entry only);
   // it routes usecase into the EXISTING derivation path — both
   // deriveThemeVariablesForDiagramType and applyThemeToFrontmatter filter
   // through this one map. No derivation formula or engine change.
   usecaseDiagram: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'arrowheadColor',
-    'primaryTextColor', 'textColor',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'arrowheadColor',
+    'primaryTextColor',
+    'textColor',
     'primaryBorderColor',
-    'nodeBkg', 'mainBkg', 'nodeBorder', 'clusterBkg', 'clusterBorder',
-    'defaultLinkColor', 'titleColor', 'edgeLabelBackground',
-    'fontFamily', 'fontSize',
+    'nodeBkg',
+    'mainBkg',
+    'nodeBorder',
+    'clusterBkg',
+    'clusterBorder',
+    'defaultLinkColor',
+    'titleColor',
+    'edgeLabelBackground',
+    'fontFamily',
+    'fontSize',
   ],
-  zenuml: ['primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'primaryTextColor', 'fontFamily', 'fontSize'],
-  blockDiagram: ['primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'primaryTextColor', 'fontFamily', 'fontSize'],
-  c4: ['primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'primaryTextColor', 'fontFamily', 'fontSize'],
+  zenuml: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'fontFamily',
+    'fontSize',
+  ],
+  blockDiagram: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'fontFamily',
+    'fontSize',
+  ],
+  c4: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'fontFamily',
+    'fontSize',
+  ],
   unknown: [
-    'primaryColor', 'secondaryColor', 'tertiaryColor', 'background', 'lineColor', 'arrowheadColor',
-    'primaryTextColor', 'secondaryTextColor', 'tertiaryTextColor', 'textColor',
-    'primaryBorderColor', 'secondaryBorderColor', 'tertiaryBorderColor',
-    'nodeBkg', 'mainBkg', 'nodeBorder', 'clusterBkg', 'clusterBorder',
-    'fontFamily', 'fontSize',
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'arrowheadColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'nodeBkg',
+    'mainBkg',
+    'nodeBorder',
+    'clusterBkg',
+    'clusterBorder',
+    'fontFamily',
+    'fontSize',
   ],
 };
 
-export const DEFAULT_LIGHT_THEME = builtinThemes.find(t => t.id === 'corporate-blue') ?? builtinThemes[0];
+export const DEFAULT_LIGHT_THEME =
+  builtinThemes.find(t => t.id === 'corporate-blue') ?? builtinThemes[0];
 export const DEFAULT_DARK_THEME = builtinThemes.find(t => t.id === 'dark-tech') ?? builtinThemes[0];
 
 export function mkBorder(col: string, darkMode: boolean): string {
@@ -217,7 +593,8 @@ export function deriveThemeVariables(
   t.primaryBorderColor = t.primaryBorderColor || mkBorder(t.primaryColor as string, darkMode);
   t.secondaryBorderColor = t.secondaryBorderColor || mkBorder(t.secondaryColor as string, darkMode);
   t.tertiaryBorderColor = t.tertiaryBorderColor || mkBorder(t.tertiaryColor as string, darkMode);
-  t.noteBorderColor = t.noteBorderColor || mkBorder(t.noteBkgColor as string || '#fff5ad', darkMode);
+  t.noteBorderColor =
+    t.noteBorderColor || mkBorder((t.noteBkgColor as string) || '#fff5ad', darkMode);
   t.noteBkgColor = t.noteBkgColor || '#fff5ad';
   t.noteTextColor = t.noteTextColor || '#333';
   t.primaryTextColor = t.primaryTextColor || (darkMode ? '#eee' : '#333');
@@ -304,24 +681,34 @@ export function deriveThemeVariables(
   t.cScale10 = t.cScale10 || adjustToHex(t.primaryColor as string, { h: 300 });
   t.cScale11 = t.cScale11 || adjustToHex(t.primaryColor as string, { h: 330 });
   if (darkMode) {
-    for (let i = 0; i < THEME_COLOR_LIMIT; i++) t['cScale' + i] = darkenToHex(t['cScale' + i] as string, 75);
+    for (let i = 0; i < THEME_COLOR_LIMIT; i++)
+      t['cScale' + i] = darkenToHex(t['cScale' + i] as string, 75);
   } else {
-    for (let i = 0; i < THEME_COLOR_LIMIT; i++) t['cScale' + i] = darkenToHex(t['cScale' + i] as string, 25);
+    for (let i = 0; i < THEME_COLOR_LIMIT; i++)
+      t['cScale' + i] = darkenToHex(t['cScale' + i] as string, 25);
   }
-  for (let i = 0; i < THEME_COLOR_LIMIT; i++) t['cScaleInv' + i] = t['cScaleInv' + i] || invertToHex(t['cScale' + i] as string);
+  for (let i = 0; i < THEME_COLOR_LIMIT; i++)
+    t['cScaleInv' + i] = t['cScaleInv' + i] || invertToHex(t['cScale' + i] as string);
   for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
     const key = 'cScale' + i;
     const peerKey = 'cScalePeer' + i;
-    t[peerKey] = t[peerKey] || (darkMode ? lightenToHex(t[key] as string, 10) : darkenToHex(t[key] as string, 10));
+    t[peerKey] =
+      t[peerKey] ||
+      (darkMode ? lightenToHex(t[key] as string, 10) : darkenToHex(t[key] as string, 10));
   }
   t.scaleLabelColor = t.scaleLabelColor || t.labelTextColor;
-  for (let i = 0; i < THEME_COLOR_LIMIT; i++) t['cScaleLabel' + i] = t['cScaleLabel' + i] || t.scaleLabelColor;
+  for (let i = 0; i < THEME_COLOR_LIMIT; i++)
+    t['cScaleLabel' + i] = t['cScaleLabel' + i] || t.scaleLabelColor;
   const multiplier = darkMode ? -4 : -1;
   for (let i = 0; i < 5; i++) {
     const surfaceKey = 'surface' + i;
     const surfacePeerKey = 'surfacePeer' + i;
-    t[surfaceKey] = t[surfaceKey] || adjustToHex(t.mainBkg as string, { h: 180, s: -15, l: multiplier * (5 + i * 3) });
-    t[surfacePeerKey] = t[surfacePeerKey] || adjustToHex(t.mainBkg as string, { h: 180, s: -15, l: multiplier * (8 + i * 3) });
+    t[surfaceKey] =
+      t[surfaceKey] ||
+      adjustToHex(t.mainBkg as string, { h: 180, s: -15, l: multiplier * (5 + i * 3) });
+    t[surfacePeerKey] =
+      t[surfacePeerKey] ||
+      adjustToHex(t.mainBkg as string, { h: 180, s: -15, l: multiplier * (8 + i * 3) });
   }
   t.classText = t.classText || t.textColor;
   t.fillType0 = t.fillType0 || t.primaryColor;
@@ -388,13 +775,22 @@ export function deriveThemeVariables(
   t.archGroupBorderWidth = t.archGroupBorderWidth || '2px';
   t.quadrant1Fill = t.quadrant1Fill || t.primaryColor;
   t.quadrant2Fill = t.quadrant2Fill || adjustToHex(t.primaryColor as string, { r: 5, g: 5, b: 5 });
-  t.quadrant3Fill = t.quadrant3Fill || adjustToHex(t.primaryColor as string, { r: 10, g: 10, b: 10 });
-  t.quadrant4Fill = t.quadrant4Fill || adjustToHex(t.primaryColor as string, { r: 15, g: 15, b: 15 });
+  t.quadrant3Fill =
+    t.quadrant3Fill || adjustToHex(t.primaryColor as string, { r: 10, g: 10, b: 10 });
+  t.quadrant4Fill =
+    t.quadrant4Fill || adjustToHex(t.primaryColor as string, { r: 15, g: 15, b: 15 });
   t.quadrant1TextFill = t.quadrant1TextFill || t.primaryTextColor;
-  t.quadrant2TextFill = t.quadrant2TextFill || adjustToHex(t.primaryTextColor as string, { r: -5, g: -5, b: -5 });
-  t.quadrant3TextFill = t.quadrant3TextFill || adjustToHex(t.primaryTextColor as string, { r: -10, g: -10, b: -10 });
-  t.quadrant4TextFill = t.quadrant4TextFill || adjustToHex(t.primaryTextColor as string, { r: -15, g: -15, b: -15 });
-  t.quadrantPointFill = t.quadrantPointFill || (isDark(t.quadrant1Fill as string) ? lightenToHex(t.quadrant1Fill as string) : darkenToHex(t.quadrant1Fill as string));
+  t.quadrant2TextFill =
+    t.quadrant2TextFill || adjustToHex(t.primaryTextColor as string, { r: -5, g: -5, b: -5 });
+  t.quadrant3TextFill =
+    t.quadrant3TextFill || adjustToHex(t.primaryTextColor as string, { r: -10, g: -10, b: -10 });
+  t.quadrant4TextFill =
+    t.quadrant4TextFill || adjustToHex(t.primaryTextColor as string, { r: -15, g: -15, b: -15 });
+  t.quadrantPointFill =
+    t.quadrantPointFill ||
+    (isDark(t.quadrant1Fill as string)
+      ? lightenToHex(t.quadrant1Fill as string)
+      : darkenToHex(t.quadrant1Fill as string));
   t.quadrantPointTextFill = t.quadrantPointTextFill || t.primaryTextColor;
   t.quadrantXAxisTextFill = t.quadrantXAxisTextFill || t.primaryTextColor;
   t.quadrantYAxisTextFill = t.quadrantYAxisTextFill || t.primaryTextColor;
@@ -412,14 +808,17 @@ export function deriveThemeVariables(
     yAxisLabelColor: (t.xyChart as any)?.yAxisLabelColor || t.primaryTextColor,
     yAxisTickColor: (t.xyChart as any)?.yAxisTickColor || t.primaryTextColor,
     yAxisLineColor: (t.xyChart as any)?.yAxisLineColor || t.primaryTextColor,
-    plotColorPalette: '#FFF4DD,#FFD8B1,#FFA07A,#ECEFF1,#D6DBDF,#C3E0A8,#FFB6A4,#FFD74D,#738FA7,#FFFFF0',
+    plotColorPalette:
+      '#FFF4DD,#FFD8B1,#FFA07A,#ECEFF1,#D6DBDF,#C3E0A8,#FFB6A4,#FFD74D,#738FA7,#FFFFF0',
   } as unknown as string;
   t.requirementBackground = t.requirementBackground || t.primaryColor;
   t.requirementBorderColor = t.requirementBorderColor || t.primaryBorderColor;
   t.requirementBorderSize = t.requirementBorderSize || '1';
   t.requirementTextColor = t.requirementTextColor || t.primaryTextColor;
   t.relationColor = t.relationColor || t.lineColor;
-  t.relationLabelBackground = t.relationLabelBackground || (darkMode ? darkenToHex(t.secondaryColor as string, 30) : t.secondaryColor);
+  t.relationLabelBackground =
+    t.relationLabelBackground ||
+    (darkMode ? darkenToHex(t.secondaryColor as string, 30) : t.secondaryColor);
   t.relationLabelColor = t.relationLabelColor || t.actorTextColor;
   t.git0 = t.git0 || t.primaryColor;
   t.git1 = t.git1 || t.secondaryColor;
@@ -434,9 +833,11 @@ export function deriveThemeVariables(
   } else {
     for (let i = 0; i < 8; i++) t['git' + i] = darkenToHex(t['git' + i] as string, 25);
   }
-  for (let i = 0; i < 8; i++) t['gitInv' + i] = t['gitInv' + i] || invertToHex(t['git' + i] as string);
+  for (let i = 0; i < 8; i++)
+    t['gitInv' + i] = t['gitInv' + i] || invertToHex(t['git' + i] as string);
   t.branchLabelColor = t.branchLabelColor || (darkMode ? 'black' : t.labelTextColor);
-  for (let i = 0; i < 8; i++) t['gitBranchLabel' + i] = t['gitBranchLabel' + i] || t.branchLabelColor;
+  for (let i = 0; i < 8; i++)
+    t['gitBranchLabel' + i] = t['gitBranchLabel' + i] || t.branchLabelColor;
   t.tagLabelColor = t.tagLabelColor || t.primaryTextColor;
   t.tagLabelBackground = t.tagLabelBackground || t.primaryColor;
   t.tagLabelBorder = t.tagBorder || t.primaryBorderColor;
@@ -445,7 +846,8 @@ export function deriveThemeVariables(
   t.commitLabelBackground = t.commitLabelBackground || t.secondaryColor;
   t.commitLabelFontSize = t.commitLabelFontSize || '10px';
   t.attributeBackgroundColorOdd = t.attributeBackgroundColorOdd || t.primaryColor;
-  t.attributeBackgroundColorEven = t.attributeBackgroundColorEven || adjustToHex(t.primaryColor as string, { h: 60, l: -10 });
+  t.attributeBackgroundColorEven =
+    t.attributeBackgroundColorEven || adjustToHex(t.primaryColor as string, { h: 60, l: -10 });
   const result: Record<string, string> = {};
   for (const [key, value] of Object.entries(t)) {
     if (key === 'darkMode') continue;
@@ -479,7 +881,7 @@ export function objectToYaml(obj: Record<string, any>, indent: number = 0): stri
     if (typeof value === 'object' && !Array.isArray(value)) {
       result += `${spaces}${key}:\n${objectToYaml(value, indent + 2)}`;
     } else if (Array.isArray(value)) {
-      result += `${spaces}${key}:\n${spaces}  - ${(value).join('\n' + spaces + '  - ')}\n`;
+      result += `${spaces}${key}:\n${spaces}  - ${value.join('\n' + spaces + '  - ')}\n`;
     } else if (typeof value === 'string') {
       result += `${spaces}${key}: '${value}'\n`;
     } else {
@@ -534,7 +936,7 @@ function parseYamlConfig(text: string): YamlConfig {
 export function applyThemeToFrontmatter(
   content: string,
   theme: MermaidTheme,
-  _darkMode: boolean,
+  _darkMode: boolean
 ): string {
   const stripped = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
   const cleanBody = stripped.replace(THEME_COMMENT_RE, '');
@@ -566,8 +968,10 @@ export function applyThemeToFrontmatter(
   }
 
   const diagramType = detectDiagramType(stripped);
-  const allowedVars = new Set(DIAGRAM_TYPE_VARIABLES[diagramType] || DIAGRAM_TYPE_VARIABLES.unknown);
-  
+  const allowedVars = new Set(
+    DIAGRAM_TYPE_VARIABLES[diagramType] || DIAGRAM_TYPE_VARIABLES.unknown
+  );
+
   // 1. Initialize with EXISTING variables to preserve manual changes
   const themeVariables: any = { ...existingThemeVars };
 
@@ -588,21 +992,32 @@ export function applyThemeToFrontmatter(
   // 3. Intelligent mapping for missing but critical diagram-specific variables
   // Always ensure arrowheadColor is set if the diagram type supports it
   if (allowedVars.has('arrowheadColor') && !themeVariables.arrowheadColor) {
-    themeVariables.arrowheadColor = theme.coreColors.lineColor || themeVariables.lineColor || themeVariables.primaryColor;
+    themeVariables.arrowheadColor =
+      theme.coreColors.lineColor || themeVariables.lineColor || themeVariables.primaryColor;
   }
 
   if (diagramType === 'sequence') {
-    if (!themeVariables.signalColor) themeVariables.signalColor = theme.coreColors.lineColor || themeVariables.lineColor;
-    if (!themeVariables.signalTextColor) themeVariables.signalTextColor = theme.coreColors.textColor || themeVariables.textColor || themeVariables.primaryTextColor;
-    if (!themeVariables.labelBoxBkgColor) themeVariables.labelBoxBkgColor = theme.coreColors.background || themeVariables.background;
-    if (!themeVariables.labelBoxBorderColor) themeVariables.labelBoxBorderColor = theme.coreColors.primaryColor || themeVariables.primaryColor;
-  // `graph` source syntax is mapped to 'flowchart' by detectDiagramType, so a
-  // 'graph' diagramType value can never occur here (the repaired type-check
-  // gate flagged the comparison as having no overlap).
+    if (!themeVariables.signalColor)
+      themeVariables.signalColor = theme.coreColors.lineColor || themeVariables.lineColor;
+    if (!themeVariables.signalTextColor)
+      themeVariables.signalTextColor =
+        theme.coreColors.textColor || themeVariables.textColor || themeVariables.primaryTextColor;
+    if (!themeVariables.labelBoxBkgColor)
+      themeVariables.labelBoxBkgColor = theme.coreColors.background || themeVariables.background;
+    if (!themeVariables.labelBoxBorderColor)
+      themeVariables.labelBoxBorderColor =
+        theme.coreColors.primaryColor || themeVariables.primaryColor;
+    // `graph` source syntax is mapped to 'flowchart' by detectDiagramType, so a
+    // 'graph' diagramType value can never occur here (the repaired type-check
+    // gate flagged the comparison as having no overlap).
   } else if (diagramType === 'flowchart') {
-    if (!themeVariables.nodeBkg) themeVariables.nodeBkg = theme.coreColors.primaryColor || themeVariables.primaryColor;
-    if (!themeVariables.nodeBorder) themeVariables.nodeBorder = theme.coreColors.primaryBorderColor || themeVariables.primaryBorderColor;
-    if (!themeVariables.clusterBkg) themeVariables.clusterBkg = theme.coreColors.tertiaryColor || themeVariables.tertiaryColor;
+    if (!themeVariables.nodeBkg)
+      themeVariables.nodeBkg = theme.coreColors.primaryColor || themeVariables.primaryColor;
+    if (!themeVariables.nodeBorder)
+      themeVariables.nodeBorder =
+        theme.coreColors.primaryBorderColor || themeVariables.primaryBorderColor;
+    if (!themeVariables.clusterBkg)
+      themeVariables.clusterBkg = theme.coreColors.tertiaryColor || themeVariables.tertiaryColor;
   }
 
   // 4. Explicitly preserve/restore typography (safety)
@@ -613,10 +1028,23 @@ export function applyThemeToFrontmatter(
   // but are NOT core colors of the current theme OR typography OR essential diagram-specific overrides.
   const coreKeys = new Set(Object.keys(theme.coreColors));
   const typographyKeys = new Set(['fontFamily', 'fontSize']);
-  const essentialKeys = new Set(['signalColor', 'signalTextColor', 'arrowheadColor', 'nodeBkg', 'nodeBorder', 'clusterBkg', 'clusterBorder']);
-  
+  const essentialKeys = new Set([
+    'signalColor',
+    'signalTextColor',
+    'arrowheadColor',
+    'nodeBkg',
+    'nodeBorder',
+    'clusterBkg',
+    'clusterBorder',
+  ]);
+
   for (const key of Object.keys(themeVariables)) {
-    if (!coreKeys.has(key) && !typographyKeys.has(key) && !essentialKeys.has(key) && allowedVars.has(key)) {
+    if (
+      !coreKeys.has(key) &&
+      !typographyKeys.has(key) &&
+      !essentialKeys.has(key) &&
+      allowedVars.has(key)
+    ) {
       // It's a derived variable that we want to strip to keep YAML clean
       delete themeVariables[key];
     }
@@ -643,21 +1071,26 @@ export function removeThemeColorsFromFrontmatter(content: string): string {
 
   const layoutConfig: any = {};
   const preservedThemeVars: any = {};
-  
+
   try {
     const yamlContent = frontmatterMatch[1];
     const configMatch = yamlContent.match(/config:\s*([\s\S]*)$/);
     if (configMatch) {
       const parsed = parseYamlConfig(configMatch[1]);
       const diagramType = detectDiagramType(stripped);
-      const derivedKeys = new Set(DIAGRAM_TYPE_VARIABLES[diagramType] || DIAGRAM_TYPE_VARIABLES.unknown);
+      const derivedKeys = new Set(
+        DIAGRAM_TYPE_VARIABLES[diagramType] || DIAGRAM_TYPE_VARIABLES.unknown
+      );
       const typographyKeys = new Set(['fontFamily', 'fontSize']);
 
       for (const [key, value] of Object.entries(parsed)) {
         if (key === 'themeVariables' && typeof value === 'object' && value !== null) {
           for (const [tvKey, tvValue] of Object.entries(value)) {
             // Only preserve typography OR keys NOT in derived list AND NOT restricted
-            if (typographyKeys.has(tvKey) || (!derivedKeys.has(tvKey) && !RESTRICTED_THEME_VARIABLES.has(tvKey))) {
+            if (
+              typographyKeys.has(tvKey) ||
+              (!derivedKeys.has(tvKey) && !RESTRICTED_THEME_VARIABLES.has(tvKey))
+            ) {
               preservedThemeVars[tvKey] = String(tvValue);
             }
           }
@@ -690,13 +1123,13 @@ ${cleanBody}`;
  */
 export function removeNodeFontSizeStyles(content: string, targetFontSize?: string): string {
   if (!targetFontSize) return content;
-  
+
   const lines = content.split('\n');
   const result: string[] = [];
 
   for (const line of lines) {
     const trimmed = line.trim();
-    
+
     // 1. Handle style directives: style NODE fill:#fff,font-size:16px,...
     if (trimmed.startsWith('style ') && !trimmed.startsWith('styleDef ')) {
       const match = trimmed.match(/^style\s+(\S+)\s+(.+)$/);
@@ -719,7 +1152,7 @@ export function removeNodeFontSizeStyles(content: string, targetFontSize?: strin
         continue;
       }
     }
-    
+
     // 2. Handle classDef directives
     if (trimmed.startsWith('classDef ')) {
       const match = trimmed.match(/^classDef\s+(\S+)\s+(.+)$/);
@@ -750,7 +1183,9 @@ export function removeNodeFontSizeStyles(content: string, targetFontSize?: strin
 
 export function getSwatchColors(coreColors: ThemeCoreColors, darkMode: boolean): string[] {
   const result = [];
-  result[0] = coreColors.lineColor || (darkMode ? lightenToHex(coreColors.background, 40) : darkenToHex(coreColors.background, 40));
+  result[0] =
+    coreColors.lineColor ||
+    (darkMode ? lightenToHex(coreColors.background, 40) : darkenToHex(coreColors.background, 40));
   result[1] = coreColors.primaryColor;
   result[2] = coreColors.secondaryColor || adjustToHex(coreColors.primaryColor, { h: -120 });
   result[3] = coreColors.background;
@@ -814,26 +1249,46 @@ export function applyStyleToContent(
   if (styleOptions.direction) {
     const dirMatch = stripped.match(/^(flowchart|graph)\s+(TD|TB|BT|LR|RL)/im);
     if (dirMatch && dirMatch[2].toUpperCase() !== styleOptions.direction.toUpperCase()) {
-      stripped = stripped.replace(/^(flowchart|graph)\s+(TD|TB|BT|LR|RL)/im, `$1 ${styleOptions.direction}`);
+      stripped = stripped.replace(
+        /^(flowchart|graph)\s+(TD|TB|BT|LR|RL)/im,
+        `$1 ${styleOptions.direction}`
+      );
       hasChanges = true;
     }
   }
 
   // 2. Apply global edge styles using linkStyle default
   const edgeStyleUpdates: Record<string, string> = {};
-  if (styleOptions.edgeStrokeWidth !== undefined) edgeStyleUpdates.strokeWidth = `${styleOptions.edgeStrokeWidth}px`;
-  if (styleOptions.edgeStrokeColor !== undefined) edgeStyleUpdates.stroke = styleOptions.edgeStrokeColor;
-  if (styleOptions.edgeOpacity !== undefined) edgeStyleUpdates.opacity = `${styleOptions.edgeOpacity}`;
-  if (styleOptions.edgeFontSize !== undefined) edgeStyleUpdates.fontSize = `${styleOptions.edgeFontSize}px`;
-  if (styleOptions.edgeDasharray !== undefined) edgeStyleUpdates.strokeDasharray = styleOptions.edgeDasharray;
-  if (styleOptions.edgeLabelColor !== undefined) edgeStyleUpdates.color = styleOptions.edgeLabelColor;
-  if (styleOptions.edgeLabelBackgroundColor !== undefined) edgeStyleUpdates.fill = styleOptions.edgeLabelBackgroundColor;
-  if (styleOptions.edgeLabelOpacity !== undefined) edgeStyleUpdates.fillOpacity = `${styleOptions.edgeLabelOpacity}`;
+  if (styleOptions.edgeStrokeWidth !== undefined)
+    edgeStyleUpdates.strokeWidth = `${styleOptions.edgeStrokeWidth}px`;
+  if (styleOptions.edgeStrokeColor !== undefined)
+    edgeStyleUpdates.stroke = styleOptions.edgeStrokeColor;
+  if (styleOptions.edgeOpacity !== undefined)
+    edgeStyleUpdates.opacity = `${styleOptions.edgeOpacity}`;
+  if (styleOptions.edgeFontSize !== undefined)
+    edgeStyleUpdates.fontSize = `${styleOptions.edgeFontSize}px`;
+  if (styleOptions.edgeDasharray !== undefined)
+    edgeStyleUpdates.strokeDasharray = styleOptions.edgeDasharray;
+  if (styleOptions.edgeLabelColor !== undefined)
+    edgeStyleUpdates.color = styleOptions.edgeLabelColor;
+  if (styleOptions.edgeLabelBackgroundColor !== undefined)
+    edgeStyleUpdates.fill = styleOptions.edgeLabelBackgroundColor;
+  if (styleOptions.edgeLabelOpacity !== undefined)
+    edgeStyleUpdates.fillOpacity = `${styleOptions.edgeLabelOpacity}`;
 
   // Only apply linkStyle to supported diagram types
-  const diagramsSupportingLinkStyle = ['flowchart', 'graph', 'journey', 'blockDiagram', 'architectureDiagram'];
+  const diagramsSupportingLinkStyle = [
+    'flowchart',
+    'graph',
+    'journey',
+    'blockDiagram',
+    'architectureDiagram',
+  ];
 
-  if (Object.keys(edgeStyleUpdates).length > 0 && diagramsSupportingLinkStyle.includes(diagramType)) {
+  if (
+    Object.keys(edgeStyleUpdates).length > 0 &&
+    diagramsSupportingLinkStyle.includes(diagramType)
+  ) {
     const linkStyles = parseLinkStyles(stripped);
     const currentDefault: any = linkStyles.get('default') || {};
 
@@ -876,7 +1331,10 @@ export function applyStyleToContent(
 
   // Helper to ensure themeVariables exists
   const ensureThemeVariables = () => {
-    if (!newConfig.themeVariables) newConfig.themeVariables = existingConfig.themeVariables ? { ...existingConfig.themeVariables } : {};
+    if (!newConfig.themeVariables)
+      newConfig.themeVariables = existingConfig.themeVariables
+        ? { ...existingConfig.themeVariables }
+        : {};
 
     // Clean up if it was accidentally populated with restricted keys
     for (const key of Object.keys(newConfig.themeVariables)) {
@@ -886,7 +1344,10 @@ export function applyStyleToContent(
     }
   };
 
-  if (styleOptions.fontFamily && existingConfig.themeVariables?.fontFamily !== styleOptions.fontFamily) {
+  if (
+    styleOptions.fontFamily &&
+    existingConfig.themeVariables?.fontFamily !== styleOptions.fontFamily
+  ) {
     ensureThemeVariables();
     newConfig.themeVariables.fontFamily = styleOptions.fontFamily;
     hasChanges = true;
@@ -903,8 +1364,10 @@ export function applyStyleToContent(
     }
   }
 
-
-  if (styleOptions.primaryColor && existingConfig.themeVariables?.primaryColor !== styleOptions.primaryColor) {
+  if (
+    styleOptions.primaryColor &&
+    existingConfig.themeVariables?.primaryColor !== styleOptions.primaryColor
+  ) {
     ensureThemeVariables();
     newConfig.themeVariables.primaryColor = styleOptions.primaryColor;
     hasChanges = true;
@@ -921,15 +1384,24 @@ export function applyStyleToContent(
       flowchartCfg.curve = styleOptions.curveStyle;
       hasFlowchartChanges = true;
     }
-    if (styleOptions.nodePadding !== undefined && flowchartCfg.padding !== styleOptions.nodePadding) {
+    if (
+      styleOptions.nodePadding !== undefined &&
+      flowchartCfg.padding !== styleOptions.nodePadding
+    ) {
       flowchartCfg.padding = styleOptions.nodePadding;
       hasFlowchartChanges = true;
     }
-    if (styleOptions.nodeSpacing !== undefined && flowchartCfg.nodeSpacing !== styleOptions.nodeSpacing) {
+    if (
+      styleOptions.nodeSpacing !== undefined &&
+      flowchartCfg.nodeSpacing !== styleOptions.nodeSpacing
+    ) {
       flowchartCfg.nodeSpacing = styleOptions.nodeSpacing;
       hasFlowchartChanges = true;
     }
-    if (styleOptions.rankSpacing !== undefined && flowchartCfg.rankSpacing !== styleOptions.rankSpacing) {
+    if (
+      styleOptions.rankSpacing !== undefined &&
+      flowchartCfg.rankSpacing !== styleOptions.rankSpacing
+    ) {
       flowchartCfg.rankSpacing = styleOptions.rankSpacing;
       hasFlowchartChanges = true;
     }
@@ -962,7 +1434,9 @@ export function applyStyleToContent(
  * Extract current style options from diagram content by parsing frontmatter and linkStyle directives.
  * This allows the UI to stay in sync with manual edits in the editor.
  */
-export function extractStyleOptionsFromContent(content: string): Partial<import('@/types').DiagramStyleOptions> {
+export function extractStyleOptionsFromContent(
+  content: string
+): Partial<import('@/types').DiagramStyleOptions> {
   const options: Partial<import('@/types').DiagramStyleOptions> = {};
   const stripped = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
   const diagramType = detectDiagramType(stripped);
@@ -975,7 +1449,7 @@ export function extractStyleOptionsFromContent(content: string): Partial<import(
       const configMatch = yamlContent.match(/config:\s*([\s\S]*)$/);
       if (configMatch) {
         const config = parseYamlConfig(configMatch[1]);
-        
+
         // Extract global theme variables
         if (config.themeVariables && typeof config.themeVariables === 'object') {
           const tv = config.themeVariables as Record<string, any>;
@@ -1011,19 +1485,27 @@ export function extractStyleOptionsFromContent(content: string): Partial<import(
   }
 
   // 3. Extract Global Edge Styles from linkStyle default
-  const diagramsSupportingLinkStyle = ['flowchart', 'graph', 'journey', 'blockDiagram', 'architectureDiagram'];
+  const diagramsSupportingLinkStyle = [
+    'flowchart',
+    'graph',
+    'journey',
+    'blockDiagram',
+    'architectureDiagram',
+  ];
   if (diagramsSupportingLinkStyle.includes(diagramType)) {
     const linkStyles = parseLinkStyles(stripped);
     const defaultStyle = linkStyles.get('default');
     if (defaultStyle) {
       if (defaultStyle.stroke) options.edgeStrokeColor = defaultStyle.stroke;
-      if (defaultStyle.strokeWidth) options.edgeStrokeWidth = parseInt(String(defaultStyle.strokeWidth));
+      if (defaultStyle.strokeWidth)
+        options.edgeStrokeWidth = parseInt(String(defaultStyle.strokeWidth));
       if (defaultStyle.opacity) options.edgeOpacity = parseFloat(String(defaultStyle.opacity));
       if (defaultStyle.fontSize) options.edgeFontSize = parseInt(String(defaultStyle.fontSize));
       if (defaultStyle.strokeDasharray) options.edgeDasharray = defaultStyle.strokeDasharray;
       if (defaultStyle.color) options.edgeLabelColor = defaultStyle.color;
       if (defaultStyle.fill) options.edgeLabelBackgroundColor = defaultStyle.fill;
-      if (defaultStyle.fillOpacity) options.edgeLabelOpacity = parseFloat(String(defaultStyle.fillOpacity));
+      if (defaultStyle.fillOpacity)
+        options.edgeLabelOpacity = parseFloat(String(defaultStyle.fillOpacity));
     }
   }
 

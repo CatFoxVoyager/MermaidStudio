@@ -66,7 +66,7 @@ function VersionRow({ v, isActive, onPreview, onRestore }: {
           <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{relTime(new Date(v.created_at))}</span>
         </div>
         {v.label && <span className="text-[11px] font-medium" style={{ color: 'var(--accent)' }}>{v.label}</span>}
-        <p className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+        <p className="text-[11px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
           {new Date(v.created_at).toLocaleString()}
         </p>
       </div>
@@ -126,7 +126,7 @@ export function VersionHistory({ diagramId, currentContent, onRestore, onClose }
 
       {previewSvg && (
         <div className="px-5 py-3 border-b shrink-0" style={{ borderColor: 'var(--border-subtle)' }}>
-          <p className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: 'var(--text-tertiary)' }}>{t('versions.preview')}</p>
+          <p className="text-[11px] uppercase tracking-wider font-semibold mb-2" style={{ color: 'var(--text-tertiary)' }}>{t('versions.preview')}</p>
           <div className="h-28 rounded-xl overflow-hidden flex items-center justify-center preview-grid border"
             style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
             <div className="pointer-events-none"
