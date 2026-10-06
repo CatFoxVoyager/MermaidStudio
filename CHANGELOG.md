@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-10-06
+
+The mobile editor received a full design-polish pass (31 review/fix iterations,
+convergence double-verified): every touch surface, overlay and error state was
+measured live at phone size and brought to the same bar as the desktop app.
+
+### Added
+- **Mobile menu sheet** - The bottom navigation became a bottom sheet (handle, swipe-to-dismiss, backdrop): Commands, Backup, Settings, Language and About live in one place, with the open document's name as the sheet subtitle so you always know what you are editing
+- **Editor key row** - A syntax keyboard row under the code editor inserts the symbols Mermaid diagrams need most (`-->`, `|`, `{`, `"`, tab, arrows), grouped as 6 tinted insert keys and 5 command keys with 44px+ touch targets
+- **"✓ Saved" flash** - Every real persist (autosave included) briefly flashes a check next to the document title on mobile; the amber checkpoint dot still shows separately, so "persisted" and "edited since checkpoint" are two honest signals instead of one ambiguous dot
+- **Undo/redo everywhere on mobile** - The top bar carries undo/redo on every screen, wired to the editor history even while the Files screen is front (buttons disable honestly where history cannot act)
+
+### Changed
+- **Parse errors are readable** - A failed parse now shows an opaque card (icon, plain title, recovery button announced via `role="alert"`) instead of transparent text interleaved with the stale diagram; the root cause was fixed, not papered over: React reused the canvas host element across state branches, keeping the old diagram's shadow root alive inside the error card
+- **Color picker fits the phone** - The popover now measures its real height after opening, clamps to the viewport and scrolls if needed — the last swatch row and the custom-color entry are reachable again; swatches are 40px visuals with 44px hit areas, a visible focus ring, Escape dismisses popover-then-panel layer by layer
+- **Touch floor systematized** - One shared hit-target recipe (44px floor + invisible stretch) covers top bar, keycaps, swatches, sheet rows and export cards; export cards gained pressed-state feedback
+- **Style panels answer Escape anywhere** - Node, Edge and Subgraph panels close on Escape regardless of keyboard focus; the node panel's desktop 12px scrollbar is gone (4px mobile rule)
+- **Edge sheets name their endpoints** - The sheet header reads "Source → Target" instead of machine numbering ("Edge 1"); Connection section unchanged
+
+### Fixed
+- **Subgraph deletion leaves no orphan code** - Deleting a subgraph re-homes its nodes to the parent level AND removes the placeholder node seeded at creation (previously a stray `N1[Subgraph]` line stayed in the code); a renamed seed counts as user content and survives
+- **Welcome diagram renders everywhere** - The seed content dropped its frontmatter header that the visual editor's parser rejected, so a first-time user's very first tap no longer lands on an error
+
 ## [0.9.0] - 2026-10-04
 
 ### Added
