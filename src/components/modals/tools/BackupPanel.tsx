@@ -5,6 +5,7 @@ import { exportBackup, importBackup, getDiagrams, getFolders } from '@/services/
 import { validateBackupData } from '@/utils/sanitization';
 import type { BackupData } from '@/types';
 import { Modal } from '@/components/shared/Modal';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 interface Props {
   isOpen?: boolean;
@@ -94,8 +95,16 @@ export function BackupPanel({ isOpen = true, onClose, onImported }: Props) {
     onClose();
   }
 
+  const isMobile = useMediaQuery('(max-width: 767.98px)');
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={pendingReplace ? t('backup.replaceConfirmTitle') : t('backup.title')} size="md">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={pendingReplace ? t('backup.replaceConfirmTitle') : t('backup.title')}
+      size="md"
+      position={isMobile ? 'bottom' : 'center'}
+    >
       {pendingReplace ? (
         <div className="p-5 space-y-4" data-testid="backup-replace-confirm">
           <div className="flex items-start gap-3 rounded-xl border p-3"

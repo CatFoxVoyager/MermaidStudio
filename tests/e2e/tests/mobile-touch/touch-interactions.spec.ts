@@ -71,17 +71,17 @@ test.describe('Mobile touch interactions — native pan + active states (MTCH-02
     // Assert top bar buttons have active: tap-equivalent class
     const topbarSave = page.getByTestId('mobile-topbar-save');
     await expect(topbarSave).toBeVisible();
-    await expect(topbarSave).toHaveClass(/active:bg-white\/15/);
+    const saveClass = await topbarSave.getAttribute('class'); expect(saveClass).toContain('active:bg-[var(--state-pressed)]');
 
     const topbarOverflow = page.getByTestId('mobile-topbar-overflow');
     await expect(topbarOverflow).toBeVisible();
-    await expect(topbarOverflow).toHaveClass(/active:bg-white\/15/);
+    const overflowClass = await topbarOverflow.getAttribute('class'); expect(overflowClass).toContain('active:bg-[var(--state-pressed)]');
 
     // New button only renders if onNewDiagram is provided
     const topbarNew = page.getByTestId('mobile-topbar-new');
     const newButtonCount = await topbarNew.count();
     if (newButtonCount > 0) {
-      await expect(topbarNew).toHaveClass(/active:bg-white\/15/);
+      const newClass = await topbarNew.getAttribute('class'); expect(newClass).toContain('active:bg-[var(--state-pressed)]');
     }
   });
 

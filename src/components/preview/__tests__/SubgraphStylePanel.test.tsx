@@ -175,9 +175,11 @@ describe('SubgraphStylePanel Component', () => {
   });
 
   describe('Delete Button', () => {
-    it('should call onDelete when delete clicked', () => {
+    it('should call onDelete on the SECOND click (two-step arm, iter-24)', () => {
       const onDelete = vi.fn();
       render(<SubgraphStylePanel {...defaultProps} onDelete={onDelete} />);
+      // First click arms, second executes (same pattern as the node panel).
+      fireEvent.click(screen.getByTitle('Delete'));
       fireEvent.click(screen.getByTitle('Delete'));
       expect(onDelete).toHaveBeenCalledTimes(1);
     });
@@ -243,7 +245,7 @@ describe('SubgraphStylePanel Component', () => {
       it('should apply max-md:top-0 to outer container', () => {
         const { container } = render(<SubgraphStylePanel {...defaultProps} />);
         const panel = container.querySelector('.animate-slide-in-right');
-        expect(panel).toHaveClass('max-md:top-0');
+        expect(panel).toHaveClass('max-md:top-auto');
       });
 
       it('should apply max-md:bottom-0 to outer container', () => {
@@ -255,13 +257,13 @@ describe('SubgraphStylePanel Component', () => {
       it('should apply max-md:rounded-none to outer container', () => {
         const { container } = render(<SubgraphStylePanel {...defaultProps} />);
         const panel = container.querySelector('.animate-slide-in-right');
-        expect(panel).toHaveClass('max-md:rounded-none');
+        expect(panel).toHaveClass('max-md:rounded-b-none');
       });
 
       it('should apply max-md:h-full to outer container', () => {
         const { container } = render(<SubgraphStylePanel {...defaultProps} />);
         const panel = container.querySelector('.animate-slide-in-right');
-        expect(panel).toHaveClass('max-md:h-full');
+        expect(panel).toHaveClass('max-md:h-[40dvh]');
       });
 
       it('should have close button with >=44px tap target on mobile', () => {

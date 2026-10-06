@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { X, RotateCcw, ChevronDown, Settings2, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
+import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
 import type { EdgeStyle, ParsedEdge } from '@/lib/mermaid/codeUtils';
 
 interface EdgeStylePanelProps {
@@ -30,6 +31,18 @@ export function EdgeStylePanel({
 }: EdgeStylePanelProps) {
   const { t } = useTranslation();
   const [label, setLabel] = useState(edge.label);
+
+  // Escape closes the panel regardless of where focus sits (iter-28 P1:
+  // the panel-level keydown only fired when focus was inside the panel —
+  // after open, focus stayed on the page and Escape was dead 2/2 tries).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {onClose();}
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {document.removeEventListener('keydown', onKey);};
+  }, [onClose]);
+
 
   const handleLabelChange = useCallback(
     (newLabel: string) => {
@@ -73,10 +86,14 @@ export function EdgeStylePanel({
 
   return (
     <div
-      className="absolute top-0 right-0 h-full w-[280px] z-30 animate-slide-in-right rounded-l-xl border-l shadow-xl overflow-y-auto max-md:w-full max-md:right-0 max-md:top-0 max-md:bottom-0 max-md:rounded-none max-md:h-full"
+      className="style-panel absolute top-0 right-0 h-full w-[280px] z-30 flex flex-col animate-slide-in-right rounded-l-xl border-l shadow-xl overflow-hidden max-md:w-full max-md:left-0 max-md:right-0 max-md:top-auto max-md:bottom-0 max-md:h-[40dvh] max-md:rounded-t-2xl max-md:rounded-b-none max-md:border-t max-md:border-l-0"
       style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}
       onClick={e => e.stopPropagation()}
       onMouseDown={e => e.stopPropagation()}
+      onKeyDown={e => {
+        // Escape parity with the shared Modal (iter-27 P1).
+        if (e.key === 'Escape') {onClose();}
+      }}
     >
       {/* Header */}
       <div
@@ -88,8 +105,13 @@ export function EdgeStylePanel({
           <span
             className="text-xs font-semibold truncate"
             style={{ color: 'var(--text-primary)' }}
+            title={`${edge.source} → ${edge.target}`}
           >
-            {t('edgeStyle.edgeN', { index: edgeIndex })}
+            {/* Real node names in the sheet header (iter-28 P1, re-applied
+                iter-32: the claimed fix was absent from the tree — "Edge 1"
+                is machine numbering the user never wrote; the connection
+                line lower in the panel carries the names). */}
+            {edge.source} &rarr; {edge.target}
           </span>
         </div>
         <button
@@ -107,7 +129,7 @@ export function EdgeStylePanel({
         {/* Connection Info */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[11px] font-medium uppercase tracking-wider"
+            className="text-xs font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('edgeStyle.connection')}
@@ -127,7 +149,7 @@ export function EdgeStylePanel({
         {/* Arrow Type */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[11px] font-medium uppercase tracking-wider"
+            className="text-xs font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('edgeStyle.arrowType')}
@@ -161,7 +183,7 @@ export function EdgeStylePanel({
         {/* Label */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[11px] font-medium uppercase tracking-wider"
+            className="text-xs font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('edgeStyle.label')}
@@ -191,7 +213,7 @@ export function EdgeStylePanel({
         {/* Stroke Width */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[11px] font-medium uppercase tracking-wider"
+            className="text-xs font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('edgeStyle.strokeWidth')}
@@ -218,7 +240,7 @@ export function EdgeStylePanel({
         {/* Stroke Style */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[11px] font-medium uppercase tracking-wider"
+            className="text-xs font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('edgeStyle.strokeStyle')}
@@ -271,7 +293,7 @@ export function EdgeStylePanel({
         {/* Label Font Size */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[11px] font-medium uppercase tracking-wider"
+            className="text-xs font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('edgeStyle.labelFontSize')}
@@ -304,15 +326,18 @@ export function EdgeStylePanel({
           </div>
         </div>
 
-        {/* Reset / Delete Buttons */}
-        <div className="mt-auto pt-2 border-t flex gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
+        {/* Reset / Delete Buttons — full-width rows, delete BELOW the
+            divider (iter-24 P1: single-tap delete adjacent to Reset, both
+            red-family, at a scroll extreme — same two-step arming as the
+            node panel). */}
+        <div className="mt-auto pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
           <button
             onClick={() => onReset(edgeIndex)}
-            className="flex items-center justify-center gap-1.5 flex-1 min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
+            className="flex items-center justify-center gap-1.5 w-full min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
             style={{
-              background: 'rgba(239,68,68,0.1)',
-              color: '#ef4444',
-              border: '1px solid rgba(239,68,68,0.2)',
+              background: 'rgba(220,38,38,0.08)',
+              color: '#b91c1c',
+              border: '1px solid rgba(220,38,38,0.25)',
             }}
           >
             <RotateCcw size={12} className="shrink-0" />
@@ -320,13 +345,31 @@ export function EdgeStylePanel({
           </button>
           {onDelete && (
             <button
-              onClick={onDelete}
+              onClick={e => {
+                const btn = e.currentTarget;
+                if (btn.dataset.armed) {
+                  delete btn.dataset.armed;
+                  onDelete?.();
+                  return;
+                }
+                btn.dataset.armed = 'true';
+                btn.style.background = '#7f1d1d';
+                btn.querySelector('span')!.textContent = t('nodeStyle.confirmDelete');
+                setTimeout(() => {
+                  if (btn.isConnected && btn.dataset.armed) {
+                    delete btn.dataset.armed;
+                    btn.style.background = '#dc2626';
+                    const span = btn.querySelector('span');
+                    if (span) {span.textContent = t('edgeStyle.delete');}
+                  }
+                }, 3000);
+              }}
               title={t('edgeStyle.delete')}
-              className="flex items-center justify-center gap-1.5 flex-1 min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
+              className="flex items-center justify-center gap-1.5 w-full min-w-0 py-2 rounded-lg text-xs font-semibold transition-colors"
               style={{
-                background: '#ef4444',
+                background: '#dc2626',
                 color: '#ffffff',
-                border: '1px solid #ef4444',
+                border: '1px solid #dc2626',
               }}
             >
               <Trash2 size={12} className="shrink-0" />

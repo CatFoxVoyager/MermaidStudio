@@ -12,10 +12,10 @@ interface Cmd {
 interface Props {
   onClose: () => void;
   onNewDiagram: () => void;
-  onNewFolder: () => void;
-  onOpenTemplates: () => void;
+  onNewFolder?: () => void;
+  onOpenTemplates?: () => void;
   onToggleHistory: () => void;
-  onToggleAI: () => void;
+  onToggleAI?: () => void;
   onToggleTheme: () => void;
   theme: 'dark' | 'light';
   diagrams: { id: string; title: string }[];
@@ -41,10 +41,10 @@ export function CommandPalette({
 
   const commands: Cmd[] = [
     { id: 'new-d', label: t('commands.newDiagram'), description: 'Create a blank diagram', icon: <FilePlus size={14} />, category: t('commands.categoryActions'), action: () => { onNewDiagram(); onClose(); } },
-    { id: 'new-f', label: t('commands.newFolder'), description: 'Create a folder', icon: <FolderPlus size={14} />, category: t('commands.categoryActions'), action: () => { onNewFolder(); onClose(); } },
-    { id: 'tmpl', label: t('commands.templateLibrary'), description: 'Browse diagram templates', icon: <Layout size={14} />, category: t('commands.categoryActions'), action: () => { onOpenTemplates(); onClose(); } },
+    ...(onNewFolder ? [{ id: 'new-f', label: t('commands.newFolder'), description: 'Create a folder', icon: <FolderPlus size={14} />, category: t('commands.categoryActions'), action: () => { onNewFolder(); onClose(); } }] : []),
+    ...(onOpenTemplates ? [{ id: 'tmpl', label: t('commands.templateLibrary'), description: 'Browse diagram templates', icon: <Layout size={14} />, category: t('commands.categoryActions'), action: () => { onOpenTemplates(); onClose(); } }] : []),
     { id: 'hist', label: t('commands.versionHistory'), description: 'View and restore versions', icon: <Clock size={14} />, category: t('commands.categoryActions'), action: () => { onToggleHistory(); onClose(); } },
-    { id: 'ai', label: t('commands.aiAssistant'), description: 'Open AI diagram helper', icon: <Sparkles size={14} />, category: t('commands.categoryActions'), action: () => { onToggleAI(); onClose(); } },
+    ...(onToggleAI ? [{ id: 'ai', label: t('commands.aiAssistant'), description: 'Open AI diagram helper', icon: <Sparkles size={14} />, category: t('commands.categoryActions'), action: () => { onToggleAI(); onClose(); } }] : []),
     ...(onOpenStylePanel ? [
       { id: 'style-colors', label: t('editor.diagramColors'), description: 'Edit diagram colors and themes', icon: <Palette size={14} />, category: t('commands.categoryPanels'), action: () => { onOpenStylePanel('colors'); onClose(); } },
       { id: 'style-advanced', label: t('editor.advancedStyling'), description: 'Advanced diagram styling options', icon: <SlidersHorizontal size={14} />, category: t('commands.categoryPanels'), action: () => { onOpenStylePanel('advanced'); onClose(); } },
@@ -80,20 +80,21 @@ export function CommandPalette({
   }
 
   return (
-    <Modal isOpen={true} onClose={onClose} title="" size="xl">
+    <Modal isOpen={true} onClose={onClose} title={t('menu.commands', 'Commands')} size="xl">
       <div className="flex items-center gap-3 px-4 py-3.5 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
         <Command size={15} style={{ color: 'var(--text-tertiary)' }} className="shrink-0" />
         <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} onKeyDown={onKey}
-          placeholder={t('commands.templateLibrary')}
-          className="flex-1 bg-transparent text-sm outline-hidden"
+          placeholder={t('commands.searchPlaceholder', 'Search commands…')}
+          aria-label={t('commands.searchPlaceholder', 'Search commands…')}
+          className="flex-1 bg-transparent text-base outline-hidden"
           style={{ color: 'var(--text-primary)' }} />
         <Search size={13} style={{ color: 'var(--text-tertiary)' }} className="shrink-0" />
       </div>
 
-      <div ref={listRef} className="max-h-[400px] overflow-y-auto py-2">
+      <div ref={listRef} className="max-h-[400px] max-md:max-h-[50dvh] overflow-y-auto py-2">
         {flat.length === 0 ? (
           <div className="flex items-center justify-center py-10">
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{t('commands.templateLibrary')}</p>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{t('commands.noResults', 'No matching commands')}</p>
           </div>
         ) : (
           Object.entries(grouped).map(([cat, items]) => {
@@ -136,7 +137,7 @@ export function CommandPalette({
         )}
       </div>
 
-      <div className="flex items-center justify-center px-4 py-2.5 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+      <div className="hidden md:flex items-center justify-center px-4 py-2.5 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
         <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>Use ↑↓ to navigate, Enter to select</span>
       </div>
     </Modal>

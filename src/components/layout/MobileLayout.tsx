@@ -1,10 +1,9 @@
-import { lazy, Suspense, type ReactNode } from 'react';
+import { lazy, Suspense, useState, type ReactNode } from 'react';
+import { MobileMenuSheet } from '@/components/mobile/MobileMenuSheet';
 import { useTranslation } from 'react-i18next';
 import { MobileTopBar } from '@/components/mobile/MobileTopBar';
-import { MobileBottomNav } from '@/components/mobile/MobileBottomNav';
 import { useMobileShellContext, type MobileShellApi } from '@/hooks/useMobileShell';
 import { Modal } from '@/components/shared/Modal';
-import { Sidebar } from '@/sidebar/Sidebar';
 import { MobileWorkspace } from '@/components/layout/MobileWorkspace';
 
 // Lazy load AIPanel to preserve chunk-split strategy (matches desktop pattern)
@@ -21,8 +20,18 @@ interface MobileLayoutProps {
   onSave: () => void;
   onShowExport?: () => void;
   onOpenCommandPalette: () => void;
-  onOpenAbout?: () => void;
-  // Sidebar drawer props
+  onToggleTheme?: () => void;
+  onOpenAbout?: () => void;  // optional — surfaced as the MobileTopBar theme toggle (G-26-3)
+  onOpenBackup?: () => void;
+  onOpenReleaseNotes?: () => void;
+  /** Active tab dirty state, surfaced by the TopBar Save button. */
+  isDirty?: boolean;
+  /** Last real persist timestamp — drives the TopBar saved-flash. */
+  lastSavedAt?: string;
+  /** Active diagram's title — shown in the menu sheet so the editor names
+   *  what you are editing (iter-11 wayfinding: no surface named it). */
+  activeDiagramTitle?: string;
+  // Files view props
   onOpenDiagram: (id: string) => void;
   activeDiagramId?: string | null;
   onRefresh: () => void;
@@ -54,11 +63,17 @@ export function MobileLayout({
   onSave,
   onShowExport,
   onOpenCommandPalette,
-  onOpenAbout,
+  onToggleTheme,
   onOpenDiagram,
   activeDiagramId,
   onRefresh,
   onDiagramDeleted,
+  onOpenAbout,
+  onOpenBackup,
+  onOpenReleaseNotes,
+  isDirty,
+  lastSavedAt,
+  activeDiagramTitle,
   refreshKey,
   currentContent,
   onApply,
@@ -77,27 +92,42 @@ export function MobileLayout({
   onThemeIdChange,
 }: MobileLayoutProps): ReactNode {
   const { t } = useTranslation();
-  const { activeView, openDrawer, setActiveView, setActiveDrawer, closeDrawer } = useMobileShellContext();
+  const { openDrawer, setActiveDrawer, closeDrawer } = useMobileShellContext();
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Mirrors MobileWorkspace's active destination so the top bar can disable
+  // undo/redo while Files is active (iter-9: invisible no-ops there).
+  const [activeView, setActiveView] = useState<'files' | 'editor'>('files');
+  // Phase 32 banner bridge (BAN-01..03): view transitions -> facade calls.
+  // Mobile-only by construction — desktop never mounts MobileLayout.
+  // Phase 33 interstitial bridge (INT-01..INT-05): the edit -> files view
+  // edge is the only counted transition — persist-confirmed (the autosave
+  // settles first), post-arrival, fire-and-forget (D-04). Mobile-only by
+  // construction — desktop never mounts MobileLayout.
 
   return (
     <div
-      className={`flex flex-col h-dvh overflow-hidden ${theme === 'dark' ? 'dark' : ''}`}
+      className={`flex flex-col h-dvh overflow-hidden antialiased ${theme === 'dark' ? 'dark' : ''}`}
       style={{ background: 'var(--surface-base)', color: 'var(--text-primary)' }}
       data-testid="mobile-layout-root"
     >
       {/* TopBar slot - safe-area applied per-zone (Phase 15 fills this) */}
-      <div className="safe-top border-b" style={{ borderColor: 'var(--border-subtle)' }} data-testid="mobile-topbar-slot">
+      <div className="safe-top" data-testid="mobile-topbar-slot">
         <MobileTopBar
-          onNewDiagram={onNewDiagram}
+          onToggleTheme={onToggleTheme}
           onSave={onSave}
           onExport={onShowExport}
           onOpenCommandPalette={onOpenCommandPalette}
+          onOpenMenu={() => setMenuOpen(true)}
           onOpenAbout={onOpenAbout}
+          isDirty={isDirty}
+          lastSavedAt={lastSavedAt}
+          historyUnavailable={activeView === 'files'}
+          activeTitle={activeView === 'files' ? undefined : activeDiagramTitle}
         />
       </div>
 
       {/* Workspace slot - flexible middle area (Phase 16 fills this) */}
-      <div className="flex-1 min-h-0" data-testid="mobile-workspace-slot">
+      <div className="flex-1 min-h-0 safe-bottom" data-testid="mobile-workspace-slot">
         <MobileWorkspace
           value={value}
           onChange={onContentChange}
@@ -105,39 +135,36 @@ export function MobileLayout({
           themeId={themeId}
           onSave={onSaveTab}
           onPreviewError={onPreviewError}
+          onOpenDiagram={onOpenDiagram}
+          activeDiagramId={activeDiagramId}
+          onRefreshFiles={onRefresh}
+          onDiagramDeleted={onDiagramDeleted}
+          filesRefreshKey={refreshKey}
+          onOpenAIDrawer={() => setActiveDrawer('ai')}
+          onCloseDrawer={closeDrawer}
+          aiDrawerOpen={openDrawer === 'ai'}
+          onActiveViewChange={setActiveView}
         />
       </div>
 
-      {/* Bottom nav slot - z-index token (Phase 15 fills this). No safe-area
-          padding in browsers: index.html omits viewport-fit=cover, so the
-          inset is 0 and the nav sits flush at the viewport bottom; the
-          gesture zone below is browser chrome painted from theme-color. */}
+      {/* Banner slot — RETIRED from the layout flow (device-walk 2026-09-25:
+          BANNER_MARGIN_DP=0 makes the native AdView an overlay on the
+          WebView's bottom edge; an in-flow reserve band made the whole
+          workspace jump whenever the adaptive banner loaded or resized —
+          the prev/next chrome visibly moved). The banner overlays content
+          now; overlays that must clear it (FAB, Snackbar, Toast, sheets)
+          keep consuming --ms-ad-banner-height read-only. The element stays
+          mounted as a 0px no-op only to preserve the Phase 32 testid
+          contract; it must never regain height in the flow. */}
       <div
-        className="safe-bottom z-[var(--z-bottom-nav)] bg-[var(--surface-raised)]"
-        data-testid="mobile-bottomnav-slot"
-      >
-        <MobileBottomNav activeView={activeView} setActiveView={setActiveView} setActiveDrawer={setActiveDrawer} />
-      </div>
+        className="w-full flex-none"
+        style={{ height: '0px' }}
+        data-testid="mobile-ad-banner-slot"
+      />
 
-      {/* Files drawer - Sidebar in Modal position=right */}
-      {openDrawer === 'files' && (
-        <Modal
-          isOpen={openDrawer === 'files'}
-          onClose={closeDrawer}
-          title={t('sidebar.explorer')}
-          position="right"
-        >
-          <Sidebar
-            onOpenDiagram={onOpenDiagram}
-            activeDiagramId={activeDiagramId ?? undefined}
-            onRefresh={onRefresh}
-            onDiagramDeleted={onDiagramDeleted}
-            key={refreshKey}
-          />
-        </Modal>
-      )}
-
-      {/* AI drawer - AIPanel in Modal position=right */}
+      {/* AI drawer - AIPanel in Modal position=right. Web-only in v1
+          (PLAT-05): on native the drawer can never open, so the lazy panel
+          never mounts. */}
       {openDrawer === 'ai' && (
         <Suspense fallback={null}>
           <Modal
@@ -203,6 +230,37 @@ export function MobileLayout({
           </Modal>
         </Suspense>
       )}
+
+      {/* Mobile Menu Sheet (Figma Screen E) */}
+      <MobileMenuSheet
+        isOpen={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        activeTitle={activeDiagramTitle}
+        onOpenCommands={() => {
+          setMenuOpen(false);
+          onOpenCommandPalette();
+        }}
+        onOpenBackup={() => {
+          setMenuOpen(false);
+          onOpenBackup?.();
+        }}
+        onOpenReleaseNotes={() => {
+          setMenuOpen(false);
+          onOpenReleaseNotes?.();
+        }}
+        onOpenAbout={() => {
+          setMenuOpen(false);
+          onOpenAbout?.();
+        }}
+        onOpenSettings={() => {
+          setMenuOpen(false);
+          onOpenSettings();
+        }}
+        onOpenAI={() => {
+          setMenuOpen(false);
+          setActiveDrawer('ai');
+        }}
+      />
     </div>
   );
 }

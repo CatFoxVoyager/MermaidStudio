@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image as ImageIcon, FileText, Code, Share2, Check, Braces, X, Download, Circle } from 'lucide-react';
+import { Image as ImageIcon, FileText, Code, Share2, Check, Braces } from 'lucide-react';
 import { SUPPORTED_GOOGLE_FONTS, findGoogleFont } from '@/constants/fonts';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import { renderDiagram } from '@/lib/mermaid/core';
@@ -8,6 +8,8 @@ import { parseFrontmatter, parseDiagram } from '@/lib/mermaid/codeUtils';
 import { sanitizeCssValue } from '@/utils/sanitization';
 import { oklchToHex } from '@/utils/oklch';
 import { buildMermaidEmbedSnippet } from '@/constants/cdnEmbed';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { Modal } from '@/components/shared/Modal';
 
 /** Extract font family from diagram frontmatter config */
 function extractFontFamilyFromContent(content: string): string | null {
@@ -109,13 +111,23 @@ interface Props {
 export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClose, onCopyLink }: Props) {
   const { t } = useTranslation();
   const [done, setDone] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [transparentBg, setTransparentBg] = useState(false);
   // Same parse as the preview, passed to the shared post-processing pipeline.
   const parsedDiagram = useMemo(() => parseDiagram(diagramContent), [diagramContent]);
 
   function markDone(id: string) {
     setDone(id);
+    setExportError(null);
     setTimeout(() => setDone(null), 2000);
+  }
+
+  /** Surface download failures inside the sheet (iter-11 P2: svg/png errors
+   *  were console-only — a failed mobile download looks like "nothing
+   *  happened", and export is the session's emotional payoff). */
+  function markExportError() {
+    setDone(null);
+    setExportError(t('export.downloadFailed'));
   }
 
   async function getSvgString(): Promise<string | null> {
@@ -130,7 +142,7 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
   async function exportSvg() {
     try {
       const svgStr = await getSvgString();
-      if (!svgStr) return;
+      if (!svgStr) { markExportError(); return; }
 
       // Embed fonts into the SVG so they display correctly when opened standalone.
       // Escape user-provided font names: this <style> ends up inside the exported
@@ -158,6 +170,7 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
       markDone('svg');
     } catch (err) {
       console.error('SVG export failed:', err);
+      markExportError();
     }
   }
 
@@ -167,7 +180,7 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
 
   async function exportPng() {
     const svgStr = await getSvgString();
-    if (!svgStr) return;
+    if (!svgStr) { markExportError(); return; }
 
     try {
       // Clean the SVG string - convert all oklch colors to hex for compatibility
@@ -278,20 +291,24 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
               markDone('png');
             } else {
               console.error('PNG Export: Blob is null or undefined');
+              markExportError();
             }
           }, 'image/png');
         } catch (e) {
           console.error('Failed to draw or export canvas:', e);
+          markExportError();
         }
       };
 
       img.onerror = (err) => {
         console.error('Failed to load SVG into image for PNG export:', err);
+        markExportError();
       };
 
       img.src = url;
     } catch (err) {
       console.error('PNG export failed:', err);
+      markExportError();
     }
   }
 
@@ -321,75 +338,78 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
     { id: 'link', icon: <Share2 size={18} />, label: t('export.copyShareLink'), desc: t('export.copyShareLinkDesc'), action: handleCopyLink },
   ];
 
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  // Mobile keeps ALL options (critique iter-8 P0): the previous filter hid
+  // SVG/PNG below 768px while the top bar showed a Download icon — the app's
+  // most-wanted tap dead-ended into clipboard-only actions. The canvas
+  // rasterizer and blob download below work on mobile browsers; the mobile
+  // rendering is a bottom sheet (position below), not a feature cut.
+  const visibleOptions = options;
+
   if (!isOpen) {return null;}
 
+  // Shared Modal gives role="dialog"/aria-modal, the visibility-filtered
+  // focus trap, Escape, and a labeled 44px close — all missing from the
+  // hand-rolled overlay this replaces (mobile critique iter-7 P0: a live
+  // Tab walk travelled straight through the open modal).
+  // Mobile renders as a bottom sheet; the upsell footnote is gone from this
+  // surface — all five export actions are real here now.
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-      style={{ background: 'rgba(0, 0, 0, 0.5)' }}>
-      <div
-        className="w-full max-w-md rounded-xl shadow-2xl overflow-hidden"
-        style={{ background: 'var(--surface-raised)', border: '1px solid var(--border-subtle)' }}
-        onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-4 py-3 border-b"
-          style={{ borderColor: 'var(--border-subtle)' }}>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg flex items-center justify-center" style={{ background: 'var(--accent-dim)' }}>
-              <Download size={12} style={{ color: 'var(--accent)' }} />
-            </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={t('export.title')}
+      subtitle={diagramTitle}
+      size="md"
+      position={isMobile ? 'bottom' : 'center'}
+    >
+      <div className="p-4 space-y-3">
+        {exportError && (
+          <p className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium" role="alert" style={{ background: 'var(--danger-dim)', color: 'var(--danger)' }}>
+            {exportError}
+          </p>
+        )}
+        {/* Actions first, options after (iter-22 P2: the PNG-only transparent
+            toggle owned the first slot of the sheet's most-used moment). */}
+        {visibleOptions.map(opt => (
+          <button key={opt.id} onClick={opt.action}
+            className="w-full flex items-center gap-3 px-4 py-3 min-h-[52px] rounded-xl text-left border border-[var(--border-subtle)] hover:border-[var(--accent)] active:bg-[var(--state-pressed)] transition-all duration-150"
+            style={{ background: 'var(--surface-floating)', color: 'var(--text-primary)' }}>
+            <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: 'var(--accent-dim)', color: done === opt.id ? '#22c55e' : 'var(--accent)' }}>
+              {done === opt.id ? <Check size={16} /> : opt.icon}
+            </span>
             <div>
-              <span className="text-sm font-semibold block" style={{ color: 'var(--text-primary)' }}>{t('export.title')}</span>
-              <span className="text-[11px] truncate max-w-[150px] block" style={{ color: 'var(--text-tertiary)' }}>{diagramTitle}</span>
+              <p className="text-sm font-medium">{opt.label}</p>
+              <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{opt.desc}</p>
             </div>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-sm transition-colors hover:bg-[var(--hover)]"
-            style={{ color: 'var(--text-secondary)' }}>
-            <X size={14} />
           </button>
-        </div>
-        <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
-          {/* Transparent Background Toggle */}
-          <label className="flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition-all"
-            style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={transparentBg}
-                onChange={e => setTransparentBg(e.target.checked)}
-                className="sr-only"
-              />
-              <div className={`w-9 h-5 rounded-full transition-colors ${transparentBg ? 'bg-teal-500' : 'bg-gray-600'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${transparentBg ? 'translate-x-4' : 'translate-x-0.5'} mt-0.5`} />
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-1">
-              <Circle size={14} style={{ color: transparentBg ? 'var(--accent)' : 'var(--text-tertiary)' }} />
-              <div>
-                <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {t('export.transparentBackground')}
-                </p>
-                <p className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-                  {t('export.transparentBackgroundDesc')}
-                </p>
-              </div>
-            </div>
-          </label>
-          {options.map(opt => (
-            <button key={opt.id} onClick={opt.action}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left border border-[var(--border-subtle)] hover:border-[var(--accent)] transition-all duration-150"
-              style={{ background: 'var(--surface-floating)', color: 'var(--text-primary)' }}>
-              <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: 'var(--accent-dim)', color: done === opt.id ? '#22c55e' : 'var(--accent)' }}>
-                {done === opt.id ? <Check size={16} /> : opt.icon}
-              </span>
-              <div>
-                <p className="text-sm font-medium">{opt.label}</p>
-                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{opt.desc}</p>
-              </div>
-            </button>
-          ))}
-        </div>
+        ))}
+
+        {/* Transparent-background is PNG-only — it trails the actions it
+            serves instead of owning the sheet's first slot (iter-22 P2). */}
+        <label className="flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition-all"
+          style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
+          <input
+            type="checkbox"
+            checked={transparentBg}
+            onChange={e => setTransparentBg(e.target.checked)}
+            className="peer sr-only"
+          />
+          <div aria-hidden="true"
+            className={`relative w-9 h-5 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--accent)] peer-focus-visible:ring-offset-2 ${transparentBg ? 'bg-[var(--accent)]' : 'bg-[var(--text-tertiary)]'}`}>
+            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${transparentBg ? 'left-[18px]' : 'left-0.5'}`} />
+          </div>
+          <div>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              {t('export.transparentBackground')}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              {t('export.transparentBackgroundDesc')}
+            </p>
+          </div>
+        </label>
       </div>
-    </div>
+    </Modal>
   );
 }

@@ -15,7 +15,9 @@
     "export": "Export",
     "import": "Import",
     "apply": "Apply",
-    "back": "Back"
+    "back": "Back",
+    "menu": "Menu",
+    "mobileAppNote": "Available in the mobile app, coming soon to Google Play."
   },
   "header": {
     "toggleSidebar": "Toggle sidebar",
@@ -35,14 +37,56 @@
     "edit": "Edit",
     "ai": "AI"
   },
+  "menu": {
+    "title": "Menu",
+    "settings": "Settings",
+    "commands": "Commands",
+    "aiRequiresWebGPU": "Requires WebGPU (not available in this browser)",
+    "androidTitle": "MermaidStudio for Android",
+    "androidComingSoon": "A dedicated Android app is coming soon."
+  },
+  "upsell": {
+    "highResExport": "High-resolution export",
+    "aiGeneration": "AI diagram generation",
+    "advancedTypes": "Advanced diagram types"
+  },
+  "visual": {
+    "selectTool": "Select",
+    "selectToolHint": "Select tool (V)",
+    "connectTool": "Connect",
+    "connectToolHint": "Connect tool (C) - click two nodes to connect",
+    "deleteSelected": "Delete",
+    "shapesTitle": "SHAPES",
+    "moreShapes": "More",
+    "shapeAddHint": "Add {{shape}} (tap to add, drag to canvas)",
+    "shapes": {
+      "box": "Box",
+      "round": "Round",
+      "stadium": "Stadium",
+      "rhombus": "Diamond",
+      "circle": "Circle",
+      "hexagon": "Hexagon",
+      "cylinder": "Cylinder",
+      "slant": "Slant",
+      "slantAlt": "Slant (mirrored)",
+      "trapezoid": "Trapezoid",
+      "trapezoidAlt": "Trapezoid (mirrored)",
+      "subroutine": "Subroutine",
+      "flag": "Flag"
+    }
+  },
   "workspace": {
     "toggle": {
       "code": "Code",
       "preview": "Preview",
       "visual": "Visual"
-    }
+    },
+    "chromeShortcuts": "Symbols & arrows",
+    "viewLabel": "View"
   },
   "commands": {
+    "searchPlaceholder": "Search commands…",
+    "noResults": "No matching commands",
     "newDiagram": "New Diagram",
     "newFolder": "New Folder",
     "rename": "Rename",
@@ -101,6 +145,7 @@
     "exportSvgDesc": "Scalable vector graphic",
     "exportPng": "Export PNG",
     "exportPngDesc": "High-resolution raster image",
+    "downloadFailed": "Download failed — try again, or use a copy action below.",
     "transparentBackground": "Transparent background",
     "transparentBackgroundDesc": "Export PNG without background color",
     "copyMarkdown": "Copy as Markdown",
@@ -182,6 +227,7 @@
     "panelTitle": "AI Assistant",
     "placeholder": "Ask about your diagram...",
     "send": "Enter to send · Shift+Enter for newline",
+    "sendAction": "Send",
     "apply": "Apply",
     "resetChat": "Reset chat",
     "suggestion1": "Explain this diagram",
@@ -214,6 +260,20 @@
     "codeEditor": "Code Editor",
     "visualEditor": "Visual Editor",
     "preview": "Preview",
+    "extraKeys": {
+      "label": "Code shortcuts",
+      "arrow": "Insert arrow -->",
+      "pipe": "Insert pipe |",
+      "braceOpen": "Insert opening brace {",
+      "braceClose": "Insert closing brace }",
+      "quoteDouble": "Insert double quote",
+      "quoteSingle": "Insert single quote",
+      "tab": "Indent line",
+      "cursorLeft": "Move cursor left",
+      "cursorRight": "Move cursor right",
+      "cursorUp": "Move cursor up",
+      "cursorDown": "Move cursor down"
+    },
     "save": "Save",
     "saveShortcut": "Save",
     "saveAsTemplate": "Save as Template",
@@ -265,6 +325,7 @@
   },
   "sidebar": {
     "explorer": "Explorer",
+    "allFolders": "All folders",
     "newDiagram": "New Diagram",
     "newFolder": "New Folder",
     "deleteFolder": "Delete Folder",
@@ -273,6 +334,13 @@
     "open": "Open",
     "tags": "Tags",
     "searchPlaceholder": "Search titles & content...",
+    "justNow": "just now",
+    "minutesAgo_one": "{{count}} min ago",
+    "minutesAgo_other": "{{count}} min ago",
+    "hoursAgo_one": "{{count}} h ago",
+    "hoursAgo_other": "{{count}} h ago",
+    "daysAgo_one": "{{count}} d ago",
+    "daysAgo_other": "{{count}} d ago",
     "tagPlaceholder": "Tag name",
     "addTags": "Add tags to organize",
     "noMatchingDiagrams": "No matching diagrams",
@@ -369,6 +437,7 @@
     "borderRadiusY": "Border Radius Y",
     "resetStyles": "Reset Styles",
     "delete": "Delete",
+    "confirmDelete": "Tap again to delete",
     "mixed": "Mixed",
     "mix": "Mix",
     "solid": "Solid",
@@ -381,7 +450,6 @@
     "fontBolder": "Bolder"
   },
   "edgeStyle": {
-    "edgeN": "Edge {{index}}",
     "connection": "Connection",
     "arrowType": "Arrow Type",
     "label": "Label",
@@ -524,6 +592,8 @@
     "copySvg": "Copy SVG",
     "export": "Export",
     "parseError": "Parse error",
+    "openInCode": "Open in Code",
+    "confirmDelete": "Tap again to delete",
     "startTyping": "Start typing to see the preview",
     "clickToEdit": "Click to edit {{id}}",
     "clickToEditSubgraph": "Click to edit subgraph",

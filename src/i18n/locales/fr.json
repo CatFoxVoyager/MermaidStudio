@@ -15,7 +15,9 @@
     "export": "Exporter",
     "import": "Importer",
     "apply": "Appliquer",
-    "back": "Retour"
+    "back": "Retour",
+    "menu": "Menu",
+    "mobileAppNote": "Disponible dans l'appli mobile, bientôt sur Google Play."
   },
   "header": {
     "toggleSidebar": "Basculer la barre latérale",
@@ -35,14 +37,56 @@
     "edit": "Éditer",
     "ai": "IA"
   },
+  "menu": {
+    "title": "Menu",
+    "settings": "Paramètres",
+    "commands": "Commandes",
+    "aiRequiresWebGPU": "Nécessite WebGPU (indisponible dans ce navigateur)",
+    "androidTitle": "MermaidStudio pour Android",
+    "androidComingSoon": "Une application Android dédiée arrive bientôt."
+  },
+  "upsell": {
+    "highResExport": "Export haute résolution",
+    "aiGeneration": "Génération de diagrammes par IA",
+    "advancedTypes": "Types de diagrammes avancés"
+  },
+  "visual": {
+    "selectTool": "Sélection",
+    "selectToolHint": "Outil de sélection (V)",
+    "connectTool": "Relier",
+    "connectToolHint": "Outil de liaison (C) — cliquez deux nœuds pour les relier",
+    "deleteSelected": "Supprimer",
+    "shapesTitle": "FORMES",
+    "moreShapes": "Plus",
+    "shapeAddHint": "Ajouter {{shape}} (toucher pour ajouter, glisser sur le canevas)",
+    "shapes": {
+      "box": "Boîte",
+      "round": "Arrondi",
+      "stadium": "Stade",
+      "rhombus": "Losange",
+      "circle": "Cercle",
+      "hexagon": "Hexagone",
+      "cylinder": "Cylindre",
+      "slant": "Oblique",
+      "slantAlt": "Oblique (miroir)",
+      "trapezoid": "Trapèze",
+      "trapezoidAlt": "Trapèze (miroir)",
+      "subroutine": "Sous-graphe",
+      "flag": "Drapeau"
+    }
+  },
   "workspace": {
     "toggle": {
       "code": "Code",
       "preview": "Aperçu",
       "visual": "Visuel"
-    }
+    },
+    "chromeShortcuts": "Symboles et flèches",
+    "viewLabel": "Vue"
   },
   "commands": {
+    "searchPlaceholder": "Rechercher une commande…",
+    "noResults": "Aucune commande correspondante",
     "newDiagram": "Nouveau diagramme",
     "newFolder": "Nouveau dossier",
     "rename": "Renommer",
@@ -101,6 +145,7 @@
     "exportSvgDesc": "Graphique vectoriel évolutif",
     "exportPng": "Exporter en PNG",
     "exportPngDesc": "Image raster haute résolution",
+    "downloadFailed": "Échec du téléchargement — réessayez, ou utilisez une action de copie ci-dessous.",
     "transparentBackground": "Arrière-plan transparent",
     "transparentBackgroundDesc": "Exporter en PNG sans couleur d'arrière-plan",
     "copyMarkdown": "Copier en Markdown",
@@ -182,6 +227,10 @@
     "panelTitle": "Assistant IA",
     "placeholder": "Posez une question sur votre diagramme...",
     "send": "Entrée pour envoyer · Maj+Entrée pour une nouvelle ligne",
+    "sendAction": "Envoyer",
+    "modelNotAvailable": "Modèle IA non disponible",
+    "syntaxIssues": "Problèmes de syntaxe possibles détectés",
+    "applyAnyway": "Appliquer quand même",
     "apply": "Appliquer",
     "resetChat": "Réinitialiser la conversation",
     "suggestion1": "Expliquer ce diagramme",
@@ -214,6 +263,20 @@
     "codeEditor": "Éditeur de code",
     "visualEditor": "Éditeur visuel",
     "preview": "Aperçu",
+    "extraKeys": {
+      "label": "Raccourcis code",
+      "arrow": "Insérer une flèche -->",
+      "pipe": "Insérer un pipe |",
+      "braceOpen": "Insérer une accolade ouvrante {",
+      "braceClose": "Insérer une accolade fermante }",
+      "quoteDouble": "Insérer un guillemet double",
+      "quoteSingle": "Insérer un guillemet simple",
+      "tab": "Indenter la ligne",
+      "cursorLeft": "Déplacer le curseur à gauche",
+      "cursorRight": "Déplacer le curseur à droite",
+      "cursorUp": "Déplacer le curseur vers le haut",
+      "cursorDown": "Déplacer le curseur vers le bas"
+    },
     "save": "Enregistrer",
     "saveShortcut": "Enregistrer",
     "saveAsTemplate": "Enregistrer comme modèle",
@@ -265,6 +328,7 @@
   },
   "sidebar": {
     "explorer": "Explorateur",
+    "allFolders": "Tous les dossiers",
     "newDiagram": "Nouveau diagramme",
     "newFolder": "Nouveau dossier",
     "deleteFolder": "Supprimer le dossier",
@@ -273,6 +337,13 @@
     "open": "Ouvrir",
     "tags": "Étiquettes",
     "searchPlaceholder": "Rechercher titres et contenu...",
+    "justNow": "à l'instant",
+    "minutesAgo_one": "il y a {{count}} min",
+    "minutesAgo_other": "il y a {{count}} min",
+    "hoursAgo_one": "il y a {{count}} h",
+    "hoursAgo_other": "il y a {{count}} h",
+    "daysAgo_one": "il y a {{count}} j",
+    "daysAgo_other": "il y a {{count}} j",
     "tagPlaceholder": "Nom de l'étiquette",
     "addTags": "Ajouter des étiquettes pour organiser",
     "noMatchingDiagrams": "Aucun diagramme correspondant",
@@ -368,6 +439,7 @@
     "borderRadiusX": "Rayon de bordure X",
     "borderRadiusY": "Rayon de bordure Y",
     "resetStyles": "Réinitialiser les styles",
+    "confirmDelete": "Toucher à nouveau pour supprimer",
     "delete": "Supprimer",
     "mixed": "Mixte",
     "mix": "Mix",
@@ -381,7 +453,6 @@
     "fontBolder": "Plus gras"
   },
   "edgeStyle": {
-    "edgeN": "Arête {{index}}",
     "connection": "Connexion",
     "arrowType": "Type de flèche",
     "label": "Étiquette",
@@ -524,6 +595,7 @@
     "copySvg": "Copier le SVG",
     "export": "Exporter",
     "parseError": "Erreur d'analyse",
+    "openInCode": "Ouvrir dans Code",
     "startTyping": "Commencez à taper pour voir l'aperçu",
     "clickToEdit": "Cliquer pour modifier {{id}}",
     "clickToEditSubgraph": "Cliquer pour modifier le sous-graphe",

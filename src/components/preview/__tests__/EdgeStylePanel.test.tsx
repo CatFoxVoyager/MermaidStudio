@@ -11,7 +11,6 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, opts?: Record<string, string | number>) => {
       const map: Record<string, string> = {
-        'edgeStyle.edgeN': 'Edge {{index}}',
         'edgeStyle.connection': 'Connection',
         'edgeStyle.arrowType': 'Arrow Type',
         'edgeStyle.label': 'Label',
@@ -67,13 +66,16 @@ describe('EdgeStylePanel', () => {
   it('should render connection info', () => {
     render(<EdgeStylePanel {...defaultProps} />);
 
-    expect(screen.getByText(/A.*B/)).toBeInTheDocument();
+    // Header and Connection section both name the pair — at least one match.
+    expect(screen.getAllByText(/A.*B/).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('should render edge index in header', () => {
+  it('should render node names in the sheet header', () => {
     render(<EdgeStylePanel {...defaultProps} />);
 
-    expect(screen.getByText('Edge 0')).toBeInTheDocument();
+    // iter-32: the header names the real endpoints (source → target) —
+    // machine numbering ("Edge 0") is numbering the user never wrote.
+    expect(screen.getByTitle('A → B')).toBeInTheDocument();
   });
 
   it('should call onArrowChange when arrow type changes', () => {
@@ -139,10 +141,12 @@ describe('EdgeStylePanel', () => {
     expect(defaultProps.onReset).toHaveBeenCalledWith(0);
   });
 
-  it('should call onDelete when delete button clicked', () => {
+  it('should call onDelete on the SECOND click (two-step arm, iter-24)', () => {
     const onDelete = vi.fn();
     render(<EdgeStylePanel {...defaultProps} onDelete={onDelete} />);
 
+    // First click arms, second executes (same pattern as the node panel).
+    fireEvent.click(screen.getByTitle('Delete'));
     fireEvent.click(screen.getByTitle('Delete'));
 
     expect(onDelete).toHaveBeenCalledTimes(1);
@@ -228,7 +232,7 @@ describe('EdgeStylePanel', () => {
       it('should apply max-md:top-0 to outer container', () => {
         const { container } = render(<EdgeStylePanel {...defaultProps} />);
         const panel = container.querySelector('.animate-slide-in-right');
-        expect(panel).toHaveClass('max-md:top-0');
+        expect(panel).toHaveClass('max-md:top-auto');
       });
 
       it('should apply max-md:bottom-0 to outer container', () => {
@@ -240,13 +244,13 @@ describe('EdgeStylePanel', () => {
       it('should apply max-md:rounded-none to outer container', () => {
         const { container } = render(<EdgeStylePanel {...defaultProps} />);
         const panel = container.querySelector('.animate-slide-in-right');
-        expect(panel).toHaveClass('max-md:rounded-none');
+        expect(panel).toHaveClass('max-md:rounded-b-none');
       });
 
       it('should apply max-md:h-full to outer container', () => {
         const { container } = render(<EdgeStylePanel {...defaultProps} />);
         const panel = container.querySelector('.animate-slide-in-right');
-        expect(panel).toHaveClass('max-md:h-full');
+        expect(panel).toHaveClass('max-md:h-[40dvh]');
       });
 
       it('should have close button with >=44px tap target on mobile', () => {

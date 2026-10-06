@@ -1,11 +1,13 @@
-import { MousePointer2, Link, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { MousePointer2, Link, Trash2, LayoutGrid, ChevronUp } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { NodeShape, ToolMode } from './types';
+import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
 
 interface ShapeButtonProps {
   shape: NodeShape;
   label: string;
-  onDragStart: (shape: NodeShape) => void;
-  onClick: (shape: NodeShape) => void;
+  onPick: (shape: NodeShape) => void;
 }
 
 function ShapePreview({ shape }: { shape: NodeShape }) {
@@ -28,36 +30,47 @@ function ShapePreview({ shape }: { shape: NodeShape }) {
   }
 }
 
-function ShapeButton({ shape, label, onDragStart, onClick }: ShapeButtonProps) {
+function ShapeButton({ shape, label, onPick }: ShapeButtonProps) {
+  const { t } = useTranslation();
   return (
     <button
       draggable
-      onDragStart={() => onDragStart(shape)}
-      onClick={() => onClick(shape)}
-      title={`Add ${label} (click or drag to canvas)`}
-      className="flex flex-col items-center gap-1 px-2 py-2 rounded-lg border transition-all hover:scale-105 active:scale-95 cursor-grab active:cursor-grabbing"
+      onDragStart={() => onPick(shape)}
+      onClick={() => onPick(shape)}
+      title={t('visual.shapeAddHint', { shape: label })}
+      aria-label={t('visual.shapeAddHint', { shape: label })}
+      className={`flex flex-col items-center gap-1 px-2 py-2 rounded-lg border transition-all hover:scale-105 active:scale-95 cursor-grab active:cursor-grabbing ${FOCUS_RING_CLASSES}`}
       style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)', minWidth: 52 }}>
       <ShapePreview shape={shape} />
-      <span className="text-[11px] font-medium leading-none">{label}</span>
+      <span className="text-xs font-medium leading-none">{label}</span>
     </button>
   );
 }
 
-const SHAPES: { shape: NodeShape; label: string }[] = [
-  { shape: 'rect',          label: 'Box' },
-  { shape: 'round',         label: 'Round' },
-  { shape: 'stadium',       label: 'Stadium' },
-  { shape: 'rhombus',       label: 'Diamond' },
-  { shape: 'circle',        label: 'Circle' },
-  { shape: 'hexagon',       label: 'Hexagon' },
-  { shape: 'cylinder',      label: 'Cylinder' },
-  { shape: 'parallelogram', label: 'Slant' },
-  { shape: 'parallelogram-alt', label: 'Slant Alt' },
-  { shape: 'trapezoid',     label: 'Trapezoid' },
-  { shape: 'trapezoid-alt', label: 'Trapezoid Alt' },
-  { shape: 'subroutine',    label: 'Subroutine' },
-  { shape: 'asymmetric',    label: 'Flag' },
+// Labels live in i18n (visual.shapes.*) — the toolbar previously hardcoded
+// English names and English titles (critique iter-9 P2).
+const SHAPES: { shape: NodeShape; labelKey: string }[] = [
+  { shape: 'rect',          labelKey: 'visual.shapes.box' },
+  { shape: 'round',         labelKey: 'visual.shapes.round' },
+  { shape: 'stadium',       labelKey: 'visual.shapes.stadium' },
+  { shape: 'rhombus',       labelKey: 'visual.shapes.rhombus' },
+  { shape: 'circle',        labelKey: 'visual.shapes.circle' },
+  { shape: 'hexagon',       labelKey: 'visual.shapes.hexagon' },
+  { shape: 'cylinder',      labelKey: 'visual.shapes.cylinder' },
+  { shape: 'parallelogram', labelKey: 'visual.shapes.slant' },
+  { shape: 'parallelogram-alt', labelKey: 'visual.shapes.slantAlt' },
+  { shape: 'trapezoid',     labelKey: 'visual.shapes.trapezoid' },
+  { shape: 'trapezoid-alt', labelKey: 'visual.shapes.trapezoidAlt' },
+  { shape: 'subroutine',    labelKey: 'visual.shapes.subroutine' },
+  { shape: 'asymmetric',    labelKey: 'visual.shapes.flag' },
 ];
+
+// Mobile-first split (critique iter-10→13): the pinned More chip occupies
+// the scroller's reserved right lane, and a third primary spawned INSIDE
+// that lane — Stadium sat 83% occluded under the chip at rest (iter-13
+// measurement). Two primaries (Box, Round) clear the lane; everything else
+// lives in the popover.
+const PRIMARY_SHAPE_COUNT = 2;
 
 interface Props {
   toolMode: ToolMode;
@@ -71,43 +84,113 @@ interface Props {
 }
 
 export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, onDeleteSelected, hasSelection }: Props) {
+  const { t } = useTranslation();
+  const [moreOpen, setMoreOpen] = useState(false);
+  // Anchored to the VIEWPORT (fixed), not the toolbar: the toolbar is an
+  // overflow-x scroller whose computed overflow-y also clips, so an
+  // absolutely-positioned popover inside it rendered at (-122,-87) —
+  // invisible, ten shapes unreachable (iter-11 regression, measured by
+  // iter-12). Iter-13 correction of that correction: anchoring with `bottom`
+  // flipped a tall grid ABOVE the viewport (y=-83, behind the header) — the
+  // grid now anchors DOWNWARD from the trigger with a viewport-height clamp
+  // and internal scroll.
+  const moreBtnRef = useRef<HTMLButtonElement>(null);
+  const [moreAnchor, setMoreAnchor] = useState<{ right: number; top: number; maxHeight: number } | null>(null);
+  const primary = SHAPES.slice(0, PRIMARY_SHAPE_COUNT);
+  const secondary = SHAPES.slice(PRIMARY_SHAPE_COUNT);
+
+  const toggleMore = () => {
+    // Anchor from the FIXED trigger's viewport rect (it lives outside the
+    // scroller — iter-14: inside the scroller the More button itself was
+    // off-screen at x397).
+    if (!moreOpen && moreBtnRef.current) {
+      const r = moreBtnRef.current.getBoundingClientRect();
+      setMoreAnchor({
+        right: window.innerWidth - r.right,
+        top: r.bottom + 8,
+        maxHeight: window.innerHeight - r.bottom - 24,
+      });
+    }
+    setMoreOpen(v => !v);
+  };
+
+  // Outside-tap + Escape dismissal (iter-14 P2/P3: the popover previously
+  // ignored both — a floating surface with no visible close is a dead end).
+  useEffect(() => {
+    if (!moreOpen) {return;}
+    const down = (e: PointerEvent) => {
+      const t = e.target as Element;
+      if (moreBtnRef.current?.contains(t)) {return;}
+      if (t.closest('[data-more-popover]')) {return;}
+      setMoreOpen(false);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {setMoreOpen(false);}
+    };
+    document.addEventListener('pointerdown', down);
+    document.addEventListener('keydown', key);
+    return () => {
+      document.removeEventListener('pointerdown', down);
+      document.removeEventListener('keydown', key);
+    };
+  }, [moreOpen]);
+
+  const pickSecondary = (shape: NodeShape) => {
+    setMoreOpen(false);
+    onAddShape(shape);
+  };
+
   return (
-    <div className="flex items-center gap-1 px-3 py-2 shrink-0 border-b overflow-x-auto"
-      style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
+    <div className="relative shrink-0 border-b" style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
+      {/* Root wrapper is NOT masked: a mask-image on an ancestor paints its
+          whole subtree — including position:fixed descendants — in the
+          mask's coordinate space, which buried the More popover at alpha 0
+          (iter-13 P0, triangulated live). The fade mask lives on the
+          scroller child; the popover is the scroller's SIBLING. */}
+      <div className="flex items-center gap-1 px-3 py-2 overflow-x-auto scroll-fade-x">
+      {/* Tool pills measured 30px tall on mobile (critique iter-8 P0) —
+          min-h-[44px] + aria-pressed (the accent fill was the only state
+          signal) + the shared focus-ring idiom. */}
       <div className="flex items-center gap-1 shrink-0 mr-2">
         <button
           onClick={() => onToolMode('select')}
-          title="Select tool (V)"
-          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors"
+          aria-pressed={toolMode === 'select'}
+          title={t('visual.selectToolHint', 'Select tool (V)')}
+          aria-label={t('visual.selectTool')}
+          className={`flex items-center gap-1 px-3 min-h-[44px] rounded-lg text-xs font-medium transition-colors shrink-0 ${FOCUS_RING_CLASSES}`}
           style={{
             background: toolMode === 'select' ? 'var(--accent-dim)' : 'transparent',
             color: toolMode === 'select' ? 'var(--accent)' : 'var(--text-secondary)',
             border: `1px solid ${toolMode === 'select' ? 'rgba(var(--accent-rgb),0.3)' : 'var(--border-subtle)'}`,
           }}>
-          <MousePointer2 size={12} />
-          <span>Select</span>
+          <MousePointer2 size={14} />
+          <span>{t('visual.selectTool')}</span>
         </button>
         <button
           onClick={() => onToolMode('connect')}
-          title="Connect tool (C) - click two nodes to connect"
-          className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors"
+          aria-pressed={toolMode === 'connect'}
+          title={t('visual.connectToolHint')}
+          aria-label={t('visual.connectTool')}
+          className={`flex items-center gap-1 px-3 min-h-[44px] rounded-lg text-xs font-medium transition-colors shrink-0 ${FOCUS_RING_CLASSES}`}
           style={{
             background: toolMode === 'connect' ? 'var(--accent-dim)' : 'transparent',
             color: toolMode === 'connect' ? 'var(--accent)' : 'var(--text-secondary)',
             border: `1px solid ${toolMode === 'connect' ? 'rgba(var(--accent-rgb),0.3)' : 'var(--border-subtle)'}`,
           }}>
-          <Link size={12} />
-          <span>Connect</span>
+          <Link size={14} />
+          <span>{t('visual.connectTool')}</span>
         </button>
       </div>
 
       <div className="w-px h-8 shrink-0 mx-1" style={{ background: 'var(--border-subtle)' }} />
 
-      <span className="text-[11px] font-medium shrink-0 mr-1" style={{ color: 'var(--text-tertiary)' }}>SHAPES</span>
+      {/* No section label: "SHAPES" cost ~60px that pushed the More button
+          off-screen at 390px (iter-14 P1) — the shape previews speak for
+          themselves. */}
 
-      <div className="flex items-center gap-1 shrink-0">
-        {SHAPES.map(({ shape, label }) => (
-          <ShapeButton key={shape} shape={shape} label={label} onDragStart={onDragStart} onClick={onAddShape} />
+      <div className="flex items-center gap-1 shrink-0 pr-16">
+        {primary.map(({ shape, labelKey }) => (
+          <ShapeButton key={shape} shape={shape} label={t(labelKey)} onPick={onAddShape} />
         ))}
       </div>
 
@@ -116,13 +199,51 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
           <div className="w-px h-8 shrink-0 mx-1" style={{ background: 'var(--border-subtle)' }} />
           <button
             onClick={onDeleteSelected}
-            title="Delete selected node(s) (Del)"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0"
+            title={t('visual.deleteSelected')}
+            className={`flex items-center gap-1.5 px-3 min-h-[44px] rounded-lg text-xs font-medium transition-colors shrink-0 ${FOCUS_RING_CLASSES}`}
             style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-            <Trash2 size={12} />
-            Delete
+            <Trash2 size={14} />
+            {t('visual.deleteSelected')}
           </button>
         </>
+      )}
+      </div>
+
+      {/* More trigger lives OUTSIDE the scroller, pinned to the toolbar's
+          right edge: inside the scroller it scrolled to x397 — fully
+          off-screen at 390px, hiding 10 shapes behind an undiscoverable
+          scroll (iter-13 P1, measured). pr-16 on the scroller reserves its
+          lane so the fade doesn't overlap it. */}
+      <button
+        type="button"
+        ref={moreBtnRef}
+        onClick={toggleMore}
+        aria-expanded={moreOpen}
+        aria-label={t('visual.moreShapes')}
+        title={t('visual.moreShapes')}
+        className={`absolute right-2 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center gap-1 px-2 min-h-[53px] rounded-lg border transition-colors ${FOCUS_RING_CLASSES}`}
+        style={{ background: moreOpen ? 'var(--accent-dim)' : 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: moreOpen ? 'var(--accent)' : 'var(--text-secondary)', minWidth: 52 }}>
+        <LayoutGrid size={16} />
+        <span className="text-xs font-medium leading-none flex items-center gap-0.5">
+          {t('visual.moreShapes')}
+          <ChevronUp size={10} className={`transition-transform duration-150 ${moreOpen ? '' : 'rotate-180'}`} aria-hidden="true" />
+        </span>
+      </button>
+
+      {/* Secondary shapes grid — position:fixed from the button's viewport
+          rect, and a SIBLING of the masked scroller: a mask-image on an
+          ancestor paints fixed descendants in the mask's coordinate space
+          (iter-13→14, proven live). Sibling placement escapes it. */}
+      {moreOpen && moreAnchor && (
+        <div
+          data-more-popover
+          className="fixed z-20 grid grid-cols-3 gap-1.5 p-2.5 rounded-xl border shadow-xl animate-fade-in overflow-y-auto"
+          style={{ right: moreAnchor.right, top: moreAnchor.top, maxHeight: moreAnchor.maxHeight, background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}
+        >
+          {secondary.map(({ shape, labelKey }) => (
+            <ShapeButton key={shape} shape={shape} label={t(labelKey)} onPick={pickSecondary} />
+          ))}
+        </div>
       )}
     </div>
   );

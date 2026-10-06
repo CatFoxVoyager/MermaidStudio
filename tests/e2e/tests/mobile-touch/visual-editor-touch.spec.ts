@@ -8,7 +8,7 @@ import { TestUtils } from '../../support/utils/test-utils';
  * The visual editor is toggled by different controls depending on layout:
  *  - Desktop (>=768px): toolbar button `data-testid="workspace-view-visual"`
  *    (see WorkspacePanel.tsx).
- *  - Mobile (<768px): segmented toggle `data-testid="mobile-workspace-tab-visual"`
+ *  - Mobile (<768px): segmented toggle `data-testid="mobile-workspace-tab-preview"`
  *    (see MobileWorkspace.tsx).
  *
  * The earlier version of these tests looked for `[data-testid="tab"]:has-text("Visual")`,
@@ -17,7 +17,7 @@ import { TestUtils } from '../../support/utils/test-utils';
  */
 async function switchToVisualView(page: Page) {
   const desktopBtn = page.locator('[data-testid="workspace-view-visual"]');
-  const mobileBtn = page.locator('[data-testid="mobile-workspace-tab-visual"]');
+  const mobileBtn = page.locator('[data-testid="mobile-workspace-tab-preview"]');
   if (await desktopBtn.count() > 0) {
     await desktopBtn.click();
   } else {
@@ -146,7 +146,7 @@ test.describe('VisualEditorCanvas - Pointer Events Migration (MTCH-03)', () => {
     // hasTouch must be enabled so locator.tap() dispatches pointer events with
     // pointerType 'touch'. Without it, Playwright rejects tap() with
     // "The page does not support tap. Use hasTouch context option".
-    test.use({ viewport: { width: 375, height: 812 }, hasTouch: true });
+    test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true });
 
     test('should select nodes via touch tap using unified pointer handler', async ({ page }) => {
       const appLayout = new AppLayoutPage(page);

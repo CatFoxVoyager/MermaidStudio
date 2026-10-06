@@ -19,6 +19,7 @@ import { isModelLoaded } from '@/services/ai/providers';
 import { useAIChat } from '@/hooks/ai/useAIChat';
 import { useAISend, extractMermaidCode } from '@/hooks/ai/useAISend';
 import { useAISettings } from '@/hooks/ai/useAISettings';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 interface Props {
   currentContent: string;
@@ -155,7 +156,7 @@ function CodeBlock({
         >
           <AlertCircle size={11} className="shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium">Possible syntax issues detected</p>
+            <p className="font-medium">{t('ai.syntaxIssues', 'Possible syntax issues detected')}</p>
             <p className="mt-0.5 opacity-80">
               The code may contain errors. You can still apply it, but check for problems like
               unclosed brackets or extra text.
@@ -169,7 +170,7 @@ function CodeBlock({
                 className="px-2 py-0.5 rounded-sm text-[11px] font-medium"
                 style={{ background: 'rgba(245,158,11,0.2)' }}
               >
-                Apply Anyway
+                {t('ai.applyAnyway', 'Apply Anyway')}
               </button>
               <button
                 onClick={() => setShowWarning(false)}
@@ -293,6 +294,7 @@ export function AIPanel({
   previewError,
 }: Props) {
   const { t } = useTranslation();
+  const isMobile = useMediaQuery('(max-width: 768px)');
   const [input, setInput] = useState('');
 
   const { messages, addMessage, resetChat, bottomRef } = useAIChat();
@@ -340,45 +342,60 @@ export function AIPanel({
   return (
     <div
       data-testid="ai-panel"
-      className="flex flex-col h-full border-l"
+      /* border-l dropped on mobile: the drawer is full-screen there, so the
+         "split-pane divider" rendered as a dead 1px line flush at the screen
+         edge (iter-13 B L2). */
+      className="flex flex-col h-full max-md:border-l-0 border-l"
       style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}
     >
       <div
         className="flex items-center justify-between px-3 py-3 border-b shrink-0"
         style={{ borderColor: 'var(--border-subtle)' }}
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <div
             className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
             style={{ background: 'var(--accent-dim)' }}
           >
             <Sparkles size={12} style={{ color: 'var(--accent)' }} />
           </div>
-          <span className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-            {t('ai.panelTitle')}
-          </span>
-          <span
-            className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded-full border text-center"
-            style={{
-              background: 'rgba(34,197,94,0.1)',
-              borderColor: 'rgba(34,197,94,0.3)',
-              color: '#22c55e',
-            }}
-          >
-            {config.label}
-          </span>
+          <div className="flex flex-col min-w-0">
+            {/* Panel title only on desktop: the mobile Modal already carries
+                "AI Assistant" in its own title bar — rendering both was a
+                double header with two closes 73px apart (iter-17 P1). */}
+            {!isMobile && (
+              <span className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                {t('ai.panelTitle')}
+              </span>
+            )}
+            {/* Model chip on its OWN line (iter-13: side-by-side truncated
+                both "AI Assi…" and "Low memory GPU (Qwe…" — the model name
+                is the one thing to verify before a 400–700MB download). */}
+            <span
+              className="inline-flex items-center text-xs font-semibold px-2 py-1 rounded-full border max-w-full overflow-hidden mt-0.5"
+              title={config.label}
+              style={{
+                background: 'rgba(34,197,94,0.1)',
+                borderColor: 'rgba(34,197,94,0.3)',
+                color: '#15803d',
+              }}
+            >
+              <span className="truncate">{config.label}</span>
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {messages.length > 0 && (
             <button
               onClick={resetChat}
-              className="p-1.5 rounded-sm transition-colors hover:bg-[var(--hover)]"
+              className="w-11 h-11 inline-flex items-center justify-center rounded-md transition-colors hover:bg-[var(--hover)]"
               style={{ color: 'var(--text-secondary)' }}
               title={t('ai.resetChat')}
+              aria-label={t('ai.resetChat')}
             >
               <svg
-                width="13"
-                height="13"
+                width="15"
+                height="15"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -394,23 +411,37 @@ export function AIPanel({
           <button
             data-testid="ai-settings"
             onClick={onOpenSettings}
-            className="p-1.5 rounded-sm transition-colors hover:bg-[var(--hover)]"
+            className="w-11 h-11 inline-flex items-center justify-center rounded-md transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}
             title={t('ai.providerSettings')}
+            aria-label={t('ai.providerSettings')}
           >
-            <Settings2 size={13} />
+            <Settings2 size={16} />
           </button>
-          <button
-            data-testid="close-ai"
-            onClick={onClose}
-            className="p-1.5 rounded-sm transition-colors hover:bg-[var(--hover)]"
-            style={{ color: 'var(--text-secondary)' }}
-          >
-            <X size={14} />
-          </button>
+          {/* close-ai removed on mobile (iter-18 P2): the wrapping Modal
+              already carries a 44px labeled close — the duplicate 73px away
+              made two × affordances answer "how do I leave". Desktop split
+              pane keeps it (no Modal wrapper there). */}
+          {!isMobile && (
+            <button
+              data-testid="close-ai"
+              onClick={onClose}
+              className="w-11 h-11 inline-flex items-center justify-center rounded-md transition-colors hover:bg-[var(--hover)]"
+              style={{ color: 'var(--text-secondary)' }}
+              aria-label={t('common.close', 'Close')}
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Mobile renders the SAME working chat as desktop: this drawer only
+          opens from the menu row gated on WebGPU, so the device it opens on
+          can actually run the model — showing an upsell here was a promise
+          → refusal inside one navigation (iter-13 P1). The upsell stays on
+          surfaces that genuinely can't run AI (TemplateLibrary). */}
+      <>
       {!isConfigured && (
         <div
           className="mx-3 mt-3 px-3 py-2.5 rounded-xl flex items-start gap-2.5 shrink-0"
@@ -419,7 +450,7 @@ export function AIPanel({
           <AlertCircle size={13} className="shrink-0 mt-0.5" style={{ color: '#f59e0b' }} />
           <div>
             <p className="text-[11px] font-medium" style={{ color: '#f59e0b' }}>
-              AI model not available
+              {t('ai.modelNotAvailable', 'AI model not available')}
             </p>
             <p
               className="text-[11px] mt-0.5 leading-relaxed"
@@ -458,8 +489,12 @@ export function AIPanel({
             </p>
             {!modelLoaded && (
               <p
-                className="text-[11px] leading-relaxed max-w-[190px] mt-2"
-                style={{ color: 'var(--text-tertiary)' }}
+                /* Load-bearing disclosure (400–700MB) at 11px read as fine
+                   print (iter-13 B M1) — 12px mobile floor. Inline maxWidth:
+                   the arbitrary Tailwind class went missing from a stale
+                   cascade (iter-13 B P2) — inline can't. */
+                className="text-xs leading-relaxed mt-2"
+                style={{ color: 'var(--text-secondary)', maxWidth: 260 }}
               >
                 {t('ai.modelDownloadNotice')}
               </p>
@@ -538,7 +573,10 @@ export function AIPanel({
             <button
               key={s}
               onClick={() => handleSend(s)}
-              className="px-2.5 py-1 rounded-full text-[11px] border border-[var(--border-subtle)] hover:border-[var(--accent)] transition-all duration-150"
+              /* 44px targets + 12px labels (iter-13 B: the empty state's
+                 primary affordances measured 27px/11px — the worst touch
+                 geometry in the app lived on its front door). */
+              className="min-h-[44px] px-3 py-2 rounded-full text-xs border border-[var(--border-subtle)] hover:border-[var(--accent)] transition-all duration-150 inline-flex items-center"
               style={{
                 background: 'var(--surface-floating)',
                 color: 'var(--text-secondary)',
@@ -566,8 +604,9 @@ export function AIPanel({
               }
             }}
             placeholder={t('ai.placeholder')}
+            aria-label={t('ai.placeholder')}
             rows={2}
-            className="flex-1 px-3 py-2 text-xs rounded-xl resize-none border outline-hidden transition-colors"
+            className="flex-1 px-3 py-2 text-base rounded-xl resize-none border outline-hidden transition-colors"
             style={{
               background: 'var(--surface-base)',
               borderColor: 'var(--border-subtle)',
@@ -580,16 +619,22 @@ export function AIPanel({
             data-testid="ai-send"
             onClick={() => handleSend(input)}
             disabled={!input.trim() || loading}
-            className="p-2 rounded-xl text-white transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
-            style={{ background: 'var(--accent)' }}
+            aria-label={t('ai.sendAction', 'Send')}
+            className="w-11 h-11 inline-flex items-center justify-center rounded-xl transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
+            style={{ background: 'var(--accent)', color: 'var(--on-accent)' }}
           >
-            <Send size={14} />
+            <Send size={16} />
           </button>
         </div>
-        <p className="text-[11px] mt-1 text-right" style={{ color: 'var(--text-tertiary)' }}>
-          {t('ai.send')}
-        </p>
+        {/* Desktop keyboard hint only (iter-14 P2: "Shift+Enter for newline"
+            is not performable on most mobile soft keyboards). */}
+        {!isMobile && (
+          <p className="text-[11px] mt-1 text-right" style={{ color: 'var(--text-tertiary)' }}>
+            {t('ai.send')}
+          </p>
+        )}
       </div>
+      </>
     </div>
   );
 }

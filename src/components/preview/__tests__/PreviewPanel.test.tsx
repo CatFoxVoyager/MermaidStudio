@@ -11,7 +11,7 @@ import { PreviewPanel, highlightSelectedEdge } from '../PreviewPanel';
 // Mock i18n
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
-    t: (key: string) => {
+    t: (key: string, args?: Record<string, unknown>) => {
       const map: Record<string, string> = {
         'preview.title': 'Preview',
         'preview.parseError': 'Parse Error',
@@ -27,8 +27,30 @@ vi.mock('react-i18next', () => ({
         'preview.addSubgraph': 'Add subgraph',
         'preview.copySvg': 'Copy SVG',
         'preview.export': 'Export',
+        // ShapeToolbar (i18n-ified iter-9): the toolbar resolves its labels
+        // through visual.*, so the mock must cover them or getByText('Box')
+        // finds nothing.
+        'visual.selectTool': 'Select',
+        'visual.connectTool': 'Connect',
+        'visual.connectToolHint': 'Connect tool (C) - click two nodes to connect',
+        'visual.deleteSelected': 'Delete',
+        'visual.shapesTitle': 'SHAPES',
+        'visual.shapeAddHint': 'Add {{shape}} (tap to add, drag to canvas)',
+        'visual.shapes.box': 'Box',
+        'visual.shapes.round': 'Round',
+        'visual.shapes.stadium': 'Stadium',
+        'visual.shapes.rhombus': 'Diamond',
+        'visual.shapes.circle': 'Circle',
+        'visual.shapes.hexagon': 'Hexagon',
+        'visual.shapes.cylinder': 'Cylinder',
+        'visual.shapes.slant': 'Slant',
+        'visual.shapes.slantAlt': 'Slant (variant)',
+        'visual.shapes.trapezoid': 'Trapezoid',
+        'visual.shapes.trapezoidAlt': 'Trapezoid (variant)',
+        'visual.shapes.subroutine': 'Subroutine',
+        'visual.shapes.flag': 'Flag',
       };
-      return map[key] ?? key;
+      return (map[key] ?? key).replace(/\{\{(\w+)\}\}/g, (_, k: string) => String(args?.[k] ?? `{{${k}}}`));
     },
   }),
 }));
@@ -359,7 +381,7 @@ describe('PreviewPanel Component', () => {
       });
 
       // ShapeToolbar should be rendered because detectDiagramType returns 'flowchart' by default
-      const boxButton = container.querySelector('button[title="Add Box (click or drag to canvas)"]');
+      const boxButton = container.querySelector('button[title="Add Box (tap to add, drag to canvas)"]');
       expect(boxButton).toBeInTheDocument();
     });
 
@@ -377,7 +399,7 @@ describe('PreviewPanel Component', () => {
         expect(svg).toBeInTheDocument();
       });
 
-      const boxButton = container.querySelector('button[title="Add Box (click or drag to canvas)"]');
+      const boxButton = container.querySelector('button[title="Add Box (tap to add, drag to canvas)"]');
       expect(boxButton).toBeInTheDocument();
       fireEvent.click(boxButton!);
 
@@ -400,7 +422,7 @@ describe('PreviewPanel Component', () => {
         expect(svg).toBeInTheDocument();
       });
 
-      const boxButton = container.querySelector('button[title="Add Box (click or drag to canvas)"]');
+      const boxButton = container.querySelector('button[title="Add Box (tap to add, drag to canvas)"]');
       fireEvent.click(boxButton!);
 
       expect(onChange).toHaveBeenCalledWith(expect.stringContaining('nodeNew1'));
@@ -419,7 +441,7 @@ describe('PreviewPanel Component', () => {
         expect(svg).toBeInTheDocument();
       });
 
-      const boxButton = container.querySelector('button[title="Add Box (click or drag to canvas)"]');
+      const boxButton = container.querySelector('button[title="Add Box (tap to add, drag to canvas)"]');
       fireEvent.click(boxButton!);
 
       const { addNode } = await import('@/lib/mermaid/codeUtils');
@@ -466,7 +488,7 @@ describe('PreviewPanel Component', () => {
 
       // Verify the component rendered successfully with delete capability
       // (delete button is not visible until a node is selected via SVG overlay click)
-      const boxButton = container.querySelector('button[title="Add Box (click or drag to canvas)"]');
+      const boxButton = container.querySelector('button[title="Add Box (tap to add, drag to canvas)"]');
       expect(boxButton).toBeInTheDocument();
     });
   });
@@ -484,7 +506,7 @@ describe('PreviewPanel Component', () => {
       }, { timeout: 3000 });
 
       // ShapeToolbar should NOT be rendered for pie charts (no classDef support)
-      const boxButton = container.querySelector('button[title="Add Box (click or drag to canvas)"]');
+      const boxButton = container.querySelector('button[title="Add Box (tap to add, drag to canvas)"]');
       expect(boxButton).not.toBeInTheDocument();
 
       // Restore default mock
@@ -1068,7 +1090,7 @@ describe('PreviewPanel Component', () => {
         expect(svg).toBeInTheDocument();
       });
 
-      const boxButton = container.querySelector('button[title="Add Box (click or drag to canvas)"]');
+      const boxButton = container.querySelector('button[title="Add Box (tap to add, drag to canvas)"]');
       expect(boxButton).toBeInTheDocument();
       fireEvent.click(boxButton!);
 
@@ -1114,7 +1136,7 @@ describe('PreviewPanel Component', () => {
         expect(svg).toBeInTheDocument();
       });
 
-      const boxButton = container.querySelector('button[title="Add Box (click or drag to canvas)"]');
+      const boxButton = container.querySelector('button[title="Add Box (tap to add, drag to canvas)"]');
       expect(boxButton).toBeInTheDocument();
       fireEvent.click(boxButton!);
 

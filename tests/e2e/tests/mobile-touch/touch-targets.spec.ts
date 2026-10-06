@@ -52,21 +52,21 @@ test.describe('Mobile touch targets — ≥44px tap size audit (MTCH-01)', () =>
     expect(overflowBox!.height).toBeGreaterThanOrEqual(44);
 
     // Test MobileBottomNav buttons (all 3 should be present)
-    const navFiles = page.getByTestId('mobile-nav-files');
-    const navEdit = page.getByTestId('mobile-nav-edit');
-    const navAi = page.getByTestId('mobile-nav-ai');
+    const tabFiles = page.getByTestId('mobile-workspace-tab-files');
+    const tabCode = page.getByTestId('mobile-workspace-tab-code');
+    const tabPreview = page.getByTestId('mobile-workspace-tab-preview');
 
-    const filesBox = await navFiles.boundingBox();
+    const filesBox = await tabFiles.boundingBox();
     expect(filesBox).toBeTruthy();
     expect(filesBox!.width).toBeGreaterThanOrEqual(44);
     expect(filesBox!.height).toBeGreaterThanOrEqual(44);
 
-    const editBox = await navEdit.boundingBox();
+    const editBox = await tabCode.boundingBox();
     expect(editBox).toBeTruthy();
     expect(editBox!.width).toBeGreaterThanOrEqual(44);
     expect(editBox!.height).toBeGreaterThanOrEqual(44);
 
-    const aiBox = await navAi.boundingBox();
+    const aiBox = await tabPreview.boundingBox();
     expect(aiBox).toBeTruthy();
     expect(aiBox!.width).toBeGreaterThanOrEqual(44);
     expect(aiBox!.height).toBeGreaterThanOrEqual(44);

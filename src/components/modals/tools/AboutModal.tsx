@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { ExternalLink, ScrollText } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { SupportLinks } from '@/components/shared/SupportLinks';
 import { APP_VERSION } from '@/constants/app';
 import { GitHubIcon, GITHUB_URL } from './WelcomeModal';
@@ -18,9 +19,17 @@ interface Props {
  */
 export function AboutModal({ onClose, onShowReleaseNotes }: Props) {
   const { t } = useTranslation();
+  const isMobile = useMediaQuery('(max-width: 767.98px)');
 
   return (
-    <Modal isOpen onClose={onClose} title={t('about.title')} subtitle={`v${APP_VERSION}`} size="md">
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={t('about.title')}
+      subtitle={`v${APP_VERSION}`}
+      size="md"
+      position={isMobile ? 'bottom' : 'center'}
+    >
       <div className="p-6 space-y-5">
         <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
           {t('about.why')}

@@ -495,5 +495,28 @@ describe('Modal Component', () => {
         expect(mockOnClose).toHaveBeenCalledTimes(1);
       });
     });
+
+    describe('Bottom Position (Bottom Sheet)', () => {
+      it('should apply items-end and justify-center to wrapper when position is bottom', () => {
+        const { container } = render(
+          <Modal isOpen={true} onClose={mockOnClose} title="Test" position="bottom">
+            Content
+          </Modal>
+        );
+        const modalWrapper = container.querySelector('.fixed.inset-0.z-50');
+        expect(modalWrapper).toHaveClass('items-end', 'justify-center');
+      });
+
+      it('should apply rounded-t-[24px] and safe-bottom to bottom sheet modal', () => {
+        const { container } = render(
+          <Modal isOpen={true} onClose={mockOnClose} title="Test" position="bottom">
+            Content
+          </Modal>
+        );
+        const modal = container.querySelector('[data-testid="modal"]');
+        expect(modal).toHaveClass('rounded-t-[24px]');
+        expect(modal).toHaveClass('safe-bottom');
+      });
+    });
   });
 });

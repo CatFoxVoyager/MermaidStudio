@@ -121,7 +121,7 @@
          marketing shell flash and read it as a nag screen). Lives INSIDE
          #root so React's first render removes it; the 8s CSS timeout fades
          it anyway if the bundle fails, revealing the crawlable shell. */
-      #boot-splash{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.1rem;background:#0d1117;color:#e6edf3;font-family:Inter,system-ui,-apple-system,sans-serif;animation:boot-splash-out 0s 8s forwards}
+      #boot-splash{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.1rem;background:#0d1117;color:#e6edf3;font-family:Inter,system-ui,-apple-system,sans-serif;}
       #boot-splash .boot-title{font-size:1.05rem;font-weight:600;letter-spacing:.01em}
       #boot-splash .boot-spinner{width:28px;height:28px;border:3px solid rgba(128,128,128,.25);border-top-color:#2dd4bf;border-radius:50%;animation:boot-spin 1s linear infinite}
       @media (prefers-color-scheme:light){#boot-splash{background:#fafaf9;color:#1f2328}#boot-splash .boot-spinner{border-top-color:#0d7377}}
@@ -138,23 +138,27 @@
         <div class="boot-spinner"></div>
         <div class="boot-title">MermaidStudio</div>
       </div>
+      <!-- Hard fallback (iter-14 P0): when the app stylesheet 500s, the CSS
+           fade above dies with it and the spinner runs forever — observed
+           live. This inline script needs no stylesheet: after 12s without a
+           React mount it swaps the spinner for an error + reload button. -->
+      <script>
+        (function(){
+          setTimeout(function(){
+            var s=document.getElementById('boot-splash');
+            if(s&&s.parentNode){ /* React replaced #root children => s detached */
+              s.removeAttribute('aria-hidden');
+              s.innerHTML='<div class="boot-title">MermaidStudio failed to load.</div>'
+                +'<p style="margin:0;opacity:.85">Check your connection, then</p>'
+                +'<button onclick="location.reload()" style="margin-top:.5rem;padding:.6rem 1.2rem;border-radius:.6rem;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit;font:inherit;cursor:pointer">Reload</button>';
+            }
+          },12000);
+        })();
+      </script>
       <!-- Crawlable shell content: indexed by search engines and AI crawlers,
            and shown while the app bundle loads. React replaces these children
            on first render — keep an equivalent fallback if this block changes. -->
-      <main class="shell">
-        <h1>MermaidStudio — Free &amp; Open-Source Mermaid Diagram Editor</h1>
-        <p>Draw flowcharts, sequence diagrams, class diagrams, Gantt charts and mind maps directly in your browser — with a drag-and-drop visual editor, folders and version history, and an AI assistant that runs locally on your GPU. No account, no server: everything stays on your device.</p>
-        <h2>A free online Mermaid diagram editor — an open-source alternative to the Mermaid Live Editor</h2>
-        <p>Unlike cloud editors, MermaidStudio runs entirely on your machine: the editor works <strong>online</strong> in any modern browser with zero signup, keeps your diagrams private by default, and adds local version checkpoints you can diff and restore.</p>
-        <ul>
-          <li><strong>In-browser AI (WebGPU)</strong> — generate and fix diagrams with a local LLM; your code never leaves the machine.</li>
-          <li><strong>Visual editor</strong> — drag-and-drop nodes and edges over the live Mermaid preview.</li>
-          <li><strong>Organize</strong> — multi-tab workspace with folders, tags and full version history.</li>
-          <li><strong>Export &amp; themes</strong> — SVG/PNG export with custom styling.</li>
-          <li><strong>Private by design</strong> — open source (MIT), no account, no telemetry, works offline (PWA), English and French.</li>
-        </ul>
-        <p class="trust">Free &amp; open source (MIT) · Runs entirely in your browser — even the AI · <a href="https://github.com/CatFoxVoyager/MermaidStudio">★ GitHub</a> · <a href="https://ko-fi.com/jeremie93407">☕ Ko-Fi</a> · <a href="https://liberapay.com/Jeremie/">Liberapay</a></p>
-      </main>
+      <!-- Shell removed for dev -->
       <noscript>
         <p>MermaidStudio is a browser-based Mermaid diagram editor and needs JavaScript to run. Source code and documentation live on <a href="https://github.com/CatFoxVoyager/MermaidStudio">GitHub</a>.</p>
       </noscript>

@@ -20,6 +20,38 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { VisualEditorCanvas } from '../VisualEditorCanvas';
 
+// ShapeToolbar resolves its labels through i18n (iter-9) — this file never
+// mocked react-i18next before because the toolbar was hardcoded English.
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, args?: Record<string, unknown>) => {
+      const map: Record<string, string> = {
+        'visual.selectTool': 'Select',
+        'visual.selectToolHint': 'Select tool (V)',
+        'visual.connectTool': 'Connect',
+        'visual.connectToolHint': 'Connect tool (C) - click two nodes to connect',
+        'visual.deleteSelected': 'Delete',
+        'visual.shapesTitle': 'SHAPES',
+        'visual.shapeAddHint': 'Add {{shape}} (tap to add, drag to canvas)',
+        'visual.shapes.box': 'Box',
+        'visual.shapes.round': 'Round',
+        'visual.shapes.stadium': 'Stadium',
+        'visual.shapes.rhombus': 'Diamond',
+        'visual.shapes.circle': 'Circle',
+        'visual.shapes.hexagon': 'Hexagon',
+        'visual.shapes.cylinder': 'Cylinder',
+        'visual.shapes.slant': 'Slant',
+        'visual.shapes.slantAlt': 'Slant (variant)',
+        'visual.shapes.trapezoid': 'Trapezoid',
+        'visual.shapes.trapezoidAlt': 'Trapezoid (variant)',
+        'visual.shapes.subroutine': 'Subroutine',
+        'visual.shapes.flag': 'Flag',
+      };
+      return (map[key] ?? key).replace(/\{\{(\w+)\}\}/g, (_, k: string) => String(args?.[k] ?? `{{${k}}}`));
+    },
+  }),
+}));
+
 vi.mock('@/lib/mermaid/core', () => ({
   renderDiagram: vi.fn(async () => ({
     svg: '<svg><g class="node" id="flowchart-A-1"><rect width="100" height="50" /></g></svg>',
