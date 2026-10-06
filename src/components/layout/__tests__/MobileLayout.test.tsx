@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MobileLayout } from '../MobileLayout';
-import { MobileShellProvider } from '@/hooks/useMobileShell';
+import { MobileShellProvider, useMobileShellContext } from '@/hooks/useMobileShell';
 
 // Mock Sidebar and AIPanel to avoid heavy IndexedDB/AI hook initialization in shell integration test
 vi.mock('@/sidebar/Sidebar', () => ({
@@ -53,62 +53,81 @@ vi.mock('@/components/modals/settings/AdvancedStylePanel', () => ({
   ),
 }));
 
+/**
+ * Drives the shell context directly. The old tests clicked mobile-nav-*
+ * testids that belonged to MobileBottomNav — dead code removed with the
+ * bottom-nav slot; today the AI drawer is reached through the menu sheet
+ * (GPU-gated row, hidden in jsdom) and style panels through the preview
+ * toolbar, so the drawer plumbing is exercised at the context seam.
+ */
+function ShellProbe() {
+  const { setActiveDrawer, openDrawer, closeDrawer } = useMobileShellContext();
+  return (
+    <div>
+      <button onClick={() => setActiveDrawer('ai')}>probe-open-ai</button>
+      <button onClick={() => setActiveDrawer('colors')}>probe-open-colors</button>
+      <button onClick={() => setActiveDrawer('advanced')}>probe-open-advanced</button>
+      <button onClick={closeDrawer}>probe-close</button>
+      <span data-testid="probe-open-drawer">{openDrawer ?? 'none'}</span>
+    </div>
+  );
+}
+
+const renderMobileLayout = (props: any, withProbe = false) => {
+  return render(
+    <MobileShellProvider>
+      {withProbe && <ShellProbe />}
+      <MobileLayout {...props} />
+    </MobileShellProvider>
+  );
+};
+
+const baseProps = {
+  theme: 'light' as const,
+  onNewDiagram: vi.fn(),
+  onSave: vi.fn(),
+  onShowExport: vi.fn(),
+  onOpenCommandPalette: vi.fn(),
+  onOpenDiagram: vi.fn(),
+  activeDiagramId: null,
+  onRefresh: vi.fn(),
+  onDiagramDeleted: vi.fn(),
+  refreshKey: 0,
+  currentContent: '',
+  onApply: vi.fn(),
+  onOpenSettings: vi.fn(),
+  settingsKey: 0,
+  value: '',
+  onContentChange: vi.fn(),
+  onSaveTab: vi.fn(),
+  onPreviewError: vi.fn(),
+};
+
 describe('MobileLayout', () => {
   let originalMatchMedia: typeof window.matchMedia;
 
-  // Helper function to render MobileLayout with MobileShellProvider
-  const renderMobileLayout = (props: any) => {
-    return render(
-      <MobileShellProvider>
-        <MobileLayout {...props} />
-      </MobileShellProvider>
-    );
-  };
-
   beforeEach(() => {
-    // Save original to restore after test
     originalMatchMedia = window.matchMedia;
     vi.clearAllMocks();
-
-    // Mock window.matchMedia (jsdom doesn't implement it)
     window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-      matches: true, // Default to mobile viewport for MobileLayout tests
+      matches: true,
       media: query,
       onchange: null,
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
-      addListener: vi.fn(), // deprecated Safari
-      removeListener: vi.fn(), // deprecated Safari
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
       dispatchEvent: vi.fn(),
     }));
   });
 
   afterEach(() => {
-    // Restore original to prevent mock leakage
     window.matchMedia = originalMatchMedia;
   });
 
-  describe('Phase 14 scaffold tests (regression guard)', () => {
-    it('should render root with h-dvh class and mobile-layout-root testid', () => {
-      const { container } = renderMobileLayout({
-        theme: 'light',
-        onNewDiagram: vi.fn(),
-        onSave: vi.fn(),
-        onOpenCommandPalette: vi.fn(),
-        onOpenDiagram: vi.fn(),
-        activeDiagramId: null,
-        onRefresh: vi.fn(),
-        onDiagramDeleted: vi.fn(),
-        refreshKey: 0,
-        currentContent: '',
-        onApply: vi.fn(),
-        onOpenSettings: vi.fn(),
-        settingsKey: 0,
-        value: '',
-        onContentChange: vi.fn(),
-        onSaveTab: vi.fn(),
-        onPreviewError: vi.fn(),
-      });
+  describe('shell scaffold', () => {
+    it('renders root with h-dvh and mobile-layout-root testid', () => {
+      const { container } = renderMobileLayout(baseProps);
       const root = container.firstChild as HTMLElement;
       expect(root).toBeInTheDocument();
       expect(root.className).toContain('h-dvh');
@@ -116,428 +135,135 @@ describe('MobileLayout', () => {
       expect(root.getAttribute('data-testid')).toBe('mobile-layout-root');
     });
 
-    it('should render dark class when theme is dark', () => {
-      const { container } = renderMobileLayout({
-        theme: 'dark',
-        onNewDiagram: vi.fn(),
-        onSave: vi.fn(),
-        onOpenCommandPalette: vi.fn(),
-        onOpenDiagram: vi.fn(),
-        activeDiagramId: null,
-        onRefresh: vi.fn(),
-        onDiagramDeleted: vi.fn(),
-        refreshKey: 0,
-        currentContent: '',
-        onApply: vi.fn(),
-        onOpenSettings: vi.fn(),
-        settingsKey: 0,
-        value: '',
-        onContentChange: vi.fn(),
-        onSaveTab: vi.fn(),
-        onPreviewError: vi.fn(),
-      });
-      const root = container.firstChild as HTMLElement;
-      expect(root.className).toContain('dark');
+    it('renders dark class only when theme is dark', () => {
+      const dark = renderMobileLayout({ ...baseProps, theme: 'dark' });
+      expect((dark.container.firstChild as HTMLElement).className).toContain('dark');
+      dark.unmount();
+      const light = renderMobileLayout({ ...baseProps, theme: 'light' });
+      expect((light.container.firstChild as HTMLElement).className).not.toContain('dark');
     });
 
-    it('should not render dark class when theme is light', () => {
-      const { container } = renderMobileLayout({
-        theme: 'light',
-        onNewDiagram: vi.fn(),
-        onSave: vi.fn(),
-        onOpenCommandPalette: vi.fn(),
-        onOpenDiagram: vi.fn(),
-        activeDiagramId: null,
-        onRefresh: vi.fn(),
-        onDiagramDeleted: vi.fn(),
-        refreshKey: 0,
-        currentContent: '',
-        onApply: vi.fn(),
-        onOpenSettings: vi.fn(),
-        settingsKey: 0,
-        value: '',
-        onContentChange: vi.fn(),
-        onSaveTab: vi.fn(),
-        onPreviewError: vi.fn(),
-      });
-      const root = container.firstChild as HTMLElement;
-      expect(root.className).not.toContain('dark');
-    });
-
-    it('should render three placeholder slots with correct testids', () => {
-      renderMobileLayout({
-        theme: 'light',
-        onNewDiagram: vi.fn(),
-        onSave: vi.fn(),
-        onOpenCommandPalette: vi.fn(),
-        onOpenDiagram: vi.fn(),
-        activeDiagramId: null,
-        onRefresh: vi.fn(),
-        onDiagramDeleted: vi.fn(),
-        refreshKey: 0,
-        currentContent: '',
-        onApply: vi.fn(),
-        onOpenSettings: vi.fn(),
-        settingsKey: 0,
-        value: '',
-        onContentChange: vi.fn(),
-        onSaveTab: vi.fn(),
-        onPreviewError: vi.fn(),
-      });
-      expect(screen.getByTestId('mobile-topbar-slot')).toBeInTheDocument();
-      expect(screen.getByTestId('mobile-workspace-slot')).toBeInTheDocument();
-      expect(screen.getByTestId('mobile-bottomnav-slot')).toBeInTheDocument();
-    });
-
-    it('should apply per-zone safe-area utilities (never on root)', () => {
-      const { container } = renderMobileLayout({
-        theme: 'light',
-        onNewDiagram: vi.fn(),
-        onSave: vi.fn(),
-        onOpenCommandPalette: vi.fn(),
-        onOpenDiagram: vi.fn(),
-        activeDiagramId: null,
-        onRefresh: vi.fn(),
-        onDiagramDeleted: vi.fn(),
-        refreshKey: 0,
-        currentContent: '',
-        onApply: vi.fn(),
-        onOpenSettings: vi.fn(),
-        settingsKey: 0,
-        value: '',
-        onContentChange: vi.fn(),
-        onSaveTab: vi.fn(),
-        onPreviewError: vi.fn(),
-      });
+    it('renders topbar and workspace slots with per-zone safe-area utilities', () => {
+      const { container } = renderMobileLayout(baseProps);
       const root = container.firstChild as HTMLElement;
       expect(root.className).not.toContain('safe-top');
       expect(root.className).not.toContain('safe-bottom');
 
-      const topbarSlot = screen.getByTestId('mobile-topbar-slot');
-      expect(topbarSlot.className).toContain('safe-top');
-
-      const bottomnavSlot = screen.getByTestId('mobile-bottomnav-slot');
-      expect(bottomnavSlot.className).toContain('safe-bottom');
+      expect(screen.getByTestId('mobile-topbar-slot').className).toContain('safe-top');
+      expect(screen.getByTestId('mobile-workspace-slot').className).toContain('safe-bottom');
+      // The bottom-nav slot is gone: navigation lives in the top bar's menu
+      // and the workspace segments (MobileBottomNav was dead code).
+      expect(screen.queryByTestId('mobile-bottomnav-slot')).not.toBeInTheDocument();
     });
 
-    it('should apply z-index token only to bottom-nav slot', () => {
+    it('keeps the ad-banner overlay slot at zero height (Phase 32 testid contract)', () => {
+      renderMobileLayout(baseProps);
+      const slot = screen.getByTestId('mobile-ad-banner-slot');
+      expect(slot).toBeInTheDocument();
+      expect(slot.style.height).toBe('0px');
+    });
+
+    it('renders MobileTopBar inside the topbar slot', () => {
+      renderMobileLayout(baseProps);
+      const topbarSlot = screen.getByTestId('mobile-topbar-slot');
+      expect(within(topbarSlot).getByTestId('mobile-topbar')).toBeInTheDocument();
+    });
+
+    it('renders MobileWorkspace inside the workspace slot (Phase 16)', () => {
+      renderMobileLayout(baseProps);
+      const workspaceSlot = screen.getByTestId('mobile-workspace-slot');
+      expect(within(workspaceSlot).getByTestId('mobile-workspace')).toBeInTheDocument();
+      expect(within(workspaceSlot).queryByTestId('mobile-topbar')).not.toBeInTheDocument();
+    });
+
+    it('threads editor value/onChange/theme through to MobileWorkspace', () => {
+      const onContentChange = vi.fn();
       renderMobileLayout({
-        theme: 'light',
-        onNewDiagram: vi.fn(),
-        onSave: vi.fn(),
-        onOpenCommandPalette: vi.fn(),
-        onOpenDiagram: vi.fn(),
-        activeDiagramId: null,
-        onRefresh: vi.fn(),
-        onDiagramDeleted: vi.fn(),
-        refreshKey: 0,
-        currentContent: '',
-        onApply: vi.fn(),
-        onOpenSettings: vi.fn(),
-        settingsKey: 0,
-        value: '',
-        onContentChange: vi.fn(),
-        onSaveTab: vi.fn(),
-        onPreviewError: vi.fn(),
+        ...baseProps,
+        value: 'graph TD; A-->B',
+        onContentChange,
+        theme: 'dark',
       });
-      const bottomnavSlot = screen.getByTestId('mobile-bottomnav-slot');
-      expect(bottomnavSlot.className).toContain('z-[var(--z-bottom-nav)]');
-
-      const topbarSlot = screen.getByTestId('mobile-topbar-slot');
-      expect(topbarSlot.className).not.toContain('z-[var(--z-');
+      const mobileWorkspace = screen.getByTestId('mobile-workspace');
+      expect(mobileWorkspace).toHaveAttribute('data-value', 'graph TD; A-->B');
+      expect(mobileWorkspace).toHaveAttribute('data-theme', 'dark');
     });
 
-    it('should inherit surface vars from existing design system', () => {
-      const { container } = renderMobileLayout({
-        theme: 'light',
-        onNewDiagram: vi.fn(),
-        onSave: vi.fn(),
-        onOpenCommandPalette: vi.fn(),
-        onOpenDiagram: vi.fn(),
-        activeDiagramId: null,
-        onRefresh: vi.fn(),
-        onDiagramDeleted: vi.fn(),
-        refreshKey: 0,
-        currentContent: '',
-        onApply: vi.fn(),
-        onOpenSettings: vi.fn(),
-        settingsKey: 0,
-        value: '',
-        onContentChange: vi.fn(),
-        onSaveTab: vi.fn(),
-        onPreviewError: vi.fn(),
-      });
+    it('inherits surface vars from the design system', () => {
+      const { container } = renderMobileLayout(baseProps);
       const root = container.firstChild as HTMLElement;
       expect(root.style.background).toBe('var(--surface-base)');
       expect(root.style.color).toBe('var(--text-primary)');
     });
   });
 
-  describe('Mobile shell integration (Plan 15-04)', () => {
-    const defaultProps = {
-      theme: 'light' as const,
-      onNewDiagram: vi.fn(),
-      onSave: vi.fn(),
-      onOpenCommandPalette: vi.fn(),
-      onOpenDiagram: vi.fn(),
-      activeDiagramId: null,
-      onRefresh: vi.fn(),
-      onDiagramDeleted: vi.fn(),
-      refreshKey: 0,
-      currentContent: '',
-      onApply: vi.fn(),
-      onOpenSettings: vi.fn(),
-      settingsKey: 0,
-      value: '',
-      onContentChange: vi.fn(),
-      onSaveTab: vi.fn(),
-      themeId: undefined,
-      onPreviewError: vi.fn(),
-    };
-
-    it('should render MobileTopBar inside mobile-topbar-slot', () => {
-      renderMobileLayout(defaultProps);
-      const topbarSlot = screen.getByTestId('mobile-topbar-slot');
-      expect(within(topbarSlot).getByTestId('mobile-topbar')).toBeInTheDocument();
+  describe('topbar dirty state threading (critique iter-7)', () => {
+    it('disables Save when the active tab is clean', () => {
+      renderMobileLayout({ ...baseProps, isDirty: false });
+      expect(screen.getByTestId('mobile-topbar-save')).toBeDisabled();
     });
 
-    it('should render MobileBottomNav inside mobile-bottomnav-slot', () => {
-      renderMobileLayout(defaultProps);
-      const bottomnavSlot = screen.getByTestId('mobile-bottomnav-slot');
-      expect(within(bottomnavSlot).getByTestId('mobile-nav-files')).toBeInTheDocument();
-    });
-
-    it('should remove Phase 14 placeholder text labels', () => {
-      renderMobileLayout(defaultProps);
-      expect(screen.queryByText('TopBar slot')).toBeNull();
-      expect(screen.queryByText('Bottom Nav slot')).toBeNull();
-    });
-
-    it('should render MobileWorkspace inside mobile-workspace-slot (Phase 16 integration)', () => {
-      renderMobileLayout(defaultProps);
-      expect(screen.getByTestId('mobile-workspace-slot')).toBeInTheDocument();
-
-      // Placeholder should be gone
-      expect(screen.queryByText('Workspace slot')).toBeNull();
-
-      // MobileWorkspace should be rendered in the slot
-      const workspaceSlot = screen.getByTestId('mobile-workspace-slot');
-      expect(within(workspaceSlot).getByTestId('mobile-workspace')).toBeInTheDocument();
-
-      // Should not contain other components
-      expect(within(workspaceSlot).queryByTestId('mobile-topbar')).not.toBeInTheDocument();
-      expect(within(workspaceSlot).queryByTestId('mobile-nav-files')).not.toBeInTheDocument();
-    });
-
-    it('should open Files drawer when tapping mobile-nav-files', async () => {
-      const user = userEvent.setup();
-      renderMobileLayout(defaultProps);
-
-      await user.click(screen.getByTestId('mobile-nav-files'));
-
-      // Modal drawer should appear with role="dialog"
-      const dialog = await screen.findByRole('dialog');
-      expect(dialog).toBeInTheDocument();
-
-      // Sidebar stub content should be visible
-      expect(screen.getByTestId('sidebar-stub')).toBeInTheDocument();
-    });
-
-    it('should maintain mutual exclusion when switching drawers', async () => {
-      const user = userEvent.setup();
-      renderMobileLayout(defaultProps);
-
-      // Open Files drawer
-      await user.click(screen.getByTestId('mobile-nav-files'));
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
-      expect(screen.getByTestId('sidebar-stub')).toBeInTheDocument();
-
-      // Switch to AI drawer (Files drawer should close)
-      await user.click(screen.getByTestId('mobile-nav-ai'));
-
-      // Should still be only one dialog (mutual exclusion)
-      // Wait for the AI drawer to appear
-      const dialog = await screen.findByRole('dialog');
-      expect(dialog).toBeInTheDocument();
-
-      // AI panel should now be visible
-      expect(screen.getByTestId('ai-panel-stub')).toBeInTheDocument();
-      expect(screen.queryByTestId('sidebar-stub')).not.toBeInTheDocument();
-    });
-
-    it('should close drawer when clicking backdrop overlay', async () => {
-      const user = userEvent.setup();
-      renderMobileLayout(defaultProps);
-
-      // Open Files drawer
-      await user.click(screen.getByTestId('mobile-nav-files'));
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
-
-      // Click backdrop overlay
-      await user.click(screen.getByTestId('modal-overlay'));
-
-      // Drawer should close
-      expect(screen.queryByRole('dialog')).toBeNull();
-      expect(screen.queryByTestId('sidebar-stub')).not.toBeInTheDocument();
-    });
-
-    it('should accept full prop surface without crashing', () => {
-      expect(() => {
-        renderMobileLayout(defaultProps);
-      }).not.toThrow();
-    });
-
-    it('should pass editor value/onChange/theme through to MobileWorkspace', () => {
-      const onContentChange = vi.fn();
-      renderMobileLayout({
-        ...defaultProps,
-        value: 'graph TD; A-->B',
-        onContentChange: onContentChange,
-        theme: 'dark',
-      });
-
-      const mobileWorkspace = screen.getByTestId('mobile-workspace');
-      expect(mobileWorkspace).toHaveAttribute('data-value', 'graph TD; A-->B');
-      expect(mobileWorkspace).toHaveAttribute('data-theme', 'dark');
-      expect(mobileWorkspace).toHaveAttribute('data-theme-id', 'none');
-
-      // Test onChange flow
-      onContentChange.mockClear();
-      onContentChange('new content');
-      expect(onContentChange).toHaveBeenCalledWith('new content');
-    });
-
-    it('should toggle between Code and Preview panes in MobileWorkspace', async () => {
-      const user = userEvent.setup();
-      renderMobileLayout(defaultProps);
-
-      // MobileWorkspace stub renders, but the real toggle would be here
-      const mobileWorkspace = screen.getByTestId('mobile-workspace');
-      expect(mobileWorkspace).toBeInTheDocument();
-
-      // The stub doesn't have actual toggle behavior, but we can verify it receives the right props
-      expect(mobileWorkspace).toHaveAttribute('data-value', '');
+    it('enables Save and shows the dirty dot when the tab is dirty', () => {
+      renderMobileLayout({ ...baseProps, isDirty: true });
+      expect(screen.getByTestId('mobile-topbar-save')).toBeEnabled();
+      expect(screen.getByTestId('mobile-topbar-dirty-dot')).toBeInTheDocument();
     });
   });
 
-  describe('Phase 17 style-panel drawers (MDRW-02)', () => {
-    const phase17Props = {
-      theme: 'light' as const,
-      onNewDiagram: vi.fn(),
-      onSave: vi.fn(),
-      onOpenCommandPalette: vi.fn(),
-      onOpenDiagram: vi.fn(),
-      activeDiagramId: null,
-      onRefresh: vi.fn(),
-      onDiagramDeleted: vi.fn(),
-      refreshKey: 0,
-      currentContent: '',
-      onApply: vi.fn(),
-      onOpenSettings: vi.fn(),
-      settingsKey: 0,
-      value: '',
-      onContentChange: vi.fn(),
-      onSaveTab: vi.fn(),
-      themeId: undefined,
-      onPreviewError: vi.fn(),
-      // Phase 17 props for style panels
-      defaultThemeId: 'default',
-      onSetDefaultTheme: vi.fn(),
-      onThemeIdChange: vi.fn(),
-    };
-
-    it('should accept Phase 17 style-panel props without crashing', () => {
-      expect(() => {
-        renderMobileLayout(phase17Props);
-      }).not.toThrow();
-    });
-
-    it('should render Colors drawer in Modal position=right (GREEN)', async () => {
-      // GREEN: Colors drawer is now implemented
-      const { container } = renderMobileLayout(phase17Props);
-
-      // Count Modal position="right" elements - should be 4 after implementation
-      // Files + AI + Colors + AdvancedStyle = 4 total drawers
-      // Drawers are conditionally rendered (openDrawer === id), so a count-at-render
-      // assertion was invalid. The drawer infra (Modal position="right" + mutual exclusion)
-      // is verified by the mutual-exclusion and non-regression tests below.
-      expect(container).toBeTruthy();
-
-      // Initially, no style panel drawer should be visible
-      expect(screen.queryByTestId('diagram-colors-stub')).not.toBeInTheDocument();
-    });
-
-    it('should render AdvancedStyle drawer in Modal position=right (GREEN)', async () => {
-      // GREEN: AdvancedStyle drawer is now implemented
-      const { container } = renderMobileLayout(phase17Props);
-
-      // Initially, no style panel drawer should be visible
-      expect(screen.queryByTestId('advanced-style-stub')).not.toBeInTheDocument();
-    });
-
-    it('should enforce mutual exclusion across Files/AI/Colors/Advanced (GREEN)', async () => {
-      // GREEN: Mutual exclusion is now implemented across all drawer types
+  describe('right drawers (AI / Colors / AdvancedStyle)', () => {
+    it('opens the AI drawer through the shell context and lazy-mounts the panel', async () => {
       const user = userEvent.setup();
-      renderMobileLayout(phase17Props);
-
-      // Files drawer should work
-      await user.click(screen.getByTestId('mobile-nav-files'));
-      expect(screen.getByTestId('sidebar-stub')).toBeInTheDocument();
-
-      // AI drawer should close Files drawer (mutual exclusion)
-      await user.click(screen.getByTestId('mobile-nav-ai'));
+      renderMobileLayout(baseProps, true);
+      await user.click(screen.getByText('probe-open-ai'));
+      expect(await screen.findByRole('dialog')).toBeInTheDocument();
       expect(screen.getByTestId('ai-panel-stub')).toBeInTheDocument();
-      expect(screen.queryByTestId('sidebar-stub')).not.toBeInTheDocument();
-
-      // Drawers maintain mutual exclusion - only one drawer at a time
-      expect(screen.queryByTestId('diagram-colors-stub')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('advanced-style-stub')).not.toBeInTheDocument();
     });
 
-    it('should close Colors drawer on backdrop click (GREEN)', async () => {
-      // GREEN: Backdrop dismiss behavior is now implemented for Colors drawer
-      // The Modal component already handles backdrop dismiss, so this tests
-      // that the Colors drawer uses the same Modal infrastructure
-      const { container } = renderMobileLayout(phase17Props);
-
-      // Verify that Colors drawer uses Modal with backdrop dismiss capability
-      // Drawers are conditionally rendered (openDrawer === id), so a count-at-render
-      // assertion was invalid. The drawer infra (Modal position="right" + mutual exclusion)
-      // is verified by the mutual-exclusion and non-regression tests below.
-      expect(container).toBeTruthy();
-    });
-
-    it('should close AdvancedStyle drawer on backdrop click (GREEN)', async () => {
-      // GREEN: Backdrop dismiss behavior is now implemented for AdvancedStyle drawer
-      // The Modal component already handles backdrop dismiss, so this tests
-      // that the AdvancedStyle drawer uses the same Modal infrastructure
-      const { container } = renderMobileLayout(phase17Props);
-
-      // Verify that AdvancedStyle drawer uses Modal with backdrop dismiss capability
-      // Drawers are conditionally rendered (openDrawer === id), so a count-at-render
-      // assertion was invalid. The drawer infra (Modal position="right" + mutual exclusion)
-      // is verified by the mutual-exclusion and non-regression tests below.
-      expect(container).toBeTruthy();
-    });
-
-    it('should maintain Phase 15/16 non-regression (Files/AI drawers)', async () => {
-      // This test validates that Phase 15/16 functionality still works
+    it('maintains mutual exclusion across drawers', async () => {
       const user = userEvent.setup();
-      renderMobileLayout(phase17Props);
+      renderMobileLayout(baseProps, true);
+      await user.click(screen.getByText('probe-open-ai'));
+      expect(await screen.findByTestId('ai-panel-stub')).toBeInTheDocument();
 
-      // Files drawer should still work
-      await user.click(screen.getByTestId('mobile-nav-files'));
-      expect(screen.getByRole('dialog')).toBeInTheDocument();
-      expect(screen.getByTestId('sidebar-stub')).toBeInTheDocument();
+      await user.click(screen.getByText('probe-open-colors'));
+      expect(await screen.findByTestId('diagram-colors-stub')).toBeInTheDocument();
+      expect(screen.queryByTestId('ai-panel-stub')).not.toBeInTheDocument();
+    });
 
-      // AI drawer should still work
-      await user.click(screen.getByTestId('mobile-nav-ai'));
-      expect(screen.getByTestId('ai-panel-stub')).toBeInTheDocument();
-      expect(screen.queryByTestId('sidebar-stub')).not.toBeInTheDocument();
-
-      // Backdrop dismiss should still work
+    it('closes the drawer on backdrop click', async () => {
+      const user = userEvent.setup();
+      renderMobileLayout(baseProps, true);
+      await user.click(screen.getByText('probe-open-ai'));
+      expect(await screen.findByRole('dialog')).toBeInTheDocument();
       await user.click(screen.getByTestId('modal-overlay'));
       expect(screen.queryByRole('dialog')).toBeNull();
+      expect(screen.queryByTestId('ai-panel-stub')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('menu sheet', () => {
+    it('opens from the topbar overflow button with Settings and the Android footnote', async () => {
+      const user = userEvent.setup();
+      const onOpenSettings = vi.fn();
+      renderMobileLayout({ ...baseProps, onOpenSettings });
+      await user.click(screen.getByTestId('mobile-topbar-overflow'));
+      expect(await screen.findByTestId('mobile-menu-sheet')).toBeInTheDocument();
+
+      // The Android note survives as the demoted footnote card.
+      expect(screen.getByTestId('mobile-menu-android-card')).toBeInTheDocument();
+
+      // Settings row is wired to the layout's onOpenSettings (and closes
+      // the sheet first — so this assertion runs last).
+      await user.click(screen.getByTestId('mobile-menu-item-settings'));
+      expect(onOpenSettings).toHaveBeenCalledTimes(1);
+    });
+
+    it('hides the AI row where WebGPU is unavailable (jsdom)', async () => {
+      const user = userEvent.setup();
+      renderMobileLayout(baseProps);
+      await user.click(screen.getByTestId('mobile-topbar-overflow'));
+      expect(await screen.findByTestId('mobile-menu-sheet')).toBeInTheDocument();
+      expect(screen.queryByTestId('mobile-menu-item-ai')).not.toBeInTheDocument();
     });
   });
 });

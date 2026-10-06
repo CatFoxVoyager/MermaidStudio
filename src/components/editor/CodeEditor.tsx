@@ -3,10 +3,11 @@ import { EditorView, basicSetup } from 'codemirror';
 import { Decoration, keymap, type DecorationSet } from '@codemirror/view';
 import { EditorState, StateEffect, StateField } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { defaultKeymap, indentWithTab } from '@codemirror/commands';
+import { defaultKeymap, indentWithTab, redo } from '@codemirror/commands';
 import { bracketMatching } from '@codemirror/language';
 import { mermaidLanguage } from '@/lib/mermaid/language';
 import { mermaidAutocomplete } from '@/lib/mermaid/autocomplete';
+import { registerCodeViewAccessor, unregisterCodeViewAccessor } from '@/lib/editor/codeViewRegistry';
 
 interface Props {
   value: string;
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export interface CodeEditorRef {
+  getView: () => EditorView | null;
   highlightLine: (line: number) => void;
   scrollToLine: (line: number) => void;
 }
@@ -67,6 +69,7 @@ export const CodeEditor = forwardRef<CodeEditorRef, Props>(function CodeEditor({
   onSaveRef.current = onSave; // oxlint-disable-line react/refs
 
   useImperativeHandle(ref, () => ({
+    getView: () => viewRef.current,
     highlightLine(line: number) {
       const view = viewRef.current;
       if (!view) return;
@@ -111,6 +114,19 @@ export const CodeEditor = forwardRef<CodeEditorRef, Props>(function CodeEditor({
         ...(theme === 'dark' ? [oneDark] : []),
         keymap.of([
           { key: 'Mod-s', run: () => { onSaveRef.current?.(); return true; } },
+          // Escape releases the editor back to the page (iter-24 P1: CM6
+          // consumed 6 consecutive Tabs — keyboard/switch users could never
+          // reach the Symbols & arrows row below the editor). Escape blurs
+          // the view, returning focus to the page where Tab continues.
+          { key: 'Escape', run: view => { view.contentDOM.blur(); return false; } },
+          // CM6's historyKeymap only binds redo to Mod-y on Windows/Linux
+          // (Mod-Shift-z exists there solely as the mac variant of Mod-y).
+          // Without this entry Ctrl+Shift+Z falls through to the browser's
+          // native contenteditable undo, which destroys text OUTSIDE CM6's
+          // history — redo appears to "delete" characters. The in-app
+          // shortcut help (KeyboardShortcuts) documents Ctrl+Shift+Z as redo,
+          // so the editor must honor it on every platform.
+          { key: 'Mod-Shift-z', run: redo },
           indentWithTab,
           ...defaultKeymap,
         ]),
@@ -123,6 +139,15 @@ export const CodeEditor = forwardRef<CodeEditorRef, Props>(function CodeEditor({
 
     const view = new EditorView({ state, parent: containerRef.current });
     viewRef.current = view;
+    // Register the live view in the module-level registry so toolbar buttons
+    // rendered OUTSIDE this component's tree (mobile topbar, desktop
+    // WorkspacePanel) can dispatch history commands through it. Registered
+    // here — not by the hosts — so every mount site is covered, including
+    // future ones (sanctioned seam: codeViewRegistry.ts header). The
+    // unregister passes this instance's accessor: a late teardown of a
+    // PREVIOUS editor (layout switch) must not clear OUR registration.
+    const viewAccessor = () => viewRef.current;
+    registerCodeViewAccessor(viewAccessor);
     // Store EditorView instance on DOM element for E2E test access
     const dom = containerRef.current.querySelector('.cm-editor');
     if (dom) {
@@ -130,6 +155,7 @@ export const CodeEditor = forwardRef<CodeEditorRef, Props>(function CodeEditor({
     }
 
     return () => {
+      unregisterCodeViewAccessor(viewAccessor);
       view.destroy();
       viewRef.current = null;
     };

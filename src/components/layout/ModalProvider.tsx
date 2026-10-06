@@ -156,16 +156,13 @@ export function ModalProvider({
         <CommandPalette
           onClose={onClosePalette}
           onNewDiagram={newDiagram}
-          onNewFolder={handleNewFolder}
-          onOpenTemplates={() => {
-            onClosePalette();
-            onOpenTemplates();
-          }}
+          onNewFolder={isMobile ? undefined : handleNewFolder}
+          onOpenTemplates={isMobile ? undefined : () => { onClosePalette(); onOpenTemplates(); }}
           onToggleHistory={() => {
             onClosePalette();
             onCloseHistory();
           }}
-          onToggleAI={toggleAI}
+          onToggleAI={isMobile ? undefined : toggleAI}
           onToggleTheme={toggleTheme}
           theme={theme}
           diagrams={diagrams}

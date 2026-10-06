@@ -150,7 +150,12 @@ export async function renderDiagram(
 
   const safeId = id.replace(/[^a-zA-Z0-9_]/g, '_');
   try {
-    let { svg } = await mermaid.render(safeId, content);
+    // Leading whitespace defeats mermaid's frontmatter detection (it needs
+    // column 0): an indented `---` is lexed as an edge token and the render
+    // dies with "got LINK" (critique iter-9 P1 — the stored seed shipped
+    // with 18 leading spaces). Trim is render-only; the stored content and
+    // the code pane keep their original bytes.
+    let { svg } = await mermaid.render(safeId, content.trimStart());
 
     svg = sanitizeMermaidSVG(svg);
 

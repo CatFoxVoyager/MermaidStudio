@@ -10,7 +10,7 @@ export interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   footer?: ReactNode;
   subtitle?: string;
-  position?: 'center' | 'right';
+  position?: 'center' | 'right' | 'bottom';
 }
 
 const sizeClasses = {
@@ -24,6 +24,7 @@ const sizeClasses = {
 const positionClasses = {
   center: 'items-center justify-center',
   right: 'items-end justify-end',
+  bottom: 'items-end justify-center',
 };
 
 export function Modal({
@@ -59,6 +60,7 @@ export function Modal({
   const sizeClass = sizeClasses[size];
   const positionClass = positionClasses[position];
   const isRightPanel = position === 'right';
+  const isBottomPanel = position === 'bottom';
 
   // Handle Esc key press and keep Tab cycling inside the panel (critique
   // iter-5 P1: Tab used to escape the overlay to focusable-but-hidden page
@@ -120,24 +122,64 @@ export function Modal({
         ref={panelRef}
         tabIndex={-1}
         data-testid="modal"
-        className={`relative z-50 outline-hidden ${isRightPanel ? 'w-[380px] h-full border-l rounded-none max-md:w-full max-md:border-l-0' : `w-full ${sizeClass} rounded-2xl max-md:max-w-full max-md:w-full max-md:h-full max-md:rounded-none max-md:max-h-[100dvh]`} overflow-hidden ${isRightPanel ? 'animate-slide-in-right' : 'animate-slide-up'} border shadow-2xl flex flex-col ${isRightPanel ? '' : 'max-h-[90vh]'}`}
+        className={`relative z-50 outline-hidden overflow-hidden border shadow-2xl flex flex-col ${
+          isRightPanel
+            ? 'w-[380px] h-full border-l rounded-none max-md:w-full max-md:border-l-0 animate-slide-in-right'
+            : isBottomPanel
+              ? 'w-full max-w-lg rounded-t-[24px] rounded-b-none border-t border-x max-h-[85vh] animate-slide-up safe-bottom'
+              : `w-full ${sizeClass} rounded-2xl max-md:max-w-full max-md:w-full max-md:h-full max-md:rounded-none max-md:max-h-[100dvh] max-h-[90vh] animate-slide-up`
+        }`}
         style={{
           background: 'var(--surface-raised)',
           borderColor: 'var(--border-subtle)',
         }}
       >
         <div
-          className="flex items-center justify-between px-5 py-4 border-b shrink-0"
+          className={`flex items-center justify-between px-5 py-4 border-b shrink-0 ${isBottomPanel ? 'relative' : ''}`}
           style={{ borderColor: 'var(--border-subtle)' }}
+          onPointerDown={isBottomPanel ? (e) => {
+            // Swipe-down dismissal for bottom sheets (iter-11 P2: X/scrim
+            // only — Escape is meaningless on touch and bottom-sheet
+            // convention expects a downward drag). Track only while the
+            // gesture starts on the sheet header; threshold 110px.
+            if (e.pointerType === 'mouse' && e.button !== 0) {return;}
+            const startY = e.clientY;
+            const panel = panelRef.current;
+            let dismissed = false;
+            const move = (ev: PointerEvent) => {
+              const dy = ev.clientY - startY;
+              if (dy > 0 && panel) {panel.style.transform = `translateY(${dy}px)`;}
+              if (dy > 110) {dismissed = true;}
+            };
+            const up = (ev: PointerEvent) => {
+              window.removeEventListener('pointermove', move);
+              window.removeEventListener('pointerup', up);
+              const dy = ev.clientY - startY;
+              if (panel) {panel.style.transform = '';}
+              if (dismissed || dy > 110) {onClose();}
+            };
+            window.addEventListener('pointermove', move);
+            window.addEventListener('pointerup', up);
+          } : undefined}
         >
+          {isBottomPanel && (
+            <span
+              aria-hidden="true"
+              className="absolute left-1/2 -translate-x-1/2 top-1.5 w-10 h-1 rounded-full"
+              style={{ background: 'var(--border-strong)', cursor: 'grab' }}
+            />
+          )}
           <div>
-            <h3
+            {/* h2, not h3: the app's only h1 is the topbar wordmark, so a
+                modal titled h3 skipped a heading level by construction
+                (detector `skipped-heading`, mobile critique iter-7). */}
+            <h2
               id="modal-title"
-              className="text-sm font-semibold"
+              className="text-base font-semibold"
               style={{ color: 'var(--text-primary)' }}
             >
               {title}
-            </h3>
+            </h2>
             {subtitle && (
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
                 {subtitle}
@@ -146,7 +188,7 @@ export function Modal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg transition-colors hover:bg-[var(--hover)] max-md:p-2 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="p-1.5 rounded-lg transition-colors hover:bg-[var(--hover)] max-md:p-2 min-w-[44px] min-h-[44px] flex items-center justify-center focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{ color: 'var(--text-secondary)' }}
             aria-label={t('common.close')}
           >
@@ -154,7 +196,7 @@ export function Modal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto">{children}</div>
+        <div className="flex-1 overflow-y-auto modal-scroll-contain">{children}</div>
 
         {footer && (
           <div

@@ -24,6 +24,14 @@ vi.mock('@/preview/PreviewPanel', () => ({
   ),
 }));
 
+vi.mock('@/components/sidebar/Sidebar', () => ({
+  Sidebar: ({ onOpenDiagram, mobileScreen }: { onOpenDiagram: (id: string) => void; mobileScreen: boolean }) => (
+    <div data-testid="mobile-files-list" data-mobile-screen={mobileScreen}>
+      <button onClick={() => onOpenDiagram('diagram-1')}>Open diagram</button>
+    </div>
+  ),
+}));
+
 describe('MobileWorkspace', () => {
   let originalMatchMedia: typeof window.matchMedia;
 
@@ -67,7 +75,7 @@ describe('MobileWorkspace', () => {
     it('renders both toggle buttons', () => {
       render(<MobileWorkspace {...defaultProps} />);
       expect(screen.getByTestId('mobile-workspace-tab-code')).toBeInTheDocument();
-      expect(screen.getByTestId('mobile-workspace-tab-preview')).toBeInTheDocument();
+      expect(screen.getByTestId('mobile-workspace-tab-visual')).toBeInTheDocument();
     });
 
     it('renders both panes in DOM (keep-alive invariant)', () => {
@@ -76,13 +84,42 @@ describe('MobileWorkspace', () => {
       expect(screen.getByTestId('preview-panel')).toBeInTheDocument();
     });
 
-    it('shows code pane as active by default', () => {
+    it('shows Files as the active destination by default', () => {
       render(<MobileWorkspace {...defaultProps} />);
+      const filesTab = screen.getByTestId('mobile-workspace-tab-files');
       const codeTab = screen.getByTestId('mobile-workspace-tab-code');
-      const previewTab = screen.getByTestId('mobile-workspace-tab-preview');
+      const visualTab = screen.getByTestId('mobile-workspace-tab-visual');
 
-      expect(codeTab).toHaveAttribute('aria-pressed', 'true');
-      expect(previewTab).toHaveAttribute('aria-pressed', 'false');
+      expect(filesTab).toHaveAttribute('aria-selected', 'true');
+      expect(codeTab).toHaveAttribute('aria-selected', 'false');
+      expect(visualTab).toHaveAttribute('aria-selected', 'false');
+      expect(screen.getByTestId('mobile-files-screen')).not.toHaveClass('hidden');
+    });
+
+    it('switches between Files and the existing Code and Visual panes', () => {
+      render(<MobileWorkspace {...defaultProps} />);
+
+      fireEvent.click(screen.getByTestId('mobile-workspace-tab-code'));
+      expect(screen.getByTestId('mobile-workspace-tab-code')).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByTestId('mobile-files-screen')).toHaveClass('hidden');
+
+      fireEvent.click(screen.getByTestId('mobile-workspace-tab-visual'));
+      expect(screen.getByTestId('mobile-workspace-tab-visual')).toHaveAttribute('aria-selected', 'true');
+
+      fireEvent.click(screen.getByTestId('mobile-workspace-tab-files'));
+      expect(screen.getByTestId('mobile-workspace-tab-files')).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByTestId('mobile-files-screen')).not.toHaveClass('hidden');
+    });
+
+    it('opens a selected diagram in Code', () => {
+      const onOpenDiagram = vi.fn();
+      render(<MobileWorkspace {...defaultProps} onOpenDiagram={onOpenDiagram} />);
+
+      fireEvent.click(screen.getByText('Open diagram'));
+
+      expect(onOpenDiagram).toHaveBeenCalledWith('diagram-1');
+      expect(screen.getByTestId('mobile-workspace-tab-code')).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByTestId('mobile-files-screen')).toHaveClass('hidden');
     });
 
     it('hides preview pane initially but keeps it mounted (keep-alive)', () => {
@@ -99,31 +136,31 @@ describe('MobileWorkspace', () => {
   describe('toggle behavior', () => {
     it('switches to preview pane when preview tab is clicked', () => {
       render(<MobileWorkspace {...defaultProps} />);
-      const previewTab = screen.getByTestId('mobile-workspace-tab-preview');
+      const previewTab = screen.getByTestId('mobile-workspace-tab-visual');
 
       fireEvent.click(previewTab);
 
-      expect(previewTab).toHaveAttribute('aria-pressed', 'true');
-      expect(screen.getByTestId('mobile-workspace-tab-code')).toHaveAttribute('aria-pressed', 'false');
+      expect(previewTab).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByTestId('mobile-workspace-tab-code')).toHaveAttribute('aria-selected', 'false');
     });
 
     it('switches back to code pane when code tab is clicked', () => {
       render(<MobileWorkspace {...defaultProps} />);
       const codeTab = screen.getByTestId('mobile-workspace-tab-code');
-      const previewTab = screen.getByTestId('mobile-workspace-tab-preview');
+      const previewTab = screen.getByTestId('mobile-workspace-tab-visual');
 
       // First switch to preview
       fireEvent.click(previewTab);
       // Then back to code
       fireEvent.click(codeTab);
 
-      expect(codeTab).toHaveAttribute('aria-pressed', 'true');
-      expect(previewTab).toHaveAttribute('aria-pressed', 'false');
+      expect(codeTab).toHaveAttribute('aria-selected', 'true');
+      expect(previewTab).toHaveAttribute('aria-selected', 'false');
     });
 
     it('maintains both panes mounted during toggle (keep-alive invariant)', () => {
       render(<MobileWorkspace {...defaultProps} />);
-      const previewTab = screen.getByTestId('mobile-workspace-tab-preview');
+      const previewTab = screen.getByTestId('mobile-workspace-tab-visual');
 
       // Switch to preview
       fireEvent.click(previewTab);
@@ -150,7 +187,7 @@ describe('MobileWorkspace', () => {
       });
       codeContainer.scrollTop = 100;
 
-      const previewTab = screen.getByTestId('mobile-workspace-tab-preview');
+      const previewTab = screen.getByTestId('mobile-workspace-tab-visual');
       const codeTab = screen.getByTestId('mobile-workspace-tab-code');
 
       // Switch to preview (this triggers save scroll in useEffect)

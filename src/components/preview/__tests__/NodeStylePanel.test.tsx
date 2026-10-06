@@ -15,6 +15,7 @@ vi.mock('react-i18next', () => ({
         'nodeStyle.nodes': '{{count}} Nodes',
         'nodeStyle.label': 'Label',
         'nodeStyle.labelPlaceholder': 'Node label...',
+        'nodeStyle.confirmDelete': 'Tap again to delete',
         'nodeStyle.presets': 'Presets',
         'nodeStyle.fillColor': 'Fill Color',
         'nodeStyle.borderColor': 'Border Color',
@@ -233,11 +234,34 @@ describe('NodeStylePanel Component', () => {
       expect(defaultProps.onReset).toHaveBeenCalledWith(['A']);
     });
 
-    it('should call onDelete when delete button clicked', () => {
+    it('should call onDelete only on the SECOND click (two-step arm, iter-14)', () => {
       const onDelete = vi.fn();
       render(<NodeStylePanel {...defaultProps} onDelete={onDelete} />);
-      fireEvent.click(screen.getByTitle('Delete'));
+      const deleteBtn = screen.getByTitle('Delete');
+      // First click ARMS the button (label flips to the confirm copy) — the
+      // destructive action must not execute on a stray tap.
+      fireEvent.click(deleteBtn);
+      expect(onDelete).not.toHaveBeenCalled();
+      expect(screen.getByText('Tap again to delete')).toBeInTheDocument();
+      // Second click EXECUTES.
+      fireEvent.click(deleteBtn);
       expect(onDelete).toHaveBeenCalledTimes(1);
+    });
+
+    it('disarms the delete button after the 3s timeout', () => {
+      vi.useFakeTimers();
+      try {
+        const onDelete = vi.fn();
+        render(<NodeStylePanel {...defaultProps} onDelete={onDelete} />);
+        const deleteBtn = screen.getByTitle('Delete');
+        fireEvent.click(deleteBtn);
+        expect(screen.getByText('Tap again to delete')).toBeInTheDocument();
+        vi.advanceTimersByTime(3100);
+        expect(screen.getByText('Delete')).toBeInTheDocument();
+        expect(onDelete).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('should hide the delete button when onDelete is not provided', () => {
@@ -395,7 +419,7 @@ describe('NodeStylePanel Component', () => {
       it('should apply max-md:top-0 to outer container', () => {
         const { container } = render(<NodeStylePanel {...defaultProps} />);
         const panel = container.querySelector('.animate-slide-in-right');
-        expect(panel).toHaveClass('max-md:top-0');
+        expect(panel).toHaveClass('max-md:top-auto');
       });
 
       it('should apply max-md:bottom-0 to outer container', () => {
@@ -407,13 +431,13 @@ describe('NodeStylePanel Component', () => {
       it('should apply max-md:rounded-none to outer container', () => {
         const { container } = render(<NodeStylePanel {...defaultProps} />);
         const panel = container.querySelector('.animate-slide-in-right');
-        expect(panel).toHaveClass('max-md:rounded-none');
+        expect(panel).toHaveClass('max-md:rounded-b-none');
       });
 
       it('should apply max-md:h-full to outer container', () => {
         const { container } = render(<NodeStylePanel {...defaultProps} />);
         const panel = container.querySelector('.animate-slide-in-right');
-        expect(panel).toHaveClass('max-md:h-full');
+        expect(panel).toHaveClass('max-md:h-[40dvh]');
       });
 
       it('should have close button with >=44px tap target on mobile', () => {

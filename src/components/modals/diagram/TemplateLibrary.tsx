@@ -6,6 +6,8 @@ import { getUserTemplates, deleteUserTemplate } from '@/services/storage/databas
 import { renderDiagram } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
 import type { Template, UserTemplate } from '@/types';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { MobileUpsellBanner } from '@/components/shared/MobileUpsellBanner';
 
 const COMPLEXITY_COLORS = {
   simple: { bg: 'rgba(34,197,94,0.1)', color: '#22c55e' },
@@ -81,7 +83,10 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
     setUserTemplates(await getUserTemplates());
   }
 
-  const displayTemplates: (Template | UserTemplate)[] = cat === 'All'
+  const isMobile = useMediaQuery('(max-width: 768px)');
+  const RESTRICTED_TYPES = ['c4', 'gantt', 'architecture'];
+
+  const rawDisplayTemplates: (Template | UserTemplate)[] = cat === 'All'
     ? [...userTemplates, ...TEMPLATES]
     : cat === t('templates.myTemplates')
       ? userTemplates
@@ -89,6 +94,10 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
           ...userTemplates.filter(t => t.category === cat),
           ...TEMPLATES.filter(t => t.category === cat),
         ];
+
+  const displayTemplates = isMobile
+    ? rawDisplayTemplates.filter(t => !RESTRICTED_TYPES.includes((t as any).type || ''))
+    : rawDisplayTemplates;
 
   // Filter by search query
   const filteredTemplates = displayTemplates.filter(t => {
@@ -166,6 +175,7 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">
+        {isMobile && <MobileUpsellBanner featureName={t('upsell.advancedTypes')} />}
         {filteredTemplates.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No templates found</p>

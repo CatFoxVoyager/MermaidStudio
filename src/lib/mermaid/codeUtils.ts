@@ -454,7 +454,23 @@ export function removeSubgraph(source: string, subgraphId: string): string {
       }
     }
   }
-  if (endIdx === -1) {return source;}
+  if (endIdx === -1) {
+    // One-line inline form: `subgraph id[label] N1[x] end` (user paste). The
+    // multi-line scan finds no isolated `end` and would silently no-op.
+    // Strip the wrapper keywords from the line, keeping the content.
+    if (/(^|\s)subgraph\s+\S/.test(lines[startIdx]) && /\bend\s*$/.test(lines[startIdx])) {
+      lines[startIdx] = lines[startIdx]
+        .replace(/^\s*subgraph\s+\S+/, '')
+        .replace(/\s*\bend\s*$/, '');
+      return lines.filter(line => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith(`style ${subgraphId} `) || trimmed.startsWith(`style ${subgraphId}\t`)) {return false;}
+        if (trimmed.startsWith(`class ${subgraphId} `)) {return false;}
+        return true;
+      }).join('\n');
+    }
+    return source;
+  }
 
   return lines
     .filter((line, i) => {

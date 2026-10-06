@@ -129,25 +129,24 @@ export function NodeStylePanel({
     v === 'mixed' ? fallback : v ?? fallback;
   const parsePx = (v: string): number => parseInt(v.replace('px', '')) || 0;
 
+  // Escape closes the panel regardless of where focus sits (iter-32 P2:
+  // this panel kept an onKeyDown on the non-focusable wrapper div — dead
+  // after a touch open, focus stayed on the page — while Edge/Subgraph got
+  // the document-level idiom in iter-28; the family fix skipped this
+  // sibling). ColorPicker's popover Escape runs in capture phase and stops
+  // propagation, so only the topmost layer closes.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {onClose();}
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {document.removeEventListener('keydown', onKey);};
+  }, [onClose]);
+
   return (
     <>
-      <style>{`
-        .node-panel-scroll::-webkit-scrollbar {
-          width: 12px;
-        }
-        .node-panel-scroll::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .node-panel-scroll::-webkit-scrollbar-thumb {
-          background: rgba(0, 0, 0, 0.3);
-          border-radius: 6px;
-        }
-        .node-panel-scroll::-webkit-scrollbar-thumb:hover {
-          background: rgba(0, 0, 0, 0.4);
-        }
-      `}</style>
       <div
-        className="absolute right-0 top-[110px] bottom-0 w-[280px] z-30 flex flex-col animate-slide-in-right rounded-l-xl border-l shadow-xl max-md:w-full max-md:right-0 max-md:top-0 max-md:bottom-0 max-md:rounded-none max-md:h-full"
+        className="style-panel absolute right-0 top-[110px] bottom-0 w-[280px] z-30 flex flex-col animate-slide-in-right rounded-l-xl border-l shadow-xl max-md:w-full max-md:left-0 max-md:right-0 max-md:top-auto max-md:bottom-0 max-md:h-[40dvh] max-md:rounded-t-2xl max-md:rounded-b-none max-md:border-t max-md:border-l-0"
         style={{
           background: 'var(--surface-raised)',
           borderColor: 'var(--border-subtle)',
@@ -196,7 +195,7 @@ export function NodeStylePanel({
         {singleNodeId && onLabelChange && (
           <div className="flex flex-col gap-1">
             <span
-              className="text-[11px] font-medium uppercase tracking-wider"
+              className="text-xs font-medium uppercase tracking-wider"
               style={{ color: 'var(--text-tertiary)' }}
             >
               {t('nodeStyle.label')}
@@ -218,11 +217,16 @@ export function NodeStylePanel({
         )}
 
         {/* Presets */}
-        {presets && presets.length > 0 && (
+        {presets && presets.length > 0 && (() => {
+          // Dark text on the raw theme color (iter-13): every preset family
+          // the themes ship is a light/mid tone — #111827 measures 4.5–9:1
+          // on all of them, while per-color white failed Danger at 3.76.
+          // The chip now shows the EXACT color applied to the node.
+          return (
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-1">
               <Zap size={11} style={{ color: 'var(--text-tertiary)' }} />
-              <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
                 {t('nodeStyle.presets') || 'Presets'}
               </span>
             </div>
@@ -231,21 +235,26 @@ export function NodeStylePanel({
               <button
                 key={preset.label}
                 onClick={() => onPresetApply?.(selectedNodeIds, preset.presetType)}
-                className="flex items-center gap-1 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all hover:scale-105 active:scale-95 min-w-0"
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all hover:scale-105 active:scale-95 min-w-0"
                 title={preset.label}
                 style={{
                   borderColor: preset.color,
-                  color: '#ffffff',
-                  background: preset.color,
+                  color: '#111827',
+                  /* Pure theme color + dark text (iter-13): the previous
+                     veils carried AA white but painted the chip darker than
+                     the color actually applied — the chip contradicted its
+                     own result. */
+                  backgroundColor: preset.color,
                 }}
               >
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: preset.color }} />
+                <span className="w-2 h-2 rounded-full shrink-0 border border-black/20" style={{ background: preset.color }} />
                 <span className="truncate">{preset.label}</span>
               </button>
             ))}
           </div>
-        </div>
-        )}
+          </div>
+          );
+        })()}
 
         {/* Recommended Section */}
         <ColorPicker
@@ -262,7 +271,7 @@ export function NodeStylePanel({
         {/* Border Width */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[11px] font-medium uppercase tracking-wider"
+            className="text-xs font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('nodeStyle.borderWidth')}
@@ -289,7 +298,7 @@ export function NodeStylePanel({
         {/* Border Style */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[11px] font-medium uppercase tracking-wider"
+            className="text-xs font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('nodeStyle.borderStyle')}
@@ -336,7 +345,7 @@ export function NodeStylePanel({
         {selectedNodeIds.length === 1 && nodeSubgraphIds && subgraphs && onSubgraphChange && (
           <div className="flex flex-col gap-1">
             <span
-              className="text-[11px] font-medium uppercase tracking-wider"
+              className="text-xs font-medium uppercase tracking-wider"
               style={{ color: 'var(--text-tertiary)' }}
             >
               {t('nodeStyle.subgraph')}
@@ -375,7 +384,7 @@ export function NodeStylePanel({
         {/* Advanced Toggle */}
         <button
           onClick={() => setAdvancedOpen(v => !v)}
-          className="flex items-center gap-1 py-1 text-[11px] font-medium uppercase tracking-wider transition-colors"
+          className="flex items-center gap-1 py-1 text-xs font-medium uppercase tracking-wider transition-colors"
           style={{ color: 'var(--text-tertiary)' }}
         >
           <ChevronDown
@@ -394,7 +403,7 @@ export function NodeStylePanel({
             {/* Font Weight */}
             <div className="flex flex-col gap-1">
               <span
-                className="text-[11px] font-medium uppercase tracking-wider"
+                className="text-xs font-medium uppercase tracking-wider"
                 style={{ color: 'var(--text-tertiary)' }}
               >
                 {t('nodeStyle.fontWeight')}
@@ -433,7 +442,7 @@ export function NodeStylePanel({
             {/* Font Size */}
             <div className="flex flex-col gap-1">
               <span
-                className="text-[11px] font-medium uppercase tracking-wider"
+                className="text-xs font-medium uppercase tracking-wider"
                 style={{ color: 'var(--text-tertiary)' }}
               >
                 {t('nodeStyle.fontSize')}
@@ -475,7 +484,7 @@ export function NodeStylePanel({
             {!hideBorderRadius && (
               <div className="flex flex-col gap-1">
                 <span
-                  className="text-[11px] font-medium uppercase tracking-wider"
+                  className="text-xs font-medium uppercase tracking-wider"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
                   {t('nodeStyle.borderRadiusX')}
@@ -504,7 +513,7 @@ export function NodeStylePanel({
             {!hideBorderRadius && (
               <div className="flex flex-col gap-1">
                 <span
-                  className="text-[11px] font-medium uppercase tracking-wider"
+                  className="text-xs font-medium uppercase tracking-wider"
                   style={{ color: 'var(--text-tertiary)' }}
                 >
                   {t('nodeStyle.borderRadiusY')}
@@ -531,15 +540,20 @@ export function NodeStylePanel({
           </div>
         )}
 
-        {/* Reset / Delete Buttons */}
-        <div className="mt-auto pt-2 border-t flex gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
+        {/* Reset / Delete Buttons — separated (iter-13) AND delete is a
+            two-step arm (iter-14 P1: removeNode executed with zero
+            confirmation, 8px below Reset, both red-family — a mis-tap at
+            momentum-scroll speed destroyed diagram content). Contrast:
+            red-600 ink on the tint (3.29 → ≥4.6) and red-600 fill (white
+            4.83 vs #ef4444's 3.76). */}
+        <div className="mt-auto pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
           <button
             onClick={() => onReset(selectedNodeIds)}
-            className="flex items-center justify-center gap-1.5 flex-1 min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
+            className="flex items-center justify-center gap-1.5 w-full min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
             style={{
-              background: 'rgba(239,68,68,0.1)',
-              color: '#ef4444',
-              border: '1px solid rgba(239,68,68,0.2)',
+              background: 'rgba(220,38,38,0.08)',
+              color: '#b91c1c',
+              border: '1px solid rgba(220,38,38,0.25)',
             }}
           >
             <RotateCcw size={12} className="shrink-0" />
@@ -547,13 +561,35 @@ export function NodeStylePanel({
           </button>
           {onDelete && (
             <button
-              onClick={onDelete}
+              onClick={e => {
+                const btn = e.currentTarget;
+                if (btn.dataset.armed) {
+                  delete btn.dataset.armed;
+                  onDelete?.();
+                  return;
+                }
+                btn.dataset.armed = 'true';
+                /* Armed state gets a VISUAL change beyond text (iter-14 P3:
+                   the text-only cue was easy to miss — same red background). */
+                btn.style.background = '#7f1d1d';
+                btn.style.borderColor = '#7f1d1d';
+                btn.querySelector('span')!.textContent = t('nodeStyle.confirmDelete');
+                setTimeout(() => {
+                  if (btn.isConnected && btn.dataset.armed) {
+                    delete btn.dataset.armed;
+                    btn.style.background = '#dc2626';
+                    btn.style.borderColor = '#dc2626';
+                    const span = btn.querySelector('span');
+                    if (span) {span.textContent = t('nodeStyle.delete');}
+                  }
+                }, 3000);
+              }}
               title={t('nodeStyle.delete')}
-              className="flex items-center justify-center gap-1.5 flex-1 min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
+              className="flex items-center justify-center gap-1.5 w-full min-w-0 py-2 rounded-lg text-xs font-semibold transition-colors"
               style={{
-                background: '#ef4444',
+                background: '#dc2626',
                 color: '#ffffff',
-                border: '1px solid #ef4444',
+                border: '1px solid #dc2626',
               }}
             >
               <Trash2 size={12} className="shrink-0" />

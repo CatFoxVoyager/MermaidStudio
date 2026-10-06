@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { X, RotateCcw, Settings2, ChevronDown, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
@@ -29,6 +29,16 @@ export function SubgraphStylePanel({
   const { t } = useTranslation();
   const [label, setLabel] = useState(subgraphLabel);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  // Escape closes the panel regardless of where focus sits (iter-28:
+  // panel-level keydown only fired when focus was inside the panel).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {onClose();}
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {document.removeEventListener('keydown', onKey);};
+  }, [onClose]);
 
   const handleLabelChange = useCallback(
     (newLabel: string) => {
@@ -72,10 +82,14 @@ export function SubgraphStylePanel({
 
   return (
     <div
-      className="absolute top-0 right-0 h-full w-[280px] z-30 animate-slide-in-right rounded-l-xl border-l shadow-xl overflow-y-auto max-md:w-full max-md:right-0 max-md:top-0 max-md:bottom-0 max-md:rounded-none max-md:h-full"
+      className="style-panel absolute top-0 right-0 h-full w-[280px] z-30 flex flex-col animate-slide-in-right rounded-l-xl border-l shadow-xl overflow-hidden max-md:w-full max-md:left-0 max-md:right-0 max-md:top-auto max-md:bottom-0 max-md:h-[40dvh] max-md:rounded-t-2xl max-md:rounded-b-none max-md:border-t max-md:border-l-0"
       style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}
       onClick={e => e.stopPropagation()}
       onMouseDown={e => e.stopPropagation()}
+      onKeyDown={e => {
+        // Escape parity with the shared Modal (iter-27 P1).
+        if (e.key === 'Escape') {onClose();}
+      }}
     >
       {/* Header */}
       <div
@@ -106,7 +120,7 @@ export function SubgraphStylePanel({
         {/* Subgraph ID */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[11px] font-medium uppercase tracking-wider"
+            className="text-xs font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('subgraphStyle.subgraphId')}
@@ -126,7 +140,7 @@ export function SubgraphStylePanel({
         {/* Label */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[11px] font-medium uppercase tracking-wider"
+            className="text-xs font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('subgraphStyle.label')}
@@ -163,7 +177,7 @@ export function SubgraphStylePanel({
         {/* Stroke Width */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[11px] font-medium uppercase tracking-wider"
+            className="text-xs font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('subgraphStyle.strokeWidth')}
@@ -190,7 +204,7 @@ export function SubgraphStylePanel({
         {/* Border Style */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[11px] font-medium uppercase tracking-wider"
+            className="text-xs font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('subgraphStyle.borderStyle')}
@@ -235,7 +249,7 @@ export function SubgraphStylePanel({
         {/* Advanced Toggle */}
         <button
           onClick={() => setAdvancedOpen(v => !v)}
-          className="flex items-center gap-1 py-1 text-[11px] font-medium uppercase tracking-wider transition-colors"
+          className="flex items-center gap-1 py-1 text-xs font-medium uppercase tracking-wider transition-colors"
           style={{ color: 'var(--text-tertiary)' }}
         >
           <ChevronDown
@@ -254,7 +268,7 @@ export function SubgraphStylePanel({
             {/* Font Family */}
             <div className="flex flex-col gap-1">
               <span
-                className="text-[11px] font-medium uppercase tracking-wider"
+                className="text-xs font-medium uppercase tracking-wider"
                 style={{ color: 'var(--text-tertiary)' }}
               >
                 {t('subgraphStyle.fontFamily')}
@@ -292,7 +306,7 @@ export function SubgraphStylePanel({
             {/* Font Weight */}
             <div className="flex flex-col gap-1">
               <span
-                className="text-[11px] font-medium uppercase tracking-wider"
+                className="text-xs font-medium uppercase tracking-wider"
                 style={{ color: 'var(--text-tertiary)' }}
               >
                 {t('subgraphStyle.fontWeight')}
@@ -328,7 +342,7 @@ export function SubgraphStylePanel({
             {/* Font Size */}
             <div className="flex flex-col gap-1">
               <span
-                className="text-[11px] font-medium uppercase tracking-wider"
+                className="text-xs font-medium uppercase tracking-wider"
                 style={{ color: 'var(--text-tertiary)' }}
               >
                 {t('subgraphStyle.fontSize')}
@@ -368,7 +382,7 @@ export function SubgraphStylePanel({
         {/* Opacity */}
         <div className="flex flex-col gap-1">
           <span
-            className="text-[11px] font-medium uppercase tracking-wider"
+            className="text-xs font-medium uppercase tracking-wider"
             style={{ color: 'var(--text-tertiary)' }}
           >
             {t('subgraphStyle.opacity')}
@@ -392,15 +406,16 @@ export function SubgraphStylePanel({
           </div>
         </div>
 
-        {/* Reset / Delete Buttons */}
-        <div className="mt-auto pt-2 border-t flex gap-2" style={{ borderColor: 'var(--border-subtle)' }}>
+        {/* Reset / Delete Buttons — delete BELOW the divider, two-step armed
+            (iter-24 P1: single-tap delete matched the Edge panel pattern). */}
+        <div className="mt-auto pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
           <button
             onClick={() => onReset(subgraphId)}
-            className="flex items-center justify-center gap-1.5 flex-1 min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
+            className="flex items-center justify-center gap-1.5 w-full min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
             style={{
-              background: 'rgba(239,68,68,0.1)',
-              color: '#ef4444',
-              border: '1px solid rgba(239,68,68,0.2)',
+              background: 'rgba(220,38,38,0.08)',
+              color: '#b91c1c',
+              border: '1px solid rgba(220,38,38,0.25)',
             }}
           >
             <RotateCcw size={12} className="shrink-0" />
@@ -408,13 +423,31 @@ export function SubgraphStylePanel({
           </button>
           {onDelete && (
             <button
-              onClick={onDelete}
+              onClick={e => {
+                const btn = e.currentTarget;
+                if (btn.dataset.armed) {
+                  delete btn.dataset.armed;
+                  onDelete?.();
+                  return;
+                }
+                btn.dataset.armed = 'true';
+                btn.style.background = '#7f1d1d';
+                btn.querySelector('span')!.textContent = t('nodeStyle.confirmDelete');
+                setTimeout(() => {
+                  if (btn.isConnected && btn.dataset.armed) {
+                    delete btn.dataset.armed;
+                    btn.style.background = '#dc2626';
+                    const span = btn.querySelector('span');
+                    if (span) {span.textContent = t('subgraphStyle.delete');}
+                  }
+                }, 3000);
+              }}
               title={t('subgraphStyle.delete')}
-              className="flex items-center justify-center gap-1.5 flex-1 min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
+              className="flex items-center justify-center gap-1.5 w-full min-w-0 py-2 rounded-lg text-xs font-semibold transition-colors"
               style={{
-                background: '#ef4444',
+                background: '#dc2626',
                 color: '#ffffff',
-                border: '1px solid #ef4444',
+                border: '1px solid #dc2626',
               }}
             >
               <Trash2 size={12} className="shrink-0" />

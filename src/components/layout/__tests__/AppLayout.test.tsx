@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { Suspense } from 'react';
 import { AppLayout } from '../AppLayout';
 import { MobileShellProvider } from '@/hooks/useMobileShell';
@@ -408,7 +408,11 @@ describe('AppLayout Component', () => {
       // Desktop tree must NOT be present
       expect(screen.queryByTestId('topbar')).not.toBeInTheDocument();
       expect(screen.queryByTestId('workspace-panel')).not.toBeInTheDocument();
-      expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
+      // Files is a first-class mobile screen now: the (stubbed) sidebar
+      // renders INSIDE the mobile workspace slot rather than as a desktop
+      // rail next to the workspace panel.
+      const workspaceSlot = screen.getByTestId('mobile-workspace-slot');
+      expect(within(workspaceSlot).getByTestId('sidebar')).toBeInTheDocument();
     });
 
     it('should not leak state hooks into desktop path - all existing tests still pass', () => {

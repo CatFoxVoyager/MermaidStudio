@@ -246,11 +246,11 @@ function createFreshData(): DBData {
       {
         id: welcomeId,
         title: 'Welcome Diagram',
-        content: `---
-config:
-  theme: base
----
-flowchart TD
+        // Deliberately frontmatter-free (critique iter-9 P0): the visual
+        // editor's parse path rejects this seed's `config:\n theme: base`
+        // header, so a first-time user's very first "show me" tap died in a
+        // raw parser dump. Seed content must render everywhere unconditionally.
+        content: `flowchart TD
     A([Start]) --> B{Is it working?}
     B -->|Yes| C[🎉 Great!]
     B -->|No| D[Debug it]

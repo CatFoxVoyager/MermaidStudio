@@ -139,9 +139,15 @@ export function AppLayout({
         theme={theme}
         onNewDiagram={onNewDiagram}
         onSave={() => activeTab && onSave(activeTab.id)}
+        isDirty={activeTab?.is_dirty ?? false}
+        lastSavedAt={activeTab?.last_saved_at}
+        activeDiagramTitle={activeTab?.title}
         onShowExport={onShowExport}
         onOpenCommandPalette={onOpenCommandPalette}
+        onToggleTheme={toggleTheme}
         onOpenAbout={onOpenAbout}
+        onOpenBackup={onOpenBackup}
+        onOpenReleaseNotes={onOpenReleaseNotes}
         onOpenDiagram={onOpenDiagram}
         activeDiagramId={activeTab?.diagram_id ?? null}
         onRefresh={onRefreshSidebar}

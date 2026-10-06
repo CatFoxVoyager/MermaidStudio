@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle, Copy, Check, Download, Move, Group, Hand } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle, Copy, Check, Download, Scan, Group, Hand } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { renderDiagram, detectDiagramType } from '@/lib/mermaid/core';
+import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { extractThemeIdFromContent } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
 import { sanitizeCssValue } from '@/utils/sanitization';
@@ -380,10 +382,17 @@ interface Props {
   /** When true, clears any local selection (e.g. diagram colors panel opened) */
   externalPanelOpen?: boolean;
   onError?: (error: string | null) => void;
+  /** Recovery path from the parse-error card: hosts that own a code pane
+   *  pass a switch handler; the card's "Open in Code" button renders only
+   *  when this is wired (critique iter-9 P0). */
+  onOpenCode?: () => void;
 }
 
-function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRenderTime, onFullscreen, onNodeSelect, onSelectionOpen, externalPanelOpen, onError }: Props) {
+function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRenderTime, onFullscreen, onNodeSelect, onSelectionOpen, externalPanelOpen, onError, onOpenCode }: Props) {
   const { t } = useTranslation();
+  // Mobile preview drops the Copy-SVG toolbar action (redundant with the
+  // Export sheet's copy actions and the toolbar's overflow casualty).
+  const isMobilePreview = useMediaQuery('(max-width: 767.98px)');
   const [svg, setSvg] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -588,6 +597,17 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       onRenderTime?.(elapsed);
 
       if (e) {
+        // Clear the shadow root while the canvas branch is still mounted —
+        // once React swaps to the error branch, the host div is REUSED for
+        // the error card's own divs (same element type at the same ternary
+        // position, no unmount) and the ref detaches to null, so the !svg
+        // cleanup effect below never runs: the last good SVG kept painting
+        // from inside the error card, over its opaque background (iter-32
+        // P1 — invisible to elementsFromPoint because the painter is a
+        // shadow root, which DOM queries don't traverse).
+        if (shadowHostRef.current?.shadowRoot) {
+          shadowHostRef.current.shadowRoot.textContent = '';
+        }
         setError(e);
         setSvg('');
       } else {
@@ -876,6 +896,20 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     };
   }, [svg, remeasureOverlays]);
 
+  // First-paint centering (iter-20 P2 → iter-27 REVERT of the auto-fit:
+  // the fit measured the shadow-host SVG before full layout and hit the
+  // 0.25 zoom floor — diagrams rendered as illegible specks, iter-27 P1
+  // confirmed live by two independent assessors). 100% with horizontal
+  // centering is the known-good state; handleFitToScreen remains the
+  // explicit control.
+  const centeredOnceRef = useRef(false);
+  useEffect(() => {
+    if (!svg || !containerRef.current || centeredOnceRef.current) {return;}
+    centeredOnceRef.current = true;
+    const c = containerRef.current;
+    c.scrollLeft = Math.max(0, (c.scrollWidth - c.clientWidth) / 2);
+  }, [svg]);
+
   // Settle pass: the 100ms first measure above can run mid-way through the
   // shadow host's 150ms transform transition (zoom changes), freezing overlays
   // at an intermediate geometry — and edge hit targets need re-creating with
@@ -946,7 +980,11 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   }, [parsedDiagram, supportsClassDef, selectedNodeIds]);
 
   // Node click handler with multi-node selection (shift+click)
-  const handleNodeClick = useCallback((e: React.MouseEvent, nodeId: string) => {
+  // SyntheticEvent: reached from both the pointer click and the node
+  // overlay's Enter/Space keyboard activation (iter-12 canvas parity).
+  // shiftKey is only read on the pointer path (multi-select); the keyboard
+  // path never supplies it, which is correct — Enter toggles directly.
+  const handleNodeClick = useCallback((e: React.SyntheticEvent<{ shiftKey?: boolean }>, nodeId: string) => {
     e.stopPropagation();
     if (!supportsClassDef) return;
     setSelectedEdgeIndex(null);
@@ -966,7 +1004,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       setToolMode('select');
       return;
     }
-    if (e.shiftKey) {
+    if (e.currentTarget?.shiftKey) {
       setSelectedNodeIds(prev => {
         const next = new Set(prev);
         if (next.has(nodeId)) next.delete(nodeId);
@@ -1249,10 +1287,24 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     if (!onChange) return;
     if (bodyHasMetadata) return; // D6 fence
     if (selectedSubgraphId === null) return;
-    const updated = removeSubgraph(content, selectedSubgraphId);
+    // addSubgraph seeds every new subgraph with a placeholder node carrying
+    // the subgraph's own label — it exists so the empty subgraph is visible
+    // on the canvas, not as user content. removeSubgraph de-nests children
+    // by design, so deleting a freshly-created subgraph re-rooted that seed
+    // as an orphan `N1[Subgraph]` line (iter-32 P1, live-witnessed). A seed
+    // is recognized by its label still mirroring the subgraph's: once the
+    // user renames either side, the node is content and survives.
+    const sg = parsedDiagram.subgraphs.find(s => s.id === selectedSubgraphId);
+    let updated = content;
+    if (sg) {
+      parsedDiagram.nodes
+        .filter(n => n.parentSubgraphId === selectedSubgraphId && n.label.trim() === sg.label.trim())
+        .forEach(n => { updated = removeNode(updated, n.id); });
+    }
+    updated = removeSubgraph(updated, selectedSubgraphId);
     setSelectedSubgraphId(null);
     onChange(updated);
-  }, [onChange, content, selectedSubgraphId, bodyHasMetadata]);
+  }, [onChange, content, parsedDiagram, selectedSubgraphId, bodyHasMetadata]);
 
   // Keyboard: Delete/Backspace removes the current selection (nodes first,
   // then edge, then subgraph). Skipped while typing in any editable element —
@@ -1374,66 +1426,83 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
 
   return (
     <div data-testid="preview-panel" className="flex flex-col h-full relative" style={{ background: 'var(--surface-raised)' }}>
-      <div className="flex items-center justify-between px-3 h-9 shrink-0 border-b"
+      {/* Toolbar (critique iter-8 P0): icon buttons measured 21×21 with no
+          accessible name on mobile — every control is now a 44px target
+          with an explicit aria-label, and the cluster scrolls horizontally
+          instead of overflowing the 390px viewport. */}
+      <div className="flex items-center justify-between px-3 min-h-12 shrink-0 border-b max-md:pl-2 max-md:pr-2"
         style={{ borderColor: 'var(--border-subtle)' }}>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{t('preview.title')}</span>
-          <span className="px-1.5 py-0.5 rounded-sm text-[11px] font-semibold border"
+        <div className="flex items-center gap-2 shrink-0">
+          {/* "Preview" label hidden on mobile (iter-25 P1: it duplicated the
+              Visual segment name and crowded the zoom row past the viewport
+              — the Flowchart type badge alone carries the context). */}
+          <span className="hidden md:inline text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{t('preview.title')}</span>
+          <span className="px-1.5 py-0.5 rounded-sm text-xs font-semibold border shrink-0"
             style={{ background: 'var(--accent-dim)', color: 'var(--accent)', borderColor: 'rgba(var(--accent-rgb),0.2)' }}>
             {TYPE_LABELS[type] ?? 'Diagram'}
           </span>
           {loading && <RefreshCw size={11} style={{ color: 'var(--text-tertiary)' }} className="animate-spin" />}
         </div>
-        <div className="flex items-center gap-1">
-          <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} title={t('preview.zoomOut')}
-            className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }}>
-            <ZoomOut size={13} />
+        <div className="flex items-center gap-0.5 overflow-x-auto scroll-fade-x max-md:pr-2">
+          <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} title={t('preview.zoomOut')} aria-label={t('preview.zoomOut')}
+            className={`w-11 h-11 inline-flex items-center justify-center rounded-md shrink-0 transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] ${FOCUS_RING_CLASSES}`} style={{ color: 'var(--text-tertiary)' }}>
+            <ZoomOut size={16} />
           </button>
-          <span className="text-xs w-8 text-center" style={{ color: 'var(--text-secondary)' }}>
+          <span className="text-xs w-8 text-center shrink-0" style={{ color: 'var(--text-secondary)' }}>
             {Math.round(zoom * 100)}%
           </span>
-          <button onClick={() => setZoom(z => Math.min(10, z + 0.25))} title={t('preview.zoomIn')}
-            className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }}>
-            <ZoomIn size={13} />
+          <button onClick={() => setZoom(z => Math.min(10, z + 0.25))} title={t('preview.zoomIn')} aria-label={t('preview.zoomIn')}
+            className={`w-11 h-11 inline-flex items-center justify-center rounded-md shrink-0 transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] ${FOCUS_RING_CLASSES}`} style={{ color: 'var(--text-tertiary)' }}>
+            <ZoomIn size={16} />
           </button>
-          <button onClick={() => setZoom(1)} title={t('preview.resetZoom')}
-            className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }}>
-            <RefreshCw size={13} />
+          <button onClick={() => setZoom(1)} title={t('preview.resetZoom')} aria-label={t('preview.resetZoom')}
+            className={`w-11 h-11 inline-flex items-center justify-center rounded-md shrink-0 transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] ${FOCUS_RING_CLASSES}`} style={{ color: 'var(--text-tertiary)' }}>
+            {/* "1:1" text glyph — the standard reset-zoom affordance in
+                diagram editors (RefreshCw read as "reload page", iter-31). */}
+            <span className="text-[11px] font-semibold leading-none">1:1</span>
           </button>
           <button
             data-testid="fit-button"
             onClick={handleFitToScreen}
-            title={t('preview.fitToScreen')} className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }}>
-            <Move size={13} />
+            title={t('preview.fitToScreen')} aria-label={t('preview.fitToScreen')}
+            className={`w-11 h-11 inline-flex items-center justify-center rounded-md shrink-0 transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] ${FOCUS_RING_CLASSES}`} style={{ color: 'var(--text-tertiary)' }}>
+            <Scan size={16} />
           </button>
           {onFullscreen && (
             <button
               data-testid="fullscreen-button"
               onClick={onFullscreen}
-              title={t('preview.fullscreenPreview')} className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }}>
-              <Maximize2 size={13} />
+              title={t('preview.fullscreenPreview')} aria-label={t('preview.fullscreenPreview')}
+              className={`w-11 h-11 inline-flex items-center justify-center rounded-md shrink-0 transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] ${FOCUS_RING_CLASSES}`} style={{ color: 'var(--text-tertiary)' }}>
+              <Maximize2 size={16} />
             </button>
           )}
           {onChange && supportsClassDef && (
             <button
               data-testid="add-subgraph-button"
               onClick={handleAddSubgraph}
-              title={t('preview.addSubgraph')}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-sm text-xs font-medium transition-colors hover:bg-[var(--hover)]"
+              title={t('preview.addSubgraph')} aria-label={t('preview.addSubgraph')}
+              className="flex items-center gap-1.5 px-3 min-h-[44px] rounded-md text-xs font-medium transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] shrink-0 max-md:px-0 max-md:w-11 max-md:justify-center"
               style={{ color: 'var(--text-secondary)', border: '1px solid var(--border-subtle)' }}>
-              <Group size={13} />
-              <span>{t('preview.subgraph')}</span>
+              <Group size={14} />
+              <span className="max-md:hidden">{t('preview.subgraph')}</span>
             </button>
           )}
-          <div className="w-px h-4 mx-1" style={{ background: 'var(--border-subtle)' }} />
-          <button onClick={copySvg} title={t('preview.copySvg')}
-            className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }}>
-            {copied ? <Check size={13} className="text-green-400" /> : <Copy size={13} />}
-          </button>
+          <div className="w-px h-4 mx-1 shrink-0 max-md:hidden" style={{ background: 'var(--border-subtle)' }} />
+          {/* Copy SVG is desktop-only: on mobile the Export sheet already
+             offers Copy-as-Markdown + share link, and this button was the
+             toolbar's overflow casualty (fully off-screen at 390px,
+             iter-12/13). */}
+          {!isMobilePreview && (
+            <button onClick={copySvg} title={t('preview.copySvg')} aria-label={t('preview.copySvg')}
+              className={`w-11 h-11 inline-flex items-center justify-center rounded-md shrink-0 transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] ${FOCUS_RING_CLASSES}`} style={{ color: 'var(--text-tertiary)' }}>
+              {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
+            </button>
+          )}
           {onExport && (
-            <button onClick={onExport} title={t('preview.export')}
-              className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }}>
-              <Download size={13} />
+            <button onClick={onExport} title={t('preview.export')} aria-label={t('preview.export')}
+              className={`w-11 h-11 inline-flex items-center justify-center rounded-md shrink-0 transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] ${FOCUS_RING_CLASSES}`} style={{ color: 'var(--text-tertiary)' }}>
+              <Download size={16} />
             </button>
           )}
         </div>
@@ -1458,15 +1527,35 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         style={{ touchAction: isPanning ? 'none' : 'pan-x pan-y pinch-zoom' }}
       >
         {error ? (
-          <div className="flex flex-col items-center justify-center h-full p-8 text-center" data-testid="error-message">
+          <div className="flex flex-col items-center justify-center h-full p-8 text-center" data-testid="error-message" role="alert"
+            style={{ background: 'var(--surface-base)' }}>
             <div className="w-10 h-10 rounded-full flex items-center justify-center mb-3"
-              style={{ background: 'rgba(239,68,68,0.1)' }}>
-              <AlertTriangle size={18} className="text-red-400" />
+              style={{ background: 'var(--danger-dim)' }}>
+              <AlertTriangle size={18} style={{ color: 'var(--danger)' }} />
             </div>
-            <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>{t('preview.parseError')}</p>
-            <p className="text-xs font-mono max-w-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
-              {error}
+            {/* Error card (critique iter-9 P0: this state was a gray parser
+                dump with zero affordances — a dead end at the exact moment a
+                first-time user should see their diagram). Danger-tinted
+                title, and a real recovery path when the host can switch to
+                the code pane. iter-32 P1: the card rendered TRANSPARENT over
+                the visual editor's stale canvas (last good parse keeps
+                painting as DOM shapes — the SVG ternary unmounts, the model
+                doesn't), composing an unreadable soup at the exact moment
+                of failure. Opaque surface + role=alert (Riley: the error
+                existed in the DOM but was never announced). */}
+            <p className="text-sm font-medium mb-1" style={{ color: 'var(--danger)' }}>{t('preview.parseError')}</p>
+            <p className="text-xs font-mono max-w-sm leading-relaxed whitespace-pre-wrap mb-4" style={{ color: 'var(--text-secondary)' }}>
+              {error.replace(/^Parse error\s*/i, '')}
             </p>
+            {onOpenCode && (
+              <button
+                type="button"
+                onClick={onOpenCode}
+                className="px-4 py-2.5 min-h-[44px] rounded-lg text-sm font-medium transition-colors"
+                style={{ background: 'var(--accent)', color: '#ffffff' }}>
+                {t('preview.openInCode')}
+              </button>
+            )}
           </div>
         ) : !svg && !loading ? (
           <div className="flex flex-col items-center justify-center h-full">
@@ -1507,6 +1596,19 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
               return (
                 <div
                   key={overlay.id}
+                  role={toolMode === 'select' && supportsClassDef ? 'button' : undefined}
+                  tabIndex={toolMode === 'select' && supportsClassDef ? 0 : undefined}
+                  aria-label={t('preview.clickToEdit', { id: overlay.id })}
+                  onKeyDown={e => {
+                    // Keyboard parity for node selection (iter-12 P1: a
+                    // 26-stop Tab walk found ZERO canvas stops — selecting,
+                    // styling, deleting a node was pointer-only).
+                    if ((e.key === 'Enter' || e.key === ' ') && toolMode === 'select' && supportsClassDef) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleNodeClick(e, overlay.id);
+                    }
+                  }}
                   onClick={e => handleNodeClick(e, overlay.id)}
                   onMouseDown={e => {
                     // Prevent canvas drag when clicking on nodes

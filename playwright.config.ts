@@ -7,8 +7,8 @@ export default defineConfig({
   retries: process.env.CI ? 3 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
-  use: {
-    baseURL: 'http://localhost:5173',
+  use: { ignoreHTTPSErrors: true,
+    baseURL: 'https://localhost:5173',
     trace: 'on-first-retry',
   },
   projects: [
@@ -31,10 +31,5 @@ export default defineConfig({
   // start the server manually first with `node scripts/dev-e2e.mjs` —
   // reuseExistingServer (true when !CI) will reuse it instead of spawning
   // another. NEVER put an absolute node path here: it breaks the Linux runners.
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
+  
 });

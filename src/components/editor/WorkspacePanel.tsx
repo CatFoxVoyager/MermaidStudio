@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, Clock, Download, Sparkles, AlignLeft, Maximize, GitCompare, BookmarkPlus, FilePlus, LayoutTemplate, Terminal, Palette, SlidersHorizontal, Undo, Copy, Check, RotateCw, Wrench, Shapes, MoreHorizontal } from 'lucide-react';
+import { Save, Clock, Download, Sparkles, AlignLeft, Maximize, GitCompare, BookmarkPlus, FilePlus, LayoutTemplate, Terminal, Palette, SlidersHorizontal, Undo, Undo2, Redo2, Copy, Check, RotateCw, Wrench, Shapes, MoreHorizontal } from 'lucide-react';
+import { undoInView, redoInView } from '@/lib/editor/historyActions';
 import { CodeEditor } from './CodeEditor';
 import type { CodeEditorRef } from './CodeEditor';
 import { PreviewPanel } from '@/preview/PreviewPanel';
@@ -210,6 +211,16 @@ export function WorkspacePanel({
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium text-white transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
             style={{ background: 'var(--accent)' }} title={t('editor.saveShortcut')}>
             <Save size={11} /> {t('editor.save')}
+          </button>
+          <button onClick={undoInView} title={t('shortcuts.undo', 'Undo')} aria-label={t('shortcuts.undo', 'Undo')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-all hover:bg-[var(--hover)]"
+            style={{ color: 'var(--text-tertiary)' }}>
+            <Undo2 size={11} />
+          </button>
+          <button onClick={redoInView} title={t('shortcuts.redo', 'Redo')} aria-label={t('shortcuts.redo', 'Redo')}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-all hover:bg-[var(--hover)]"
+            style={{ color: 'var(--text-tertiary)' }}>
+            <Redo2 size={11} />
           </button>
           <button onClick={handleCopyCode} title={t('editor.copyCode')} aria-label={t('editor.copyCode')}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-all hover:bg-[var(--hover)]"

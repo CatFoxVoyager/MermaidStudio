@@ -9,12 +9,13 @@ layer(base);
   padding-top: env(safe-area-inset-top);
 }
 .safe-bottom {
-  /* Zero in browser tabs — reported insets are not trusted here. With
-     viewport-fit=cover (removed from index.html) Samsung Internet drew the
-     inset as a white strip under the bottom nav; the layout answer is no
-     padding at all, so the nav sits flush against the browser-owned gesture
-     zone regardless of what the browser reports. */
-  padding-bottom: 0;
+  /* Browser tabs get a FIXED 16px floor (critique iter-7): reported insets
+     are not trusted here (viewport-fit=cover removed — Samsung Internet
+     drew the inset as a white strip), but a flat zero put interactive
+     chrome (FAB, sheet footnotes) under the iOS home indicator. env() reads
+     0 without viewport-fit=cover, so a fixed floor is predictable on every
+     mobile browser; standalone keeps the real (capped) inset below. */
+  padding-bottom: 16px;
 }
 
 /* True edge-to-edge surfaces only (installed PWA / fullscreen): the page
@@ -31,6 +32,74 @@ layer(base);
 }
 @utility safe-right {
   padding-right: env(safe-area-inset-right);
+}
+
+/* Scroll affordance for horizontally-clipped toolbars (critique iter-8:
+   at 390px the preview bar cut "Add subgraph" mid-button and pushed Copy
+   SVG fully offscreen with no signal that more exists — mobile only).
+   NOTE: apply to the SCROLLER ONLY. A mask-image on an ancestor paints its
+   whole subtree — including position:fixed descendants — in the mask's
+   coordinate space, which buried the shapes popover at alpha 0
+   (iter-13→14 P0, proven live by removing the mask). */
+@media (max-width: 767.98px) {
+  .scroll-fade-x {
+    mask-image: linear-gradient(to right, black 0, black calc(100% - 44px), rgba(0, 0, 0, 0.12) calc(100% - 14px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 44px), rgba(0, 0, 0, 0.12) calc(100% - 14px), transparent 100%);
+  }
+
+  /* Style panels ship at desktop density (28–31px controls, 16px slider —
+     iter-8 P1: the surface demanding the finest motor work was the least
+     touch-friendly). One CSS pass lifts every control to the mobile floor
+     without touching three components' JSX. */
+  .style-panel button { min-height: 44px; }
+  /* Color swatches: 40px square visuals (iter-30 moved the JSX to w-10
+     h-10; this rule still forced 32px and silently won the cascade —
+     iter-32 P2: the two fixes disagreed and CSS won). Hit-stretch via
+     pseudo reaches the 44px touch floor without breaking the 5-column
+     grid (iter-18's blanket 44px lift deformed them into slivers). */
+  .style-panel button.swatch { min-height: 0; width: 40px; height: 40px; position: relative; }
+  .style-panel button.swatch::before { content: ''; position: absolute; inset: -2px; }
+  .style-panel input:not([type='range']) { min-height: 44px; font-size: 16px; }
+  .style-panel select { min-height: 44px; font-size: 16px; }
+  .style-panel input[type='range'] { height: 28px; }
+  .style-panel input[type='range']::-webkit-slider-thumb { width: 24px; height: 24px; }
+  .style-panel input[type='range']::-moz-range-thumb { width: 24px; height: 24px; }
+  .style-panel ::-webkit-scrollbar { width: 4px; height: 4px; }
+
+  /* Modal scroll regions: same touch treatment (iter-14 P3 — a desktop
+     15px scrollbar strip inside a touch sheet is platform residue). */
+  .modal-scroll-contain::-webkit-scrollbar { width: 4px; height: 4px; }
+}
+
+/* Sheets must not chain their scroll to the page behind (iter-8 P3:
+   rubber-banding devices drag the sheet body AND the page). Global — the
+   contain is wanted in every viewport. */
+.modal-scroll-contain { overscroll-behavior: contain; }
+
+/* Placeholder color at the token, not via utility classes: the arbitrary
+   variant went stale in a long-lived dev cascade and the placeholder
+   rendered at 4.36:1 on #f4f4f2 (iter-14 P2 — A15 measured). */
+input::placeholder {
+  color: var(--text-tertiary);
+  opacity: 1;
+}
+
+/* Touch press feedback for overlay rows (iter-14 P2: Menu sheet rows and
+   ContextMenu items had hover: only — dead on touch, taps gave no visual
+   acknowledgment). */
+.menu-row:active,
+.menu-item:active { background: var(--state-pressed); }
+
+/* Focus-ring color as a REAL token (iter-19 P1 — A18/A14 measured
+   box-shadow rgba(0,0,0,0) on every FOCUS_RING_CLASSES button): the
+   arbitrary form `ring-[rgba(var(--accent-rgb),0.7)]` does not survive
+   Tailwind v4's ring composition — the var() interpolation must resolve
+   before the ring utility sees it. A plain token does. */
+:root {
+  --focus-ring-color: rgba(13,115,119,0.7);
+}
+.dark {
+  --focus-ring-color: rgba(45,212,191,0.7);
 }
 
 @theme {
@@ -108,15 +177,29 @@ layer(base);
   --surface-base: #fafaf9;
   --surface-raised: #ffffff;
   --surface-floating: #f4f4f2;
+  /* Between floating and raised — icon tiles, neutral command keycaps.
+     Used by MobileMenuSheet tiles and ExtraKeysRow command keys since their
+     introduction; was UNDEFINED until iter-19 (A19 measured transparent
+     backgrounds — the #5120 silent-fail pattern). */
+  --surface-container: #ecebe8;
   --border-subtle: rgba(0,0,0,0.07);
   --border-strong: rgba(0,0,0,0.14);
   --text-primary: #111827;
   /* #67707a: ≥4.5:1 on --surface-floating (was #6b7280 at 4.39:1, critique iter-1 P3) */
   --text-secondary: #67707a;
-  --text-tertiary: #6d7580; /* was #787f8a at 4.04:1 on white — critique iter-2 */
+  --text-tertiary: #666e79; /* was #6d7580 at 4.46:1 on surface-base — critique iter-7 (mobile web), 4.94:1 */
   --accent: #0d7377;
   --accent-dim: rgba(13,115,119,0.1);
   --accent-rgb: 13,115,119;
+  /* Pressed/hover washes for touch chrome — accent-tinted, not gray (craft
+     floor). Referenced 7× by MobileTopBar/MobileWorkspace before being
+     defined (critique iter-8: zero touch feedback). */
+  --state-hover: rgba(13,115,119,0.08);
+  --state-pressed: rgba(13,115,119,0.16);
+  /* Content painted on an accent fill (FAB "+", logo glyph, primary
+     buttons). Light accent #0d7377 carries white at 5.6:1; the bright dark
+     accent #2dd4bf carries white at only 1.86:1 (iter-11 P1). */
+  --on-accent: #ffffff;
   /* Interactive hover feedback — visible on white (hover:bg-white/8 is a
      zero-delta wash on light surfaces, see critique iter-1 P2) */
   --hover: rgba(0,0,0,0.05);
@@ -141,6 +224,7 @@ layer(base);
   --surface-base: #0d1117;
   --surface-raised: #161b22;
   --surface-floating: #21262d;
+  --surface-container: #2a3038;
   --border-subtle: rgba(255,255,255,0.08);
   --border-strong: rgba(255,255,255,0.16);
   --text-primary: #f0f6fc;
@@ -149,6 +233,9 @@ layer(base);
   --accent: #2dd4bf;
   --accent-dim: rgba(45,212,191,0.12);
   --accent-rgb: 45,212,191;
+  --state-hover: rgba(45,212,191,0.12);
+  --state-pressed: rgba(45,212,191,0.22);
+  --on-accent: var(--surface-base);
   --hover: rgba(255,255,255,0.08);
   --danger: #dc2626;
   --danger-dim: rgba(220,38,38,0.08);
@@ -262,7 +349,7 @@ kbd {
 }
 
 /* ─── CodeMirror ─────────────────────────────────────────────── */
-.cm-editor { height: 100%; font-size: 13px; }
+.cm-editor { height: 100%; font-size: 14px; } /* was 13px — smaller than its own 16px accessory keys (iter-10 P1) */
 .cm-editor.cm-focused { outline: none !important; }
 .cm-scroller {
   font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
@@ -274,7 +361,9 @@ kbd {
 .dark .cm-gutters {
   background: #0d1117 !important;
   border-right: 1px solid rgba(255,255,255,0.06) !important;
-  color: rgba(255,255,255,0.18) !important;
+  /* Was 0.18 white (~2:1) — line numbers are quiet by design but must
+     clear the 3:1 non-text bar (iter-9). */
+  color: rgba(255,255,255,0.38) !important;
 }
 .dark .cm-activeLine { background: rgba(255,255,255,0.025) !important; }
 .dark .cm-activeLineGutter { background: rgba(255,255,255,0.03) !important; }
@@ -286,7 +375,8 @@ kbd {
 .cm-gutters {
   background: #f4f4f2 !important;
   border-right: 1px solid rgba(0,0,0,0.06) !important;
-  color: rgba(0,0,0,0.28) !important;
+  /* Was 0.28 black (~2:1) — below the 3:1 non-text bar (iter-9). */
+  color: rgba(0,0,0,0.55) !important;
 }
 .cm-activeLine { background: rgba(0,0,0,0.018) !important; }
 .cm-activeLineGutter { background: rgba(0,0,0,0.025) !important; }
