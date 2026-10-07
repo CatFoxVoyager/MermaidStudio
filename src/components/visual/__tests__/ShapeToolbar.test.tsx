@@ -43,6 +43,18 @@ vi.mock('react-i18next', () => ({
         'visual.shapes.subroutine': 'Subroutine',
         'visual.shapes.flag': 'Flag',
         'visual.shapes.dblCirc': 'Double Circle',
+        'visual.shapes.person': 'Person',
+        'visual.shapes.delay': 'Delay',
+        'visual.shapes.slRect': 'Sloped rect',
+        'visual.shapes.divRect': 'Divided rect',
+        'visual.shapes.folder': 'Folder',
+        'visual.shapes.datastore': 'Data store',
+        'visual.shapes.cloud': 'Cloud',
+        'visual.shapes.browser': 'Browser',
+        'visual.shapes.bolt': 'Bolt',
+        'visual.shapes.tri': 'Triangle',
+        'visual.shapes.hourglass': 'Hourglass',
+        'visual.shapes.doc': 'Document',
       };
       return (map[key] ?? key).replace(/\{\{(\w+)\}\}/g, (_, k: string) => String(args?.[k] ?? `{{${k}}}`));
     },
@@ -105,6 +117,90 @@ describe('ShapeToolbar', () => {
       copies.forEach((btn) => {
         expect(btn.querySelectorAll('circle')).toHaveLength(1);
       });
+    });
+  });
+
+  // 27-03: the 12-shape toolbar set. The plan's structural net: every new
+  // entry renders twice (popover copy + hidden measurer copy), resolves its
+  // localized label (no raw i18n key in the accessible name), and carries a
+  // preview whose svg markup is pairwise-unique across ALL 26 shapes — a
+  // missing ShapePreview case silently renders the default-rect fallback and
+  // duplicates that markup, which the uniqueness sweep flips on.
+  describe('12-shape set entries (27-03)', () => {
+    // [shape key, mock label] — the mock is language-neutral (en values).
+    const NEW_SHAPES: [shape: string, label: string][] = [
+      ['person', 'Person'],
+      ['delay', 'Delay'],
+      ['sl-rect', 'Sloped rect'],
+      ['div-rect', 'Divided rect'],
+      ['folder', 'Folder'],
+      ['datastore', 'Data store'],
+      ['cloud', 'Cloud'],
+      ['browser', 'Browser'],
+      ['bolt', 'Bolt'],
+      ['tri', 'Triangle'],
+      ['hourglass', 'Hourglass'],
+      ['doc', 'Document'],
+    ];
+
+    const ALL_LABELS = [
+      'Box', 'Round', 'Stadium', 'Diamond', 'Circle', 'Hexagon', 'Cylinder',
+      'Slant', 'Slant (mirrored)', 'Trapezoid', 'Trapezoid (mirrored)',
+      'Subroutine', 'Flag', 'Double Circle',
+      ...NEW_SHAPES.map(([, label]) => label),
+    ];
+
+    const hintFor = (label: string) => `Add ${label} (tap to add, drag to canvas)`;
+
+    it.each(NEW_SHAPES)('renders the %s entry with a resolved label on both structural copies', (shape, label) => {
+      const { container } = renderToolbar();
+      const name = hintFor(label);
+
+      // The entry lives behind the More chip in jsdom (fit note at top) —
+      // open the popover so the accessible copy mounts.
+      fireEvent.click(screen.getByRole('button', { name: 'More' }));
+
+      // Exactly TWO structural copies: popover + hidden measurer.
+      const copies = container.querySelectorAll(`button[title="${name}"]`);
+      expect(copies).toHaveLength(2);
+
+      // Exactly ONE accessible instance (the measurer copy is aria-hidden
+      // and visibility:hidden — role queries exclude it, 26-01 measured).
+      const btns = screen.getAllByRole('button', { name });
+      expect(btns).toHaveLength(1);
+      expect(btns[0].textContent).toContain(label);
+    });
+
+    it('renders all 26 shape previews with pairwise-unique svg markup (no default-rect fallback)', () => {
+      const { container } = renderToolbar();
+
+      // The hidden measurer renders every shape unconditionally, so the
+      // sweep needs no popover. Markup (not element counts) is the net: any
+      // shape falling through ShapePreview's default branch duplicates the
+      // plain-rect markup and shrinks the set below 26.
+      const markups = ALL_LABELS.map((label) => {
+        const copy = container.querySelector(`button[title="${hintFor(label)}"]`);
+        expect(copy).not.toBeNull();
+        const svg = copy?.querySelector('svg');
+        expect(svg).not.toBeNull();
+        return svg?.outerHTML ?? '';
+      });
+      expect(new Set(markups).size).toBe(26);
+    });
+
+    it('differentiates the three research-named confusion pairs in svg markup', () => {
+      const { container } = renderToolbar();
+      const markup = (label: string) => {
+        const copy = container.querySelector(`button[title="${hintFor(label)}"]`);
+        expect(copy).not.toBeNull();
+        return copy?.querySelector('svg')?.outerHTML ?? '';
+      };
+
+      // 27-RESEARCH Q6 named these pairs as the manual-check confusions;
+      // the structural half of that check is pinned here.
+      expect(markup('Sloped rect')).not.toBe(markup('Slant'));
+      expect(markup('Data store')).not.toBe(markup('Cylinder'));
+      expect(markup('Triangle')).not.toBe(markup('Flag'));
     });
   });
 });
