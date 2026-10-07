@@ -290,6 +290,16 @@ describe('Mermaid Code Utilities', () => {
       expect(result.nodes.find(n => n.id === 'A')).toBeUndefined();
     });
 
+    // Phase 27 review WR-04: the spaced form is declined on edge lines too —
+    // the edge capture previously trimmed the leading whitespace and
+    // attached the span as a directive (asymmetric with the standalone rule).
+    it('declines the space-separated directive form on an edge line too (WR-04)', () => {
+      const result = parseDiagram('flowchart TD\nA --> B @{ shape: "person", label: "P" }');
+      const b = result.nodes.find(n => n.id === 'B');
+
+      expect(b?.directiveRaw).toBeUndefined();
+    });
+
     it('handles commas and closing braces inside quoted directive labels', () => {
       const comma = parseDiagram('flowchart TD\nA@{ shape: "person", label: "a, b" }');
       expect(comma.nodes.find(n => n.id === 'A')?.label).toBe('a, b');
@@ -363,6 +373,14 @@ describe('Mermaid Code Utilities', () => {
       // a rename would silently lose the icon config either way (A5).
       expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ icon: "fa:user", form: "square", label: "U" }')).toBe(true);
       expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: "doc", label: "D", icon: "fa:user" }')).toBe(true);
+    });
+
+    // Phase 27 review WR-04: the space-separated directive form is invalid
+    // mermaid 12.1.0 — declined standalone (pinned above) and, since this
+    // fix, declined on edge lines too (both source and target attachment).
+    it('returns true for the space-separated directive form on an edge line', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA @{ shape: "person", label: "P" } --> B')).toBe(true);
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA --> B @{ shape: "person", label: "P" }')).toBe(true);
     });
   });
 
@@ -828,6 +846,32 @@ describe('Mermaid Code Utilities', () => {
       const result = removeEdge(source, 'A', 'C');
 
       expect(result).toBe(source);
+    });
+
+    // Phase 27 review WR-01: an edge whose SOURCE carries a directive span
+    // must be deletable — the before-arrow segment is `A@{...}`, so the old
+    // whole-segment comparison never matched and delete silently no-op'd
+    // while the preview panel cleared the selection as if it had worked.
+    it('removes an edge whose source carries a directive span', () => {
+      const source = 'flowchart TD\nA@{ shape: "person", label: "P" } --> B\nB --> C';
+      const result = removeEdge(source, 'A', 'B');
+
+      expect(result).toBe('flowchart TD\nB --> C');
+    });
+
+    it('removes a directive-source edge and shifts subsequent linkStyles', () => {
+      const source = [
+        'flowchart TD',
+        'A@{ shape: "person", label: "P" } --> B',
+        'B --> C',
+        'linkStyle 0 stroke:red',
+        'linkStyle 1 stroke:blue',
+      ].join('\n');
+      const result = removeEdge(source, 'A', 'B');
+
+      expect(result).not.toContain('A@{');
+      expect(result).toContain('linkStyle 0 stroke:blue');
+      expect(result).not.toContain('linkStyle 1');
     });
 
     it('should remove the edge linkStyle and shift subsequent ones', () => {
