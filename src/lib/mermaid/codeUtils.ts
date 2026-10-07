@@ -141,6 +141,14 @@ function directiveShapeKey(token: string): NodeShape {
   return ALL_NODE_SHAPES.includes(token as NodeShape) ? (token as NodeShape) : 'rect';
 }
 
+/** Shapes whose writer emission is the directive wrap (dbl-circ is legacy now). */
+const DIRECTIVE_EMISSION_SHAPES: NodeShape[] = [
+  'doc', 'docs', 'cross-circ', 'bow-rect', 'flip-tri', 'curv-trap',
+  'manual-file', 'manual-input', 'procs', 'paper-tape',
+  'person', 'delay', 'sl-rect', 'div-rect', 'folder', 'datastore',
+  'cloud', 'browser', 'bolt', 'tri', 'hourglass',
+];
+
 export interface ParsedAtDirective {
   shape: string;
   /** Null when the span carries no label key — callers default to the node id. */
@@ -378,23 +386,25 @@ function shapeWrap(label: string, shape: NodeShape, quoted = false, unknownParam
     case 'parallelogram-alt': return `[\\${l}\\]`;
     case 'trapezoid':       return `[/${l}\\]`;
     case 'trapezoid-alt':   return `[\\${l}/]`;
-    // v11 new shapes - use @{ shape: "name" } syntax
-    case 'doc':             return `@{ shape: "doc", label: ${q}${label}${q} }`;
-    case 'docs':            return `@{ shape: "docs", label: ${q}${label}${q} }`;
+    // v11 + Phase 27 directive shapes — all route through directiveWrap
+    // (escaped always-quoted emission, unknown params re-emitted verbatim
+    // after the label). Phase 27 (27-01): the raw-label interpolation the
+    // v11 cases carried before is gone — every directive-emitting case now
+    // escapes labels and carries extras through rename/shape-change.
+    case 'doc':             return directiveWrap('doc', label, unknownParams);
+    case 'docs':            return directiveWrap('docs', label, unknownParams);
     // Phase 26: legacy triple-paren wrap (quote-aware label var, mirroring
     // the circle case). An at-brace metadata emission here would flip the
     // visual editor read-only via the D6 presence gate on the next autosave.
     case 'dbl-circ':        return `(((${l})))`;
-    case 'cross-circ':      return `@{ shape: "cross-circ", label: ${q}${label}${q} }`;
-    case 'bow-rect':        return `@{ shape: "bow-rect", label: ${q}${label}${q} }`;
-    case 'flip-tri':        return `@{ shape: "flip-tri", label: ${q}${label}${q} }`;
-    case 'curv-trap':       return `@{ shape: "curv-trap", label: ${q}${label}${q} }`;
-    case 'manual-file':     return `@{ shape: "manual-file", label: ${q}${label}${q} }`;
-    case 'manual-input':    return `@{ shape: "manual-input", label: ${q}${label}${q} }`;
-    case 'procs':           return `@{ shape: "procs", label: ${q}${label}${q} }`;
-    case 'paper-tape':      return `@{ shape: "paper-tape", label: ${q}${label}${q} }`;
-    // Phase 27 directive shapes — escaped emission (directiveWrap), never
-    // the raw label interpolation the v11 cases above still carry.
+    case 'cross-circ':      return directiveWrap('cross-circ', label, unknownParams);
+    case 'bow-rect':        return directiveWrap('bow-rect', label, unknownParams);
+    case 'flip-tri':        return directiveWrap('flip-tri', label, unknownParams);
+    case 'curv-trap':       return directiveWrap('curv-trap', label, unknownParams);
+    case 'manual-file':     return directiveWrap('manual-file', label, unknownParams);
+    case 'manual-input':    return directiveWrap('manual-input', label, unknownParams);
+    case 'procs':           return directiveWrap('procs', label, unknownParams);
+    case 'paper-tape':      return directiveWrap('paper-tape', label, unknownParams);
     case 'person':          return directiveWrap('person', label, unknownParams);
     default:                return `[${l}]`;
   }
@@ -1001,8 +1011,16 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
         // Check source (with or without explicit shape)
         if (arrowMatch[1] === nodeId) {
           if (arrowMatch[2]?.trim()) {
+            const srcRaw = arrowMatch[2].trim();
+            // Phase 27: directive source — rebuild through the directive
+            // writer so the shape key and unknown params survive (P4).
+            const srcDirective = srcRaw.startsWith('@{') ? parseAtDirective(srcRaw) : null;
+            if (srcDirective) {
+              lines[i] = `${nodeId}${directiveWrap(srcDirective.shape, newLabel, srcDirective.unknownParams)}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${arrowMatch[6] ?? ''}`;
+              return lines.join('\n');
+            }
             // Node has explicit shape
-            const { shape } = parseNodeLabel(arrowMatch[2].trim());
+            const { shape } = parseNodeLabel(srcRaw);
             lines[i] = `${nodeId}${shapeWrap(newLabel, shape, false)}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${arrowMatch[6] ?? ''}`;
           } else {
             // Node has no explicit shape, add one with the new label
@@ -1030,8 +1048,15 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
           const beforeTarget = line.substring(0, (arrowMatch.index ?? 0) + targetInMatch);
 
           if (arrowMatch[6]?.trim()) {
+            const tgtRaw = arrowMatch[6].trim();
+            // Phase 27: directive target — same directive-writer rebuild.
+            const tgtDirective = tgtRaw.startsWith('@{') ? parseAtDirective(tgtRaw) : null;
+            if (tgtDirective) {
+              lines[i] = `${beforeTarget}${nodeId}${directiveWrap(tgtDirective.shape, newLabel, tgtDirective.unknownParams)}`;
+              return lines.join('\n');
+            }
             // Node has explicit shape
-            const { shape } = parseNodeLabel(arrowMatch[6].trim());
+            const { shape } = parseNodeLabel(tgtRaw);
             lines[i] = `${beforeTarget}${nodeId}${shapeWrap(newLabel, shape, false)}`;
           } else {
             // Node has no explicit shape, add one with the new label
@@ -1049,8 +1074,25 @@ export function updateNodeShape(source: string, nodeId: string, newShape: NodeSh
   const lines = source.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const nodeMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[|\(\[")["']?[^\n]+)/);
+    // Phase 27: the opener alternation gains the at-brace, so a directive
+    // definition line is matched — but only rebuilt when the post-id
+    // remainder is EXACTLY a standalone span (an edge line whose match would
+    // swallow the arrow returns source unchanged — decision D3, the missing
+    // edge-line branch stays documented pre-existing debt).
+    const nodeMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[|\(\["|@\{)["']?[^\n]+)/);
     if (nodeMatch && nodeMatch[2] === nodeId) {
+      const rest = nodeMatch[4].trim();
+      if (rest.startsWith('@{')) {
+        // The spaced form (id, whitespace, span) is invalid mermaid 12.1.0 —
+        // decline it exactly like the parser does, never silently normalize.
+        if (nodeMatch[3] !== '' || !/^@\{.*\}\s*$/.test(rest)) {return source;}
+        const parsed = parseAtDirective(rest);
+        if (!parsed) {return source;}
+        const label = parsed.label ?? nodeId;
+        const extras = DIRECTIVE_EMISSION_SHAPES.includes(newShape) ? parsed.unknownParams : undefined;
+        lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${shapeWrap(label, newShape, true, extras)}`;
+        return lines.join('\n');
+      }
       const { label, quoted } = parseNodeLabel(nodeMatch[4].trim());
       lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${shapeWrap(label, newShape, quoted)}`;
       return lines.join('\n');
@@ -1080,7 +1122,7 @@ export function removeNode(source: string, nodeId: string): string {
     const edgeRe2 = new RegExp(`(-->|---|-.->|-\\.->|==>|x--x|\\.->|<-->|o--o|--|~~~)[^\\n]*\\s${nodeId}\\b\\s*$`);
     if (edgeRe.test(trimmed) || edgeRe2.test(trimmed)) {return false;}
 
-    const nodeMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[)[^\n]+)/);
+    const nodeMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[|@\{)[^\n]+)/);
     if (nodeMatch && nodeMatch[2] === nodeId) {return false;}
 
     return true;
@@ -1571,8 +1613,9 @@ function findNodeLine(lines: string[], nodeId: string): { index: number; isStand
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
     if (trimmed.startsWith(nodeId) && !ARROW_RE.test(trimmed) && !trimmed.startsWith('style ') && !trimmed.startsWith('class ')) {
-      // Matches standalone node pattern
-      if (trimmed.match(new RegExp(`^${escapeRegex(nodeId)}(\\[|\\(|\\{|>|\\/|$)`))) {
+      // Matches standalone node pattern (at-brace included — Phase 27
+      // directive definitions resolve for moveNodeToSubgraph)
+      if (trimmed.match(new RegExp(`^${escapeRegex(nodeId)}(\\[|\\(|\\{|>|\\/|@|$)`))) {
         return { index: i, isStandalone: true };
       }
     }
@@ -1749,15 +1792,20 @@ export function applyNodePreset(source: string, nodeIds: string[], presetType: P
       // Find the line after the node definition to insert the class line
       const nodeIdx = lines.findIndex(l => {
         const trimmed = l.trim();
-        // Check if line contains the node (as standalone or in edge)
-        return new RegExp(`(^|\\s)${nodeId}(\\s|\\[|\\(|\\{|$)`).test(l);
+        // Check if line contains the node (as standalone or in edge; the
+        // at-sign covers Phase 27 directive definitions)
+        return new RegExp(`(^|\\s)${nodeId}(\\s|\\[|\\(|\\{|@|$)`).test(l);
       });
 
       if (nodeIdx !== -1) {
         // Insert after the node line
         let insertAfter = nodeIdx;
-        // Find the end of multi-line node definition if any
-        while (insertAfter + 1 < lines.length && /^[\x5B\x5D{}]|\s|,/.test(lines[insertAfter + 1].trim())) {
+        // Find the end of multi-line node definition if any. Anchored (27-01
+        // Rule-1 fix): the previous pattern's unanchored whitespace/comma
+        // alternatives matched ANY line containing a space — including the
+        // classDef line this function may have just appended — so the class
+        // line never landed next to the node it belongs to.
+        while (insertAfter + 1 < lines.length && /^[\x5B\x5D{},]/.test(lines[insertAfter + 1].trim())) {
           insertAfter++;
         }
         lines.splice(insertAfter + 1, 0, `  ${classLine}`);
