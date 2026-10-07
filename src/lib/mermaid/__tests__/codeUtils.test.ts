@@ -23,9 +23,8 @@ import {
   removeSubgraph,
   updateEdgeArrowType,
   updateEdgeLabel,
-  bodyContainsAtDirective,
+  bodyHasUnparsedAtDirective,
 } from '../codeUtils';
-import type { NodeShape } from '../codeUtils';
 import {
   extractThemeIdFromContent,
   applyThemeToFrontmatter,
@@ -186,20 +185,24 @@ describe('Mermaid Code Utilities', () => {
     });
 
     it('silently drops a bare post-id metadata line (D6 corruption vector — observation test)', () => {
-      // The bare post-id form is what this module's own updateNodeShape emits
-      // for the 11 V11_SHAPES. It matches no parse rule (arrow test, node
-      // regex, STANDALONE), so a node defined ONLY by such a line vanishes
-      // from parsed.nodes entirely — and a node that also appears on an edge
-      // silently loses its shape/label. This drop is the upstream behavior
-      // the D6 read-only gate FENCES, not fixes — recorded so a future parser
-      // upgrade re-classifies consciously (Phase 23 observation-test precedent).
+      // REVERSED in Phase 27 (27-01): the parser upgrade this comment
+      // anticipated has landed. The bare post-id form — the exact output of
+      // this module's own directive emission — previously matched no parse
+      // rule (arrow test, node regex, STANDALONE) and vanished from
+      // parsed.nodes; the standalone directive branch now parses it into a
+      // typed node carrying its verbatim span, and the D6 gate narrowed to
+      // fence only the forms the parser still cannot consume. Same test id
+      // and shape kept so the history stays greppable.
       const source = 'flowchart TD\n  A[Start] --> B\n  C@{ shape: "doc", label: "Doc" }';
       const result = parseDiagram(source);
 
       expect(result.nodes.some(n => n.id === 'A')).toBe(true);
       expect(result.nodes.some(n => n.id === 'B')).toBe(true);
-      // Node C exists only through the metadata line — the parser drops it.
-      expect(result.nodes.find(n => n.id === 'C')).toBeUndefined();
+      // Node C exists only through the metadata line — now parsed typed.
+      const nodeC = result.nodes.find(n => n.id === 'C');
+      expect(nodeC).toBeDefined();
+      expect(nodeC?.shape).toBe('doc');
+      expect(nodeC?.label).toBe('Doc');
       expect(result.edges).toHaveLength(1);
     });
 
@@ -214,51 +217,42 @@ describe('Mermaid Code Utilities', () => {
       expect(node).toBeDefined();
       expect(node?.shape).toBe('person');
       expect(node?.label).toBe('Alice');
-      // Cast keeps the RED run type-clean: the payload field itself ships
-      // with this task's GREEN commit.
-      expect((node as unknown as { directiveRaw?: string }).directiveRaw)
-        .toBe('@{ shape: "person", label: "Alice" }');
+      expect(node?.directiveRaw).toBe('@{ shape: "person", label: "Alice" }');
     });
   });
 
-  describe('bodyContainsAtDirective (D6 fail-safe presence test)', () => {
+  // Phase 27 (27-01): the D6 gate narrowed from presence-based to
+  // parse-completeness — a body line carrying `@{` fences only when the
+  // directive rules cannot fully consume it. The frontmatter and init
+  // exclusions below are the THM-03 pair pinned since the original gate;
+  // they must survive every rewrite of the computation.
+  describe('bodyHasUnparsedAtDirective (D6 parse-completeness gate)', () => {
     it('returns false for a plain flowchart (no metadata)', () => {
-      expect(bodyContainsAtDirective('flowchart TD\n  A --> B')).toBe(false);
+      expect(bodyHasUnparsedAtDirective('flowchart TD\n  A --> B')).toBe(false);
     });
 
     it('returns true for a body occurrence (space-separated form)', () => {
-      expect(bodyContainsAtDirective('flowchart TD\n  A @{ shape: doc } ')).toBe(true);
+      expect(bodyHasUnparsedAtDirective('flowchart TD\n  A @{ shape: doc } ')).toBe(true);
     });
 
-    it('returns true for the bare post-id form emitted by updateNodeShape', () => {
+    it('returns false for the bare post-id form now that the parser consumes it', () => {
       expect(
-        bodyContainsAtDirective('flowchart TD\n  A-->B\n  B@{ shape: "doc", label: "Doc" }'),
-      ).toBe(true);
+        bodyHasUnparsedAtDirective('flowchart TD\n  A-->B\n  B@{ shape: "doc", label: "Doc" }'),
+      ).toBe(false);
     });
 
     it('returns false when the only occurrence sits inside frontmatter (THM-03 config is legitimate)', () => {
       const source = '---\ntitle: T\nconfig:\n  metadata: "@{ view: collapsed }"\n---\nflowchart TD\n  A --> B';
-      expect(bodyContainsAtDirective(source)).toBe(false);
+      expect(bodyHasUnparsedAtDirective(source)).toBe(false);
     });
 
     it('returns false when the only occurrence sits inside a legacy init directive', () => {
       const source = '%%{init: {"theme":"dark"}}%%\nflowchart TD\nA-->B';
-      expect(bodyContainsAtDirective(source)).toBe(false);
+      expect(bodyHasUnparsedAtDirective(source)).toBe(false);
     });
 
-    // Phase 27 (27-01 Task 1, tracer RED): the D6 gate narrows from
-    // presence-based to parse-completeness — well-formed directive content
-    // must become editable. The renamed helper does not exist yet; the
-    // missing export IS the planned-behavior failure (it ships with this
-    // task's GREEN commit alongside the parser it trusts).
-    describe('bodyHasUnparsedAtDirective (D6 parse-completeness gate)', () => {
-      it('lets a well-formed standalone directive node through (editable)', async () => {
-        const mod = await import('../codeUtils');
-        const helper = (mod as unknown as Record<string, unknown>).bodyHasUnparsedAtDirective as
-          ((content: string) => boolean) | undefined;
-        expect(helper).toBeDefined();
-        expect(helper!('flowchart TD\nA@{ shape: "person", label: "Alice" }')).toBe(false);
-      });
+    it('lets a well-formed standalone directive node through (editable)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: "person", label: "Alice" }')).toBe(false);
     });
   });
 
@@ -429,12 +423,11 @@ describe('Mermaid Code Utilities', () => {
       expect(result).toContain('Z(((Stop)))');
     });
 
-    // Phase 27 (27-01 Task 1, tracer RED): toolbar adds of a person node
-    // emit the directive wrap. Today the default rect emission runs. The
-    // cast keeps RED type-clean — the union member ships with GREEN.
+    // Phase 27 (27-01): toolbar adds of a person node emit the directive
+    // wrap — the escaped always-quoted emission, never rect brackets.
     it('should add a person node with the directive wrap', () => {
       const source = 'flowchart TD\nA[Box]';
-      const result = addNode(source, 'Z', 'Alice', 'person' as NodeShape);
+      const result = addNode(source, 'Z', 'Alice', 'person');
 
       expect(result).toContain('Z@{ shape: "person", label: "Alice" }');
     });

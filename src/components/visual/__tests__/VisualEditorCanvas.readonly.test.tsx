@@ -89,23 +89,23 @@ const FRONTMATTER_ONLY_CONTENT =
 
 describe('bodyContainsAtDirective — D6 presence helper (via codeUtils)', () => {
   it('detects a body occurrence (space-separated form)', async () => {
-    const { bodyContainsAtDirective } = await import('@/lib/mermaid/codeUtils');
-    expect(bodyContainsAtDirective('flowchart TD\n  A @{ shape: doc } ')).toBe(true);
+    const { bodyHasUnparsedAtDirective } = await import('@/lib/mermaid/codeUtils');
+    expect(bodyHasUnparsedAtDirective('flowchart TD\n  A @{ shape: doc } ')).toBe(true);
   });
 
   it('detects the bare post-id form emitted by updateNodeShape', async () => {
-    const { bodyContainsAtDirective } = await import('@/lib/mermaid/codeUtils');
-    expect(bodyContainsAtDirective(BODY_METADATA_CONTENT)).toBe(true);
+    const { bodyHasUnparsedAtDirective } = await import('@/lib/mermaid/codeUtils');
+    expect(bodyHasUnparsedAtDirective(BODY_METADATA_CONTENT)).toBe(true);
   });
 
   it('does NOT detect an occurrence confined to frontmatter', async () => {
-    const { bodyContainsAtDirective } = await import('@/lib/mermaid/codeUtils');
-    expect(bodyContainsAtDirective(FRONTMATTER_ONLY_CONTENT)).toBe(false);
+    const { bodyHasUnparsedAtDirective } = await import('@/lib/mermaid/codeUtils');
+    expect(bodyHasUnparsedAtDirective(FRONTMATTER_ONLY_CONTENT)).toBe(false);
   });
 
   it('does not detect a metadata-free flowchart', async () => {
-    const { bodyContainsAtDirective } = await import('@/lib/mermaid/codeUtils');
-    expect(bodyContainsAtDirective(PLAIN_CONTENT)).toBe(false);
+    const { bodyHasUnparsedAtDirective } = await import('@/lib/mermaid/codeUtils');
+    expect(bodyHasUnparsedAtDirective(PLAIN_CONTENT)).toBe(false);
   });
 });
 
