@@ -14,6 +14,7 @@ const SHAPE_OPTIONS: { value: NodeShape; label: string }[] = [
   { value: 'hexagon',       label: 'Hexagon' },
   { value: 'asymmetric',    label: 'Asymmetric' },
   { value: 'parallelogram', label: 'Parallelogram' },
+  { value: 'dbl-circ',      label: 'Double circle' },
 ];
 
 const ARROW_OPTIONS = [
