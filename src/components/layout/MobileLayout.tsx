@@ -121,8 +121,7 @@ export function MobileLayout({
           onOpenAbout={onOpenAbout}
           isDirty={isDirty}
           lastSavedAt={lastSavedAt}
-          historyUnavailable={activeView === 'files'}
-          activeTitle={activeView === 'files' ? undefined : activeDiagramTitle}
+          historyUnavailable={activeView === 'files'}
         />
       </div>
 

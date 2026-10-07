@@ -29,7 +29,6 @@ export interface MobileTopBarProps {
   /** Active diagram name — the h1 shows it while editing (iter-14 P1: no
    *  editor surface named the open document); falls back to the wordmark
    *  on the Files screen. */
-  activeTitle?: string;
 }
 
 export function MobileTopBar({
@@ -44,7 +43,6 @@ export function MobileTopBar({
   isDirty = false,
   lastSavedAt,
   historyUnavailable = false,
-  activeTitle,
 }: MobileTopBarProps) {
   const { t } = useTranslation();
   // Shared focus-ring recipe (iter-9: the local copy had drifted — no
@@ -113,20 +111,12 @@ export function MobileTopBar({
           className="flex min-w-0 items-center text-base font-semibold tracking-tight"
           style={{ color: 'var(--text-primary)' }}
         >
-          {/* While editing, the h1 names the open document (iter-14 P1: no
-              editor surface said WHAT you are editing — the logo tile keeps
-              brand identity, the wordmark yields its slot). On Files the
-              compact "MS" wordmark returns. */}
-          {activeTitle ? (
-            <span className="min-w-[64px] truncate" title={activeTitle} aria-label={`${activeTitle}${isDirty ? ' — edited' : ''}`}>
-              {activeTitle}
-              {isDirty && <span aria-hidden="true" style={{ color: 'var(--text-tertiary)' }}> •</span>}
-            </span>
-          ) : (
-            <span className="min-w-0 truncate" aria-label="MermaidStudio">
-              M<span style={{ color: 'var(--accent)' }}>S</span>
-            </span>
-          )}
+          {/* User decision 2026-10-06 (mirrored from the -app): the MS
+              wordmark is PERMANENT in the brand block — the open document
+              name lives in the Menu sheet context, not the brand slot. */}
+          <span className="min-w-0 truncate" aria-label="MermaidStudio">
+            M<span style={{ color: 'var(--accent)' }}>S</span>
+          </span>
           {/* No !isDirty guard here: isDirty means "differs from last
               checkpoint" and legitimately stays true across autosaves —
               the flash reports the persist, the dot reports the checkpoint

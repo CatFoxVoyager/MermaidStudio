@@ -57,11 +57,11 @@ describe('MobileTopBar', () => {
       expect(screen.queryByTestId('mobile-topbar-new')).not.toBeInTheDocument();
     });
 
-    it('shows the active diagram title in the h1 while editing (iter-14)', () => {
-      render(<MobileTopBar {...defaultProps} activeTitle="Welcome Diagram" />);
+    it('renders the MS wordmark permanently (user decision 2026-10-06, mirrored from the -app)', () => {
+      render(<MobileTopBar {...defaultProps} />);
       const header = screen.getByTestId('mobile-topbar');
-      expect(header.textContent).toContain('Welcome Diagram');
-      expect(header.querySelector('h1')).not.toHaveAttribute('aria-label', 'MermaidStudio');
+      expect(header.textContent).not.toContain('Welcome Diagram');
+      expect(header.querySelector('h1')?.textContent).toBe('MS');
     });
 
     it('renders the six action buttons', () => {
