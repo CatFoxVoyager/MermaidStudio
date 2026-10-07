@@ -15,6 +15,7 @@ import {
   generateNodeId,
   parseFrontmatter,
   generateFrontmatter,
+  applyNodePreset,
   parseLinkStyles,
   edgeStyleToString,
   updateLinkStyle,
@@ -219,6 +220,82 @@ describe('Mermaid Code Utilities', () => {
       expect(node?.label).toBe('Alice');
       expect(node?.directiveRaw).toBe('@{ shape: "person", label: "Alice" }');
     });
+
+    // ===== Phase 27 (27-01 Task 2): the directive parse matrix — every
+    // probe defect from the research baseline (Q5 P2/P5/P6/P9 + R-series
+    // forms) pinned as a green case against the Task 1 skeleton. =====
+
+    it('parses a subgraph-wrapped directive node with its parent set', () => {
+      const source = 'flowchart TD\n  subgraph S1\n    A@{ shape: "person", label: "P" }\n  end';
+      const result = parseDiagram(source);
+
+      const node = result.nodes.find(n => n.id === 'A');
+      expect(node?.shape).toBe('person');
+      expect(node?.label).toBe('P');
+      expect(node?.parentSubgraphId).toBe('S1');
+    });
+
+    it('captures unknown params verbatim from an edge-line directive span', () => {
+      const source = 'flowchart TD\nA@{ shape: "doc", label: "D", w: 100 } --> B';
+      const result = parseDiagram(source);
+
+      const node = result.nodes.find(n => n.id === 'A');
+      expect(node?.shape).toBe('doc');
+      expect(node?.label).toBe('D');
+      expect(node?.unknownParams).toEqual(['w: 100']);
+      expect(result.edges).toHaveLength(1);
+    });
+
+    it('unescapes backslash-escaped double quotes in directive labels', () => {
+      const source = 'flowchart TD\nA@{ shape: "person", label: "He said \\"hi\\"" }';
+      const result = parseDiagram(source);
+
+      const node = result.nodes.find(n => n.id === 'A');
+      expect(node?.label).toBe('He said "hi"');
+      expect(node?.label).not.toContain('\\');
+    });
+
+    it('parses a target-side directive span into a typed node', () => {
+      const source = 'flowchart TD\nA --> B@{ shape: "person", label: "P" }';
+      const result = parseDiagram(source);
+
+      const node = result.nodes.find(n => n.id === 'B');
+      expect(node?.shape).toBe('person');
+      expect(node?.label).toBe('P');
+    });
+
+    it('defaults a no-label directive to the node id (mermaid vertex.text semantics)', () => {
+      const source = 'flowchart TD\nA@{ shape: doc } --> B';
+      const result = parseDiagram(source);
+
+      const node = result.nodes.find(n => n.id === 'A');
+      expect(node?.shape).toBe('doc');
+      expect(node?.label).toBe('A');
+    });
+
+    it('preserves an unknown shape key as a rect with the verbatim span', () => {
+      const source = 'flowchart TD\nA@{ shape: "future-shape", label: "X" }';
+      const result = parseDiagram(source);
+
+      const node = result.nodes.find(n => n.id === 'A');
+      expect(node?.shape).toBe('rect');
+      expect(node?.label).toBe('X');
+      expect(node?.directiveRaw).toBe('@{ shape: "future-shape", label: "X" }');
+    });
+
+    it('declines the space-separated directive form (invalid mermaid 12.1.0)', () => {
+      const result = parseDiagram('flowchart TD\nA @{ shape: "person" }');
+
+      expect(result.nodes.find(n => n.id === 'A')).toBeUndefined();
+    });
+
+    it('handles commas and closing braces inside quoted directive labels', () => {
+      const comma = parseDiagram('flowchart TD\nA@{ shape: "person", label: "a, b" }');
+      expect(comma.nodes.find(n => n.id === 'A')?.label).toBe('a, b');
+
+      const brace = parseDiagram('flowchart TD\nA@{ shape: "person", label: "a } b" }');
+      expect(brace.nodes.find(n => n.id === 'A')?.label).toBe('a } b');
+    });
   });
 
   // Phase 27 (27-01): the D6 gate narrowed from presence-based to
@@ -348,6 +425,28 @@ describe('Mermaid Code Utilities', () => {
       expect(result).not.toContain('[');
       expect(result).not.toContain(']');
     });
+
+    // Phase 27 (27-01 Task 2, RED): rename of an edge-defined directive node
+    // keeps the unknown params verbatim (research probe P4 flipped).
+    it('keeps unknown params on rename of an edge-defined directive node', () => {
+      const source = 'flowchart TD\nA@{ shape: "doc", label: "D", w: 100 } --> B';
+      const result = updateNodeLabel(source, 'A', 'Renamed');
+
+      expect(result).toContain('@{ shape: "doc", label: "Renamed", w: 100 }');
+      expect(result).toContain('-->');
+      expect(result).toContain('B');
+    });
+
+    // Round-trip with a double-quote in the label must survive twice
+    // consecutively: unescape on parse, re-escape on emission.
+    it('round-trips an escaped-quote label through rename twice', () => {
+      const source = 'flowchart TD\nA@{ shape: "person", label: "He said \\"hi\\"" }';
+      const once = updateNodeLabel(source, 'A', 'Say "go"');
+      expect(once).toContain('label: "Say \\"go\\""');
+
+      const twice = updateNodeLabel(once, 'A', 'Say "stop"');
+      expect(twice).toContain('label: "Say \\"stop\\""');
+    });
   });
 
   describe('updateNodeShape', () => {
@@ -387,6 +486,34 @@ describe('Mermaid Code Utilities', () => {
 
       const reparsed = parseDiagram(emitted);
       expect(reparsed.nodes[0]).toMatchObject({ shape: 'dbl-circ', label: '' });
+    });
+
+    // Phase 27 (27-01 Task 2, RED): shape change on a directive line re-emits
+    // through the directive writer (research probe P10 flipped).
+    it('rewrites a directive node through the directive writer on shape change', () => {
+      const source = 'flowchart TD\nA@{ shape: "doc", label: "D" }';
+      const result = updateNodeShape(source, 'A', 'person');
+
+      expect(result).toBe('flowchart TD\nA@{ shape: "person", label: "D" }');
+    });
+
+    // Decision D3 (27-01): the edge-line branch stays out of scope this
+    // phase — the documented pre-existing gap, pinned as unchanged source.
+    it('leaves an edge-defined directive node unchanged on shape change (D3)', () => {
+      const source = 'flowchart TD\nA@{ shape: "doc", label: "D" } --> B';
+      const result = updateNodeShape(source, 'A', 'person');
+
+      expect(result).toBe(source);
+    });
+
+    // The deliberate drop: unknown params cannot be represented in legacy
+    // syntax, so converting to a legacy shape loses them (pinned contract).
+    it('drops unknown params when converting a directive node to a legacy shape', () => {
+      const source = 'flowchart TD\nA@{ shape: "doc", label: "D", w: 100 }';
+      const result = updateNodeShape(source, 'A', 'round');
+
+      expect(result).toBe('flowchart TD\nA(D)');
+      expect(result).not.toContain('w: 100');
     });
   });
 
@@ -446,6 +573,38 @@ describe('Mermaid Code Utilities', () => {
       const result = removeNode(source, 'B');
 
       expect(result).not.toContain('class B');
+    });
+
+    // Phase 27 (27-01 Task 2, RED): directive definition lines are deletable
+    // (research probe P12 flipped) — the gate gains the at-brace alternative.
+    it('removes a standalone directive definition line', () => {
+      const source = 'flowchart TD\nA@{ shape: "person", label: "P" }\nB --> C';
+      const result = removeNode(source, 'A');
+
+      expect(result).not.toContain('A@{');
+      expect(result).toContain('B --> C');
+    });
+  });
+
+  describe('applyNodePreset', () => {
+    const PRESET_COLORS = {
+      primaryColor: '#2563eb',
+      successColor: '#16a34a',
+      warningColor: '#d97706',
+      errorColor: '#dc2626',
+      infoColor: '#0891b2',
+    };
+
+    // Phase 27 (27-01 Task 2, RED): the node-line finder gains the at sign so
+    // the class line lands after the directive line instead of at file end.
+    it('inserts the class line right after a standalone directive node line', () => {
+      const source = 'flowchart TD\nA@{ shape: "person", label: "P" }';
+      const result = applyNodePreset(source, ['A'], 'primary', PRESET_COLORS);
+
+      const lines = result.split('\n');
+      const nodeIdx = lines.findIndex(l => l.includes('A@{'));
+      expect(nodeIdx).toBeGreaterThanOrEqual(0);
+      expect(lines[nodeIdx + 1].trim()).toBe('class A presetPrimary');
     });
   });
 
