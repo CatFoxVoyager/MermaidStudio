@@ -508,11 +508,13 @@ describe('Mermaid Code Utilities', () => {
 
     // The deliberate drop: unknown params cannot be represented in legacy
     // syntax, so converting to a legacy shape loses them (pinned contract).
+    // The label stays quoted — the directive context always quotes, and the
+    // quoted legacy form round-trips labels containing special characters.
     it('drops unknown params when converting a directive node to a legacy shape', () => {
       const source = 'flowchart TD\nA@{ shape: "doc", label: "D", w: 100 }';
       const result = updateNodeShape(source, 'A', 'round');
 
-      expect(result).toBe('flowchart TD\nA(D)');
+      expect(result).toBe('flowchart TD\nA("D")');
       expect(result).not.toContain('w: 100');
     });
   });
