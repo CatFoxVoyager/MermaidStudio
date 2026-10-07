@@ -366,6 +366,64 @@ describe('Mermaid Code Utilities', () => {
     });
   });
 
+  // Phase 27 review WR-02: the fence and the parser share one arrow-line
+  // matcher. The old single regex paired two lazy quantifiers with the
+  // 14-alternative arrow group and went quadratic on long @{ lines
+  // (measured x4 per size doubling, seconds at 16 KB); the replacement
+  // enumerates arrow candidates linearly. These pins lock the semantics the
+  // rewrite must preserve — winner selection (including the mangled
+  // divider-in-label split the fence depends on) — plus the multi-char id
+  // capture the old lazy group truncated to its first character.
+  describe('arrow-line matcher semantics (WR-02)', () => {
+    it('captures a multi-char edge source id in full (old lazy group truncated it)', () => {
+      const result = parseDiagram('flowchart TD\nnode1 --> node2');
+
+      expect(result.edges.map(e => [e.source, e.target])).toEqual([['node1', 'node2']]);
+      expect(result.nodes.map(n => n.id).sort()).toEqual(['node1', 'node2']);
+    });
+
+    it('captures a multi-char directive-source edge without mangling', () => {
+      const result = parseDiagram('flowchart TD\nab1@{ shape: "doc", label: "D" } --> B');
+      const a = result.nodes.find(n => n.id === 'ab1');
+
+      expect(a?.shape).toBe('doc');
+      expect(a?.directiveRaw).toBe('@{ shape: "doc", label: "D" }');
+      expect(result.edges.map(e => [e.source, e.target])).toEqual([['ab1', 'B']]);
+    });
+
+    it('keeps the divider-in-label winner the fence mirrors (mangled split stays fenced)', () => {
+      const line = 'A@{ shape: "rect", label: "aa----bb" } --> B';
+      const result = parseDiagram('flowchart TD\n' + line);
+
+      // The winner is the `---` inside the label (target `bb`), exactly as
+      // the old engine chose it — the truncated span then fails
+      // parseAtDirective and the fence keeps the document read-only.
+      expect(result.edges.map(e => [e.arrowType, e.target])).toEqual([['---', 'bb']]);
+      expect(bodyHasUnparsedAtDirective('flowchart TD\n' + line)).toBe(true);
+    });
+
+    it('parses a 16KB divider-in-label line with the same verdict (scale guard)', () => {
+      const filler = 'a'.repeat(8 * 1024);
+      const line = 'A@{ shape: "rect", label: "' + filler + '----' + filler + '" } --> B';
+      const result = parseDiagram('flowchart TD\n' + line);
+
+      expect(result.edges).toHaveLength(1);
+      expect(result.edges[0]?.arrowType).toBe('---');
+      expect(result.edges[0]?.target).toBe(filler);
+      expect(bodyHasUnparsedAtDirective('flowchart TD\n' + line)).toBe(true);
+    });
+
+    it('parses a 16KB well-formed directive edge line cleanly (scale guard)', () => {
+      const label = 'long label ' + 'x'.repeat(16 * 1024);
+      const line = 'A@{ shape: "rect", label: "' + label + '" } --> B';
+      const result = parseDiagram('flowchart TD\n' + line);
+
+      expect(result.edges.map(e => [e.source, e.target])).toEqual([['A', 'B']]);
+      expect(result.nodes.find(n => n.id === 'A')?.label).toBe(label);
+      expect(bodyHasUnparsedAtDirective('flowchart TD\n' + line)).toBe(false);
+    });
+  });
+
   describe('updateNodeStyle', () => {
     it('should add style to node', () => {
       const source = 'flowchart TD\nA-->B';

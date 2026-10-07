@@ -430,10 +430,90 @@ function shapeWrap(label: string, shape: NodeShape, quoted = false, unknownParam
 
 const STANDALONE_NODE_RE = /^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)$/;
 const ARROW_RE = /-->|---|--\|>|\|>|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|~~~/;
-// Full arrow-line structure (id + optional shape raw + arrow + optional edge
-// label + target id + optional shape raw). Shared by parseDiagram's edge
-// branch and the D6 fence so their verdicts on a line cannot drift.
-const ARROW_LINE_RE = /^([A-Za-z_][A-Za-z0-9_-]*?)([^\n]*?)\s*(-->|---|--\|>|\|>|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|~~~)\s*(?:\|([^|]*)\|)?\s*([A-Za-z_][A-Za-z0-9_-]*)([^\n]*)$/;
+// Arrow alternatives in EXACTLY the order the old arrow-line regex listed
+// them (same set as ARROW_RE) — candidate enumeration below depends on the
+// order to keep picking the winner the old engine picked.
+const ARROW_ALT_STRINGS = ['-->', '---', '--|>', '|>', '-.->', '==>', 'x--x', '.->', '<-->', 'o--o', '--o', 'o--', '~~~'] as const;
+const EDGE_HEAD_ID_RE = /^([A-Za-z_][A-Za-z0-9_-]*)/;
+const WS_RE = /\s/;
+const ID_START_RE = /[A-Za-z_]/;
+const ID_CHAR_RE = /[A-Za-z0-9_-]/;
+
+/**
+ * Full arrow-line structure (id + optional shape raw + arrow + optional edge
+ * label + target id + optional target raw). Shared by parseDiagram's edge
+ * branch and the D6 fence so their verdicts on a line cannot drift.
+ *
+ * WR-02: this replaces the single ARROW_LINE_RE regex, whose two lazy
+ * quantifiers paired with the 14-alternative arrow group backtracked
+ * quadratically on long `@{`-bearing lines (measured x4 per size doubling,
+ * seconds at 16 KB on this per-keystroke fence/parse path). The replacement
+ * walks candidate arrow positions left-to-right, trying the alternatives in
+ * the same per-position order as the old engine, and takes the first
+ * candidate whose anchored tail continues — the winning split is the same,
+ * the work is linear. Arrow-tail characters that are also id characters
+ * (`-`, `o`, `x`) are handled by capping the id capture at the candidate
+ * position. The id capture is the longest id-char prefix at or before the
+ * arrow: the old lazy capture truncated multi-char ids to their first
+ * letter (`node1 --> node2` parsed as node `n` labeled "ode1").
+ */
+function matchArrowLine(trimmed: string): RegExpMatchArray | null {
+  const leadingIdLen = trimmed.match(EDGE_HEAD_ID_RE)?.[0].length ?? 0;
+  if (leadingIdLen === 0) {return null;}
+  for (let i = 1; i < trimmed.length; i++) {
+    for (const alt of ARROW_ALT_STRINGS) {
+      if (!trimmed.startsWith(alt, i)) {continue;}
+      const tail = matchEdgeTail(trimmed, i + alt.length);
+      if (tail) {
+        // Group layout mirrors the old regex match so callers keep their
+        // indices: [full, id, sourceRaw, arrow, edgeLabel, targetId,
+        // targetRaw]. edgeLabel stays undefined when no `|label|` is
+        // present, like a non-participating group.
+        const idLen = Math.min(leadingIdLen, i);
+        return [
+          trimmed,
+          trimmed.slice(0, idLen),
+          trimmed.slice(idLen, i),
+          alt,
+          tail[0],
+          tail[1],
+          tail[2],
+        ] as unknown as RegExpMatchArray;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Linear, allocation-light tail scan for `\s*(?:\|label\|)?\s*<target-id>`
+ * starting at `from`. Deliberately NOT a regex: the equivalent
+ * `^\s*(?:\|([^|]*)\|)?\s*(id)` pattern backtracks quadratically inside a
+ * long whitespace run (for every position its first `\s*` gives back, the
+ * second `\s*` rescans the rest of the run). Returns
+ * [edgeLabel, targetId, targetRaw] with edgeLabel undefined when no
+ * `|...|` is present, mirroring a non-participating group; null when no
+ * target id continues the arrow.
+ */
+function matchEdgeTail(s: string, from: number): [string | undefined, string, string] | null {
+  let i = from;
+  while (i < s.length && WS_RE.test(s[i] ?? '')) {i++;}
+  let label: string | undefined;
+  if (s[i] === '|') {
+    const close = s.indexOf('|', i + 1);
+    if (close !== -1) {
+      label = s.slice(i + 1, close);
+      i = close + 1;
+    }
+  }
+  while (i < s.length && WS_RE.test(s[i] ?? '')) {i++;}
+  const start = s[i];
+  if (start === undefined || !ID_START_RE.test(start)) {return null;}
+  let j = i + 1;
+  while (j < s.length && ID_CHAR_RE.test(s[j] ?? '')) {j++;}
+  // `[^\n]*$` on the remainder always matches (callers pass single lines).
+  return [label, s.slice(i, j), s.slice(j)];
+}
 
 /**
  * Check if an ID refers to a subgraph.
@@ -861,7 +941,7 @@ export function parseDiagram(source: string): ParsedDiagram {
     }
 
     if (ARROW_RE.test(trimmed)) {
-      const arrowMatch = trimmed.match(ARROW_LINE_RE);
+      const arrowMatch = matchArrowLine(trimmed);
       if (arrowMatch) {
         const sourceId = arrowMatch[1];
         const sourceShapeRaw = arrowMatch[2]?.trim();
@@ -1483,9 +1563,9 @@ function directiveSpanEditable(span: string): boolean {
 /**
  * True when parseDiagram's directive rules consume the whole line. The
  * checks mirror the parser's branches exactly — standalone form only outside
- * arrow lines, edge form via the same ARROW_LINE_RE capture the parser
- * itself uses — so a line the parser would mangle can never be called
- * consumable here.
+ * arrow lines, edge form via the same arrow-line matcher the parser itself
+ * uses — so a line the parser would mangle can never be called consumable
+ * here.
  */
 function directiveLineFullyConsumed(trimmed: string): boolean {
   if (!trimmed || trimmed.startsWith('%%')) {return true;}
@@ -1497,7 +1577,7 @@ function directiveLineFullyConsumed(trimmed: string): boolean {
     if (standalone) {return directiveSpanEditable(standalone[2]);}
     return false;
   }
-  const edge = trimmed.match(ARROW_LINE_RE);
+  const edge = matchArrowLine(trimmed);
   if (edge) {
     const sourceRaw = edge[2]?.trim() ?? '';
     const targetRaw = edge[6]?.trim() ?? '';
