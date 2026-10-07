@@ -15,6 +15,18 @@ const SHAPE_OPTIONS: { value: NodeShape; label: string }[] = [
   { value: 'asymmetric',    label: 'Asymmetric' },
   { value: 'parallelogram', label: 'Parallelogram' },
   { value: 'dbl-circ',      label: 'Double circle' },
+  { value: 'person',        label: 'Person' },
+  { value: 'delay',         label: 'Delay' },
+  { value: 'sl-rect',       label: 'Sloped rect' },
+  { value: 'div-rect',      label: 'Divided rect' },
+  { value: 'folder',        label: 'Folder' },
+  { value: 'datastore',     label: 'Data store' },
+  { value: 'cloud',         label: 'Cloud' },
+  { value: 'browser',       label: 'Browser' },
+  { value: 'bolt',          label: 'Bolt' },
+  { value: 'tri',           label: 'Triangle' },
+  { value: 'hourglass',     label: 'Hourglass' },
+  { value: 'doc',           label: 'Document' },
 ];
 
 const ARROW_OPTIONS = [

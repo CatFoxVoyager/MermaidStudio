@@ -73,7 +73,19 @@
       "trapezoidAlt": "Trapèze (miroir)",
       "subroutine": "Sous-graphe",
       "flag": "Drapeau",
-      "dblCirc": "Double cercle"
+      "dblCirc": "Double cercle",
+      "person": "Personne",
+      "delay": "Délai",
+      "slRect": "Rect. incliné",
+      "divRect": "Rect. divisé",
+      "folder": "Dossier",
+      "datastore": "Base de données",
+      "cloud": "Nuage",
+      "browser": "Navigateur",
+      "bolt": "Éclair",
+      "tri": "Triangle",
+      "hourglass": "Sablier",
+      "doc": "Document"
     }
   },
   "workspace": {

@@ -73,7 +73,19 @@
       "trapezoidAlt": "Trapezoid (mirrored)",
       "subroutine": "Subroutine",
       "flag": "Flag",
-      "dblCirc": "Double Circle"
+      "dblCirc": "Double Circle",
+      "person": "Person",
+      "delay": "Delay",
+      "slRect": "Sloped rect",
+      "divRect": "Divided rect",
+      "folder": "Folder",
+      "datastore": "Data store",
+      "cloud": "Cloud",
+      "browser": "Browser",
+      "bolt": "Bolt",
+      "tri": "Triangle",
+      "hourglass": "Hourglass",
+      "doc": "Document"
     }
   },
   "workspace": {
