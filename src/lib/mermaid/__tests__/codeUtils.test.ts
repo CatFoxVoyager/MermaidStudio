@@ -300,6 +300,15 @@ describe('Mermaid Code Utilities', () => {
       expect(b?.directiveRaw).toBeUndefined();
     });
 
+    // Phase 27 review WR-03: the junk two-span form must not produce a
+    // directive node — the greedy capture used to swallow the residual
+    // second span as the shape token and the fence called it consumable.
+    it('does not parse a junk two-span line into a directive node (WR-03)', () => {
+      const result = parseDiagram('flowchart TD\nA@{ shape: person } @{ shape: doc }');
+
+      expect(result.nodes.find(n => n.id === 'A')).toBeUndefined();
+    });
+
     it('handles commas and closing braces inside quoted directive labels', () => {
       const comma = parseDiagram('flowchart TD\nA@{ shape: "person", label: "a, b" }');
       expect(comma.nodes.find(n => n.id === 'A')?.label).toBe('a, b');
@@ -381,6 +390,18 @@ describe('Mermaid Code Utilities', () => {
     it('returns true for the space-separated directive form on an edge line', () => {
       expect(bodyHasUnparsedAtDirective('flowchart TD\nA @{ shape: "person", label: "P" } --> B')).toBe(true);
       expect(bodyHasUnparsedAtDirective('flowchart TD\nA --> B @{ shape: "person", label: "P" }')).toBe(true);
+    });
+
+    // Phase 27 review WR-03: unquoted shape values are token-validated and
+    // an unquoted `}` ends the span — a greedy two-span line used to parse
+    // as one editable rect whose shape token was the junk string
+    // `person } @{ shape: doc`, and a rename would re-emit it quoted.
+    it('returns true for a junk two-span directive line (unquoted shape token)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: person } @{ shape: doc }')).toBe(true);
+    });
+
+    it('returns false for a bare unquoted shape token (still editable)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: person }')).toBe(false);
     });
   });
 

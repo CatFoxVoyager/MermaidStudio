@@ -207,6 +207,29 @@ function parseDirectiveValue(raw: string): string | null {
 }
 
 /**
+ * WR-03 helper: does `}` appear outside quote state in a greedy span body?
+ * Quote tracking mirrors splitDirectiveParams (backslash-run counting for
+ * double quotes, plain toggle for single quotes).
+ */
+function hasUnquotedCloseBrace(body: string): boolean {
+  let inDouble = false;
+  let inSingle = false;
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (ch === '"' && !inSingle) {
+      let backslashes = 0;
+      for (let j = i - 1; j >= 0 && body[j] === '\\'; j--) { backslashes++; }
+      if (backslashes % 2 === 0) { inDouble = !inDouble; }
+    } else if (ch === "'" && !inDouble) {
+      inSingle = !inSingle;
+    } else if (ch === '}' && !inDouble && !inSingle) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Parse a raw at-brace span (`@{ ... }`) into typed directive data, or null
  * when the span is not fully consumable — unclosed, an empty/ malformed
  * pair, or no shape key (the bare view/icon forms). Unknown keys are kept
@@ -219,6 +242,11 @@ export function parseAtDirective(raw: string): ParsedAtDirective | null {
   if (!spanMatch) {return null;}
   const body = spanMatch[1].trim();
   if (!body) {return null;}
+  // WR-03: the greedy capture runs to the LAST `}` — an unquoted `}` before
+  // it means the real span closed earlier and the rest is residual line
+  // text (e.g. `A@{ shape: person } @{ shape: doc }`). Such a body is never
+  // a single directive: refuse it so the fence keeps the doc read-only.
+  if (hasUnquotedCloseBrace(body)) {return null;}
   let shape: string | null = null;
   let label: string | null = null;
   const unknownParams: string[] = [];
@@ -229,8 +257,14 @@ export function parseAtDirective(raw: string): ParsedAtDirective | null {
     if (colonIdx === -1) {return null;}
     const key = trimmedPair.slice(0, colonIdx).trim();
     if (!/^[A-Za-z_][\w-]*$/.test(key)) {return null;}
-    const value = parseDirectiveValue(trimmedPair.slice(colonIdx + 1).trim());
+    const valueToken = trimmedPair.slice(colonIdx + 1).trim();
+    const value = parseDirectiveValue(valueToken);
     if (value === null) {return null;}
+    // WR-03: an unquoted shape value must be a bare token — junk like
+    // `person } @{ shape: doc` is never a shape key. Quoted values pass
+    // through so unknown shape tokens stay preserved verbatim.
+    if (key === 'shape' && !valueToken.startsWith('"') && !valueToken.startsWith("'")
+        && !/^[A-Za-z_][\w-]*$/.test(value)) {return null;}
     if (key === 'shape') { shape = value; }
     else if (key === 'label') { label = value; }
     else { unknownParams.push(trimmedPair); }
