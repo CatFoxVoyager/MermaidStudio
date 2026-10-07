@@ -76,6 +76,12 @@ const SHAPE_PATTERNS: Array<{ shape: NodeShape; open: string; close: string; reg
   { shape: 'stadium',        open: '([', close: '])',   regex: /^\(\[(.+?)\]\)$/ },
   { shape: 'subroutine',     open: '[[', close: ']]',  regex: /^\[\[(.+?)\]\]$/ },
   { shape: 'cylinder',       open: '[(', close: ')]',  regex: /^\[\((.+?)\)\]$/ },
+  // Phase 26: double-circle legacy triple-paren wrap. Quoted variant FIRST
+  // (so quote chars never leak into the label), and BOTH entries above the
+  // circle entry below — circle's greedy two-paren regex otherwise steals
+  // every triple-paren input and the outer parens end up inside the label.
+  { shape: 'dbl-circ', open: '((("', close: '")))', regex: /^\(\(\("(.+?)"\)\)\)$/ },
+  { shape: 'dbl-circ', open: '(((',  close: ')))',  regex: /^\(\(\((.+?)\)\)\)$/ },
   { shape: 'circle',         open: '((', close: '))',  regex: /^\(\((.+?)\)\)$/ },
   { shape: 'hexagon',        open: '{{', close: '}}',  regex: /^\{\{(.+?)\}\}$/ },
   { shape: 'rhombus',        open: '{',  close: '}',   regex: /^\{(.+?)\}$/ },
@@ -219,7 +225,10 @@ function shapeWrap(label: string, shape: NodeShape, quoted = false): string {
     // v11 new shapes - use @{ shape: "name" } syntax
     case 'doc':             return `@{ shape: "doc", label: ${q}${label}${q} }`;
     case 'docs':            return `@{ shape: "docs", label: ${q}${label}${q} }`;
-    case 'dbl-circ':        return `@{ shape: "dbl-circ", label: ${q}${label}${q} }`;
+    // Phase 26: legacy triple-paren wrap (quote-aware label var, mirroring
+    // the circle case). An at-brace metadata emission here would flip the
+    // visual editor read-only via the D6 presence gate on the next autosave.
+    case 'dbl-circ':        return `(((${l})))`;
     case 'cross-circ':      return `@{ shape: "cross-circ", label: ${q}${label}${q} }`;
     case 'bow-rect':        return `@{ shape: "bow-rect", label: ${q}${label}${q} }`;
     case 'flip-tri':        return `@{ shape: "flip-tri", label: ${q}${label}${q} }`;
