@@ -144,6 +144,11 @@ function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted:
     { shape: 'stadium',        open: '([', close: '])' },
     { shape: 'subroutine',     open: '[[', close: ']]' },
     { shape: 'cylinder',       open: '[(', close: ')]' },
+    // Phase 26 (WR-01): the dbl-circ writer emits `((()))` for an empty
+    // label; without this reader the bare triple-paren form fell through to
+    // the circle pattern and re-parsed as a circle labeled `()`. Positioned
+    // above circle to mirror SHAPE_PATTERNS ordering.
+    { shape: 'dbl-circ',       open: '(((', close: ')))' },
     { shape: 'circle',         open: '((', close: '))' },
     { shape: 'hexagon',        open: '{{', close: '}}' },
     { shape: 'rhombus',        open: '{',  close: '}' },

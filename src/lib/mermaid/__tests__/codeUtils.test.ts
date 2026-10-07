@@ -335,6 +335,20 @@ describe('Mermaid Code Utilities', () => {
 
       expect(result).toBe('flowchart TD\nA(((Box)))');
     });
+
+    // Phase 26 (WR-01): changing an EMPTY-label node to double-circle emits
+    // `((()))`, which must re-parse as an empty dbl-circ — never as a circle
+    // labeled `()` (the greedy circle reading when no EMPTY_SHAPES entry
+    // claims the bare triple-paren form).
+    it('should round-trip an empty-label node through a double-circle shape change', () => {
+      const source = 'flowchart TD\nA[]';
+      const emitted = updateNodeShape(source, 'A', 'dbl-circ');
+
+      expect(emitted).toBe('flowchart TD\nA((()))');
+
+      const reparsed = parseDiagram(emitted);
+      expect(reparsed.nodes[0]).toMatchObject({ shape: 'dbl-circ', label: '' });
+    });
   });
 
   describe('addNode', () => {
