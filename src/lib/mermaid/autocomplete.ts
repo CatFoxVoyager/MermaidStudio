@@ -33,11 +33,14 @@ const DIAGRAM_STARTERS = [
 // alias — 24-RESEARCH.md) plus 14 clearly v12-era shortNames from the verified
 // 53-name registry. The full registry stays documented in 24-RESEARCH.md as
 // the safe superset source; an exhaustive dump is autocomplete noise (D5).
+// 27-04: +delay, sl-rect, div-rect, datastore, tri complete the 12-shape
+// toolbar set (30 keys).
 const SHAPE_NAMES = [
   'doc', 'docs', 'dbl-circ', 'cross-circ', 'bow-rect', 'flip-tri', 'curv-trap',
   'manual-file', 'manual-input', 'procs', 'paper-tape',
   'person', 'browser', 'cloud', 'console', 'bucket', 'folder', 'fork', 'join',
   'hourglass', 'flag', 'text', 'odd', 'bang', 'bolt',
+  'delay', 'sl-rect', 'div-rect', 'datastore', 'tri',
 ];
 
 const SHAPE_COMPLETIONS = SHAPE_NAMES.map(shape => ({ label: shape, detail: `Shape: ${shape}`, type: 'type' }));
@@ -56,7 +59,7 @@ const FLOWCHART_COMPLETIONS = [
   { label: '==>', detail: 'Thick arrow', type: 'operator' },
   { label: '-->>',detail: 'Open arrow', type: 'operator' },
   { label: '@{ view: collapsed }', detail: 'Collapse subgraph to a single node (makes the visual editor read-only)', type: 'keyword' },
-  { label: '@{ shape: ', detail: 'Attach shape metadata to a node (makes the visual editor read-only)', type: 'keyword' },
+  { label: '@{ shape: ', detail: 'Attach shape metadata to a node (editable in the visual editor)', type: 'keyword' },
   ...SHAPE_COMPLETIONS,
 ];
 
