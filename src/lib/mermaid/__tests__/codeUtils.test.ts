@@ -32,6 +32,7 @@ import {
   injectThemeComment,
 } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
+import type { NodeShape } from '../codeUtils';
 
 describe('Mermaid Code Utilities', () => {
   describe('parseDiagram', () => {
@@ -479,6 +480,43 @@ describe('Mermaid Code Utilities', () => {
       const twice = updateNodeLabel(once, 'A', 'Say "stop"');
       expect(twice).toContain('label: "Say \\"stop\\""');
     });
+
+    // Phase 27 (27-02, D2 pin): the surviving v11 cases (docs is a stacked
+    // documents shape, not a toolbar target) must escape double quotes on
+    // rename just like the toolbar targets — they emit the same directive
+    // syntax, so an unescaped quote would produce broken mermaid.
+    it('escapes double quotes on rename of a docs line (D2 retrofit pin)', () => {
+      const source = 'flowchart TD\nA@{ shape: "docs", label: "Docs" }';
+      const result = updateNodeLabel(source, 'A', 'Say "hi"');
+
+      expect(result).toBe('flowchart TD\nA@{ shape: "docs", label: "Say \\"hi\\"" }');
+    });
+
+    // Phase 27 (27-02, prohibition pin): unknown params must survive rename
+    // across the whole directive shape family, not just the 27-01 tracer
+    // shapes (person/doc).
+    it('keeps unknown params on rename across the new directive shapes', () => {
+      const source = 'flowchart TD\nA@{ shape: "delay", label: "Wait", w: 80 }';
+      const result = updateNodeLabel(source, 'A', 'Hold');
+
+      expect(result).toBe('flowchart TD\nA@{ shape: "delay", label: "Hold", w: 80 }');
+    });
+
+    // Phase 27 (27-02): the full label pipeline through a NEW directive
+    // shape — toolbar add with a double-quote label, rename, re-parse. The
+    // quote must survive every hop: escaped on emission, unescaped on parse.
+    it('round-trips a double-quote label through a new directive shape', () => {
+      const source = 'flowchart TD\nA[Box]';
+      const added = addNode(source, 'N', 'Say "hi"', 'folder');
+
+      expect(added).toContain('N@{ shape: "folder", label: "Say \\"hi\\"" }');
+
+      const renamed = updateNodeLabel(added, 'N', 'Say "ho"');
+      expect(renamed).toContain('N@{ shape: "folder", label: "Say \\"ho\\"" }');
+
+      const reparsed = parseDiagram(renamed);
+      expect(reparsed.nodes.find(n => n.id === 'N')?.label).toBe('Say "ho"');
+    });
   });
 
   describe('updateNodeShape', () => {
@@ -549,6 +587,28 @@ describe('Mermaid Code Utilities', () => {
       expect(result).toBe('flowchart TD\nA("D")');
       expect(result).not.toContain('w: 100');
     });
+
+    // Phase 27 (27-02): the 12-key toolbar-target sweep. Every key must emit
+    // the directive wrap on a plain rect source — never the default rect
+    // fallback a missing switch case degrades to. person and doc arrive green
+    // from 27-01; the other ten go red until their writer cases land.
+    it.each([
+      ['person'], ['doc'], ['delay'], ['sl-rect'], ['div-rect'], ['folder'],
+      ['datastore'], ['cloud'], ['browser'], ['bolt'], ['tri'], ['hourglass'],
+    ] as NodeShape[][])('emits the directive wrap when changing shape to %s', (key) => {
+      const result = updateNodeShape('flowchart TD\nA[Box]', 'A', key);
+
+      expect(result).toBe(`flowchart TD\nA@{ shape: "${key}", label: "Box" }`);
+    });
+
+    // Phase 27 (27-02, pin): a directive-to-directive shape change keeps the
+    // unknown params (the 27-01 tracer proved the plumbing on person only).
+    it('keeps unknown params when changing between directive shapes', () => {
+      const source = 'flowchart TD\nA@{ shape: "doc", label: "D", w: 100 }';
+      const result = updateNodeShape(source, 'A', 'person');
+
+      expect(result).toBe('flowchart TD\nA@{ shape: "person", label: "D", w: 100 }');
+    });
   });
 
   describe('addNode', () => {
@@ -591,6 +651,16 @@ describe('Mermaid Code Utilities', () => {
       const result = addNode(source, 'Z', 'Alice', 'person');
 
       expect(result).toContain('Z@{ shape: "person", label: "Alice" }');
+    });
+
+    // Phase 27 (27-02): toolbar adds of the new directive shapes emit the
+    // directive wrap — never the default rect brackets a missing switch case
+    // degrades to.
+    it('should add a delay node with the directive wrap', () => {
+      const source = 'flowchart TD\nA[Box]';
+      const result = addNode(source, 'N', 'X', 'delay');
+
+      expect(result).toContain('N@{ shape: "delay", label: "X" }');
     });
   });
 
