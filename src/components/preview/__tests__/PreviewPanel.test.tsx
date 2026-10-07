@@ -75,7 +75,7 @@ vi.mock('@/utils/svgPostProcessing', () => ({
 }));
 
 // Mock codeUtils — spread the REAL module so the D6 fence helper
-// (bodyContainsAtDirective) runs its genuine implementation, and override the
+// (bodyHasUnparsedAtDirective) runs its genuine implementation, and override the
 // parsers/mutators the tests control.
 vi.mock('@/lib/mermaid/codeUtils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/mermaid/codeUtils')>();
@@ -1069,14 +1069,67 @@ describe('PreviewPanel Component', () => {
   });
 
   describe('D6 body-metadata mutation fence', () => {
-    // Body-metadata content: the bare post-id @{...} form (the exact shape
-    // updateNodeShape emits). Its parse silently drops node B, so any
-    // regeneration-style rewrite through a codeUtils mutator would corrupt
-    // the diagram — PreviewPanel's content-mutating handlers must fence it.
+    // Well-formed directive content: the parser fully consumes it, so it is
+    // EDITABLE since the 27-01 narrowing — mutating handlers run normally.
     const BODY_METADATA_CONTENT =
       'flowchart TD\n  A[Start] --> B\n  B@{ shape: "doc", label: "Doc" }';
 
-    it('add-shape path is fenced: onChange never fires for body-metadata content', async () => {
+    // The residual fence: the same diagram with the final brace removed —
+    // an unclosed span the parser cannot consume. Any regeneration-style
+    // rewrite through a codeUtils mutator would corrupt it, so
+    // PreviewPanel's content-mutating handlers must fence it.
+    const MALFORMED_METADATA_CONTENT =
+      'flowchart TD\n  A[Start] --> B\n  B@{ shape: "doc", label: "Doc"';
+
+    it('add-shape path is fenced: onChange never fires for malformed directive content', async () => {
+      const { detectDiagramType } = await import('@/lib/mermaid/core');
+      vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+
+      const onChange = vi.fn();
+      const { container } = render(
+        <PreviewPanel content={MALFORMED_METADATA_CONTENT} theme="light" onChange={onChange} />
+      );
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const boxButton = container.querySelector('button[title="Add Box (tap to add, drag to canvas)"]');
+      expect(boxButton).toBeInTheDocument();
+      fireEvent.click(boxButton!);
+
+      expect(onChange).not.toHaveBeenCalled();
+      const { addNode } = await import('@/lib/mermaid/codeUtils');
+      expect(addNode).not.toHaveBeenCalled();
+    });
+
+    it('add-subgraph path is fenced: onChange never fires for malformed directive content', async () => {
+      const { detectDiagramType } = await import('@/lib/mermaid/core');
+      vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+
+      const onChange = vi.fn();
+      const { container } = render(
+        <PreviewPanel content={MALFORMED_METADATA_CONTENT} theme="light" onChange={onChange} />
+      );
+
+      await waitFor(() => {
+        const svg = container.querySelector('svg');
+        expect(svg).toBeInTheDocument();
+      });
+
+      const subgraphButton = container.querySelector('button[data-testid="add-subgraph-button"]');
+      expect(subgraphButton).toBeInTheDocument();
+      fireEvent.click(subgraphButton!);
+
+      expect(onChange).not.toHaveBeenCalled();
+      const { addSubgraph } = await import('@/lib/mermaid/codeUtils');
+      expect(addSubgraph).not.toHaveBeenCalled();
+    });
+
+    // Phase 27 (27-01): the editable side — well-formed directive content
+    // lets a mutating handler through.
+    it('well-formed directive content allows a mutating handler (editable)', async () => {
       const { detectDiagramType } = await import('@/lib/mermaid/core');
       vi.mocked(detectDiagramType).mockReturnValue('flowchart');
 
@@ -1094,32 +1147,9 @@ describe('PreviewPanel Component', () => {
       expect(boxButton).toBeInTheDocument();
       fireEvent.click(boxButton!);
 
-      expect(onChange).not.toHaveBeenCalled();
+      expect(onChange).toHaveBeenCalledTimes(1);
       const { addNode } = await import('@/lib/mermaid/codeUtils');
-      expect(addNode).not.toHaveBeenCalled();
-    });
-
-    it('add-subgraph path is fenced: onChange never fires for body-metadata content', async () => {
-      const { detectDiagramType } = await import('@/lib/mermaid/core');
-      vi.mocked(detectDiagramType).mockReturnValue('flowchart');
-
-      const onChange = vi.fn();
-      const { container } = render(
-        <PreviewPanel content={BODY_METADATA_CONTENT} theme="light" onChange={onChange} />
-      );
-
-      await waitFor(() => {
-        const svg = container.querySelector('svg');
-        expect(svg).toBeInTheDocument();
-      });
-
-      const subgraphButton = container.querySelector('button[data-testid="add-subgraph-button"]');
-      expect(subgraphButton).toBeInTheDocument();
-      fireEvent.click(subgraphButton!);
-
-      expect(onChange).not.toHaveBeenCalled();
-      const { addSubgraph } = await import('@/lib/mermaid/codeUtils');
-      expect(addSubgraph).not.toHaveBeenCalled();
+      expect(addNode).toHaveBeenCalledTimes(1);
     });
 
     it('fence is off: add-shape behaves exactly as today without body metadata', async () => {

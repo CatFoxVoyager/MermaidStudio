@@ -1,13 +1,19 @@
 /**
- * DIA-04 / D6 Wave 0 lock — the visual-editor fail-safe round trip.
+ * DIA-04 / D6 lock — the visual-editor gate round trip (Phase 27 contract).
  *
- * A diagram whose BODY (outside frontmatter) carries the v12 metadata-attach
- * syntax (`@{...}`) must open the visual editor READ-ONLY:
- *   1. parseDiagram (the regex parser) is NEVER invoked on it — the presence
- *      gate sits before the parse memo and short-circuits it;
- *   2. the raw sanitized svg still renders (renderDiagram is a separate path);
+ * The gate is a PARSE-COMPLETENESS predicate since 27-01: an at-brace line
+ * the directive parser cannot fully consume opens the visual editor
+ * READ-ONLY (parse short-circuited, badge shown, zero onChange), while
+ * well-formed directive content is editable end-to-end — parsed, overlaid,
+ * and mutable through the normal handlers.
+ *   1. MALFORMED_METADATA_CONTENT (unclosed span): parseDiagram is NEVER
+ *      invoked — the gate sits before the parse memo and short-circuits it;
+ *   2. the raw sanitized svg still renders on the read-only path
+ *      (renderDiagram is a separate path);
  *   3. open/close round-trips byte-identically — onChange never fires;
- *   4. the gate is NOT always-on: metadata-free content parses exactly as
+ *   4. BODY_METADATA_CONTENT (well-formed) is EDITABLE: the parser runs,
+ *      overlays appear, and a mutating handler fires onChange;
+ *   5. the gate is NOT always-on: metadata-free content parses exactly as
  *      before, and frontmatter-only occurrences never trigger read-only
  *      (frontmatter config is legitimate — THM-03).
  *
@@ -78,32 +84,42 @@ vi.mock('@/utils/svgPostProcessing', async (importOriginal) => {
 // Plain flowchart — no metadata anywhere.
 const PLAIN_CONTENT = 'flowchart TD\n  A[Start] --> B\n  B[End]';
 
-// The corruption vector: a bare post-id metadata line — the exact form the
-// app's own updateNodeShape emits for the 11 V11_SHAPES.
+// Well-formed directive content — the parser fully consumes it, so it is
+// EDITABLE since the 27-01 narrowing.
 const BODY_METADATA_CONTENT =
   'flowchart TD\n  A[Start] --> B\n  B@{ shape: "doc", label: "Doc" }';
+
+// The residual fence: the same diagram with the final brace removed — an
+// unclosed span the parser cannot consume. Carries the read-only UX tests.
+const MALFORMED_METADATA_CONTENT =
+  'flowchart TD\n  A[Start] --> B\n  B@{ shape: "doc", label: "Doc"';
 
 // Metadata occurrence ONLY inside frontmatter (legitimate config — THM-03).
 const FRONTMATTER_ONLY_CONTENT =
   '---\ntitle: Config diagram\nconfig:\n  metadata: "@{ view: collapsed }"\n---\nflowchart TD\n  A[Start] --> B[End]';
 
-describe('bodyContainsAtDirective — D6 presence helper (via codeUtils)', () => {
-  it('detects a body occurrence (space-separated form)', async () => {
+describe('bodyHasUnparsedAtDirective — D6 parse-completeness helper (via codeUtils)', () => {
+  it('keeps the space-separated form fenced (invalid mermaid 12.1.0)', async () => {
     const { bodyHasUnparsedAtDirective } = await import('@/lib/mermaid/codeUtils');
     expect(bodyHasUnparsedAtDirective('flowchart TD\n  A @{ shape: doc } ')).toBe(true);
   });
 
-  it('detects the bare post-id form emitted by updateNodeShape', async () => {
+  it('keeps a malformed (unclosed) span fenced', async () => {
     const { bodyHasUnparsedAtDirective } = await import('@/lib/mermaid/codeUtils');
-    expect(bodyHasUnparsedAtDirective(BODY_METADATA_CONTENT)).toBe(true);
+    expect(bodyHasUnparsedAtDirective(MALFORMED_METADATA_CONTENT)).toBe(true);
   });
 
-  it('does NOT detect an occurrence confined to frontmatter', async () => {
+  it('lets the well-formed bare post-id form through (editable since 27-01)', async () => {
+    const { bodyHasUnparsedAtDirective } = await import('@/lib/mermaid/codeUtils');
+    expect(bodyHasUnparsedAtDirective(BODY_METADATA_CONTENT)).toBe(false);
+  });
+
+  it('does NOT fence an occurrence confined to frontmatter', async () => {
     const { bodyHasUnparsedAtDirective } = await import('@/lib/mermaid/codeUtils');
     expect(bodyHasUnparsedAtDirective(FRONTMATTER_ONLY_CONTENT)).toBe(false);
   });
 
-  it('does not detect a metadata-free flowchart', async () => {
+  it('does not fence a metadata-free flowchart', async () => {
     const { bodyHasUnparsedAtDirective } = await import('@/lib/mermaid/codeUtils');
     expect(bodyHasUnparsedAtDirective(PLAIN_CONTENT)).toBe(false);
   });
@@ -129,7 +145,7 @@ describe('VisualEditorCanvas — D6 body-metadata read-only gate', () => {
     const { parseDiagram } = await import('@/lib/mermaid/codeUtils');
     const { postProcessDiagramSvg } = await import('@/utils/svgPostProcessing');
     const { container } = render(
-      <VisualEditorCanvas content={BODY_METADATA_CONTENT} theme="light" onChange={vi.fn()} />,
+      <VisualEditorCanvas content={MALFORMED_METADATA_CONTENT} theme="light" onChange={vi.fn()} />,
     );
 
     // renderDiagram is a separate path and still runs — the user sees the diagram.
@@ -146,7 +162,7 @@ describe('VisualEditorCanvas — D6 body-metadata read-only gate', () => {
 
   it('read-only state: indicator present, edit affordances and selection overlays hidden', async () => {
     const { container } = render(
-      <VisualEditorCanvas content={BODY_METADATA_CONTENT} theme="light" onChange={vi.fn()} />,
+      <VisualEditorCanvas content={MALFORMED_METADATA_CONTENT} theme="light" onChange={vi.fn()} />,
     );
 
     await waitFor(() => {
@@ -168,7 +184,7 @@ describe('VisualEditorCanvas — D6 body-metadata read-only gate', () => {
   it('simulated edit interactions produce zero onChange calls', async () => {
     const onChange = vi.fn();
     const { container } = render(
-      <VisualEditorCanvas content={BODY_METADATA_CONTENT} theme="light" onChange={onChange} />,
+      <VisualEditorCanvas content={MALFORMED_METADATA_CONTENT} theme="light" onChange={onChange} />,
     );
 
     await waitFor(() => {
@@ -200,8 +216,8 @@ describe('VisualEditorCanvas — D6 body-metadata read-only gate', () => {
 
   it('open/close round-trip: onChange never fires and the fixture is pinned against drift', async () => {
     // WR-03: this test previously ended with `expect(original).toBe(
-    // BODY_METADATA_CONTENT)` where `original` was assigned FROM
-    // BODY_METADATA_CONTENT — a const compared to its own source constant can
+    // MALFORMED_METADATA_CONTENT)` where `original` was assigned FROM
+    // MALFORMED_METADATA_CONTENT — a const compared to its own source constant can
     // never fail, so the "byte-identical round-trip" claim was unfalsifiable.
     // The fixture is now pinned against an INDEPENDENT literal typed here, so
     // any accidental mutation of the constant under test fails this test. The
@@ -209,11 +225,11 @@ describe('VisualEditorCanvas — D6 body-metadata read-only gate', () => {
     // this canvas holds no editable buffer of its own, and onChange is the
     // only channel through which the component can mutate diagram content.
     const FIXTURE_LITERAL =
-      'flowchart TD\n  A[Start] --> B\n  B@{ shape: "doc", label: "Doc" }';
-    expect(BODY_METADATA_CONTENT).toBe(FIXTURE_LITERAL);
+      'flowchart TD\n  A[Start] --> B\n  B@{ shape: "doc", label: "Doc"';
+    expect(MALFORMED_METADATA_CONTENT).toBe(FIXTURE_LITERAL);
     const onChange = vi.fn();
     const { container, unmount } = render(
-      <VisualEditorCanvas content={BODY_METADATA_CONTENT} theme="light" onChange={onChange} />,
+      <VisualEditorCanvas content={MALFORMED_METADATA_CONTENT} theme="light" onChange={onChange} />,
     );
 
     await waitFor(() => {
@@ -223,6 +239,60 @@ describe('VisualEditorCanvas — D6 body-metadata read-only gate', () => {
     unmount();
 
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  // ===== Phase 27 (27-01): the editable side of the narrowed gate —
+  // well-formed directive content parses, overlays, and mutates. =====
+
+  it('well-formed directive content is EDITABLE: parser runs, overlays present, no badge', async () => {
+    const { parseDiagram } = await import('@/lib/mermaid/codeUtils');
+    const { postProcessDiagramSvg } = await import('@/utils/svgPostProcessing');
+    const { container } = render(
+      <VisualEditorCanvas content={BODY_METADATA_CONTENT} theme="light" onChange={vi.fn()} />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector('svg')).toBeInTheDocument();
+    });
+
+    // The parser runs (no short-circuit) and the full post-parse pipeline
+    // follows it — the exact inverse of the read-only assertions above. The
+    // render is debounced (300ms), so the pipeline assertions wait for it.
+    expect(vi.mocked(parseDiagram)).toHaveBeenCalledWith(BODY_METADATA_CONTENT);
+    await waitFor(() => {
+      expect(vi.mocked(postProcessDiagramSvg)).toHaveBeenCalled();
+    });
+
+    // No read-only indicator; the editing surface is fully present.
+    expect(screen.queryByTestId('visual-editor-readonly')).not.toBeInTheDocument();
+    expect(container.querySelector('button[title="Select tool (V)"]')).toBeInTheDocument();
+
+    // Node overlays exist — the directive node is clickable like any other
+    // (overlays are extracted 80ms after the svg lands).
+    await waitFor(() => {
+      expect(container.querySelectorAll('.visual-node-overlay').length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  it('well-formed directive content allows a mutating handler: shape add fires onChange', async () => {
+    const onChange = vi.fn();
+    const { container } = render(
+      <VisualEditorCanvas content={BODY_METADATA_CONTENT} theme="light" onChange={onChange} />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector('svg')).toBeInTheDocument();
+    });
+
+    const boxButton = container.querySelector('button[title="Add Box (tap to add, drag to canvas)"]');
+    expect(boxButton).toBeInTheDocument();
+    fireEvent.click(boxButton!);
+
+    // The mutation went through: a node was added and the directive line
+    // itself survived untouched.
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange.mock.calls[0][0]).toContain('node1[New Node]');
+    expect(onChange.mock.calls[0][0]).toContain('B@{ shape: "doc", label: "Doc" }');
   });
 
   it('anti-vacuous control: metadata-free flowchart still invokes parseDiagram exactly as before', async () => {

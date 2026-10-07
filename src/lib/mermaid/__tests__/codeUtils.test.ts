@@ -331,6 +331,38 @@ describe('Mermaid Code Utilities', () => {
     it('lets a well-formed standalone directive node through (editable)', () => {
       expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: "person", label: "Alice" }')).toBe(false);
     });
+
+    // ===== Full contract (27-01 Task 3): the residual read-only set is
+    // exactly the four research-named forms — malformed/unclosed spans, the
+    // space-separated form, subgraph-header directives, icon-param lines.
+    // Everything below the keep-side trio is the editable side. =====
+
+    it('returns false for an unknown shape key (preserved verbatim, editable)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: "future-shape", label: "X" }')).toBe(false);
+    });
+
+    it('returns false for an escaped-quote label (parse unescapes, writer re-escapes)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: "person", label: "He said \\"hi\\"" }')).toBe(false);
+    });
+
+    it('returns false for a multi-param span (unknown params preserved)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: "delay", label: "W", w: 80 }')).toBe(false);
+    });
+
+    it('returns true for an unclosed at-brace span (malformed)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart TD\n  A[Start] --> B\n  B@{ shape: "doc", label: "Doc"')).toBe(true);
+    });
+
+    it('returns true for a subgraph header carrying a directive', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nsubgraph S1 @{ view: collapsed }\nA --> B\nend')).toBe(true);
+    });
+
+    it('returns true for icon-param lines (no icon write-back)', () => {
+      // The standalone icon form, and an icon param riding on a shape span —
+      // a rename would silently lose the icon config either way (A5).
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ icon: "fa:user", form: "square", label: "U" }')).toBe(true);
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: "doc", label: "D", icon: "fa:user" }')).toBe(true);
+    });
   });
 
   describe('updateNodeStyle', () => {
