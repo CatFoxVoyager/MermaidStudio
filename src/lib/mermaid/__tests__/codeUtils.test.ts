@@ -481,6 +481,35 @@ describe('Mermaid Code Utilities', () => {
       expect(twice).toContain('label: "Say \\"stop\\""');
     });
 
+    // Phase 27 review CR-01: a backslash in the label must be escaped on
+    // emission (before quotes) and unescaped symmetrically on parse. The
+    // writer previously escaped only `"`, so a trailing-backslash rename
+    // with trailing params emitted `label: "C:path\", w: 80 }` — the app's
+    // own parser read that `\"` as an escaped quote, quote state never
+    // closed, the node vanished from the parse and the doc fenced read-only.
+    it('round-trips a trailing-backslash label with trailing params through rename', () => {
+      const source = 'flowchart TD\nA@{ shape: "rect", label: "C:path", w: 80 }';
+      const renamed = updateNodeLabel(source, 'A', 'C:\\path\\');
+
+      expect(renamed).toBe('flowchart TD\nA@{ shape: "rect", label: "C:\\\\path\\\\", w: 80 }');
+
+      const reparsed = parseDiagram(renamed);
+      const node = reparsed.nodes.find(n => n.id === 'A');
+      expect(node?.label).toBe('C:\\path\\');
+      expect(node?.unknownParams).toEqual(['w: 80']);
+      expect(bodyHasUnparsedAtDirective(renamed)).toBe(false);
+    });
+
+    // CR-01 parse side: a hand-written double backslash is one escaped
+    // backslash — unescaped to a single `\` like `\"` unescapes to `"`.
+    it('parses a hand-written backslash-escaped label and stays editable', () => {
+      const source = 'flowchart TD\nA@{ shape: "person", label: "C:\\\\path" }';
+
+      expect(bodyHasUnparsedAtDirective(source)).toBe(false);
+      const node = parseDiagram(source).nodes.find(n => n.id === 'A');
+      expect(node?.label).toBe('C:\\path');
+    });
+
     // Phase 27 (27-02, D2 pin): the surviving v11 cases (docs is a stacked
     // documents shape, not a toolbar target) must escape double quotes on
     // rename just like the toolbar targets — they emit the same directive
