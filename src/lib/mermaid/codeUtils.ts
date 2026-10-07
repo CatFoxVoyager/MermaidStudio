@@ -3,7 +3,11 @@ export type NodeShape =
   | 'circle' | 'asymmetric' | 'rhombus' | 'hexagon' | 'parallelogram'
   | 'parallelogram-alt' | 'trapezoid' | 'trapezoid-alt'
   | 'doc' | 'docs' | 'dbl-circ' | 'cross-circ' | 'bow-rect'
-  | 'flip-tri' | 'curv-trap' | 'manual-file' | 'manual-input' | 'procs' | 'paper-tape';
+  | 'flip-tri' | 'curv-trap' | 'manual-file' | 'manual-input' | 'procs' | 'paper-tape'
+  // Phase 27: high-value directive shapes — mermaid 12 shape-registry keys
+  // with no legacy delimiter form; the at-brace span is their only syntax.
+  | 'person' | 'delay' | 'sl-rect' | 'div-rect' | 'folder' | 'datastore'
+  | 'cloud' | 'browser' | 'bolt' | 'tri' | 'hourglass';
 
 export interface ParsedSubgraph {
   id: string;
@@ -18,6 +22,10 @@ export interface ParsedNode {
   raw: string;
   parentSubgraphId?: string | null;
   icon?: IconConfig;
+  /** Full original at-brace span, verbatim, when the node was defined by one. */
+  directiveRaw?: string;
+  /** Verbatim unknown key/value slices from the span, in original order. */
+  unknownParams?: string[];
 }
 
 export interface IconConfig {
@@ -107,7 +115,140 @@ const SHAPE_PATTERNS: Array<{ shape: NodeShape; open: string; close: string; reg
 const V11_SHAPES: NodeShape[] = [
   'doc', 'docs', 'dbl-circ', 'cross-circ', 'bow-rect',
   'flip-tri', 'curv-trap', 'manual-file', 'manual-input', 'procs', 'paper-tape',
+  'person', 'delay', 'sl-rect', 'div-rect', 'folder', 'datastore',
+  'cloud', 'browser', 'bolt', 'tri', 'hourglass',
 ];
+
+// ===== Phase 27: at-brace directive parser =====
+// The `id@{ shape: "key", label: "..." }` metadata form is the only syntax
+// the high-value shapes have. This section turns a raw at-brace span into
+// typed data; parseDiagram routes spans here (the standalone branch and the
+// arrow branch's shape-raw captures).
+
+/** Every NodeShape union member — the known-shape set for directive tokens. */
+const ALL_NODE_SHAPES: NodeShape[] = [
+  'rect', 'round', 'stadium', 'subroutine', 'cylinder',
+  'circle', 'asymmetric', 'rhombus', 'hexagon', 'parallelogram',
+  'parallelogram-alt', 'trapezoid', 'trapezoid-alt',
+  'doc', 'docs', 'dbl-circ', 'cross-circ', 'bow-rect',
+  'flip-tri', 'curv-trap', 'manual-file', 'manual-input', 'procs', 'paper-tape',
+  'person', 'delay', 'sl-rect', 'div-rect', 'folder', 'datastore',
+  'cloud', 'browser', 'bolt', 'tri', 'hourglass',
+];
+
+/** Map a directive shape token to the union; unknown keys parse as rect. */
+function directiveShapeKey(token: string): NodeShape {
+  return ALL_NODE_SHAPES.includes(token as NodeShape) ? (token as NodeShape) : 'rect';
+}
+
+export interface ParsedAtDirective {
+  shape: string;
+  /** Null when the span carries no label key — callers default to the node id. */
+  label: string | null;
+  unknownParams: string[];
+}
+
+/**
+ * Split a directive span body on commas that sit OUTSIDE quote state. A
+ * linear character scan: labels may contain commas and closing braces
+ * (both render fine in mermaid when quoted), so a naive split or a
+ * non-greedy span would corrupt them.
+ */
+function splitDirectiveParams(body: string): string[] {
+  const parts: string[] = [];
+  let current = '';
+  let inDouble = false;
+  let inSingle = false;
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (ch === '"' && !inSingle) {
+      // A backslash-escaped quote does not toggle double-quote state.
+      let backslashes = 0;
+      for (let j = i - 1; j >= 0 && body[j] === '\\'; j--) { backslashes++; }
+      if (backslashes % 2 === 0) { inDouble = !inDouble; }
+      current += ch;
+    } else if (ch === "'" && !inDouble) {
+      inSingle = !inSingle;
+      current += ch;
+    } else if (ch === ',' && !inDouble && !inSingle) {
+      parts.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  parts.push(current);
+  return parts;
+}
+
+/** Resolve one directive value token: quoted forms unwrap, escaped quotes unescape. */
+function parseDirectiveValue(raw: string): string | null {
+  if (raw.startsWith('"')) {
+    if (raw.length < 2 || !raw.endsWith('"')) {return null;}
+    return raw.slice(1, -1).replace(/\\"/g, '"');
+  }
+  if (raw.startsWith("'")) {
+    if (raw.length < 2 || !raw.endsWith("'")) {return null;}
+    return raw.slice(1, -1);
+  }
+  return raw;
+}
+
+/**
+ * Parse a raw at-brace span (`@{ ... }`) into typed directive data, or null
+ * when the span is not fully consumable — unclosed, an empty/ malformed
+ * pair, or no shape key (the bare view/icon forms). Unknown keys are kept
+ * as verbatim source slices in original order so write-back can preserve
+ * them byte-identically. Single greedy-to-line-end span match plus a linear
+ * quote-state scan: no nested quantifiers, no backtracking amplifier.
+ */
+export function parseAtDirective(raw: string): ParsedAtDirective | null {
+  const spanMatch = raw.match(/^@\{(.*)\}\s*$/);
+  if (!spanMatch) {return null;}
+  const body = spanMatch[1].trim();
+  if (!body) {return null;}
+  let shape: string | null = null;
+  let label: string | null = null;
+  const unknownParams: string[] = [];
+  for (const pair of splitDirectiveParams(body)) {
+    const trimmedPair = pair.trim();
+    if (!trimmedPair) {return null;}
+    const colonIdx = trimmedPair.indexOf(':');
+    if (colonIdx === -1) {return null;}
+    const key = trimmedPair.slice(0, colonIdx).trim();
+    if (!/^[A-Za-z_][\w-]*$/.test(key)) {return null;}
+    const value = parseDirectiveValue(trimmedPair.slice(colonIdx + 1).trim());
+    if (value === null) {return null;}
+    if (key === 'shape') { shape = value; }
+    else if (key === 'label') { label = value; }
+    else { unknownParams.push(trimmedPair); }
+  }
+  if (!shape) {return null;}
+  return { shape, label, unknownParams };
+}
+
+/**
+ * Parse a node shape-raw that may carry an at-brace span. Directive spans
+ * route to parseAtDirective (label defaults to the node id — mermaid's own
+ * vertex.text = id semantics); every other raw keeps parseNodeLabel.
+ */
+function parseNodeRawDirective(
+  raw: string,
+  nodeId: string,
+): { label: string; shape: NodeShape; directiveRaw?: string; unknownParams?: string[] } {
+  if (raw.startsWith('@{')) {
+    const parsed = parseAtDirective(raw);
+    if (parsed) {
+      return {
+        label: parsed.label ?? nodeId,
+        shape: directiveShapeKey(parsed.shape),
+        directiveRaw: raw,
+        unknownParams: parsed.unknownParams,
+      };
+    }
+  }
+  return parseNodeLabel(raw);
+}
 
 function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted: boolean; icon?: IconConfig } {
   const trimmed = raw.trim();
@@ -206,7 +347,17 @@ function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted:
   return { label: trimmed, shape: 'rect', quoted: false };
 }
 
-function shapeWrap(label: string, shape: NodeShape, quoted = false): string {
+// Phase 27: directive emission — always-quoted, and the label is escaped
+// (a double quote inside the label becomes a backslash-escaped quote, so it
+// cannot break out of the span or forge a second parameter). Unknown params
+// are re-emitted verbatim, in their original order, right after the label.
+function directiveWrap(shapeKey: string, label: string, unknownParams?: string[]): string {
+  const escaped = label.replace(/"/g, '\\"');
+  const extras = unknownParams && unknownParams.length > 0 ? `, ${unknownParams.join(', ')}` : '';
+  return `@{ shape: "${shapeKey}", label: "${escaped}"${extras} }`;
+}
+
+function shapeWrap(label: string, shape: NodeShape, quoted = false, unknownParams?: string[]): string {
   // Only add quotes when explicitly requested (quoted=true) OR when label contains special characters AND quoted is not explicitly false
   // If quoted is explicitly false, never add quotes regardless of content
   const needsQuotes = quoted === false ? false : (quoted || /[^a-zA-Z0-9_-]/.test(label));
@@ -242,12 +393,19 @@ function shapeWrap(label: string, shape: NodeShape, quoted = false): string {
     case 'manual-input':    return `@{ shape: "manual-input", label: ${q}${label}${q} }`;
     case 'procs':           return `@{ shape: "procs", label: ${q}${label}${q} }`;
     case 'paper-tape':      return `@{ shape: "paper-tape", label: ${q}${label}${q} }`;
+    // Phase 27 directive shapes — escaped emission (directiveWrap), never
+    // the raw label interpolation the v11 cases above still carry.
+    case 'person':          return directiveWrap('person', label, unknownParams);
     default:                return `[${l}]`;
   }
 }
 
 const STANDALONE_NODE_RE = /^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)$/;
 const ARROW_RE = /-->|---|--\|>|\|>|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|~~~/;
+// Full arrow-line structure (id + optional shape raw + arrow + optional edge
+// label + target id + optional shape raw). Shared by parseDiagram's edge
+// branch and the D6 fence so their verdicts on a line cannot drift.
+const ARROW_LINE_RE = /^([A-Za-z_][A-Za-z0-9_-]*?)([^\n]*?)\s*(-->|---|--\|>|\|>|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|~~~)\s*(?:\|([^|]*)\|)?\s*([A-Za-z_][A-Za-z0-9_-]*)([^\n]*)$/;
 
 /**
  * Check if an ID refers to a subgraph.
@@ -647,8 +805,35 @@ export function parseDiagram(source: string): ParsedDiagram {
 
     const parentId = currentParent();
 
+    // Phase 27: standalone directive node `id@{ shape: ... }` — placed before
+    // the arrow branch and guarded on it (a directive line whose label text
+    // contains an arrow token is routed to the edge branch, where the D6
+    // fence catches the mangled capture). The at-brace must sit immediately
+    // after the id: the space-separated form is invalid mermaid 12.1.0 and
+    // stays unparsed.
+    if (!ARROW_RE.test(trimmed)) {
+      const directiveLine = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*)(@\{.*\})$/);
+      if (directiveLine) {
+        const span = directiveLine[2];
+        const parsed = parseAtDirective(span);
+        if (parsed && !seenIds.has(directiveLine[1]) && !isSubgraphId(directiveLine[1], subgraphs)) {
+          seenIds.add(directiveLine[1]);
+          nodes.push({
+            id: directiveLine[1],
+            label: parsed.label ?? directiveLine[1],
+            shape: directiveShapeKey(parsed.shape),
+            raw: span,
+            parentSubgraphId: parentId,
+            directiveRaw: span,
+            unknownParams: parsed.unknownParams,
+          });
+        }
+        continue;
+      }
+    }
+
     if (ARROW_RE.test(trimmed)) {
-      const arrowMatch = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*?)([^\n]*?)\s*(-->|---|--\|>|\|>|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|~~~)\s*(?:\|([^|]*)\|)?\s*([A-Za-z_][A-Za-z0-9_-]*)([^\n]*)$/);
+      const arrowMatch = trimmed.match(ARROW_LINE_RE);
       if (arrowMatch) {
         const sourceId = arrowMatch[1];
         const sourceShapeRaw = arrowMatch[2]?.trim();
@@ -659,8 +844,17 @@ export function parseDiagram(source: string): ParsedDiagram {
         if (!seenIds.has(sourceId) && !isSubgraphId(sourceId, subgraphs)) {
           seenIds.add(sourceId);
           if (sourceShapeRaw) {
-            const { label: srcLabel, shape: srcShape } = parseNodeLabel(sourceShapeRaw);
-            nodes.push({ id: sourceId, label: srcLabel, shape: srcShape, raw: sourceShapeRaw, parentSubgraphId: parentId });
+            const parsed = parseNodeRawDirective(sourceShapeRaw, sourceId);
+            nodes.push({
+              id: sourceId,
+              label: parsed.label,
+              shape: parsed.shape,
+              raw: sourceShapeRaw,
+              parentSubgraphId: parentId,
+              ...(parsed.directiveRaw
+                ? { directiveRaw: parsed.directiveRaw, unknownParams: parsed.unknownParams }
+                : {}),
+            });
           } else {
             nodes.push({ id: sourceId, label: sourceId, shape: 'rect', raw: sourceId, parentSubgraphId: parentId });
           }
@@ -669,17 +863,30 @@ export function parseDiagram(source: string): ParsedDiagram {
         if (!seenIds.has(targetId) && !isSubgraphId(targetId, subgraphs)) {
           seenIds.add(targetId);
           if (targetShapeRaw) {
-            const { label: tgtLabel, shape: tgtShape } = parseNodeLabel(targetShapeRaw);
-            nodes.push({ id: targetId, label: tgtLabel, shape: tgtShape, raw: targetShapeRaw, parentSubgraphId: parentId });
+            const parsed = parseNodeRawDirective(targetShapeRaw, targetId);
+            nodes.push({
+              id: targetId,
+              label: parsed.label,
+              shape: parsed.shape,
+              raw: targetShapeRaw,
+              parentSubgraphId: parentId,
+              ...(parsed.directiveRaw
+                ? { directiveRaw: parsed.directiveRaw, unknownParams: parsed.unknownParams }
+                : {}),
+            });
           } else {
             nodes.push({ id: targetId, label: targetId, shape: 'rect', raw: targetId, parentSubgraphId: parentId });
           }
         } else if (targetShapeRaw && !isSubgraphId(targetId, subgraphs)) {
           const existing = nodes.find(n => n.id === targetId);
           if (existing && existing.label === existing.id) {
-            const { label: tgtLabel, shape: tgtShape } = parseNodeLabel(targetShapeRaw);
-            existing.label = tgtLabel;
-            existing.shape = tgtShape;
+            const parsed = parseNodeRawDirective(targetShapeRaw, targetId);
+            existing.label = parsed.label;
+            existing.shape = parsed.shape;
+            if (parsed.directiveRaw) {
+              existing.directiveRaw = parsed.directiveRaw;
+              existing.unknownParams = parsed.unknownParams;
+            }
           }
         }
         edges.push({ source: sourceId, target: targetId, arrowType: arrowMatch[3], label: arrowMatch[4]?.trim() ?? '', raw: trimmed });
@@ -769,6 +976,17 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
     // First try: standalone node definition (nodeId at start of line, no arrow on the line)
     // Matches both A[label] and A["label"] style definitions
     if (!ARROW_RE.test(line)) {
+      // Phase 27: directive definition — rebuild through the directive
+      // writer, keeping the span's shape key and unknown params verbatim
+      // (only the label changes).
+      const directiveMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(@\{.*\})\s*$/);
+      if (directiveMatch && directiveMatch[2] === nodeId) {
+        const parsed = parseAtDirective(directiveMatch[3]);
+        if (parsed) {
+          lines[i] = `${directiveMatch[1]}${nodeId}${directiveWrap(parsed.shape, newLabel, parsed.unknownParams)}`;
+          return lines.join('\n');
+        }
+      }
       const nodeMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[|\(\[")["']?[^\n]+)/);
       if (nodeMatch && nodeMatch[2] === nodeId) {
         const { shape } = parseNodeLabel(nodeMatch[4].trim());
@@ -1173,19 +1391,61 @@ export function parseFrontmatter(content: string): { frontmatter: FrontmatterCon
 }
 
 /**
- * D6 fail-safe (DIA-04): presence test for the v12 metadata-attach syntax
- * (`@{...}`) OUTSIDE frontmatter. Content whose body carries the syntax opens
- * the visual editor read-only and is never handed to the regex-based
- * parseDiagram, which silently drops bare post-id metadata lines
- * (`B@{ shape: "doc", label: "x" }` — the exact form this module's own
- * updateNodeShape emits). Presence test ONLY — no structure parsing; the
- * parser upgrade for `@{...}` is out of scope by design. The body comes from
- * the app's own parseFrontmatter split, so frontmatter-embedded metadata
+ * D6 fail-safe (DIA-04), reworked in Phase 27: parse-completeness test for
+ * the v12 metadata-attach syntax (`@{...}`) OUTSIDE frontmatter. The
+ * directive parser now consumes well-formed spans, so content whose body
+ * carries them opens the visual editor EDITABLE; any at-brace line the
+ * directive rules cannot fully consume keeps the whole-document read-only
+ * fence — malformed or unclosed spans, the invalid space-separated form,
+ * subgraph-header directives (their rename path would drop the trailing
+ * metadata), and icon-param lines (no icon write-back exists). Superset-safe
+ * by design: when consumption is uncertain, fence. The body comes from the
+ * app's own parseFrontmatter split, so frontmatter-embedded metadata
  * (legitimate mermaid config) and legacy `%%{init:...}%%` directives never
  * trigger the gate — consistent with detectDiagramType's stripping semantics.
  */
-export function bodyContainsAtDirective(content: string): boolean {
-  return parseFrontmatter(content).body.includes('@{');
+export function bodyHasUnparsedAtDirective(content: string): boolean {
+  const body = parseFrontmatter(content).body;
+  for (const line of body.split('\n')) {
+    if (!line.includes('@{')) {continue;}
+    if (!directiveLineFullyConsumed(line.trim())) {return true;}
+  }
+  return false;
+}
+
+/** A span is editable when it parses AND carries no icon param (no icon write-back exists). */
+function directiveSpanEditable(span: string): boolean {
+  const parsed = parseAtDirective(span);
+  if (!parsed) {return false;}
+  return !parsed.unknownParams.some(p => /^icon\s*:/.test(p));
+}
+
+/**
+ * True when parseDiagram's directive rules consume the whole line. The
+ * checks mirror the parser's branches exactly — standalone form only outside
+ * arrow lines, edge form via the same ARROW_LINE_RE capture the parser
+ * itself uses — so a line the parser would mangle can never be called
+ * consumable here.
+ */
+function directiveLineFullyConsumed(trimmed: string): boolean {
+  if (!trimmed || trimmed.startsWith('%%')) {return true;}
+  // A subgraph header carrying a directive stays fenced: its rename path
+  // (updateSubgraphLabel) rewrites the line and would drop the metadata.
+  if (trimmed.startsWith('subgraph')) {return false;}
+  if (!ARROW_RE.test(trimmed)) {
+    const standalone = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*)(@\{.*\})$/);
+    if (standalone) {return directiveSpanEditable(standalone[2]);}
+    return false;
+  }
+  const edge = trimmed.match(ARROW_LINE_RE);
+  if (edge) {
+    const sourceRaw = edge[2]?.trim() ?? '';
+    const targetRaw = edge[6]?.trim() ?? '';
+    if (sourceRaw.startsWith('@{') && !directiveSpanEditable(sourceRaw)) {return false;}
+    if (targetRaw.startsWith('@{') && !directiveSpanEditable(targetRaw)) {return false;}
+    return true;
+  }
+  return false;
 }
 
 function parseYamlFrontmatter(yaml: string): Record<string, unknown> {

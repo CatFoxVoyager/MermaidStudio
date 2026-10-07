@@ -5,7 +5,7 @@ import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import {
   parseDiagram, updateNodeStyle, updateNodeLabel, updateNodeShape,
   addNode, removeNode, addEdge, generateNodeId, getNodeStyle,
-  bodyContainsAtDirective,
+  bodyHasUnparsedAtDirective,
 } from '@/lib/mermaid/codeUtils';
 import type { ParsedDiagram, ParsedEdge } from '@/lib/mermaid/codeUtils';
 import { ShapeToolbar } from './ShapeToolbar';
@@ -247,13 +247,14 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const dragConnectRef = useRef<string | null>(null);
 
-  // D6 fail-safe (DIA-04): content whose BODY (outside frontmatter) carries
-  // the v12 metadata-attach syntax (`@{...}`) opens read-only. The gate is
+  // D6 fail-safe (DIA-04), narrowed in Phase 27 to a parse-completeness
+  // gate: content whose BODY (outside frontmatter) carries an at-brace line
+  // the directive parser cannot fully consume opens read-only. The gate is
   // computed BEFORE the parse memo and short-circuits it, so the regex-based
-  // parser is never invoked on such content — parseDiagram silently drops
-  // bare post-id metadata lines (the exact form this app's own updateNodeShape
-  // emits), and any regeneration-style edit would then corrupt the diagram.
-  const readOnly = useMemo(() => bodyContainsAtDirective(content), [content]);
+  // parser is never invoked on un-consumable content — any regeneration-style
+  // edit would then corrupt the diagram. Well-formed directive content is
+  // editable end-to-end.
+  const readOnly = useMemo(() => bodyHasUnparsedAtDirective(content), [content]);
 
   // Parse once per content change (previously re-parsed on every render, i.e.
   // on every drag/selection state update). Shared with the render pipeline

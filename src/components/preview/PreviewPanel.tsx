@@ -8,7 +8,7 @@ import { extractThemeIdFromContent } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
 import { sanitizeCssValue } from '@/utils/sanitization';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
-import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyContainsAtDirective } from '@/lib/mermaid/codeUtils';
+import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape, PresetType, PresetColors } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
 import { EdgeStylePanel } from './EdgeStylePanel';
@@ -469,16 +469,17 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // the style panels, and Copy SVG so every consumer sees the same parse.
   const parsedDiagram = useMemo(() => parseDiagram(content), [content]);
 
-  // D6 fail-safe (DIA-04, Open Question 2 resolution (a)): presence of the
-  // v12 `@{...}` metadata syntax in the diagram body fences every mutating
-  // handler below. parseDiagram silently drops bare post-id metadata lines
-  // (the exact form updateNodeShape emits), so a rewrite through a codeUtils
-  // mutator would corrupt such a diagram — the same corruption risk as the
-  // visual editor, fenced by the same shared helper. Display-side parsing
-  // (parsedDiagram above) stays: it only feeds pickers; the corruption risk
-  // is mutation. (Derived from content, which is already in every handler's
-  // dependency array — the closures can never see a stale fence.)
-  const bodyHasMetadata = useMemo(() => bodyContainsAtDirective(content), [content]);
+  // D6 fail-safe (DIA-04, Open Question 2 resolution (a)), narrowed in
+  // Phase 27 to a parse-completeness gate: an at-brace line in the diagram
+  // body that the directive parser cannot fully consume fences every
+  // mutating handler below — a rewrite through a codeUtils mutator would
+  // corrupt such a diagram (the same corruption risk as the visual editor,
+  // fenced by the same shared helper). Well-formed directive content is
+  // editable. Display-side parsing (parsedDiagram above) stays: it only
+  // feeds pickers; the corruption risk is mutation. (Derived from content,
+  // which is already in every handler's dependency array — the closures can
+  // never see a stale fence.)
+  const bodyHasMetadata = useMemo(() => bodyHasUnparsedAtDirective(content), [content]);
 
   // Generate node presets based on current theme (syncs with theme changes)
   const nodePresets = useMemo(() => {
