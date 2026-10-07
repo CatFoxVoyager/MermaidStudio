@@ -189,11 +189,15 @@ function splitDirectiveParams(body: string): string[] {
   return parts;
 }
 
-/** Resolve one directive value token: quoted forms unwrap, escaped quotes unescape. */
+/** Resolve one directive value token: quoted forms unwrap, escapes unescape. */
 function parseDirectiveValue(raw: string): string | null {
   if (raw.startsWith('"')) {
     if (raw.length < 2 || !raw.endsWith('"')) {return null;}
-    return raw.slice(1, -1).replace(/\\"/g, '"');
+    // CR-01: unescape symmetrically with directiveWrap — `\\` -> `\` and
+    // `\"` -> `"`. Sequences the writer never emits (a lone `\` before any
+    // other char) are preserved verbatim so hand-written Windows-style
+    // paths (`C:\new folder`) are not corrupted on read.
+    return raw.slice(1, -1).replace(/\\(["\\])/g, '$1');
   }
   if (raw.startsWith("'")) {
     if (raw.length < 2 || !raw.endsWith("'")) {return null;}
@@ -356,11 +360,13 @@ function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted:
 }
 
 // Phase 27: directive emission — always-quoted, and the label is escaped
-// (a double quote inside the label becomes a backslash-escaped quote, so it
-// cannot break out of the span or forge a second parameter). Unknown params
-// are re-emitted verbatim, in their original order, right after the label.
+// (CR-01: backslashes FIRST, then double quotes — a lone `\` emitted before
+// the closing quote would read as an escaped quote on re-parse, quote state
+// would never close, the span would stop parsing, the node would vanish and
+// the document would fence read-only). Unknown params are re-emitted
+// verbatim, in their original order, right after the label.
 function directiveWrap(shapeKey: string, label: string, unknownParams?: string[]): string {
-  const escaped = label.replaceAll('"', '\\"');
+  const escaped = label.replace(/\\/g, '\\\\').replaceAll('"', '\\"');
   const extras = unknownParams && unknownParams.length > 0 ? `, ${unknownParams.join(', ')}` : '';
   return `@{ shape: "${shapeKey}", label: "${escaped}"${extras} }`;
 }
