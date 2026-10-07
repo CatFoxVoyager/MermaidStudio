@@ -88,8 +88,7 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.2",
-    "vitest": "^5.0.3",
-    "vitest-canvas-mock": "^1.2.0"
+    "vitest": "^5.0.3"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

@@ -2,7 +2,16 @@
 import { expect, afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import * as matchers from '@testing-library/jest-dom/matchers';
-import 'vitest-canvas-mock';
+
+// NOTE: vitest-canvas-mock was removed (2026-10-07): under vitest 5 its
+// import poisons the global expect — every `.rejects`/`.resolves` assertion
+// suite-wide reported "expected [Function] to throw ... but got ''" (two
+// useDiagramActions error-propagation tests failed on it since the vitest
+// 4→5 refresh). No test file actually calls a canvas API (the five
+// "VisualEditorCanvas*" test files only match on component names), so the
+// mock was vestigial. Bisect evidence: probe with only this import breaks
+// `await expect(Promise.reject(new Error())).rejects.toThrow()`; without
+// the import it passes.
 
 // Extend Vitest's expect with jest-dom matchers
 expect.extend(matchers);
@@ -74,6 +83,29 @@ if (typeof window !== 'undefined') {
       };
     };
   }
+
+  // Minimal 2D-context stub (mermaid's architecture diagram measures its
+  // icons on a canvas — "Could not create canvas of type 2d" without this).
+  // This replaces vitest-canvas-mock, whose import poisons the global expect
+  // under vitest 5 (see note at the top of this file).
+  const ctx2dStub: Record<string, any> = {
+    measureText: (text: string) => ({ width: String(text).length * 8 }),
+    createLinearGradient: () => ({ addColorStop: () => {} }),
+    createRadialGradient: () => ({ addColorStop: () => {} }),
+    createPattern: () => null,
+    getImageData: (_x: number, _y: number, w: number, h: number) => ({
+      data: new Uint8ClampedArray(w * h * 4),
+    }),
+  };
+  ['fillRect', 'strokeRect', 'clearRect', 'fillText', 'strokeText', 'drawImage',
+   'beginPath', 'closePath', 'moveTo', 'lineTo', 'arc', 'arcTo', 'ellipse',
+   'rect', 'fill', 'stroke', 'clip', 'save', 'restore', 'translate', 'rotate',
+   'scale', 'setTransform', 'resetTransform', 'putImageData', 'setLineDash',
+   'getLineDash', 'createConicGradient', 'isPointInPath', 'isPointInStroke',
+  ].forEach(fn => { ctx2dStub[fn] = () => {}; });
+  window.HTMLCanvasElement.prototype.getContext = function (type: string) {
+    return type === '2d' ? ctx2dStub : null;
+  } as any;
 }
 
 // Mock IndexedDB for tests that use localStorage fallback
