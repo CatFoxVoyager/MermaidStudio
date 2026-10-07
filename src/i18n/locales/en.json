@@ -666,11 +666,11 @@
   },
   "about": {
     "title": "About MermaidStudio",
-    "why": "MermaidStudio was created by Jérémie D. (CatFoxVoyager), born out of frustration with online diagram editors: drawing a diagram shouldn't require an account, a subscription, or sending your work to someone else's server.",
+    "why": "MermaidStudio was born out of frustration with online diagram editors: drawing a diagram shouldn't require an account, a subscription, or sending your work to someone else's server.",
     "how": "The app runs entirely in your browser — diagrams and settings stay on your device (local storage), and even the AI assistant runs locally via WebGPU. Free, open source, no tracking.",
     "releaseNotesButton": "What's new in this version",
     "github": "View on GitHub",
     "githubCaption": "Open source — star the project and report issues",
-    "license": "MIT License — © 2026 Jérémie D."
+    "license": "MIT License — © 2026 MermaidStudio"
   }
 }
