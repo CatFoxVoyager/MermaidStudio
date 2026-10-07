@@ -25,6 +25,7 @@ import {
   updateEdgeLabel,
   bodyContainsAtDirective,
 } from '../codeUtils';
+import type { NodeShape } from '../codeUtils';
 import {
   extractThemeIdFromContent,
   applyThemeToFrontmatter,
@@ -201,6 +202,23 @@ describe('Mermaid Code Utilities', () => {
       expect(result.nodes.find(n => n.id === 'C')).toBeUndefined();
       expect(result.edges).toHaveLength(1);
     });
+
+    // Phase 27 (27-01 Task 1, tracer RED): the directive form parses into a
+    // typed node carrying its verbatim original span. The standalone branch
+    // does not exist yet, so the line is dropped entirely.
+    it('parses a standalone at-brace directive node into a typed node (tracer)', () => {
+      const source = 'flowchart TD\nA@{ shape: "person", label: "Alice" }';
+      const result = parseDiagram(source);
+
+      const node = result.nodes.find(n => n.id === 'A');
+      expect(node).toBeDefined();
+      expect(node?.shape).toBe('person');
+      expect(node?.label).toBe('Alice');
+      // Cast keeps the RED run type-clean: the payload field itself ships
+      // with this task's GREEN commit.
+      expect((node as unknown as { directiveRaw?: string }).directiveRaw)
+        .toBe('@{ shape: "person", label: "Alice" }');
+    });
   });
 
   describe('bodyContainsAtDirective (D6 fail-safe presence test)', () => {
@@ -226,6 +244,21 @@ describe('Mermaid Code Utilities', () => {
     it('returns false when the only occurrence sits inside a legacy init directive', () => {
       const source = '%%{init: {"theme":"dark"}}%%\nflowchart TD\nA-->B';
       expect(bodyContainsAtDirective(source)).toBe(false);
+    });
+
+    // Phase 27 (27-01 Task 1, tracer RED): the D6 gate narrows from
+    // presence-based to parse-completeness — well-formed directive content
+    // must become editable. The renamed helper does not exist yet; the
+    // missing export IS the planned-behavior failure (it ships with this
+    // task's GREEN commit alongside the parser it trusts).
+    describe('bodyHasUnparsedAtDirective (D6 parse-completeness gate)', () => {
+      it('lets a well-formed standalone directive node through (editable)', async () => {
+        const mod = await import('../codeUtils');
+        const helper = (mod as unknown as Record<string, unknown>).bodyHasUnparsedAtDirective as
+          ((content: string) => boolean) | undefined;
+        expect(helper).toBeDefined();
+        expect(helper!('flowchart TD\nA@{ shape: "person", label: "Alice" }')).toBe(false);
+      });
     });
   });
 
@@ -309,6 +342,18 @@ describe('Mermaid Code Utilities', () => {
       expect(result).toContain('(((');
       expect(result).toContain('A(((Renamed)))');
     });
+
+    // Phase 27 (27-01 Task 1, tracer RED): renaming a person directive node
+    // rebuilds the line through the directive writer. Today the standalone
+    // gate has no directive alternative and the source comes back unchanged.
+    it('should rebuild the directive wrap on rename of a person node', () => {
+      const source = 'flowchart TD\nA@{ shape: "person", label: "Alice" }';
+      const result = updateNodeLabel(source, 'A', 'Bob');
+
+      expect(result).toContain('@{ shape: "person", label: "Bob" }');
+      expect(result).not.toContain('[');
+      expect(result).not.toContain(']');
+    });
   });
 
   describe('updateNodeShape', () => {
@@ -382,6 +427,16 @@ describe('Mermaid Code Utilities', () => {
       const result = addNode(source, 'Z', 'Stop', 'dbl-circ');
 
       expect(result).toContain('Z(((Stop)))');
+    });
+
+    // Phase 27 (27-01 Task 1, tracer RED): toolbar adds of a person node
+    // emit the directive wrap. Today the default rect emission runs. The
+    // cast keeps RED type-clean — the union member ships with GREEN.
+    it('should add a person node with the directive wrap', () => {
+      const source = 'flowchart TD\nA[Box]';
+      const result = addNode(source, 'Z', 'Alice', 'person' as NodeShape);
+
+      expect(result).toContain('Z@{ shape: "person", label: "Alice" }');
     });
   });
 
