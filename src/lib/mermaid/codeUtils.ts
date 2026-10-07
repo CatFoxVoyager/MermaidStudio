@@ -360,7 +360,7 @@ function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted:
 // cannot break out of the span or forge a second parameter). Unknown params
 // are re-emitted verbatim, in their original order, right after the label.
 function directiveWrap(shapeKey: string, label: string, unknownParams?: string[]): string {
-  const escaped = label.replace(/"/g, '\\"');
+  const escaped = label.replaceAll('"', '\\"');
   const extras = unknownParams && unknownParams.length > 0 ? `, ${unknownParams.join(', ')}` : '';
   return `@{ shape: "${shapeKey}", label: "${escaped}"${extras} }`;
 }
@@ -406,6 +406,18 @@ function shapeWrap(label: string, shape: NodeShape, quoted = false, unknownParam
     case 'procs':           return directiveWrap('procs', label, unknownParams);
     case 'paper-tape':      return directiveWrap('paper-tape', label, unknownParams);
     case 'person':          return directiveWrap('person', label, unknownParams);
+    // Phase 27 (27-02): the remaining toolbar targets join person — same
+    // escaped always-quoted emission, unknown params re-emitted verbatim.
+    case 'delay':           return directiveWrap('delay', label, unknownParams);
+    case 'sl-rect':         return directiveWrap('sl-rect', label, unknownParams);
+    case 'div-rect':        return directiveWrap('div-rect', label, unknownParams);
+    case 'folder':          return directiveWrap('folder', label, unknownParams);
+    case 'datastore':       return directiveWrap('datastore', label, unknownParams);
+    case 'cloud':           return directiveWrap('cloud', label, unknownParams);
+    case 'browser':         return directiveWrap('browser', label, unknownParams);
+    case 'bolt':            return directiveWrap('bolt', label, unknownParams);
+    case 'tri':             return directiveWrap('tri', label, unknownParams);
+    case 'hourglass':       return directiveWrap('hourglass', label, unknownParams);
     default:                return `[${l}]`;
   }
 }
