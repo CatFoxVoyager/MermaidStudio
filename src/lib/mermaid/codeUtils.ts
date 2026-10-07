@@ -248,18 +248,24 @@ function parseNodeRawDirective(
   raw: string,
   nodeId: string,
 ): { label: string; shape: NodeShape; directiveRaw?: string; unknownParams?: string[] } {
-  if (raw.startsWith('@{')) {
-    const parsed = parseAtDirective(raw);
+  const trimmed = raw.trim();
+  if (trimmed.startsWith('@{')) {
+    // WR-04: the directive form attaches directly to its id (`A@{...}`) —
+    // the space-separated form (`A @{...}`) is invalid mermaid 12.1.0 and is
+    // declined on the edge path exactly like the standalone rule: no
+    // directive interpretation, no silent normalization of the spacing.
+    if (!raw.startsWith('@{')) {return parseNodeLabel(trimmed);}
+    const parsed = parseAtDirective(trimmed);
     if (parsed) {
       return {
         label: parsed.label ?? nodeId,
         shape: directiveShapeKey(parsed.shape),
-        directiveRaw: raw,
+        directiveRaw: trimmed,
         unknownParams: parsed.unknownParams,
       };
     }
   }
-  return parseNodeLabel(raw);
+  return parseNodeLabel(trimmed);
 }
 
 function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted: boolean; icon?: IconConfig } {
@@ -679,8 +685,14 @@ export function removeEdge(source: string, srcId: string, tgtId: string): string
     if (!trimmed.startsWith(srcId)) {return false;}
     const parts = splitEdgeLine(trimmed);
     if (!parts) {return false;}
-    // Exact source-token match: "AB --> C" must not satisfy removeEdge(.., 'A', 'C')
-    return parts[0].trim() === srcId && tgtRe.test(parts[3]);
+    // WR-01: the before-arrow segment may carry a directive span
+    // (`A@{ shape: "person" } --> B`) or a legacy shape wrap; compare the
+    // LEADING id token rather than the whole segment, which never matched a
+    // directive source and made delete a silent no-op. Greedy id characters
+    // keep the exact-token rule: "AB --> C" still never satisfies
+    // removeEdge(.., 'A', 'C').
+    const leadMatch = parts[0].trim().match(/^([A-Za-z_][A-Za-z0-9_-]*)/);
+    return leadMatch?.[1] === srcId && tgtRe.test(parts[3]);
   });
   if (edgeIdx === -1) {return source;}
 
@@ -952,7 +964,7 @@ export function parseDiagram(source: string): ParsedDiagram {
         if (!seenIds.has(sourceId) && !isSubgraphId(sourceId, subgraphs)) {
           seenIds.add(sourceId);
           if (sourceShapeRaw) {
-            const parsed = parseNodeRawDirective(sourceShapeRaw, sourceId);
+            const parsed = parseNodeRawDirective(arrowMatch[2] ?? '', sourceId);
             nodes.push({
               id: sourceId,
               label: parsed.label,
@@ -971,7 +983,7 @@ export function parseDiagram(source: string): ParsedDiagram {
         if (!seenIds.has(targetId) && !isSubgraphId(targetId, subgraphs)) {
           seenIds.add(targetId);
           if (targetShapeRaw) {
-            const parsed = parseNodeRawDirective(targetShapeRaw, targetId);
+            const parsed = parseNodeRawDirective(arrowMatch[6] ?? '', targetId);
             nodes.push({
               id: targetId,
               label: parsed.label,
@@ -988,7 +1000,7 @@ export function parseDiagram(source: string): ParsedDiagram {
         } else if (targetShapeRaw && !isSubgraphId(targetId, subgraphs)) {
           const existing = nodes.find(n => n.id === targetId);
           if (existing && existing.label === existing.id) {
-            const parsed = parseNodeRawDirective(targetShapeRaw, targetId);
+            const parsed = parseNodeRawDirective(arrowMatch[6] ?? '', targetId);
             existing.label = parsed.label;
             existing.shape = parsed.shape;
             if (parsed.directiveRaw) {
@@ -1579,10 +1591,15 @@ function directiveLineFullyConsumed(trimmed: string): boolean {
   }
   const edge = matchArrowLine(trimmed);
   if (edge) {
-    const sourceRaw = edge[2]?.trim() ?? '';
-    const targetRaw = edge[6]?.trim() ?? '';
-    if (sourceRaw.startsWith('@{') && !directiveSpanEditable(sourceRaw)) {return false;}
-    if (targetRaw.startsWith('@{') && !directiveSpanEditable(targetRaw)) {return false;}
+    const sourceCapture = edge[2] ?? '';
+    const targetCapture = edge[6] ?? '';
+    const sourceRaw = sourceCapture.trim();
+    const targetRaw = targetCapture.trim();
+    // WR-04: a directive span must attach directly to its id — the
+    // space-separated form stays fenced on edge lines too (mirrors the
+    // standalone rule and parseNodeRawDirective's decline).
+    if (sourceRaw.startsWith('@{') && (!sourceCapture.startsWith('@{') || !directiveSpanEditable(sourceRaw))) {return false;}
+    if (targetRaw.startsWith('@{') && (!targetCapture.startsWith('@{') || !directiveSpanEditable(targetRaw))) {return false;}
     return true;
   }
   return false;
