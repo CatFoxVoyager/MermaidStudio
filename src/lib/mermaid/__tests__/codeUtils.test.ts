@@ -54,6 +54,34 @@ describe('Mermaid Code Utilities', () => {
       expect(result.nodes[2].shape).toBe('rhombus');
     });
 
+    // Phase 26 (26-01): legacy triple-paren double-circle syntax — the
+    // unquoted form must parse into a dbl-circ node with the bare label,
+    // never leak the outer parens into the label (greedy circle steal).
+    it('should parse unquoted triple-paren nodes as double-circle', () => {
+      const source = 'flowchart TD\nA(((Stop)))';
+      const result = parseDiagram(source);
+
+      expect(result.nodes[0].shape).toBe('dbl-circ');
+      expect(result.nodes[0].label).toBe('Stop');
+    });
+
+    it('should parse quoted triple-paren nodes as double-circle with clean labels', () => {
+      const source = 'flowchart TD\nA((("Stop")))';
+      const result = parseDiagram(source);
+
+      expect(result.nodes[0].shape).toBe('dbl-circ');
+      expect(result.nodes[0].label).toBe('Stop');
+      expect(result.nodes[0].label).not.toContain('"');
+    });
+
+    it('should keep double-paren nodes as circle (greedy non-interference)', () => {
+      const source = 'flowchart TD\nA((x))';
+      const result = parseDiagram(source);
+
+      expect(result.nodes[0].shape).toBe('circle');
+      expect(result.nodes[0].label).toBe('x');
+    });
+
     it('should parse edges with labels', () => {
       const source = 'flowchart TD\nA-->|yes|B';
       const result = parseDiagram(source);
@@ -270,6 +298,17 @@ describe('Mermaid Code Utilities', () => {
       expect(result).toContain('B[NewLabel]');
       expect(result).toBe('flowchart TD\nA-->B[NewLabel]');
     });
+
+    // Phase 26 (26-01) round-trip: renaming a double-circle node must keep
+    // the triple-paren wrap — today the parse reads it as circle and the
+    // rewrite degrades to a double-paren circle.
+    it('should preserve the double-circle triple-paren wrap on rename', () => {
+      const source = 'flowchart TD\nA(((Stop)))';
+      const result = updateNodeLabel(source, 'A', 'Renamed');
+
+      expect(result).toContain('(((');
+      expect(result).toContain('A(((Renamed)))');
+    });
   });
 
   describe('updateNodeShape', () => {
@@ -285,6 +324,16 @@ describe('Mermaid Code Utilities', () => {
       const result = updateNodeShape(source, 'A', 'stadium');
 
       expect(result).toContain('A([MyLabel])');
+    });
+
+    // Phase 26 (26-01): changing shape to double-circle must write the
+    // legacy triple-paren form — not the v11 metadata directive, which would
+    // trip the D6 read-only gate on the next autosave.
+    it('should write legacy triple-paren syntax when changing shape to double-circle', () => {
+      const source = 'flowchart TD\nA[Box]';
+      const result = updateNodeShape(source, 'A', 'dbl-circ');
+
+      expect(result).toBe('flowchart TD\nA(((Box)))');
     });
   });
 
@@ -309,6 +358,16 @@ describe('Mermaid Code Utilities', () => {
 
       const lines = result.split('\n');
       expect(lines[1]).toContain('C');
+    });
+
+    // Phase 26 (26-01): toolbar adds of a double-circle node must emit the
+    // legacy triple-paren wrap so the autosaved content never carries the
+    // v11 metadata directive (D6 read-only trip).
+    it('should add a double-circle node with legacy triple-paren wrap', () => {
+      const source = 'flowchart TD\nA(((X)))';
+      const result = addNode(source, 'Z', 'Stop', 'dbl-circ');
+
+      expect(result).toContain('Z(((Stop)))');
     });
   });
 
