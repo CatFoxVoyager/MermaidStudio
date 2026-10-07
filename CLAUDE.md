@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Cross-Repo Sync: MermaidStudio-App (Android native)
+
+The private **MermaidStudio-App** repo (local: `D:/code/mermaidstudio-app`) is the Capacitor-based Android-native shell that consumes this web app. **When a product-level change lands here, the same change must be applied there too** — examples: new mermaid shapes or visual-editor features (e.g. phases 26-27 of v1.5), i18n key changes, storage/schema migrations, service-worker or build plumbing that the shell embeds. When adding such a feature, flag the port as an explicit follow-up on the Android repo (its own planning tracks it — its Phase 25 numbering is consumed there; this repo resumes at 26).
+
 ## Development Commands
 
 The canonical package manager is **pnpm 10** (`pnpm-lock.yaml` is committed); `npm >= 10` is also accepted. Either works for the commands below.
