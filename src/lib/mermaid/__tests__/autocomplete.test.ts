@@ -408,6 +408,7 @@ describe('v12 gap entries', () => {
     'manual-file', 'manual-input', 'procs', 'paper-tape',
     'person', 'browser', 'cloud', 'console', 'bucket', 'folder', 'fork', 'join',
     'hourglass', 'flag', 'text', 'odd', 'bang', 'bolt',
+    'delay', 'sl-rect', 'div-rect', 'datastore', 'tri',
   ];
 
   describe('starter keywords (verified -beta spellings)', () => {
@@ -454,7 +455,7 @@ describe('v12 gap entries', () => {
   });
 
   describe('shape completions in flowchart context', () => {
-    it('offers the full curated 25-entry shape vocabulary', () => {
+    it('offers the full curated 30-entry shape vocabulary', () => {
       const labels = runCompletions('flowchart TD\n').map(o => o.label);
       for (const shape of SHAPE_LABELS) {
         expect(labels).toContain(shape);
@@ -563,5 +564,49 @@ describe('frontmatter documents — detectType sees past YAML frontmatter (WR-02
 
   it('still detects types for frontmatter-free documents (no regression on the %%-scan path)', () => {
     expect(runCompletions('usecase-beta\n').map(o => o.label)).toContain('systemBoundary');
+  });
+});
+
+describe('phase 27 — 12-shape set: completions and copy accuracy', () => {
+  // The 5 keys this phase adds to SHAPE_NAMES (the other 7 targets already rode
+  // in the 25-entry curation).
+  const NEW_SHAPE_LABELS = ['delay', 'sl-rect', 'div-rect', 'datastore', 'tri'];
+
+  // The full 12-shape toolbar set (27-03 surface): every key must be suggested.
+  const TARGET_12 = [
+    'person', 'browser', 'cloud', 'folder', 'hourglass', 'bolt', 'doc',
+    'delay', 'sl-rect', 'div-rect', 'datastore', 'tri',
+  ];
+
+  it('offers each of the 5 newly-added shape names in flowchart context', () => {
+    const labels = runCompletions('flowchart TD\n').map(o => o.label);
+    for (const shape of NEW_SHAPE_LABELS) {
+      expect(labels, `new shape "${shape}" missing from SHAPE_NAMES`).toContain(shape);
+    }
+  });
+
+  it('offers all 12 phase-27 target keys as shape-name completions', () => {
+    const labels = runCompletions('flowchart TD\n').map(o => o.label);
+    for (const shape of TARGET_12) {
+      expect(labels, `target key "${shape}" missing`).toContain(shape);
+    }
+  });
+
+  it('the at-shape completion detail describes the post-rework editable UX', () => {
+    const options = runCompletions('flowchart TD\n@{');
+    const atShape = options.find(o => o.label === '@{ shape: ');
+    expect(atShape).toBeDefined();
+    expect(atShape!.detail).toBe(
+      'Attach shape metadata to a node (editable in the visual editor)'
+    );
+  });
+
+  it('the view-collapsed completion copy is unchanged (its form stays fenced)', () => {
+    const options = runCompletions('flowchart TD\n@{');
+    const view = options.find(o => o.label === '@{ view: collapsed }');
+    expect(view).toBeDefined();
+    expect(view!.detail).toBe(
+      'Collapse subgraph to a single node (makes the visual editor read-only)'
+    );
   });
 });
