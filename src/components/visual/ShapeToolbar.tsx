@@ -27,6 +27,18 @@ function ShapePreview({ shape }: { shape: NodeShape }) {
     case 'parallelogram-alt': return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="2,3 22,3 26,17 6,17" {...props} /></svg>;
     case 'trapezoid':     return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="6,3 22,3 26,17 2,17" {...props} /></svg>;
     case 'trapezoid-alt': return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="2,3 26,3 22,17 6,17" {...props} /></svg>;
+    case 'person':        return <svg width="28" height="20" viewBox="0 0 28 20"><circle cx="14" cy="5.5" r="3" {...props} /><path d="M5 17 C5 11.5 9 9.5 14 9.5 C19 9.5 23 11.5 23 17" {...props} /></svg>;
+    case 'delay':         return <svg width="28" height="20" viewBox="0 0 28 20"><path d="M4 3 H14 A10 7 0 0 1 14 17 H4 Z" {...props} /></svg>;
+    case 'sl-rect':       return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="5,5 23,2 23,16 5,19" {...props} /></svg>;
+    case 'div-rect':      return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="2" {...props} /><line x1="2" y1="10" x2="26" y2="10" {...props} /></svg>;
+    case 'folder':        return <svg width="28" height="20" viewBox="0 0 28 20"><path d="M2 16 V4 H10 L12 6.5 H26 V16 Z" {...props} /></svg>;
+    case 'datastore':     return <svg width="28" height="20" viewBox="0 0 28 20"><ellipse cx="14" cy="6" rx="10" ry="3" {...props} /><path d="M4 6 V14 A10 3 0 0 0 24 14 V6" {...props} /></svg>;
+    case 'cloud':         return <svg width="28" height="20" viewBox="0 0 28 20"><path d="M7 16 H21 A3.5 3.5 0 0 0 21 9 A5.2 5.2 0 0 0 11.5 7 A5.5 5.5 0 0 0 7 16 Z" {...props} /></svg>;
+    case 'browser':       return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="2" {...props} /><line x1="2" y1="8" x2="26" y2="8" {...props} /><circle cx="6" cy="5.5" r="1" {...props} /></svg>;
+    case 'bolt':          return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="15,2 5,11 11,11 9,18 23,7 15,7" {...props} /></svg>;
+    case 'tri':           return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="14,3 25,17 3,17" {...props} /></svg>;
+    case 'hourglass':     return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="4,3 24,3 14,10" {...props} /><polygon points="4,17 24,17 14,10" {...props} /></svg>;
+    case 'doc':           return <svg width="28" height="20" viewBox="0 0 28 20"><path d="M4 3 H24 V14 C22 16 20 12 17.5 13.5 C15 15 13 12 10.5 13.5 C8 15 6 13 4 14.5 Z" {...props} /></svg>;
     default:              return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="2" {...props} /></svg>;
   }
 }
