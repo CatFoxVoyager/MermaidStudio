@@ -65,6 +65,18 @@ const SHAPES: { shape: NodeShape; labelKey: string }[] = [
   { shape: 'subroutine',    labelKey: 'visual.shapes.subroutine' },
   { shape: 'asymmetric',    labelKey: 'visual.shapes.flag' },
   { shape: 'dbl-circ',      labelKey: 'visual.shapes.dblCirc' },
+  { shape: 'person',        labelKey: 'visual.shapes.person' },
+  { shape: 'delay',         labelKey: 'visual.shapes.delay' },
+  { shape: 'sl-rect',       labelKey: 'visual.shapes.slRect' },
+  { shape: 'div-rect',      labelKey: 'visual.shapes.divRect' },
+  { shape: 'folder',        labelKey: 'visual.shapes.folder' },
+  { shape: 'datastore',     labelKey: 'visual.shapes.datastore' },
+  { shape: 'cloud',         labelKey: 'visual.shapes.cloud' },
+  { shape: 'browser',       labelKey: 'visual.shapes.browser' },
+  { shape: 'bolt',          labelKey: 'visual.shapes.bolt' },
+  { shape: 'tri',           labelKey: 'visual.shapes.tri' },
+  { shape: 'hourglass',     labelKey: 'visual.shapes.hourglass' },
+  { shape: 'doc',           labelKey: 'visual.shapes.doc' },
 ];
 
 // Mobile-first split (critique iter-10→13): the pinned More chip occupies
