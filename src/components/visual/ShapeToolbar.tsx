@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { MousePointer2, Link, Trash2, LayoutGrid, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { NodeShape, ToolMode } from './types';
@@ -69,8 +69,11 @@ const SHAPES: { shape: NodeShape; labelKey: string }[] = [
 // the scroller's reserved right lane, and a third primary spawned INSIDE
 // that lane — Stadium sat 83% occluded under the chip at rest (iter-13
 // measurement). Two primaries (Box, Round) clear the lane; everything else
-// lives in the popover.
-const PRIMARY_SHAPE_COUNT = 2;
+// lives in the popover. Desktop shows as many shapes as the panel width
+// actually fits (measured fit-check below — the split panel is resizable,
+// so the count follows the real width instead of a breakpoint); 2 stays the
+// floor.
+const MIN_PRIMARY_SHAPE_COUNT = 2;
 
 interface Props {
   toolMode: ToolMode;
@@ -86,6 +89,81 @@ interface Props {
 export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, onDeleteSelected, hasSelection }: Props) {
   const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);
+  // Adaptive primary count (desktop ask: the fixed count of 2 wasted a wide
+  // panel — 11 shapes sat behind "More" next to ~900px of empty toolbar).
+  // Measured in ONE pass, never incremented on screen: a hidden measurer
+  // renders every button at identical styles, the fit greedily fills the
+  // width left after the fixed toolbar content, and the count is committed
+  // in a layout effect — the first paint already shows the final row (the
+  // first version grew one button per rAF and the toolbar visibly flashed
+  // its way from 2 to 13 on every mount).
+  const [visibleCount, setVisibleCount] = useState(SHAPES.length);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const primaryGroupRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
+
+  const fitShapes = useCallback(() => {
+    const el = scrollerRef.current;
+    const measure = measureRef.current;
+    const group = primaryGroupRef.current;
+    if (!el || !measure || !group) {return;}
+    const btns = Array.from(measure.querySelectorAll('button'));
+    if (btns.length === 0) {return;}
+    const gap = 4; // gap-1 inside the primary group
+    const widths = btns.map(b => b.getBoundingClientRect().width + gap);
+    // Room for the shape row = panel width minus everything that is NOT a
+    // shape: the geometric prefix before the group (padding-left + tool
+    // pills + divider + gaps), the scroller's right padding, and the
+    // optional delete cluster after the group. scrollWidth is deliberately
+    // NOT used here: without overflow it collapses to clientWidth, so
+    // "fixed" would swallow the whole width and freeze the count at
+    // whatever it was when the panel was last narrow (grow-side bug).
+    const elRect = el.getBoundingClientRect();
+    const leftPrefix = group.getBoundingClientRect().left - elRect.left;
+    const padRight = parseFloat(getComputedStyle(el).paddingRight) || 0;
+    const deleteCluster = el.querySelector('[data-shapes-after]');
+    const rightFixed = deleteCluster
+      ? deleteCluster.getBoundingClientRect().width + gap
+      : 0;
+    const greedy = (available: number) => {
+      let acc = 0;
+      let count = 0;
+      for (let i = 0; i < widths.length; i++) {
+        if (acc + widths[i] > available) {break;}
+        acc += widths[i];
+        count = i + 1;
+      }
+      return count;
+    };
+    // Pass 1: could ALL shapes fit inline? Then the More button (and its
+    // lane) disappears entirely. Pass 2: otherwise the group reserves the
+    // More lane (pr-16 = 64px) AFTER the shapes — the fill must leave it
+    // free, or the row overflows by exactly the lane width.
+    const base = el.clientWidth - leftPrefix - padRight - rightFixed;
+    const countAll = greedy(base);
+    const count = countAll >= SHAPES.length
+      ? countAll
+      : Math.max(MIN_PRIMARY_SHAPE_COUNT, greedy(base - 64));
+    setVisibleCount(count);
+  }, []);
+
+
+  // First fit is a LAYOUT effect: measured and committed before the browser
+  // paints, so the row never appears at the wrong count.
+  useLayoutEffect(() => {
+    fitShapes();
+    const el = scrollerRef.current;
+    let ro: ResizeObserver | undefined;
+    // jsdom has no ResizeObserver (and no layout) — tests keep the initial
+    // all-visible state deterministically.
+    if (el && typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(fitShapes);
+      ro.observe(el);
+    }
+    // Font swap changes label widths after first paint.
+    document.fonts?.ready.then(fitShapes).catch(() => {});
+    return () => { ro?.disconnect(); };
+  }, [fitShapes, hasSelection]);
   // Anchored to the VIEWPORT (fixed), not the toolbar: the toolbar is an
   // overflow-x scroller whose computed overflow-y also clips, so an
   // absolutely-positioned popover inside it rendered at (-122,-87) —
@@ -96,8 +174,14 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
   // and internal scroll.
   const moreBtnRef = useRef<HTMLButtonElement>(null);
   const [moreAnchor, setMoreAnchor] = useState<{ right: number; top: number; maxHeight: number } | null>(null);
-  const primary = SHAPES.slice(0, PRIMARY_SHAPE_COUNT);
-  const secondary = SHAPES.slice(PRIMARY_SHAPE_COUNT);
+  const primary = SHAPES.slice(0, visibleCount);
+  const secondary = SHAPES.slice(visibleCount);
+
+  // A widened panel can absorb the last secondary shape while the popover is
+  // open — an empty popover must not linger.
+  useEffect(() => {
+    if (moreOpen && secondary.length === 0) {setMoreOpen(false);}
+  }, [moreOpen, secondary.length]);
 
   const toggleMore = () => {
     // Anchor from the FIXED trigger's viewport rect (it lives outside the
@@ -147,7 +231,7 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
           mask's coordinate space, which buried the More popover at alpha 0
           (iter-13 P0, triangulated live). The fade mask lives on the
           scroller child; the popover is the scroller's SIBLING. */}
-      <div className="flex items-center gap-1 px-3 py-2 overflow-x-auto scroll-fade-x">
+      <div ref={scrollerRef} className="flex items-center gap-1 px-3 py-2 overflow-x-auto scroll-fade-x">
       {/* Tool pills measured 30px tall on mobile (critique iter-8 P0) —
           min-h-[44px] + aria-pressed (the accent fill was the only state
           signal) + the shared focus-ring idiom. */}
@@ -188,14 +272,14 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
           off-screen at 390px (iter-14 P1) — the shape previews speak for
           themselves. */}
 
-      <div className="flex items-center gap-1 shrink-0 pr-16">
+      <div ref={primaryGroupRef} className={`flex items-center gap-1 shrink-0 ${secondary.length ? 'pr-16' : 'pr-1'}`}>
         {primary.map(({ shape, labelKey }) => (
           <ShapeButton key={shape} shape={shape} label={t(labelKey)} onPick={onAddShape} />
         ))}
       </div>
 
       {hasSelection && onDeleteSelected && (
-        <>
+        <div data-shapes-after className="flex items-center shrink-0">
           <div className="w-px h-8 shrink-0 mx-1" style={{ background: 'var(--border-subtle)' }} />
           <button
             onClick={onDeleteSelected}
@@ -205,7 +289,7 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
             <Trash2 size={14} />
             {t('visual.deleteSelected')}
           </button>
-        </>
+        </div>
       )}
       </div>
 
@@ -213,22 +297,25 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
           right edge: inside the scroller it scrolled to x397 — fully
           off-screen at 390px, hiding 10 shapes behind an undiscoverable
           scroll (iter-13 P1, measured). pr-16 on the scroller reserves its
-          lane so the fade doesn't overlap it. */}
-      <button
-        type="button"
-        ref={moreBtnRef}
-        onClick={toggleMore}
-        aria-expanded={moreOpen}
-        aria-label={t('visual.moreShapes')}
-        title={t('visual.moreShapes')}
-        className={`absolute right-2 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center gap-1 px-2 min-h-[53px] rounded-lg border transition-colors ${FOCUS_RING_CLASSES}`}
-        style={{ background: moreOpen ? 'var(--accent-dim)' : 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: moreOpen ? 'var(--accent)' : 'var(--text-secondary)', minWidth: 52 }}>
-        <LayoutGrid size={16} />
-        <span className="text-xs font-medium leading-none flex items-center gap-0.5">
-          {t('visual.moreShapes')}
-          <ChevronUp size={10} className={`transition-transform duration-150 ${moreOpen ? '' : 'rotate-180'}`} aria-hidden="true" />
-        </span>
-      </button>
+          lane so the fade doesn't overlap it. Hidden entirely when every
+          shape already fits the panel (wide desktop splits). */}
+      {secondary.length > 0 && (
+        <button
+          type="button"
+          ref={moreBtnRef}
+          onClick={toggleMore}
+          aria-expanded={moreOpen}
+          aria-label={t('visual.moreShapes')}
+          title={t('visual.moreShapes')}
+          className={`absolute right-2 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center gap-1 px-2 min-h-[53px] rounded-lg border transition-colors ${FOCUS_RING_CLASSES}`}
+          style={{ background: moreOpen ? 'var(--accent-dim)' : 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: moreOpen ? 'var(--accent)' : 'var(--text-secondary)', minWidth: 52 }}>
+          <LayoutGrid size={16} />
+          <span className="text-xs font-medium leading-none flex items-center gap-0.5">
+            {t('visual.moreShapes')}
+            <ChevronUp size={10} className={`transition-transform duration-150 ${moreOpen ? '' : 'rotate-180'}`} aria-hidden="true" />
+          </span>
+        </button>
+      )}
 
       {/* Secondary shapes grid — position:fixed from the button's viewport
           rect, and a SIBLING of the masked scroller: a mask-image on an
@@ -245,6 +332,20 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
           ))}
         </div>
       )}
+
+      {/* Hidden measurer: every shape at identical styles, off the paint and
+          the a11y tree (visibility:hidden). width:max-content is load-bearing
+          — an absolute shrink-to-fit container clamps to the parent and
+          squeezes the buttons (52px minimums), over-counting what fits. */}
+      <div
+        ref={measureRef}
+        aria-hidden="true"
+        style={{ position: 'absolute', top: 0, left: 0, width: 'max-content', visibility: 'hidden', pointerEvents: 'none', display: 'flex', gap: 4, whiteSpace: 'nowrap' }}
+      >
+        {SHAPES.map(({ shape, labelKey }) => (
+          <ShapeButton key={shape} shape={shape} label={t(labelKey)} onPick={() => {}} />
+        ))}
+      </div>
     </div>
   );
 }
