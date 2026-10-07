@@ -72,7 +72,8 @@
       "trapezoid": "Trapèze",
       "trapezoidAlt": "Trapèze (miroir)",
       "subroutine": "Sous-graphe",
-      "flag": "Drapeau"
+      "flag": "Drapeau",
+      "dblCirc": "Double cercle"
     }
   },
   "workspace": {

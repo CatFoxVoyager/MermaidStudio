@@ -72,7 +72,8 @@
       "trapezoid": "Trapezoid",
       "trapezoidAlt": "Trapezoid (mirrored)",
       "subroutine": "Subroutine",
-      "flag": "Flag"
+      "flag": "Flag",
+      "dblCirc": "Double Circle"
     }
   },
   "workspace": {

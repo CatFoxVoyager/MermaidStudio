@@ -19,6 +19,7 @@ function ShapePreview({ shape }: { shape: NodeShape }) {
     case 'subroutine':    return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="2" {...props} /><line x1="6" y1="3" x2="6" y2="17" {...props} /><line x1="22" y1="3" x2="22" y2="17" {...props} /></svg>;
     case 'cylinder':      return <svg width="28" height="20" viewBox="0 0 28 20"><ellipse cx="14" cy="6" rx="10" ry="3" {...props} /><ellipse cx="14" cy="14" rx="10" ry="3" {...props} /><line x1="4" y1="6" x2="4" y2="14" {...props} /><line x1="24" y1="6" x2="24" y2="14" {...props} /></svg>;
     case 'circle':        return <svg width="28" height="20" viewBox="0 0 28 20"><circle cx="14" cy="10" r="8" {...props} /></svg>;
+    case 'dbl-circ':      return <svg width="28" height="20" viewBox="0 0 28 20"><circle cx="14" cy="10" r="8" {...props} /><circle cx="14" cy="10" r="4.5" {...props} /></svg>;
     case 'rhombus':       return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="14,2 26,10 14,18 2,10" {...props} /></svg>;
     case 'hexagon':       return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="8,3 20,3 26,10 20,17 8,17 2,10" {...props} /></svg>;
     case 'asymmetric':    return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="2,3 22,3 26,10 22,17 2,17" {...props} /></svg>;
@@ -63,6 +64,7 @@ const SHAPES: { shape: NodeShape; labelKey: string }[] = [
   { shape: 'trapezoid-alt', labelKey: 'visual.shapes.trapezoidAlt' },
   { shape: 'subroutine',    labelKey: 'visual.shapes.subroutine' },
   { shape: 'asymmetric',    labelKey: 'visual.shapes.flag' },
+  { shape: 'dbl-circ',      labelKey: 'visual.shapes.dblCirc' },
 ];
 
 // Mobile-first split (critique iter-10→13): the pinned More chip occupies
