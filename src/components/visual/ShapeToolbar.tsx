@@ -257,7 +257,14 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
           mask's coordinate space, which buried the More popover at alpha 0
           (iter-13 P0, triangulated live). The fade mask lives on the
           scroller child; the popover is the scroller's SIBLING. */}
-      <div ref={scrollerRef} className="flex items-center gap-1 px-3 py-2 overflow-x-auto scroll-fade-x">
+      {/* max-md:overflow-x-hidden (user walk 2026-10-07): the mobile row is
+          FIXED — the mobile-first split (2 primaries + pinned More popover)
+          already owns every width past the pills, so the residual ~10px of
+          scroll was dead travel on a row that must not move. Nothing visible
+          clips: the leftover is the primary group's empty pr-16 More lane.
+          Desktop keeps the scroller — the adaptive count follows the panel
+          width and wide panels scroll legitimately. */}
+      <div ref={scrollerRef} className="flex items-center gap-1 px-3 py-2 overflow-x-auto max-md:overflow-x-hidden scroll-fade-x">
       {/* Tool pills measured 30px tall on mobile (critique iter-8 P0) —
           min-h-[44px] + aria-pressed (the accent fill was the only state
           signal) + the shared focus-ring idiom. */}
@@ -362,11 +369,20 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
       {/* Hidden measurer: every shape at identical styles, off the paint and
           the a11y tree (visibility:hidden). width:max-content is load-bearing
           — an absolute shrink-to-fit container clamps to the parent and
-          squeezes the buttons (52px minimums), over-counting what fits. */}
+          squeezes the buttons (52px minimums), over-counting what fits.
+          left:-10000px is ALSO load-bearing (device walk 2026-10-07): at
+          left:0 the full-width strip (26 buttons ≈ 1900px) spilled into the
+          scrollable overflow of every non-clipping ancestor — the preview
+          pane's overflow-auto became horizontally pannable, so a touch drag
+          past the toolbar's scroll edge chained up and dragged the whole
+          workspace. Overflow to the LEFT is unreachable in LTR (scrollLeft
+          can't go negative): no ancestor gains a pan lane. Only the buttons'
+          individual widths are read — the container's own position never
+          enters a measurement. */}
       <div
         ref={measureRef}
         aria-hidden="true"
-        style={{ position: 'absolute', top: 0, left: 0, width: 'max-content', visibility: 'hidden', pointerEvents: 'none', display: 'flex', gap: 4, whiteSpace: 'nowrap' }}
+        style={{ position: 'absolute', top: 0, left: -10000, width: 'max-content', visibility: 'hidden', pointerEvents: 'none', display: 'flex', gap: 4, whiteSpace: 'nowrap' }}
       >
         {SHAPES.map(({ shape, labelKey }) => (
           <ShapeButton key={shape} shape={shape} label={t(labelKey)} onPick={() => {}} />

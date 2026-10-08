@@ -121,7 +121,7 @@ export function MobileLayout({
           onOpenAbout={onOpenAbout}
           isDirty={isDirty}
           lastSavedAt={lastSavedAt}
-          historyUnavailable={activeView === 'files'}
+          historyUnavailable={activeView === 'files'}
         />
       </div>
 

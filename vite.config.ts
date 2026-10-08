@@ -64,6 +64,13 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    // LAN device testing (phone via https://<lan-ip>:5173): Vite 8's
+    // DNS-rebinding guard rejects non-localhost Host headers by default —
+    // the request is received then the socket is destroyed with no response
+    // (client sees a hang). host: true without allowedHosts:true is a
+    // half-open door: listening on all interfaces but only answering
+    // localhost. Dev-only server; the app itself ships through Vercel.
+    allowedHosts: true,
     https: fs.existsSync('.cert/cert.pem') ? {
       key: fs.readFileSync('.cert/key.pem'),
       cert: fs.readFileSync('.cert/cert.pem'),
