@@ -354,9 +354,15 @@ export function MobileWorkspace({
             </div>
           </div>
         </div>
+        {/* overflow-x-hidden (device walk 2026-10-07): this pane is the
+            preview's VERTICAL scroller only — the diagram canvas owns
+            horizontal pan in its own inner scroller. Any horizontal spill
+            inside the preview (e.g. an absolutely-positioned strip escaping
+            its clip) used to make the whole pane touch-pannable sideways,
+            dragging the workspace with a toolbar swipe. */}
         <div
           ref={previewContainerRef}
-          className={`absolute inset-0 overflow-auto ${
+          className={`absolute inset-0 overflow-y-auto overflow-x-hidden ${
             activePane === 'preview' ? '' : 'hidden'
           }`}
         >

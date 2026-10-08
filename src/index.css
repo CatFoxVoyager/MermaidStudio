@@ -45,6 +45,10 @@ layer(base);
   .scroll-fade-x {
     mask-image: linear-gradient(to right, black 0, black calc(100% - 44px), rgba(0, 0, 0, 0.12) calc(100% - 14px), transparent 100%);
     -webkit-mask-image: linear-gradient(to right, black 0, black calc(100% - 44px), rgba(0, 0, 0, 0.12) calc(100% - 14px), transparent 100%);
+    /* Horizontal toolbar scrollers: a touch drag past the scroll edge must
+       stay HERE — never chain to page-level panning (device walk 2026-10-07:
+       dragging the toolbar/graph dragged the whole workspace). */
+    overscroll-behavior-x: contain;
   }
 
   /* Style panels ship at desktop density (28–31px controls, 16px slider —
@@ -276,6 +280,19 @@ kbd {
 .preview-grid {
   background-image: radial-gradient(circle, var(--border-strong) 1px, transparent 1px);
   background-size: 24px 24px;
+  /* Canvas pan: stop touch scroll-chaining at the scroller's boundaries —
+     a drag past the edge used to chain to the page itself, dragging the
+     whole chrome (toolbar rows, canvas sheet) with the graph (device walk
+     2026-10-07: "drag le graphe → le menu suit"). contain keeps the
+     scroller's own pan; none kills the page-overscroll echo. */
+  overscroll-behavior: contain;
+}
+
+/* Page level: no pull-to-refresh / overscroll echo on the app shell — the
+   diagram canvas owns pan and pinch gestures; the chrome must stay put. */
+html,
+body {
+  overscroll-behavior: none;
 }
 
 /* ─── Mermaid ────────────────────────────────────────────────── */

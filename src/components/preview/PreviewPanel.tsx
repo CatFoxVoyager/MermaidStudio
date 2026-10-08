@@ -1427,29 +1427,33 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
 
   return (
     <div data-testid="preview-panel" className="flex flex-col h-full relative" style={{ background: 'var(--surface-raised)' }}>
-      {/* Toolbar (critique iter-8 P0): icon buttons measured 21×21 with no
-          accessible name on mobile — every control is now a 44px target
-          with an explicit aria-label, and the cluster scrolls horizontally
-          instead of overflowing the 390px viewport. */}
-      <div className="flex items-center justify-between px-3 min-h-12 shrink-0 border-b max-md:pl-2 max-md:pr-2"
+      {/* Toolbar — mobile mirrors the Android native app's preview bar
+          (user walk 2026-10-07): no type badge, no zoom % (the Android app
+          ships both max-md:hidden), and the icon row is FIXED and evenly
+          spread (max-md:flex-1 justify-between) instead of a horizontal
+          scroller — a toolbar that pans sideways read as a grabbable
+          surface and fed the drag-the-workspace complaint. Glyph deltas
+          kept deliberately: the web's 1:1 reset beat Android's RefreshCw
+          (iter-31: read as "reload page") and Scan fit is equivalent. */}
+      <div className="flex items-center justify-between px-3 min-h-12 shrink-0 border-b max-md:pl-2 max-md:pr-2 max-md:overflow-hidden"
         style={{ borderColor: 'var(--border-subtle)' }}>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 min-w-0">
           {/* "Preview" label hidden on mobile (iter-25 P1: it duplicated the
               Visual segment name and crowded the zoom row past the viewport
               — the Flowchart type badge alone carries the context). */}
           <span className="hidden md:inline text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{t('preview.title')}</span>
-          <span className="px-1.5 py-0.5 rounded-sm text-xs font-semibold border shrink-0"
+          <span className="px-1.5 py-0.5 rounded-sm text-xs font-semibold border shrink-0 max-md:hidden"
             style={{ background: 'var(--accent-dim)', color: 'var(--accent)', borderColor: 'rgba(var(--accent-rgb),0.2)' }}>
             {TYPE_LABELS[type] ?? 'Diagram'}
           </span>
           {loading && <RefreshCw size={11} style={{ color: 'var(--text-tertiary)' }} className="animate-spin" />}
         </div>
-        <div className="flex items-center gap-0.5 overflow-x-auto scroll-fade-x max-md:pr-2">
+        <div className="flex items-center gap-1 max-md:flex-1 max-md:justify-between overflow-x-auto max-md:overflow-hidden">
           <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} title={t('preview.zoomOut')} aria-label={t('preview.zoomOut')}
             className={`w-11 h-11 inline-flex items-center justify-center rounded-md shrink-0 transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] ${FOCUS_RING_CLASSES}`} style={{ color: 'var(--text-tertiary)' }}>
             <ZoomOut size={16} />
           </button>
-          <span className="text-xs w-8 text-center shrink-0" style={{ color: 'var(--text-secondary)' }}>
+          <span className="text-xs w-8 text-center shrink-0 max-md:hidden" style={{ color: 'var(--text-secondary)' }}>
             {Math.round(zoom * 100)}%
           </span>
           <button onClick={() => setZoom(z => Math.min(10, z + 0.25))} title={t('preview.zoomIn')} aria-label={t('preview.zoomIn')}
