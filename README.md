@@ -1,4 +1,4 @@
-# MermaidStudio
+# MermaidStudio ⚜️
 
 [![Version](https://img.shields.io/github/package-json/v/CatFoxVoyager/MermaidStudio?label=version&color=blue)](https://github.com/CatFoxVoyager/MermaidStudio/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -28,6 +28,7 @@ MermaidStudio is an open-source, self-hosted Mermaid diagram editor that runs en
 ### 🎨 Main Editor
 - 📝 **Code Editor** - Advanced editor with syntax highlighting and real-time preview
 - 🖱️ **Visual Editor** - Drag-and-drop interface for visual diagram creation
+- 🔷 **26 Node Shapes** - Full shape palette in the visual editor (Box, Round, Stadium, Diamond, Hexagon, Cylinder, Subgraph, Cloud, and more) with a More menu on mobile
 - 🔄 **Live Preview** - Instant rendering while typing (300ms delay)
 - 📊 **Multi-tab Support** - Work on multiple diagrams simultaneously
 - 🌓 **Theme Support** - Dark/light mode with customizable themes
@@ -57,6 +58,8 @@ Models are downloaded once and cached. Works offline after initial load.
 - 💡 **Diagram Enhancement** - Refine your diagrams with suggestions and improvements
 - 🧠 **Reasoning Model Support** - Compatible with thinking/reasoning models (filters `<thinking>` blocks automatically)
 - 📊 **Download Progress** - Real-time model download percentage for WebGPU models
+
+- 📱 **Mobile-First Shell** - Dedicated smartphone layout: Files/Code/Visual tabs, touch-optimized toolbars, device-language detection
 
 ### 📄 Data Management
 - 💾 **Local Storage** - Persistent storage with browser IndexedDB (legacy localStorage data is migrated automatically)

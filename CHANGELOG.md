@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.1.0] - 2026-10-09
+
+### Changed
+- **Version aligned with the Android app (2.1.0)** - the web and native shells now share one version line; the Android 2.1.0 Play release carries the same feature set.
+
+### Fixed (mobile device-walk parity)
+- Preview zoom row mirrors the Android bar: type badge and zoom % hidden on mobile, icons fixed and centered (no sideways scroll affordance)
+- Shape toolbar on mobile: fixed row (one primary + adjacent More chip), hidden measurement strip neutralized so it can no longer make ancestors touch-pannable
+- Preview pane is a vertical-only scroller; overscroll containment on canvas and scroll rows (drag no longer drags the workspace)
+
+### Added
+- `app-ads.txt` served at the domain root for the AdMob app association
+- LAN device testing: dev server accepts non-localhost hosts (dev-only)
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
