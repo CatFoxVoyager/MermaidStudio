@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   NODE_VERSION: '24'
   PNPM_VERSION: '10'
@@ -15,7 +19,7 @@ env:
 jobs:
   lint:
     name: Lint & Type Check
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -53,7 +57,7 @@ jobs:
 
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     strategy:
       matrix:
         node-version: ['22.12', 24]
@@ -88,12 +92,8 @@ jobs:
 
       - name: Run tests
         run: pnpm run test:coverage
-        # Advisory: the suite passes and coverage is uploaded to Codecov below,
-        # but the global coverage threshold no longer fails the pipeline (the
-        # mobile milestone grew the codebase; thresholds are tuned in
-        # vitest.config.ts but CI variance/OOM can still dip under). Re-enable
-        # hard-fail once coverage is comfortably above threshold.
-        continue-on-error: true
+        # Blocking: the suite gates Renovate auto-merge (design decision #5);
+        # coverage remains advisory via Codecov below.
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
@@ -107,7 +107,7 @@ jobs:
 
   security:
     name: Security Scan
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -137,7 +137,7 @@ jobs:
 
   docs:
     name: Generate Documentation
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     needs: [lint, test]
     steps:
       - name: Checkout repository
@@ -189,7 +189,7 @@ jobs:
           echo "Documentation validation completed"
 
       - name: Upload documentation artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: docs-files
           path: docs/
@@ -197,7 +197,7 @@ jobs:
 
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     needs: [lint, test, security, docs]
     steps:
       - name: Checkout repository
@@ -253,7 +253,7 @@ jobs:
         run: pnpm run check:cdn-embed
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: dist-files
           path: dist/
@@ -261,12 +261,15 @@ jobs:
 
   docker-build:
     name: Build and Push Docker Image
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     needs: [build]
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -302,7 +305,7 @@ jobs:
 
   deploy-docs:
     name: Deploy Documentation
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     needs: [docs]
     if: github.ref == 'refs/heads/main'
     permissions:
@@ -314,7 +317,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Download documentation artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: docs-files
           path: docs/
@@ -333,13 +336,13 @@ jobs:
 
   deploy-staging:
     name: Deploy to Staging
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     needs: [build, deploy-docs]
     if: github.ref == 'refs/heads/develop'
     environment: staging
     steps:
       - name: Download build artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: dist-files
           path: dist/
@@ -351,13 +354,13 @@ jobs:
 
   deploy-production:
     name: Deploy to Production
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     needs: [build, docker-build]
     if: github.ref == 'refs/heads/main'
     environment: production
     steps:
       - name: Download build artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: dist-files
           path: dist/
@@ -369,7 +372,7 @@ jobs:
 
   smoke-test:
     name: Smoke Test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     needs: [deploy-staging]
     if: always()
     steps:
