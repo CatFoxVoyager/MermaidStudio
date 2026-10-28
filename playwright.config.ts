@@ -33,6 +33,9 @@ export default defineConfig({
   webServer: {
     command: 'node scripts/dev-e2e.mjs',
     url: 'https://localhost:5173',
+    // The health probe does NOT inherit use.ignoreHTTPSErrors — without this,
+    // it rejects the self-signed cert (workflow-generated) and times out.
+    ignoreHTTPSErrors: true,
     timeout: 120_000,
     reuseExistingServer: !process.env.CI,
   },
