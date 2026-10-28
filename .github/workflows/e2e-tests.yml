@@ -6,13 +6,17 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   PNPM_VERSION: '10'
 
 jobs:
   e2e-tests:
     name: End-to-End Tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
 
     strategy:
       matrix:
@@ -60,34 +64,34 @@ jobs:
         CI: true
 
     - name: Upload test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: playwright-results
+        name: playwright-results-${{ matrix.browser }}
         path: |
           test-results/
           playwright-report/
         retention-days: 30
 
     - name: Upload screenshots
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: failure()
       with:
-        name: playwright-screenshots
+        name: playwright-screenshots-${{ matrix.browser }}
         path: test-results/**/*.png
         retention-days: 30
 
     - name: Upload videos
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: playwright-videos
+        name: playwright-videos-${{ matrix.browser }}
         path: test-results/**/*.webm
         retention-days: 30
 
   e2e-tests-performance:
     name: Performance Tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
 
     steps:
     - name: Checkout repository
@@ -134,7 +138,7 @@ jobs:
 
   e2e-tests-cross-browser:
     name: Cross-Browser Tests
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
     strategy:
       matrix:
         browser: [chromium, firefox, webkit, edge, chrome]

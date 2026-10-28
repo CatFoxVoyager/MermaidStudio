@@ -244,7 +244,7 @@ jobs:
       - name: Verify AI chunks stay lazy
         run: pnpm run check:ai-lazy
 
-      # Blocking (WR-04): the `test` job is advisory (continue-on-error: true),
+      # Blocking (WR-04): the `test` job is blocking (it gates Renovate auto-merge),
       # so a mermaid bump with a stale CDN version/SRI pair would otherwise
       # ship green end-to-end (build -> docker -> deploy) with only a red,
       # non-blocking annotation. Fails the build job before docker-build and
