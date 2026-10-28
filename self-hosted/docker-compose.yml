@@ -1,0 +1,39 @@
+name: mermaidstudio-ci
+
+services:
+  runner-1:
+    build: ./runner
+    image: mermaidstudio-gh-runner:local
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RUNNER_NAME: mermaidstudio-runner-1
+    volumes:
+      - runner1-home:/home/runner
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  runner-2:
+    image: mermaidstudio-gh-runner:local
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      RUNNER_NAME: mermaidstudio-runner-2
+    volumes:
+      - runner2-home:/home/runner
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  renovate:
+    image: ghcr.io/renovatebot/renovate:44.190.2
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      LOG_LEVEL: info
+    entrypoint: ["/bin/sh", "-c", "while :; do renovate; sleep 86400; done"]
+    volumes:
+      - ./renovate/config.js:/usr/src/app/config.js:ro
+      - renovate-cache:/tmp/renovate
+
+volumes:
+  runner1-home:
+  runner2-home:
+  renovate-cache:
