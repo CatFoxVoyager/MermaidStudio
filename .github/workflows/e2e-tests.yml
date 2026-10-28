@@ -51,6 +51,14 @@ jobs:
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
 
+    # vite.config.ts enables HTTPS only when .cert/cert.pem exists; the E2E
+    # baseURL is https://localhost:5173, so the self-hosted runners need a
+    # self-signed cert (ignoreHTTPSErrors covers it on the Playwright side).
+    - name: Generate self-signed TLS cert
+      run: |
+        mkdir -p .cert
+        openssl req -x509 -newkey rsa:2048 -keyout .cert/key.pem -out .cert/cert.pem -days 1 -nodes -subj "/CN=localhost"
+
     - name: Install Playwright browsers
       run: pnpm exec playwright install --with-deps
 
@@ -122,6 +130,14 @@ jobs:
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
 
+    # vite.config.ts enables HTTPS only when .cert/cert.pem exists; the E2E
+    # baseURL is https://localhost:5173, so the self-hosted runners need a
+    # self-signed cert (ignoreHTTPSErrors covers it on the Playwright side).
+    - name: Generate self-signed TLS cert
+      run: |
+        mkdir -p .cert
+        openssl req -x509 -newkey rsa:2048 -keyout .cert/key.pem -out .cert/cert.pem -days 1 -nodes -subj "/CN=localhost"
+
     - name: Install Playwright browsers
       run: pnpm exec playwright install --with-deps
 
@@ -171,6 +187,14 @@ jobs:
 
     - name: Install dependencies
       run: pnpm install --frozen-lockfile
+
+    # vite.config.ts enables HTTPS only when .cert/cert.pem exists; the E2E
+    # baseURL is https://localhost:5173, so the self-hosted runners need a
+    # self-signed cert (ignoreHTTPSErrors covers it on the Playwright side).
+    - name: Generate self-signed TLS cert
+      run: |
+        mkdir -p .cert
+        openssl req -x509 -newkey rsa:2048 -keyout .cert/key.pem -out .cert/cert.pem -days 1 -nodes -subj "/CN=localhost"
 
     - name: Install Playwright browsers
       run: pnpm exec playwright install --with-deps
