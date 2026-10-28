@@ -125,14 +125,15 @@ renovate.json                   # config partagée du dépôt (racine, conventio
   (`persistRepoData: true`) pour des runs lents puis rapides.
 - **Cadence** : boucle d'entrypoint — un run Renovate au démarrage puis toutes les
   24 h ; la fenêtre réelle de création/fusion est pilotée par `schedule` dans
-  `renovate.json` (le lundi avant 07 h, Europe/Paris). Si la machine était éteinte,
+  `renovate.json` (le lundi avant 07 h, America/New_York — fuseau du
+  propriétaire, corrigé le 2026-10-28 ; supposait Europe/Paris à tort). Si la machine était éteinte,
   le run du boot rattrape.
 - **`self-hosted/renovate/config.js`** : `platform: 'github'`, token via
   `RENOVATE_TOKEN`, `repositories: ['CatFoxVoyager/MermaidStudio']`,
   `onboarding: false` (la config du dépôt est committée), `requireConfig: 'optional'`,
   `prCreation: 'immediate'`.
 - **`renovate.json`** (racine du dépôt) :
-  - `extends: ["config:recommended"]`, `timezone: "Europe/Paris"`,
+  - `extends: ["config:recommended"]`, `timezone: "America/New_York"`,
     `schedule: ["before 7am on monday"]`, labels `dependencies`.
   - **PackageRules** :
     1. npm non-major (`patch`, `minor`, `pin`, `digest`) → **une seule PR groupée**
@@ -208,7 +209,7 @@ couvre l'inverse (couper volontairement).
 ### Flux de bout en bout (PR non-major hebdo)
 
 ```
-[lundi 07h max, Europe/Paris]
+[lundi 07h max, America/New_York]
 Renovate (conteneur local) → run quotidien
   → crée la PR « chore(deps): non-major updates » vers main
       ↓ (déclenche GitHub)
