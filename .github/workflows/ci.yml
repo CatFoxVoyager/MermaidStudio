@@ -108,6 +108,12 @@ jobs:
   security:
     name: Security Scan
     runs-on: [self-hosted, Linux, X64]
+    # Advisory by design (both steps below are individually continue-on-error).
+    # Job-level continue-on-error keeps `Build` (needs: security) from being
+    # skipped when the snyk docker-image pull is rate-limited by Docker Hub on
+    # the self-hosted runners — the required checks for auto-merge are
+    # Lint & Type Check / Test / Build, not this job.
+    continue-on-error: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
