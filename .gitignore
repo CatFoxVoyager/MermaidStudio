@@ -22,6 +22,7 @@ out/
 .env.development.local
 .env.test.local
 .env.production.local
+self-hosted/.env
 
 # =============================================================================
 # LOGS

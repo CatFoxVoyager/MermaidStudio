@@ -19,7 +19,7 @@ env:
 jobs:
   audit:
     name: Security & Dependency Audit
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
 
     steps:
     - name: Checkout code
