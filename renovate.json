@@ -1,0 +1,61 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "Europe/Paris",
+  "schedule": ["before 7am on monday"],
+  "labels": ["dependencies"],
+  "rangeStrategy": "bump",
+  "packageRules": [
+    {
+      "description": "npm non-major groupé — auto-merge si CI verte",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["patch", "minor", "pin", "pinDigest", "digest"],
+      "groupName": "chore(deps): non-major updates",
+      "automerge": true,
+      "platformAutomerge": true
+    },
+    {
+      "description": "npm major — PRs séparées, revue manuelle",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    },
+    {
+      "description": "GitHub Actions groupées — auto-merge si CI verte",
+      "matchManagers": ["github-actions"],
+      "groupName": "chore(ci): github-actions updates",
+      "automerge": true,
+      "platformAutomerge": true
+    },
+    {
+      "description": "Images infra self-hosted — revue manuelle (rebuild au boot)",
+      "matchManagers": ["dockerfile", "docker-compose"],
+      "groupName": "chore(ci): self-hosted infra images",
+      "automerge": false
+    },
+    {
+      "description": "Lockfile maintenance hebdo — auto-merge si CI verte",
+      "matchDepTypes": ["lockFileMaintenance"],
+      "enabled": true,
+      "automerge": true,
+      "platformAutomerge": true
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 7am on monday"]
+  },
+  "vulnerabilityAlerts": {
+    "labels": ["security"]
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Aligne ARG PLAYWRIGHT_VERSION du Dockerfile runner avec la version npm courante",
+      "fileMatch": ["self-hosted/runner/Dockerfile"],
+      "matchStrings": ["ARG PLAYWRIGHT_VERSION=(?<currentValue>\\S+)"],
+      "depNameTemplate": "playwright",
+      "datasourceTemplate": "npm"
+    }
+  ]
+}
