@@ -160,9 +160,9 @@ Machine éteinte : les runs planifiés (crons de `dependency-audit.yml` et
 `docs.yml`, Renovate du lundi) ne tournent pas pendant l'arrêt. Au redémarrage,
 les conteneurs repartent (`restart: unless-stopped`) et les runners
 s'enregistrent à nouveau — le rattrapage des crons se fait au boot, borné par
-les groupes `concurrency` des workflows (`github.workflow-ref`, avec
-`cancel-in-progress` sur les PR) : pas d'empilement infini, seul le dernier état
-par branche est exécuté.
+les groupes `concurrency` des workflows (format
+`${{ github.workflow }}-${{ github.ref }}`, avec `cancel-in-progress` sur les
+PR) : pas d'empilement infini, seul le dernier état par branche est exécuté.
 
 ## 6. Dépannage
 
@@ -186,8 +186,8 @@ par branche est exécuté.
 
 - Les secrets du dépôt (et les PATs de l'hôte) sont injectés dans les jobs qui
   tournent **sur la machine locale** : trade-off mono-utilisateur assumé
-  (design § Sécurité) — le dépôt est privé et le seul committer est le
-  propriétaire.
+  (design § Sécurité) — le dépôt est **public** et le seul committer est le
+  propriétaire ; personne d'autre ne peut y pousser des workflows.
 - **Ne jamais** activer, dans **Settings → Actions → General → Fork pull
   request workflows from outside collaborators**, l'option
   **Automatically run** (laisser **Do not allow**) : un workflow de fork
