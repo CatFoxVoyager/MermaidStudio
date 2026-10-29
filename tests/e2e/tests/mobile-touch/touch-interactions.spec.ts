@@ -26,8 +26,9 @@ test.describe('Mobile touch interactions — native pan + active states (MTCH-02
     const mobileRoot = page.getByTestId('mobile-layout-root');
     await expect(mobileRoot).toBeVisible();
 
-    // Switch to preview tab (mobile workspace tabs)
-    const previewTab = page.getByTestId('mobile-workspace-tab-preview');
+    // Switch to the visual tab (device-walk renamed Preview → Visual; the
+    // underlying pane is still 'preview' — see MobileWorkspace.tsx)
+    const previewTab = page.getByTestId('mobile-workspace-tab-visual');
     await previewTab.click();
     await page.waitForTimeout(1000);
 
@@ -68,14 +69,24 @@ test.describe('Mobile touch interactions — native pan + active states (MTCH-02
     const mobileRoot = page.getByTestId('mobile-layout-root');
     await expect(mobileRoot).toBeVisible();
 
-    // Assert top bar buttons have active: tap-equivalent class
+    // Assert top bar buttons have active: tap-equivalent class.
+    // Contract (MobileTopBar.tsx): Save is cursor-default until the diagram is
+    // dirty (active: only when isDirty), while Export and the overflow/Menu
+    // button carry active: unconditionally.
     const topbarSave = page.getByTestId('mobile-topbar-save');
     await expect(topbarSave).toBeVisible();
-    const saveClass = await topbarSave.getAttribute('class'); expect(saveClass).toContain('active:bg-[var(--state-pressed)]');
+    const saveClass = await topbarSave.getAttribute('class');
+    // Clean state on fresh load: cursor-default is the correct "no press
+    // feedback" signal; the dirty branch is covered by unit tests.
+    expect(saveClass).toContain('cursor-default');
 
     const topbarOverflow = page.getByTestId('mobile-topbar-overflow');
     await expect(topbarOverflow).toBeVisible();
     const overflowClass = await topbarOverflow.getAttribute('class'); expect(overflowClass).toContain('active:bg-[var(--state-pressed)]');
+
+    const topbarExport = page.getByTestId('mobile-topbar-export');
+    await expect(topbarExport).toBeVisible();
+    const exportClass = await topbarExport.getAttribute('class'); expect(exportClass).toContain('active:bg-[var(--state-pressed)]');
 
     // New button only renders if onNewDiagram is provided
     const topbarNew = page.getByTestId('mobile-topbar-new');
