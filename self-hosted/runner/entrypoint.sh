@@ -21,17 +21,20 @@ echo "Registration de ${RUNNER_NAME} sur ${REPO_SLUG}..."
 token=$(api actions/runners/registration-token | jq -r .token)
 [ -n "$token" ] && [ "$token" != "null" ] || { echo "registration-token vide : PAT invalide ?" >&2; exit 1; }
 
+# Pré-pull des images utilisées par les jobs (pulls rate-limités par Docker Hub
+# sur un runner anonyme) — AVANT le registration : le runner n'accepte aucun job
+# tant que le cache n'est pas chaud, ce qui élimine la race où le premier job
+# part avant la fin du pull. Le socket est monté ici et le cache du daemon
+# persiste entre les recreations de conteneurs :
+# - tonistiigi/binfmt : setup-qemu-action (builds multi-arch du job GHCR)
+# - snyk/snyk:node : action snyk du job Security Scan
+# Best-effort : un rate-limit temporaire ne doit pas empêcher le runner de
+# démarrer (les pulls instantanés "up to date" rendent ce coût négligeable).
+docker pull tonistiigi/binfmt:latest >/dev/null 2>&1 || true
+docker pull snyk/snyk:node >/dev/null 2>&1 || true
+
 ./config.sh --url "https://github.com/${REPO_SLUG}" --token "$token" \
   --name "${RUNNER_NAME}" --labels "self-hosted,Linux,X64" \
   --ephemeral --unattended --replace
-
-# Pré-pull des images utilisées par les jobs (pulls rate-limités par Docker Hub
-# sur un runner anonyme) — le socket est monté ici, le cache du daemon persiste
-# entre les recreations de conteneurs, donc les jobs suivants lisent ce cache :
-# - tonistiigi/binfmt : setup-qemu-action (builds multi-arch du job GHCR)
-# - snyk/snyk:node : action snyk du job Security Scan
-# Best-effort : un rate-limit temporaire ne doit pas tuer le runner.
-docker pull tonistiigi/binfmt:latest >/dev/null 2>&1 || true
-docker pull snyk/snyk:node >/dev/null 2>&1 || true
 
 ./run.sh
