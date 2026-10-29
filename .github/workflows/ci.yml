@@ -330,6 +330,10 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          # Le dépôt n'a jamais eu de site Pages (404 API) : enablement:true
+          # crée/active le site en mode "GitHub Actions" au premier run.
+          enablement: true
 
       - name: Upload documentation
         uses: actions/upload-pages-artifact@v3
