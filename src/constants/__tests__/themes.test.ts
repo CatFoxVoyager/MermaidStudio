@@ -188,7 +188,11 @@ describe('derivation sweep — 10 builtins + 2 custom (D4)', () => {
   // path itself is out of scope (D4): the derivation engine is the validated
   // surface.
 
-  it('every builtin theme derives in light and dark mode (core slots + color-literal values)', () => {
+  // CPU-bound sweep (10 themes × 2 modes, render-derivation) : peut dépasser le
+  // timeout par défaut quand la suite tourne en parallèle des E2E Playwright
+  // sur la même machine self-hosted (observé 36 s vs ~5 s à froid, run
+  // 2438275). Timeout large plutôt que flake de contention.
+  it('every builtin theme derives in light and dark mode (core slots + color-literal values)', { timeout: 120_000 }, () => {
     builtinThemes.forEach((theme) => assertDerivesCleanly(theme.coreColors, theme.id));
   });
 
