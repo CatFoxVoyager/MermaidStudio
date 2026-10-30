@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { ExternalLink, ScrollText } from 'lucide-react';
+import { ExternalLink, ScrollText, ShieldCheck } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { SupportLinks } from '@/components/shared/SupportLinks';
@@ -75,6 +75,24 @@ export function AboutModal({ onClose, onShowReleaseNotes }: Props) {
             </span>
           </span>
           <ExternalLink size={15} style={{ color: 'var(--text-secondary)' }} aria-hidden="true" />
+        </a>
+
+        {/* PRIV-03 (phase 28): internal /privacy row — the app has no mobile
+            footer, so the About modal is the mobile reachability path. Same
+            row shape as the GitHub card, but internal: no target/ExternalLink. */}
+        <a
+          href="/privacy"
+          className="flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-colors hover:opacity-80"
+          style={{ borderColor: 'var(--border-subtle)', background: 'var(--accent-dim)' }}
+        >
+          <span className="flex items-center gap-2.5">
+            <span style={{ color: 'var(--accent)' }}>
+              <ShieldCheck size={18} aria-hidden="true" />
+            </span>
+            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              {t('status.privacy')}
+            </span>
+          </span>
         </a>
 
         <SupportLinks />

@@ -63,6 +63,10 @@ export function StatusBar({ content, lastSaved, renderTimeMs, isDirty }: Props) 
       <div className="flex items-center gap-3">
         {renderTimeMs !== null && <span data-testid="render-time">{t('status.render', { ms: renderTimeMs })}</span>}
         <span title={isDirty ? t('status.editedAutosaveHint') : undefined}>{relSaved()}</span>
+        {/* PRIV-03 (phase 28): /privacy is same-origin — no rel/target needed. */}
+        <a href="/privacy" className="hover:opacity-80 transition-opacity">
+          {t('status.privacy')}
+        </a>
         <span className="mx-1 opacity-30">|</span>
         <a
           href="https://github.com/CatFoxVoyager/MermaidStudio"
