@@ -44,11 +44,12 @@ describe('MobileTopBar', () => {
       const header = screen.getByTestId('mobile-topbar');
       // Compact mark (iter-9): "MermaidStudio" measured 113px in the 68px
       // available — ellipsis ate the brand on every view. The full name
-      // rides as the accessible label of the wordmark span (iter-14: the h1
-      // shows the ACTIVE DIAGRAM title while editing; without a title the
-      // wordmark returns).
+      // rides as the accessible label of the wordmark span (iter-14: the
+      // brand block shows the ACTIVE DIAGRAM title while editing; without a
+      // title the wordmark returns). Phase 28 demoted the brand h1 to a
+      // testid div — the app's single h1 lives at the App root.
       expect(header.textContent).toContain('MS');
-      const wordmark = header.querySelector('h1 span[aria-label]');
+      const wordmark = header.querySelector('[data-testid="mobile-topbar-brand"] span[aria-label]');
       expect(wordmark).toHaveAttribute('aria-label', 'MermaidStudio');
       // The About version badge was removed — About lives in the menu sheet.
       expect(header.textContent).not.toMatch(/v\d+\.\d+\.\d+/);
@@ -61,7 +62,7 @@ describe('MobileTopBar', () => {
       render(<MobileTopBar {...defaultProps} />);
       const header = screen.getByTestId('mobile-topbar');
       expect(header.textContent).not.toContain('Welcome Diagram');
-      expect(header.querySelector('h1')?.textContent).toBe('MS');
+      expect(header.querySelector('[data-testid="mobile-topbar-brand"]')?.textContent).toBe('MS');
     });
 
     it('renders the six action buttons', () => {

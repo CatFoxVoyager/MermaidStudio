@@ -161,6 +161,12 @@ export default function App() {
       <Analytics />
       <SpeedInsights />
       <MobileShellProvider>
+        {/* HEAD-01 (phase 28): the app's single h1 — sr-only, bound to
+            header.appHeading. It renders BEFORE AppLayout because AppLayout
+            early-returns the exclusive MobileLayout on mobile, so exactly one
+            h1 exists at every viewport. The visible h1 is the static shell
+            pre-mount (index.html); post-mount this roots the outline. */}
+        <h1 className="sr-only">{t('header.appHeading')}</h1>
         <AppLayout
           theme={appState.theme}
           toggleTheme={appState.toggleTheme}

@@ -107,7 +107,10 @@ export function MobileTopBar({
             <path d="M7 10v4M7 14h10M17 14v-4" />
           </svg>
         </div>
-        <h1
+        {/* HEAD-01 (phase 28): brand demoted from h1 to div — the app's
+            single h1 lives at the App root (sr-only). */}
+        <div
+          data-testid="mobile-topbar-brand"
           className="flex min-w-0 items-center text-base font-semibold tracking-tight"
           style={{ color: 'var(--text-primary)' }}
         >
@@ -127,7 +130,7 @@ export function MobileTopBar({
               ✓ {t('toast.saved')}
             </span>
           )}
-        </h1>
+        </div>
       </div>
 
       {/* gap-1.5 (6px): the ::before hit-stretch adds 2px per side, so 40px
