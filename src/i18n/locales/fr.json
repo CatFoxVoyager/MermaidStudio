@@ -17,7 +17,8 @@
     "apply": "Appliquer",
     "back": "Retour",
     "menu": "Menu",
-    "mobileAppNote": "Disponible dans l'appli mobile, bientôt sur Google Play."
+    "mobileAppNote": "Disponible dans l'appli mobile, bientôt sur Google Play.",
+    "chunkLoadError": "Cette partie de l'éditeur n'a pas pu être chargée."
   },
   "header": {
     "toggleSidebar": "Basculer la barre latérale",

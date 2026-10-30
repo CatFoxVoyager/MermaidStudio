@@ -354,7 +354,7 @@ describe('ModalProvider Component', () => {
       });
     });
 
-    it('should render SaveTemplateModal when showSaveTemplate is true and activeTab exists', () => {
+    it('should render SaveTemplateModal when showSaveTemplate is true and activeTab exists', async () => {
       const activeTab = {
         id: '1',
         title: 'Test',
@@ -362,7 +362,9 @@ describe('ModalProvider Component', () => {
         diagram_id: 'diag-1',
       };
       renderModalProvider({ ...mockProps, showSaveTemplate: true, activeTab });
-      expect(screen.getByTestId('save-template')).toBeInTheDocument();
+      // Lazy boundary (29-02 PERF-01): the modal chunk resolves a tick after
+      // mount, so the Suspense swap needs findBy (waitFor + getBy).
+      expect(await screen.findByTestId('save-template')).toBeInTheDocument();
       expect(screen.getByText('Content: test content for tem...')).toBeInTheDocument();
     });
 
@@ -393,7 +395,7 @@ describe('ModalProvider Component', () => {
       });
     });
 
-    it('should render FullscreenPreview when showFullscreen is true and activeTab exists', () => {
+    it('should render FullscreenPreview when showFullscreen is true and activeTab exists', async () => {
       const activeTab = {
         id: '1',
         title: 'Test',
@@ -401,7 +403,8 @@ describe('ModalProvider Component', () => {
         diagram_id: 'diag-1',
       };
       renderModalProvider({ ...mockProps, showFullscreen: true, activeTab });
-      expect(screen.getByTestId('fullscreen-preview')).toBeInTheDocument();
+      // Lazy boundary (29-02 PERF-01): same async chunk resolution as above.
+      expect(await screen.findByTestId('fullscreen-preview')).toBeInTheDocument();
       expect(screen.getByText('Content: fullscreen test cont...')).toBeInTheDocument();
     });
 

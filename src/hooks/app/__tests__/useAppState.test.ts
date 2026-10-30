@@ -107,14 +107,16 @@ describe('useAppState', () => {
     const { initMermaid } = await import('@/lib/mermaid/core');
     renderHook(() => useAppState());
 
-    expect(initMermaid).toHaveBeenCalled();
+    // initMermaid arrives via dynamic import (29-02 PERF-01): the call lands
+    // a tick after mount, not synchronously in the effect body.
+    await waitFor(() => expect(initMermaid).toHaveBeenCalled());
   });
 
   it('should initialize Mermaid with light theme by default', async () => {
     const { initMermaid } = await import('@/lib/mermaid/core');
     renderHook(() => useAppState());
 
-    expect(initMermaid).toHaveBeenCalledWith('light');
+    await waitFor(() => expect(initMermaid).toHaveBeenCalledWith('light'));
   });
 
   // Regression lock (audit constat 1): App passes no palette flag, so
