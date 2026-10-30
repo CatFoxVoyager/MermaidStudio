@@ -46,7 +46,10 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./tests/vitest.setup.ts'],
     include: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx'],
-    exclude: ['node_modules', 'dist', 'docker', '.*/**'],
+    // 'node_modules.*' also covers stray broken-install copies at the repo
+    // root (e.g. node_modules.broken-20261030/) whose vendored package test
+    // files otherwise get scanned and fail the suite at transform time.
+    exclude: ['node_modules', 'node_modules.*', 'dist', 'docker', '.*/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
