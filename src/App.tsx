@@ -9,25 +9,11 @@ import { MobileShellProvider } from '@/hooks/useMobileShell';
 import { useKeyboardShortcuts, useDiagramActions, useAppShortcuts, useToast } from '@/hooks';
 import { useAppState } from './hooks/app/useAppState';
 import { useModalState } from './hooks/app/useModalState';
-import { SUPPORTED_GOOGLE_FONTS } from '@/constants/fonts';
+import { ensureGoogleFontsForFamily } from '@/utils/fontInjection';
 import { APP_VERSION } from '@/constants/app';
 import { getSettings, updateSettings } from '@/services/storage/database';
 
 export default function App() {
-  // Pre-load Google Fonts
-  useEffect(() => {
-    SUPPORTED_GOOGLE_FONTS.forEach(font => {
-      const linkId = `font-${font.name.replace(/\s+/g, '-').toLowerCase()}`;
-      if (!document.getElementById(linkId)) {
-        const link = document.createElement('link');
-        link.id = linkId;
-        link.rel = 'stylesheet';
-        link.href = font.url;
-        document.head.appendChild(link);
-      }
-    });
-  }, []);
-
   const { show: showToast, toasts, dismiss } = useToast();
   const { t } = useTranslation();
 
@@ -40,6 +26,14 @@ export default function App() {
       showToast(t('toast.autoSaveFailed', { title }), 'error');
     },
   });
+
+  // PERF-03: inject a Google Fonts stylesheet only when the persisted theme
+  // actually needs one (a non-default family). The index.html head link
+  // already ships Inter + JetBrains Mono, so a default-settings boot injects
+  // nothing; a returning user's saved custom font still loads at boot.
+  useEffect(() => {
+    ensureGoogleFontsForFamily(appState.defaultTheme?.coreColors.fontFamily);
+  }, [appState.defaultTheme?.coreColors.fontFamily]);
 
   // Get modal state with mutual exclusion logic
   const {
