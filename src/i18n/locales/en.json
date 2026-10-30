@@ -17,7 +17,8 @@
     "apply": "Apply",
     "back": "Back",
     "menu": "Menu",
-    "mobileAppNote": "Available in the mobile app, coming soon to Google Play."
+    "mobileAppNote": "Available in the mobile app, coming soon to Google Play.",
+    "chunkLoadError": "This part of the editor failed to load."
   },
   "header": {
     "toggleSidebar": "Toggle sidebar",

@@ -3,13 +3,13 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useMobileShellContext } from '@/hooks/useMobileShell';
 import { CommandPalette } from '@/components/modals/tools/CommandPalette';
 import { BackupPanel } from '@/components/modals/tools/BackupPanel';
-import { SaveTemplateModal } from '@/components/modals/diagram/SaveTemplateModal';
-import { FullscreenPreview } from '@/preview/FullscreenPreview';
 import { AISettingsModal } from '@/ai/AISettingsModal';
 import { KeyboardShortcuts } from '@/components/modals/tools/KeyboardShortcuts';
 import { WelcomeModal } from '@/components/modals/tools/WelcomeModal';
 import { AboutModal } from '@/components/modals/tools/AboutModal';
 import { Toast } from '@/components/shared/Toast';
+import { ChunkErrorFallback } from '@/components/shared/ChunkErrorFallback';
+import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
 import type { ToastItem } from '@/hooks/useToast';
 import type { Diagram, Template } from '@/types';
 
@@ -22,6 +22,16 @@ const LazyVersionHistory = lazy(() =>
 );
 const LazyExportModal = lazy(() =>
   import('@/components/modals/diagram/ExportModal').then(m => ({ default: m.ExportModal }))
+);
+// 29-02 (PERF-01): SaveTemplateModal and FullscreenPreview become lazy too —
+// both statically reached the mermaid runtime, dragging it onto the boot
+// chain. Each boundary's ErrorBoundary renders the explicit ChunkErrorFallback
+// (never the boundary's default h2, never a blank pane — T-29-05).
+const LazySaveTemplateModal = lazy(() =>
+  import('@/components/modals/diagram/SaveTemplateModal').then(m => ({ default: m.SaveTemplateModal }))
+);
+const LazyFullscreenPreview = lazy(() =>
+  import('@/preview/FullscreenPreview').then(m => ({ default: m.FullscreenPreview }))
 );
 
 interface ModalProviderProps {
@@ -219,18 +229,26 @@ export function ModalProvider({
         />
       )}
       {showSaveTemplate && activeTab && showToast && (
-        <SaveTemplateModal
-          content={activeTab.content}
-          onClose={onCloseSaveTemplate}
-          onSaved={() => showToast('Template saved')}
-        />
+        <Suspense fallback={null}>
+          <ErrorBoundary fallback={<ChunkErrorFallback />}>
+            <LazySaveTemplateModal
+              content={activeTab.content}
+              onClose={onCloseSaveTemplate}
+              onSaved={() => showToast('Template saved')}
+            />
+          </ErrorBoundary>
+        </Suspense>
       )}
       {showFullscreen && activeTab && (
-        <FullscreenPreview
-          content={activeTab.content}
-          themeId={activeTab.themeId}
-          onClose={onCloseFullscreen}
-        />
+        <Suspense fallback={null}>
+          <ErrorBoundary fallback={<ChunkErrorFallback />}>
+            <LazyFullscreenPreview
+              content={activeTab.content}
+              themeId={activeTab.themeId}
+              onClose={onCloseFullscreen}
+            />
+          </ErrorBoundary>
+        </Suspense>
       )}
       {toasts && dismiss && <Toast toasts={toasts} dismiss={dismiss} />}
     </>

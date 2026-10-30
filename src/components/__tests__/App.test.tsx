@@ -260,7 +260,8 @@ describe('App Component', () => {
 
       render(<App />);
 
-      expect(initMermaid).toHaveBeenCalledWith('light');
+      // initMermaid arrives via dynamic import (29-02 PERF-01)
+      await waitFor(() => expect(initMermaid).toHaveBeenCalledWith('light'));
     });
 
     it('should call getDiagrams when palette opens', async () => {
