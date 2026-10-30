@@ -165,12 +165,26 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     if: needs.check-freshness.outputs.needs-update == 'true'
     needs: check-freshness
+    # GITHUB_TOKEN par défaut est read-only pour les issues sans ce bloc.
+    permissions:
+      issues: write
     steps:
-      - name: Create issue
+      - name: Create issue (no duplicate)
         uses: actions/github-script@v6
         with:
           script: |
-            github.rest.issues.create({
+            // Garde anti-doublon : une issue de maintenance ouverte suffit.
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+            if (existing.data.some(i => i.title === 'Documentation Update Required')) {
+              console.log('Une issue "Documentation Update Required" est déjà ouverte — pas de doublon.');
+              return;
+            }
+            await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: 'Documentation Update Required',
@@ -197,12 +211,26 @@ jobs:
     name: Schedule Documentation Review
     runs-on: [self-hosted, Linux, X64]
     if: github.event_name == 'schedule'
+    permissions:
+      issues: write
     steps:
-      - name: Create review reminder
+      - name: Create review reminder (no duplicate)
         uses: actions/github-script@v6
         with:
           script: |
-            github.rest.issues.create({
+            // Garde anti-doublon : le cron tourne chaque jour — une seule
+            // issue de revue ouverte à la fois.
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+            if (existing.data.some(i => i.title === 'Scheduled Documentation Review')) {
+              console.log('Une issue "Scheduled Documentation Review" est déjà ouverte — pas de doublon.');
+              return;
+            }
+            await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: 'Scheduled Documentation Review',
