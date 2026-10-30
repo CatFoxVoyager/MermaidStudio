@@ -9,6 +9,7 @@ import { THEME_SLOT_GROUPS } from '@/constants/themes';
 import { deriveThemeVariables } from '@/constants/themeDerivation';
 import { renderDiagram } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
+import { ensureGoogleFontsForFamily } from '@/utils/fontInjection';
 import type { MermaidTheme, ThemeCoreColors } from '@/types';
 
 interface ThemeEditorPanelProps {
@@ -205,7 +206,10 @@ ${SAMPLE_DIAGRAM}`;
                     </label>
                     <select
                       value={localColors.fontFamily}
-                      onChange={e => handleColorChange('fontFamily', e.target.value)}
+                      onChange={e => {
+                        ensureGoogleFontsForFamily(e.target.value);
+                        handleColorChange('fontFamily', e.target.value);
+                      }}
                       className="w-full px-2 py-1.5 rounded-md border text-xs"
                       style={{
                         background: 'var(--surface-base)',

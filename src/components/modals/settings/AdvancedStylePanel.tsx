@@ -15,6 +15,7 @@ interface AdvancedStylePanelProps {
 }
 
 import { FONT_FAMILY_OPTIONS } from '@/constants/fonts';
+import { ensureGoogleFontsForFamily } from '@/utils/fontInjection';
 
 function SliderControl({ label, icon, value, min, max, step, unit, onChange, theme }: {
   label: string;
@@ -252,7 +253,10 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
           </div>
           <select
             value={styleOptions.fontFamily}
-            onChange={(e) => update({ fontFamily: e.target.value })}
+            onChange={(e) => {
+              ensureGoogleFontsForFamily(e.target.value);
+              update({ fontFamily: e.target.value });
+            }}
             className="w-full text-[11px] px-2 py-1.5 rounded-sm border outline-hidden transition-colors"
             style={{
               background: 'var(--surface-base)',
