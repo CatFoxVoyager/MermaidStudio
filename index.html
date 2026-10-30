@@ -115,7 +115,11 @@
       .shell li{margin-bottom:.4rem}
       .shell a{color:#58a6ff}
       .shell .trust{font-size:.95rem;opacity:.85}
+      .shell h2{font-size:1.375rem;line-height:1.3;font-weight:600;margin:2rem 0 .75rem}
+      .shell .valueprop{border-left:4px solid #2dd4bf;background:rgba(45,212,191,.1);padding:1rem;margin:0 0 2rem;border-radius:0 8px 8px 0}
+      .shell .valueprop-note{font-size:.875rem;opacity:.85;margin:.5rem 0 0}
       @media (prefers-color-scheme:light){.shell{background:#fafaf9;color:#1f2328}.shell a{color:#0969da}}
+      @media (prefers-color-scheme:light){.shell .valueprop{border-left-color:#0d7377;background:rgba(13,115,119,.08)}}
       /* Boot splash: covers the crawlable shell while the bundle loads (a
          cold Wi-Fi fetch shows it for seconds — without it users see the
          marketing shell flash and read it as a nag screen). Lives INSIDE
@@ -170,6 +174,16 @@
           <li><strong>Export &amp; themes</strong> — SVG/PNG export with custom styling.</li>
           <li><strong>Private by design</strong> — open source (MIT), no accounts, local-first, cookieless analytics, works offline (PWA), English and French.</li>
         </ul>
+        <div class="valueprop">
+          <p class="valueprop-main"><strong>AI runs locally on your GPU (WebGPU)</strong> — your code never leaves your machine.</p>
+          <p class="valueprop-note">First use downloads the AI model once (about 400–700 MB). After that it runs entirely offline — nothing is uploaded.</p>
+        </div>
+        <h2 id="what-is-mermaidstudio">What is MermaidStudio</h2>
+        <p>MermaidStudio is a free, open-source editor for Mermaid diagrams that runs entirely in your browser. You write Mermaid syntax or drag nodes in the visual editor, preview the rendered diagram live, and export SVG or PNG. There is no account, no install, and no server — diagrams stay on your device.</p>
+        <h2 id="how-it-works">How it works</h2>
+        <p>Open the editor and type Mermaid code on the left; the diagram renders on the right as you type. Prefer pointing and dragging? Switch to the visual editor and move nodes and edges directly on the preview. Every save creates a local version checkpoint you can diff and restore — everything persists in your browser's local storage.</p>
+        <h2 id="privacy">Privacy</h2>
+        <p>Your diagrams and settings are stored only on your device — there are no accounts and nothing is uploaded to a server. AI features run locally on your GPU via WebGPU. The site uses Vercel's cookieless analytics to count page views; no cookies, no cross-site tracking, no ads. Full details on the <a href="/privacy">privacy page</a>.</p>
         <p class="trust">Free &amp; open source (MIT) · Runs entirely in your browser — even the AI · <a href="https://github.com/CatFoxVoyager/MermaidStudio">★ GitHub</a> · <a href="https://ko-fi.com/jeremie93407">☕ Ko-Fi</a> · <a href="https://liberapay.com/Jeremie/">Liberapay</a> · <a href="/privacy">Privacy</a></p>
       </main>
       <noscript>
