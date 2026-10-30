@@ -22,21 +22,37 @@ import App from '../../App';
 import { TopBar } from '../shared/TopBar';
 import { MobileTopBar } from '../mobile/MobileTopBar';
 import { Modal } from '../shared/Modal';
+import { StatusBar } from '../editor/StatusBar';
+import { AboutModal } from '../modals/tools/AboutModal';
 
-// File-level mock overrides the setup-file mock: the appHeading value is the
-// gate's text assertion (default EN per the UI-SPEC contract).
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) =>
-      key === 'header.appHeading'
-        ? 'MermaidStudio — Free Online Mermaid Diagram Editor'
-        : key,
-    i18n: { changeLanguage: vi.fn(), language: 'en' },
-  }),
-  initReactI18next: { type: '3rdParty', init: vi.fn() },
-  I18nextProvider: ({ children }: any) => children,
-  Trans: ({ children }: any) => children,
-}));
+// File-level mock overrides the setup-file mock: `t` resolves the REAL en
+// catalog (the default-EN convention of the UI-SPEC contract), so label
+// assertions prove both the catalog value and the component binding — no
+// hand-maintained mock strings. FR geometry (status.privacy in the h-6 bar)
+// is browser-only evidence (UAT walk); the FR catalog VALUE is byte-pinned
+// by trustCopy.test.ts.
+vi.mock('react-i18next', async () => {
+  // unknown-first hop: the JSON literal type nests three levels deep
+  // (visual.shapes.*), which no flat Record cast overlaps sufficiently.
+  const en = (await import('../../i18n/locales/en.json')).default as unknown as Record<
+    string,
+    Record<string, unknown>
+  >;
+  const t = (key: string): string => {
+    const [section, name] = key.split('.');
+    const value = en[section]?.[name];
+    return typeof value === 'string' ? value : key;
+  };
+  return {
+    useTranslation: () => ({
+      t,
+      i18n: { changeLanguage: vi.fn(), language: 'en' },
+    }),
+    initReactI18next: { type: '3rdParty', init: vi.fn() },
+    I18nextProvider: ({ children }: any) => children,
+    Trans: ({ children }: any) => children,
+  };
+});
 
 // Mock all database functions (App.test.tsx mock pattern)
 vi.mock('@/services/storage/database', () => ({
@@ -235,5 +251,69 @@ describe('Modal heading level (HEAD-02 rendered half)', () => {
       title!.tagName,
       'HEAD-02: the modal title must stay an h2 (modal-open h2s own rendered-DOM coverage)',
     ).toBe('H2');
+  });
+});
+
+describe('Privacy reachability (PRIV-03)', () => {
+  it('renders a /privacy anchor in the desktop footer (StatusBar), left of the GitHub link', () => {
+    // Mirrors the real render site (WorkspacePanel.tsx: StatusBar with
+    // content/lastSaved/renderTimeMs/isDirty from the active tab).
+    const { container } = render(
+      <StatusBar
+        content={'graph TD\nA-->B'}
+        lastSaved={null}
+        renderTimeMs={42}
+        isDirty={false}
+      />,
+    );
+    const privacy = container.querySelector('a[href="/privacy"]');
+    expect(
+      privacy,
+      'PRIV-03: the desktop footer must carry a /privacy anchor',
+    ).not.toBeNull();
+    expect(
+      privacy!.textContent,
+      'PRIV-03: the footer anchor must be labeled from status.privacy (real en catalog value)',
+    ).toBe('Privacy');
+    expect(
+      privacy!.getAttribute('rel') ?? privacy!.getAttribute('target'),
+      'PRIV-03: the /privacy anchor is same-origin — no rel/target needed',
+    ).toBeNull();
+    const github = container.querySelector(
+      'a[href="https://github.com/CatFoxVoyager/MermaidStudio"]',
+    );
+    expect(github, 'PRIV-03: the GitHub anchor must remain').not.toBeNull();
+    expect(
+      (privacy!.compareDocumentPosition(github!) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+      'PRIV-03: the privacy anchor must sit LEFT of (before) the GitHub anchor in DOM order',
+    ).toBe(true);
+  });
+
+  it('renders a /privacy row in the About modal beside the GitHub row (mobile reachability)', () => {
+    const { container } = render(
+      <AboutModal onClose={vi.fn()} onShowReleaseNotes={vi.fn()} />,
+    );
+    const privacy = container.querySelector('a[href="/privacy"]');
+    expect(
+      privacy,
+      'PRIV-03: the AboutModal must carry an internal /privacy row (the app has no mobile footer)',
+    ).not.toBeNull();
+    expect(privacy!.getAttribute('target')).toBeNull();
+    expect(
+      privacy!.textContent,
+      'PRIV-03: the AboutModal row must be labeled from status.privacy',
+    ).toBe('Privacy');
+    expect(
+      privacy!.className,
+      'PRIV-03: the AboutModal row must reuse the rounded-xl bordered row shape',
+    ).toContain('rounded-xl');
+    const github = container.querySelector(
+      'a[href="https://github.com/CatFoxVoyager/MermaidStudio"]',
+    );
+    expect(github, 'PRIV-03: the GitHub row must remain').not.toBeNull();
+    expect(
+      (github!.compareDocumentPosition(privacy!) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+      'PRIV-03: the privacy row must sit after (beside) the GitHub row in DOM order',
+    ).toBe(true);
   });
 });
