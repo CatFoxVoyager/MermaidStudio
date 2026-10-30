@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Policy — MermaidStudio</title>
+    <meta name="description" content="MermaidStudio privacy policy: local-first diagrams, local WebGPU AI, Vercel cookieless analytics on the web, AdMob ads only in the Android app.">
+    <link rel="canonical" href="https://www.mermaidstudio.net/privacy" />
+    <!-- Zero JS, zero external requests: no scripts, no font links, no
+         analytics tags. Styles are inline; Inter resolves locally when
+         installed and falls back to system-ui otherwise. -->
+    <style>
+      body{margin:0;background:#0d1117;color:#e6edf3;font-family:Inter,system-ui,-apple-system,sans-serif;font-size:1rem;line-height:1.65}
+      .privacy{max-width:42rem;margin:0 auto;padding:4rem 1.5rem 3rem;box-sizing:border-box}
+      h1{font-size:2rem;line-height:1.25;font-weight:600;margin:0 0 1rem}
+      h2{font-size:1.375rem;line-height:1.3;font-weight:600;margin:2rem 0 .75rem}
+      .updated{font-size:.875rem;opacity:.85;margin:0 0 2rem}
+      p{margin:0 0 1.25rem}
+      ul{line-height:1.65;margin:0 0 1.5rem;padding-left:1.25rem}
+      li{margin-bottom:.4rem}
+      a{color:#58a6ff}
+      .back{display:inline-block;padding:.75rem}
+      footer{margin-top:3rem;padding-top:1.5rem;border-top:1px solid rgba(255,255,255,.08);font-size:.875rem}
+      footer p{margin:0}
+      @media (prefers-color-scheme:light){body{background:#fafaf9;color:#1f2328}a{color:#0969da}footer{border-top-color:rgba(0,0,0,.07)}}
+    </style>
+  </head>
+  <body>
+    <main class="privacy">
+      <a class="back" href="/">← Back to MermaidStudio</a>
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: 2026-10-30</p>
+
+      <p>MermaidStudio is an open-source Mermaid diagram editor. This policy covers both the web
+      application and the Android application.</p>
+
+      <h2>The short version</h2>
+      <p>MermaidStudio is <strong>local-first</strong>: your diagrams are stored on your device and never sent
+      to us. We run no accounts and no servers. The public website uses Vercel's cookieless analytics (see Analytics below). The only third party
+      that processes data is Google, through the ads shown in the Android app — and you control
+      that with a consent form.</p>
+
+      <h2>Data storage (web and Android)</h2>
+      <ul>
+        <li>Diagrams, folders, versions, tags, and settings are stored <strong>locally on your device</strong>
+        (browser IndexedDB, or the app's local storage on Android).</li>
+        <li>Nothing is uploaded to us. There is no account system and no sync service.</li>
+        <li>Exports (PNG/JPEG/SVG) are generated on your device and shared or saved only where you
+        choose (e.g. the Android share sheet or your photo library).</li>
+      </ul>
+
+      <h2>AI features (web)</h2>
+      <p>AI assistance runs <strong>in your browser</strong> on your own device (WebGPU-based local inference).
+      Prompts and diagrams used by the AI features are processed locally and are not sent to us
+      or to any external service.</p>
+
+      <h2>Analytics (web)</h2>
+      <p>The public website measures aggregate, anonymous usage with Vercel Analytics and Vercel Speed Insights: page views, referrers, and coarse geography. These analytics are cookieless — no cookies, no localStorage, no advertising identifiers, no cross-site tracking — and we cannot identify individual visitors.</p>
+
+      <h2>Ads (Android only)</h2>
+      <p>The Android app shows ads via <strong>Google AdMob</strong> (Google Mobile Ads SDK):</p>
+      <ul>
+        <li>Google and its partners may collect and process the <strong>advertising identifier</strong> (AD_ID)
+        and related ad-interaction data to serve and measure ads, under
+        <a href="https://policies.google.com/privacy">Google's Privacy &amp; Terms</a> and the
+        <a href="https://support.google.com/admob/answer/6128543">Google AdMob program policies</a>.</li>
+        <li>Before any ads are initialized, the app asks for your consent with <strong>Google's UMP
+        consent form</strong> (GDPR). You can review or change your choices at any time via
+        <strong>Settings → Privacy options</strong> in the app.</li>
+        <li>You can also turn ads off entirely with the <strong>Ads toggle in Settings</strong>; the change
+        takes effect immediately.</li>
+      </ul>
+
+      <h2>What we never do</h2>
+      <ul>
+        <li>We never sell your data.</li>
+        <li>We never transmit your diagrams off your device.</li>
+        <li>We have no access to your diagrams or settings. (Aggregate, anonymous site metrics are covered in Analytics above.)</li>
+      </ul>
+
+      <h2>Changes to this policy</h2>
+      <p>Material changes will be updated in this document with a new "last updated" date.</p>
+
+      <h2>Contact</h2>
+      <p>Open an issue at
+      <a href="https://github.com/CatFoxVoyager/MermaidStudio/issues">github.com/CatFoxVoyager/MermaidStudio/issues</a>.</p>
+
+      <footer>
+        <p><a class="back" href="/">← Back to MermaidStudio</a> · <a href="https://github.com/CatFoxVoyager/MermaidStudio">GitHub</a></p>
+      </footer>
+    </main>
+  </body>
+</html>

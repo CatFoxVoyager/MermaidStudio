@@ -1,4 +1,18 @@
 {
+  "cleanUrls": true,
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "mermaidstudio.net" }],
+      "destination": "https://www.mermaidstudio.net/$1",
+      "permanent": true
+    },
+    {
+      "source": "/index.html",
+      "destination": "/",
+      "statusCode": 301
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

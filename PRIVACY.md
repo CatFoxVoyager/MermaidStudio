@@ -1,6 +1,6 @@
 # MermaidStudio Privacy Policy
 
-**Last updated:** 2026-09-21
+**Last updated:** 2026-10-30
 
 MermaidStudio is an open-source Mermaid diagram editor. This policy covers both the web
 application and the Android application.
@@ -8,7 +8,7 @@ application and the Android application.
 ## The short version
 
 MermaidStudio is **local-first**: your diagrams are stored on your device and never sent
-to us. We run no accounts, no servers, and no analytics of our own. The only third party
+to us. We run no accounts and no servers. The public website uses Vercel's cookieless analytics (see Analytics below). The only third party
 that processes data is Google, through the ads shown in the Android app — and you control
 that with a consent form.
 
@@ -25,6 +25,10 @@ that with a consent form.
 AI assistance runs **in your browser** on your own device (WebGPU-based local inference).
 Prompts and diagrams used by the AI features are processed locally and are not sent to us
 or to any external service.
+
+## Analytics (web)
+
+The public website measures aggregate, anonymous usage with Vercel Analytics and Vercel Speed Insights: page views, referrers, and coarse geography. These analytics are cookieless — no cookies, no localStorage, no advertising identifiers, no cross-site tracking — and we cannot identify individual visitors.
 
 ## Ads (Android only)
 
@@ -44,7 +48,7 @@ The Android app shows ads via **Google AdMob** (Google Mobile Ads SDK):
 
 - We never sell your data.
 - We never transmit your diagrams off your device.
-- We have no access to your diagrams, settings, or usage.
+- We have no access to your diagrams or settings. (Aggregate, anonymous site metrics are covered in Analytics above.)
 
 ## Changes to this policy
 
