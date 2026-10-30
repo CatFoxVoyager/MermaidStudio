@@ -125,7 +125,7 @@
          marketing shell flash and read it as a nag screen). Lives INSIDE
          #root so React's first render removes it; the 8s CSS timeout fades
          it anyway if the bundle fails, revealing the crawlable shell. */
-      #boot-splash{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.1rem;background:#0d1117;color:#e6edf3;font-family:Inter,system-ui,-apple-system,sans-serif;}
+      #boot-splash{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.1rem;background:#0d1117;color:#e6edf3;font-family:Inter,system-ui,-apple-system,sans-serif;animation:boot-splash-out .6s ease-out 8s forwards;}
       #boot-splash .boot-title{font-size:1.05rem;font-weight:600;letter-spacing:.01em}
       #boot-splash .boot-spinner{width:28px;height:28px;border:3px solid rgba(128,128,128,.25);border-top-color:#2dd4bf;border-radius:50%;animation:boot-spin 1s linear infinite}
       @media (prefers-color-scheme:light){#boot-splash{background:#fafaf9;color:#1f2328}#boot-splash .boot-spinner{border-top-color:#0d7377}}
@@ -152,6 +152,7 @@
             var s=document.getElementById('boot-splash');
             if(s&&s.parentNode){ /* React replaced #root children => s detached */
               s.removeAttribute('aria-hidden');
+              s.style.animation='none';s.style.visibility='visible';s.style.opacity='1';
               s.innerHTML='<div class="boot-title">MermaidStudio failed to load.</div>'
                 +'<p style="margin:0;opacity:.85">Check your connection, then</p>'
                 +'<button onclick="location.reload()" style="margin-top:.5rem;padding:.6rem 1.2rem;border-radius:.6rem;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit;font:inherit;cursor:pointer">Reload</button>';
