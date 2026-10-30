@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { getSettings, updateSettings } from '@/services/storage/database';
-import { initMermaid, setDefaultTheme as setCoreDefaultTheme } from '@/lib/mermaid/core';
 import { getThemeById } from '@/constants/themes';
 import { DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '@/constants/themeDerivation';
 import type { MermaidTheme } from '@/types';
@@ -46,14 +45,31 @@ export function useTheme() {
       .forEach(meta => meta.setAttribute('content', THEME_CHROME_COLORS[theme]));
 
     const appTheme = defaultTheme ?? (theme === 'dark' ? DEFAULT_DARK_THEME : DEFAULT_LIGHT_THEME);
-    initMermaid(theme, undefined, appTheme);
+    // Dynamic import (29-02, PERF-01): the boot chain must not statically
+    // reach the mermaid runtime. Immediate (not idle-gated) — renderDiagram
+    // re-runs doInit per call, so ordering with useAppState's init effect
+    // stays tolerant. Same specifier as every other consumer, so core.ts's
+    // theme singletons remain one shared instance.
+    let cancelled = false;
+    import('@/lib/mermaid/core').then(({ initMermaid }) => {
+      if (!cancelled) initMermaid(theme, undefined, appTheme);
+    });
 
     updateSettings({ theme });
+    return () => {
+      cancelled = true;
+    };
   }, [theme, initialized, defaultTheme]);
 
   const setDefaultTheme = (theme: MermaidTheme | null) => {
     setDefaultThemeState(theme);
-    setCoreDefaultTheme(theme);
+    // Core theme state syncs via dynamic import (29-02, PERF-01) — by the
+    // time a user picks a theme the boot effect has already loaded the
+    // module, so this resolves in a microtask; renderDiagram re-applies
+    // init per call, making the async set order-tolerant.
+    import('@/lib/mermaid/core').then(({ setDefaultTheme: setCoreDefaultTheme }) => {
+      setCoreDefaultTheme(theme);
+    });
     // Use storage abstraction - handles errors automatically
     if (theme) {
       storage.setItem(DEFAULT_THEME_KEY, theme.id);

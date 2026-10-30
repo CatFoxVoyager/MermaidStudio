@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDiagrams } from '@/services/storage/database';
-import { initMermaid } from '@/lib/mermaid/core';
 import { useTheme, useTabs, useLanguage } from '@/hooks';
 import type { UseTabsOptions } from '@/hooks/useTabs';
 import type { Diagram } from '@/types';
@@ -46,9 +45,19 @@ export function useAppState(
   const [aiSettingsKey, setAiSettingsKey] = useState(0);
   const [diagrams, setDiagrams] = useState<Diagram[]>([]);
 
-  // Initialize Mermaid with theme
+  // Initialize Mermaid with theme — dynamically imported (29-02, PERF-01) so
+  // the boot chain never statically reaches the mermaid runtime. Immediate
+  // (not idle-gated): renderDiagram re-runs doInit per call, so ordering with
+  // the other init effect stays tolerant. The SAME specifier is used at both
+  // boot sites, so core.ts's theme singletons remain one shared instance.
   useEffect(() => {
-    initMermaid(themeState.theme);
+    let cancelled = false;
+    import('@/lib/mermaid/core').then(({ initMermaid }) => {
+      if (!cancelled) initMermaid(themeState.theme);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [themeState.theme]);
 
   // Load the diagram list on mount and after every refresh() — the command
