@@ -5,7 +5,7 @@
 import { isDark } from 'khroma';
 import type { ThemeCoreColors, MermaidTheme, DiagramType, DiagramStyleOptions } from '@/types';
 import { builtinThemes } from '@/constants/themes';
-import { detectDiagramType } from '@/lib/mermaid/core';
+import { detectDiagramType } from '@/lib/mermaid/diagramType';
 import { updateLinkStyle, parseLinkStyles } from '@/lib/mermaid/codeUtils';
 import { adjustToHex, darkenToHex, lightenToHex, invertToHex } from '@/utils/colorConversion';
 

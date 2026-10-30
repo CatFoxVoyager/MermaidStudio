@@ -11,7 +11,7 @@ import { ContextMenu } from '../shared/ContextMenu';
 import type { ContextMenuItem } from '../shared/ContextMenu';
 import { Modal } from '../shared/Modal';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
-import { detectDiagramType } from '@/lib/mermaid/core';
+import { detectDiagramType } from '@/lib/mermaid/diagramType';
 
 interface Props {
   onOpenDiagram: (id: string) => void;

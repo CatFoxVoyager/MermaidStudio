@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { saveUserTemplate } from '@/services/storage/database';
-import { detectDiagramType } from '@/lib/mermaid/core';
+import { detectDiagramType } from '@/lib/mermaid/diagramType';
 import { CATEGORIES } from '@/constants/templates';
 import { ThemeSelector } from '@/visual/ThemeSelector';
 import { Modal } from '@/components/shared/Modal';
