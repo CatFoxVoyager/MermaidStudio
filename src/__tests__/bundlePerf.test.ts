@@ -23,6 +23,9 @@ import { resolve } from 'path';
  */
 // src/__tests__ -> repo root (same __dirname walk as crawlableShell.test.ts).
 const html = readFileSync(resolve(__dirname, '../../index.html'), 'utf8');
+// PERF-03 gates read the app CSS source bytes directly too (pure node fs,
+// like every suite in this directory — no `?raw` import here).
+const appCss = readFileSync(resolve(__dirname, '../../src/index.css'), 'utf8');
 
 /**
  * The exact `#boot-splash{...}` rule — the FIRST occurrence in the file.
@@ -114,5 +117,22 @@ describe('PERF-04 splash fade', () => {
     expect(html, 'PERF-04: s.parentNode detached-splash guard missing').toContain(
       'if(s&&s.parentNode){',
     );
+  });
+});
+
+describe('PERF-03 font consolidation', () => {
+  it('app CSS source carries zero remote font-host stylesheet URLs (duplicated @import deleted)', () => {
+    expect(
+      appCss,
+      'PERF-03: src/index.css still references fonts.googleapis — the index.html head link is the sole static delivery (its weight set is a strict superset), and a second URL here makes the browser fetch the same families twice',
+    ).not.toContain('fonts.googleapis');
+  });
+
+  it('index.html carries exactly 1 Google Fonts css2 link (head link is the single static delivery)', () => {
+    const count = (html.match(/fonts\.googleapis\.com\/css2/g) ?? []).length;
+    expect(
+      count,
+      'PERF-03: expected exactly 1 Google Fonts css2 URL in index.html — more means the head link multiplied, zero means no fonts ship statically at all',
+    ).toBe(1);
   });
 });
