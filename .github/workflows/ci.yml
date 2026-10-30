@@ -302,6 +302,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          # Le Dockerfile de l'app vit dans docker/ (pas à la racine).
+          file: docker/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
