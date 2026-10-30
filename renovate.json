@@ -52,7 +52,7 @@
     {
       "customType": "regex",
       "description": "Aligne ARG PLAYWRIGHT_VERSION du Dockerfile runner avec la version npm courante",
-      "fileMatch": ["self-hosted/runner/Dockerfile"],
+      "managerFilePatterns": ["/self-hosted/runner/Dockerfile/"],
       "matchStrings": ["ARG PLAYWRIGHT_VERSION=(?<currentValue>\\S+)"],
       "depNameTemplate": "playwright",
       "datasourceTemplate": "npm"
