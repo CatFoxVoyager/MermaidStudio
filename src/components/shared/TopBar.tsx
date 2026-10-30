@@ -71,7 +71,10 @@ export function TopBar({
               <path d="M7 10v4M7 14h10M17 14v-4" />
             </svg>
           </div>
-          <h1 className="text-sm font-semibold tracking-tight flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
+          {/* HEAD-01 (phase 28): brand demoted from h1 to div — the app's
+              single h1 lives at the App root (sr-only), and the version-badge
+              About button must sit outside any heading. */}
+          <div data-testid="topbar-brand" className="text-sm font-semibold tracking-tight flex items-center gap-1" style={{ color: 'var(--text-primary)' }}>
             Mermaid<span style={{ color: 'var(--accent)' }}>Studio</span>{' '}
             {onOpenAbout ? (
               <button
@@ -86,7 +89,7 @@ export function TopBar({
             ) : (
               <span className="text-xs font-normal" style={{ color: 'var(--text-secondary)' }}>v{APP_VERSION}</span>
             )}
-          </h1>
+          </div>
         </div>
       </div>
 

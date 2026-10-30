@@ -170,9 +170,11 @@ export function Modal({
             />
           )}
           <div>
-            {/* h2, not h3: the app's only h1 is the topbar wordmark, so a
-                modal titled h3 skipped a heading level by construction
-                (detector `skipped-heading`, mobile critique iter-7). */}
+            {/* h2, not h3: the app outline is rooted by the sr-only app h1 at
+                the App root (App.tsx, HEAD-01 phase 28) — the topbar brands
+                are demoted divs — so a modal titled h3 skipped a heading
+                level by construction (detector `skipped-heading`, mobile
+                critique iter-7). */}
             <h2
               id="modal-title"
               className="text-base font-semibold"
