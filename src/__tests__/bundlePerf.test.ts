@@ -6,11 +6,11 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 /**
- * Bundle-performance fs gates (PERF-03 / PERF-04).
+ * Bundle-performance fs gates (PERF-01 / PERF-03 / PERF-04).
  *
  * These gates read the source bytes directly — the same bytes Vite ships —
- * so a regression in the boot-splash composition or the font delivery
- * fails the suite.
+ * so a regression in the boot-splash composition, the font delivery, or
+ * the boot chain's parser purity fails the suite.
  *
  * PERF-04 pins the 8s splash fade: the previously-dead
  * `@keyframes boot-splash-out` is applied on #boot-splash with an 8s delay,
@@ -135,4 +135,30 @@ describe('PERF-03 font consolidation', () => {
       'PERF-03: expected exactly 1 Google Fonts css2 URL in index.html — more means the head link multiplied, zero means no fonts ship statically at all',
     ).toBe(1);
   });
+});
+
+// PERF-01 parser purity (29-02): the boot chain's parser-only consumers of
+// detectDiagramType must import it from the core-free
+// src/lib/mermaid/diagramType.ts, never from '@/lib/mermaid/core' — a static
+// core import here keeps the mermaid runtime on the eager boot graph
+// (useTabs reaches themeDerivation at mount).
+const PARSER_ONLY_FILES = [
+  'src/constants/themeDerivation.ts',
+  'src/components/editor/StatusBar.tsx',
+  'src/components/sidebar/Sidebar.tsx',
+  'src/components/modals/diagram/SaveTemplateModal.tsx',
+  'src/components/modals/settings/AdvancedStylePanel.tsx',
+] as const;
+
+describe('PERF-01 parser purity', () => {
+  it.each(PARSER_ONLY_FILES)(
+    '%s carries zero core-module import specifiers',
+    (rel) => {
+      const src = readFileSync(resolve(__dirname, '../..', rel), 'utf8');
+      expect(
+        src,
+        `PERF-01: ${rel} statically imports '@/lib/mermaid/core' — parser-only consumers must import detectDiagramType from '@/lib/mermaid/diagramType' (the core-free module) or the mermaid runtime stays on the eager boot chain`,
+      ).not.toMatch(/from ['"]@\/lib\/mermaid\/core['"]/);
+    },
+  );
 });
