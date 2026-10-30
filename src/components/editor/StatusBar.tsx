@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { detectDiagramType } from '@/lib/mermaid/core';
+import { detectDiagramType } from '@/lib/mermaid/diagramType';
 
 function GitHubIcon({ size = 12 }: { size?: number }) {
   return (
