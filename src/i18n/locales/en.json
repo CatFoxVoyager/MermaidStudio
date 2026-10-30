@@ -30,7 +30,8 @@
     "toggleTheme": "Toggle theme",
     "changeLanguage": "Change language",
     "about": "About",
-    "releaseNotes": "Release Notes"
+    "releaseNotes": "Release Notes",
+    "appHeading": "MermaidStudio — Free Online Mermaid Diagram Editor"
   },
   "nav": {
     "files": "Files",
@@ -334,7 +335,8 @@
     "savedHoursAgo": "Saved {{count}}h ago",
     "editedAutosave": "Edited · autosaved",
     "editedAutosaveHint": "Ctrl+S saves a version (checkpoint)",
-    "openSource": "MermaidStudio is open source"
+    "openSource": "MermaidStudio is open source",
+    "privacy": "Privacy"
   },
   "sidebar": {
     "explorer": "Explorer",
@@ -667,7 +669,7 @@
     "intro": "A fast, fully client-side editor for Mermaid diagrams. Your diagrams, settings, and AI models stay in your browser — nothing is sent to a server.",
     "valueProp1": "In-browser AI — generate and fix diagrams with a local LLM running on your GPU. Your code never leaves your machine.",
     "valueProp2": "Visual editor — drag and drop nodes over the live preview, with folders, tags and version history.",
-    "valueProp3": "Free & private — open source (MIT), no account, no telemetry, works offline.",
+    "valueProp3": "Free & private — open source (MIT), no accounts, local-first, cookieless analytics, works offline.",
     "changelogLink": "What's new in v{{version}}?",
     "github": "View on GitHub",
     "githubCaption": "Open source — star the project and report issues"
@@ -680,7 +682,7 @@
   "about": {
     "title": "About MermaidStudio",
     "why": "MermaidStudio was born out of frustration with online diagram editors: drawing a diagram shouldn't require an account, a subscription, or sending your work to someone else's server.",
-    "how": "The app runs entirely in your browser — diagrams and settings stay on your device (local storage), and even the AI assistant runs locally via WebGPU. Free, open source, no tracking.",
+    "how": "The app runs entirely in your browser — diagrams and settings stay on your device (local storage), and even the AI assistant runs locally via WebGPU. Free, open source, with cookieless analytics only.",
     "releaseNotesButton": "What's new in this version",
     "github": "View on GitHub",
     "githubCaption": "Open source — star the project and report issues",

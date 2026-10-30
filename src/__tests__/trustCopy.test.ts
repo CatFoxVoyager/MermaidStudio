@@ -150,6 +150,81 @@ describe('public/privacy.html page contract (PRIV-01 static half)', () => {
   });
 });
 
+// PRIV-02 React-tier inputs (plan 28-02): the i18n catalogs are trust
+// surfaces too — absolute-telemetry claims in the app copy misstate what
+// actually runs (Vercel cookieless analytics ARE mounted), and the crawler
+// shell (index.html) must never regain the banned phrasing.
+const enCatalog = readFileSync(resolve(__dirname, '../../src/i18n/locales/en.json'), 'utf8');
+const frCatalog = readFileSync(resolve(__dirname, '../../src/i18n/locales/fr.json'), 'utf8');
+const indexHtml = readFileSync(resolve(__dirname, '../../index.html'), 'utf8');
+
+const BANNED_PHRASES = ['no telemetry', 'no tracking', 'sans télémétrie', 'sans suivi'] as const;
+
+describe('PRIV-02 honesty copy (i18n catalogs + served shell)', () => {
+  it('carries zero absolute-telemetry claims across en.json, fr.json and index.html', () => {
+    const sources = [
+      ['en.json', enCatalog],
+      ['fr.json', frCatalog],
+      ['index.html', indexHtml],
+    ] as const;
+    for (const phrase of BANNED_PHRASES) {
+      for (const [name, source] of sources) {
+        // split-count never returns null (String.match does at zero) — the
+        // same zero-normalized guarantee the ?? 0 form gives, without regex.
+        const count = source.split(phrase).length - 1;
+        expect(
+          count,
+          `PRIV-02: "${phrase}" appears ${count}x in ${name} — the site runs Vercel cookieless analytics, so absolute no-telemetry/no-tracking claims are falsified`,
+        ).toBe(0);
+      }
+    }
+  });
+
+  it('adds header.appHeading and status.privacy as non-empty strings in BOTH catalogs', () => {
+    const catalogs = [
+      ['en', JSON.parse(enCatalog) as { header?: Record<string, unknown>; status?: Record<string, unknown> }],
+      ['fr', JSON.parse(frCatalog) as { header?: Record<string, unknown>; status?: Record<string, unknown> }],
+    ] as const;
+    for (const [name, cat] of catalogs) {
+      const appHeading = cat.header?.appHeading;
+      const privacy = cat.status?.privacy;
+      expect(
+        typeof appHeading === 'string' && appHeading.length > 0,
+        `PRIV-02/HEAD-01: header.appHeading must exist as a non-empty string in ${name}.json (the sr-only app h1 binds it)`,
+      ).toBe(true);
+      expect(
+        typeof privacy === 'string' && privacy.length > 0,
+        `PRIV-03: status.privacy must exist as a non-empty string in ${name}.json (the footer + About privacy links bind it)`,
+      ).toBe(true);
+    }
+  });
+
+  it('carries the exact UI-SPEC replacement strings verbatim in both languages', () => {
+    const en = JSON.parse(enCatalog) as Record<string, Record<string, string>>;
+    const fr = JSON.parse(frCatalog) as Record<string, Record<string, string>>;
+    expect(
+      en.welcome.valueProp3,
+      'PRIV-02: en.welcome.valueProp3 must carry the approved cookieless-analytics wording',
+    ).toBe('Free & private — open source (MIT), no accounts, local-first, cookieless analytics, works offline.');
+    expect(
+      fr.welcome.valueProp3,
+      'PRIV-02: fr.welcome.valueProp3 must carry the approved cookieless-analytics wording',
+    ).toBe('Gratuit & privé — open source (MIT), sans compte, local-first, analytique sans cookies, fonctionne hors ligne.');
+    expect(
+      en.about.how,
+      'PRIV-02: en.about.how must carry the approved cookieless-analytics wording',
+    ).toBe('The app runs entirely in your browser — diagrams and settings stay on your device (local storage), and even the AI assistant runs locally via WebGPU. Free, open source, with cookieless analytics only.');
+    expect(
+      fr.about.how,
+      'PRIV-02: fr.about.how must carry the approved cookieless-analytics wording',
+    ).toBe('L\'application fonctionne entièrement dans votre navigateur — diagrammes et réglages restent sur votre appareil (stockage local), et même l\'assistant IA y tourne en local via WebGPU. Gratuit, open source, analytique sans cookies uniquement.');
+    expect(en.header.appHeading).toBe('MermaidStudio — Free Online Mermaid Diagram Editor');
+    expect(fr.header.appHeading).toBe('MermaidStudio — Éditeur de diagrammes Mermaid en ligne gratuit');
+    expect(en.status.privacy).toBe('Privacy');
+    expect(fr.status.privacy).toBe('Confidentialité');
+  });
+});
+
 describe('vercel.json routing config', () => {
   const config = JSON.parse(
     readFileSync(resolve(__dirname, '../../vercel.json'), 'utf8'),

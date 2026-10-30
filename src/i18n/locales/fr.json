@@ -30,7 +30,8 @@
     "toggleTheme": "Changer le thème",
     "changeLanguage": "Changer de langue",
     "about": "À propos",
-    "releaseNotes": "Notes de version"
+    "releaseNotes": "Notes de version",
+    "appHeading": "MermaidStudio — Éditeur de diagrammes Mermaid en ligne gratuit"
   },
   "nav": {
     "files": "Fichiers",
@@ -337,7 +338,8 @@
     "savedHoursAgo": "Enregistré il y a {{count}} h",
     "editedAutosave": "Modifié · enregistré auto",
     "editedAutosaveHint": "Ctrl+S enregistre une version (checkpoint)",
-    "openSource": "MermaidStudio est open source"
+    "openSource": "MermaidStudio est open source",
+    "privacy": "Confidentialité"
   },
   "sidebar": {
     "explorer": "Explorateur",
@@ -669,7 +671,7 @@
     "intro": "Un éditeur de diagrammes Mermaid rapide et entièrement côté client. Vos diagrammes, paramètres et modèles d'IA restent dans votre navigateur — rien n'est envoyé vers un serveur.",
     "valueProp1": "IA dans le navigateur — générez et corrigez vos diagrammes avec un LLM local qui tourne sur votre GPU. Votre code ne quitte jamais votre machine.",
     "valueProp2": "Éditeur visuel — glissez-déposez les nœuds sur l'aperçu live, avec dossiers, tags et historique de versions.",
-    "valueProp3": "Gratuit & privé — open source (MIT), sans compte, sans télémétrie, fonctionne hors ligne.",
+    "valueProp3": "Gratuit & privé — open source (MIT), sans compte, local-first, analytique sans cookies, fonctionne hors ligne.",
     "changelogLink": "Nouveautés de la v{{version}}",
     "github": "Voir sur GitHub",
     "githubCaption": "Open source — mettez une étoile au projet et signalez les problèmes"
@@ -682,7 +684,7 @@
   "about": {
     "title": "À propos de MermaidStudio",
     "why": "MermaidStudio est né de la frustration des éditeurs de diagrammes en ligne : dessiner un schéma ne devrait exiger ni compte, ni abonnement, ni envoyer son travail sur le serveur de quelqu'un d'autre.",
-    "how": "L'application fonctionne entièrement dans votre navigateur — diagrammes et réglages restent sur votre appareil (stockage local), et même l'assistant IA y tourne en local via WebGPU. Gratuit, open source, sans suivi.",
+    "how": "L'application fonctionne entièrement dans votre navigateur — diagrammes et réglages restent sur votre appareil (stockage local), et même l'assistant IA y tourne en local via WebGPU. Gratuit, open source, analytique sans cookies uniquement.",
     "releaseNotesButton": "Nouveautés de cette version",
     "github": "Voir sur GitHub",
     "githubCaption": "Open source — mettez une étoile au projet et signalez les problèmes",
