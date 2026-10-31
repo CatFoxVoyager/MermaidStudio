@@ -278,6 +278,12 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     needs: [build]
     if: github.ref == 'refs/heads/main'
+    # Première publication d'un package GHCR : le défaut du GITHUB_TOKEN est
+    # packages:read — sans packages:write le push est refusé ("installation
+    # not allowed to Create organization package").
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
