@@ -51,9 +51,17 @@ export function useTheme() {
     // stays tolerant. Same specifier as every other consumer, so core.ts's
     // theme singletons remain one shared instance.
     let cancelled = false;
+    // A rejected chunk fetch must not surface as an unhandled rejection
+    // (IN-01): log it and accept the by-design recovery — the splash's 12s
+    // swap only covers pre-mount failures (it is detached once React
+    // mounts), and renderDiagram re-runs doInit per call, so the next
+    // render attempt re-initializes once the chunk eventually loads.
     import('@/lib/mermaid/core').then(({ initMermaid }) => {
       if (!cancelled) initMermaid(theme, undefined, appTheme);
-    });
+    })
+      .catch((err: unknown) => {
+        if (!cancelled) log.error('mermaid core chunk failed to load', err);
+      });
 
     updateSettings({ theme });
     return () => {
@@ -69,7 +77,11 @@ export function useTheme() {
     // init per call, making the async set order-tolerant.
     import('@/lib/mermaid/core').then(({ setDefaultTheme: setCoreDefaultTheme }) => {
       setCoreDefaultTheme(theme);
-    });
+    })
+      // IN-01: same no-unhandled-rejection contract as the boot site (this
+      // path has no cancellation flag — it is an event handler, not an
+      // effect, and the next render attempt re-inits via doInit).
+      .catch((err: unknown) => log.error('mermaid core chunk failed to load', err));
     // Use storage abstraction - handles errors automatically
     if (theme) {
       storage.setItem(DEFAULT_THEME_KEY, theme.id);
