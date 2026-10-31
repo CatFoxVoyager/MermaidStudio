@@ -158,7 +158,12 @@ const enCatalog = readFileSync(resolve(__dirname, '../../src/i18n/locales/en.jso
 const frCatalog = readFileSync(resolve(__dirname, '../../src/i18n/locales/fr.json'), 'utf8');
 const indexHtml = readFileSync(resolve(__dirname, '../../index.html'), 'utf8');
 
-const BANNED_PHRASES = ['no telemetry', 'no tracking', 'sans télémétrie', 'sans suivi', 'nothing is sent', "rien n'est envoyé"] as const;
+const BANNED_PHRASES = ['no telemetry', 'no tracking', 'sans télémétrie', 'sans suivi', 'nothing is sent', "rien n'est envoyé", 'no server', 'everything stays on your device'] as const;
+// WR-02 (fix round 2026-10-31): the two added literals close the shell's
+// absolute no-server/everything-stays denials — index.html discloses Vercel
+// cookieless analytics in its Privacy section, so those absolutes are
+// falsified on the same page. The census covers the claim class, not the
+// surfaces the review happened to quote.
 // The two added literals close the WR-01 blind spot: welcome.intro carried the
 // same absolute-denial claim class the first four banned strings missed, so
 // the census must cover the class, not the instances it happened to list.
