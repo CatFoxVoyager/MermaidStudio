@@ -134,15 +134,48 @@ export default defineConfig({
               name: 'mermaid-parser',
               test: (id: string) => id.includes('node_modules') && id.includes('@mermaid-js/parser'),
             },
+            // App-shared runtime libs (29-03): dayjs + khroma are imported by
+            // BOTH the eager entry (diagram cards, color derivation) and
+            // mermaid. Rolldown's advancedChunks recursively pulls a captured
+            // module's dependencies into the SAME group chunk by default —
+            // without an earlier claim, mermaid-core drags these into its own
+            // chunk file and the eager entry ends up statically importing
+            // mermaid-core for them, modulepreloading all of mermaid again.
+            // Groups are processed in array order at equal priority: these
+            // groups claim the shared libs BEFORE mermaid-core runs. (The
+            // dompurify group moved up for the same reason — the app's
+            // sanitizer imports DOMPurify eagerly.)
+            {
+              name: 'shared-libs',
+              test: (id: string) =>
+                id.includes('node_modules') && (id.includes('dayjs') || id.includes('khroma')),
+            },
+            {
+              name: 'dompurify',
+              test: (id: string) => id.includes('node_modules') && id.includes('dompurify'),
+            },
             // Mermaid core. Deliberately NOT matching mermaid's internal ELK
             // async chunk (dist/chunks/*/elk-*.mjs) nor elkjs: they must fall
             // through to automatic chunking so mermaid's own dynamic-import
             // boundary (lazy elk-*.js chunks) survives.
+            // The 'mermaid' test is a PATH-SEGMENT match, not a substring:
+            // the project root itself ends in "mermaidstudio" (and CI checks
+            // out to .../work/mermaidstudio/mermaidstudio), so a bare
+            // `id.includes('mermaid')` swept EVERY non-named-group package
+            // (khroma, lucide-react, react-markdown, cytoscape, ...) into
+            // this chunk — invisible while the entry eagerly imported
+            // mermaid (through 29-02), fatal once 29-03 severed the last
+            // static edge: the entry then imported mermaid-core for its
+            // stolen lucide icons, modulepreloading all of mermaid again.
+            // Mermaid's OWN deps (cytoscape, d3, katex, marked, ...) stay in
+            // this chunk via the recursive capture — they are mermaid-only,
+            // so keeping them here keeps them lazy and out of the eager
+            // vendor catch-all.
             {
               name: 'mermaid-core',
               test: (id: string) =>
                 id.includes('node_modules') &&
-                id.includes('mermaid') &&
+                /[\\/]mermaid[\\/]/.test(id) &&
                 !/mermaid[/\\]dist[/\\]chunks[/\\].*elk-.+\.mjs(\?|$)/.test(id) &&
                 !id.includes('elkjs'),
             },
@@ -166,7 +199,6 @@ export default defineConfig({
             // Other major libraries
             { name: 'lucide', test: (id: string) => id.includes('node_modules') && id.includes('lucide-react') },
             { name: 'i18n', test: (id: string) => id.includes('node_modules') && id.includes('i18next') },
-            { name: 'dompurify', test: (id: string) => id.includes('node_modules') && id.includes('dompurify') },
             {
               name: 'chart-libs',
               test: (id: string) => id.includes('node_modules') && (id.includes('d3-') || id.includes('dagre')),
@@ -179,11 +211,18 @@ export default defineConfig({
             // mermaid's elk-*.mjs above): under manualChunks these returned
             // undefined to stay out of every manual chunk, and letting the
             // catch-all swallow elkjs would inline ~1.6 MB of ELK into this
-            // eager chunk (caught by scripts/check-elk-chunk.mjs).
+            // eager chunk (caught by scripts/check-elk-chunk.mjs). Same for
+            // katex (29-03): mermaid-only and dynamically imported by it —
+            // once the shared-libs claims freed this catch-all from the app's
+            // eager deps, katex (~375 kB) would otherwise ride the eagerly
+            // imported vendor file into first paint unused.
             {
               name: 'vendor',
               test: (id: string) =>
-                id.includes('node_modules') && !id.includes('elkjs') && !/elk-.+\.mjs(\?|$)/.test(id),
+                id.includes('node_modules') &&
+                !id.includes('elkjs') &&
+                !id.includes('katex') &&
+                !/elk-.+\.mjs(\?|$)/.test(id),
             },
           ],
         },

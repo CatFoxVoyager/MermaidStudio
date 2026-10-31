@@ -3,11 +3,11 @@ import { EditorView, basicSetup } from 'codemirror';
 import { Decoration, keymap, type DecorationSet } from '@codemirror/view';
 import { EditorState, StateEffect, StateField } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
-import { defaultKeymap, indentWithTab, redo } from '@codemirror/commands';
+import { undo, defaultKeymap, indentWithTab, redo } from '@codemirror/commands';
 import { bracketMatching } from '@codemirror/language';
 import { mermaidLanguage } from '@/lib/mermaid/language';
 import { mermaidAutocomplete } from '@/lib/mermaid/autocomplete';
-import { registerCodeViewAccessor, unregisterCodeViewAccessor } from '@/lib/editor/codeViewRegistry';
+import { registerCodeViewAccessor, unregisterCodeViewAccessor, registerHistoryCommands, unregisterHistoryCommands } from '@/lib/editor/codeViewRegistry';
 
 interface Props {
   value: string;
@@ -148,6 +148,13 @@ export const CodeEditor = forwardRef<CodeEditorRef, Props>(function CodeEditor({
     // PREVIOUS editor (layout switch) must not clear OUR registration.
     const viewAccessor = () => viewRef.current;
     registerCodeViewAccessor(viewAccessor);
+    // 29-03: register the CM6 history command pair so historyActions
+    // (imported eagerly by both toolbars) can dispatch undo/redo without an
+    // eager @codemirror/commands edge. Same ownership pattern as the view
+    // accessor: registered inside the chunk that owns the commands, torn
+    // down with this instance's pair.
+    const historyCmds = { undo, redo };
+    registerHistoryCommands(historyCmds);
     // Store EditorView instance on DOM element for E2E test access
     const dom = containerRef.current.querySelector('.cm-editor');
     if (dom) {
@@ -156,6 +163,7 @@ export const CodeEditor = forwardRef<CodeEditorRef, Props>(function CodeEditor({
 
     return () => {
       unregisterCodeViewAccessor(viewAccessor);
+      unregisterHistoryCommands(historyCmds);
       view.destroy();
       viewRef.current = null;
     };

@@ -51,3 +51,34 @@ export function unregisterCodePaneActivator(): void {
 export function activateCodePane(): void {
   paneActivator?.();
 }
+
+/**
+ * 29-03: the undo/redo CM6 command slot. historyActions (eagerly imported by
+ * both toolbars) must not value-import @codemirror/commands — that was the
+ * last eager CodeMirror edge into the entry chunk. CodeEditor (inside the
+ * lazy chunk, the same trust domain as the view accessor) registers the
+ * command pair on mount and clears it on the same teardown path. With no
+ * registration the dispatch returns false — the same inert-tap contract as
+ * the no-view path (T-29-09). The CM import above stays type-only (erased):
+ * the command shape is the CM6 Command signature, spelled inline.
+ */
+type HistoryCommand = (view: EditorView) => boolean;
+type HistoryCommands = { undo: HistoryCommand; redo: HistoryCommand };
+let historyCommands: HistoryCommands | null = null;
+
+export function registerHistoryCommands(cmds: HistoryCommands): void {
+  historyCommands = cmds;
+}
+
+/** Ownership-checked teardown — same rationale as unregisterCodeViewAccessor:
+ *  a late teardown of a PREVIOUS editor must not clear the live host's
+ *  registration (omitting the argument keeps the legacy unconditional clear). */
+export function unregisterHistoryCommands(cmds?: HistoryCommands): void {
+  if (!cmds || historyCommands === cmds) {
+    historyCommands = null;
+  }
+}
+
+export function getHistoryCommands(): HistoryCommands | null {
+  return historyCommands;
+}

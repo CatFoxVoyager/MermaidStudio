@@ -8,8 +8,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { EditorView, basicSetup } from 'codemirror';
 import { EditorState } from '@codemirror/state';
+import { undo, redo } from '@codemirror/commands';
 import { redoInView, undoInView } from '../historyActions';
-import { registerCodeViewAccessor, unregisterCodeViewAccessor } from '../codeViewRegistry';
+import {
+  registerCodeViewAccessor,
+  unregisterCodeViewAccessor,
+  registerHistoryCommands,
+  unregisterHistoryCommands,
+} from '../codeViewRegistry';
 
 describe('historyActions', () => {
   let parent: HTMLDivElement;
@@ -23,16 +29,27 @@ describe('historyActions', () => {
       parent,
     });
     registerCodeViewAccessor(() => view);
+    // 29-03: production registers the CM6 commands from inside CodeEditor;
+    // tests may touch CM directly — register the REAL pair so the pinned
+    // sync-boolean assertions below exercise the actual commands.
+    registerHistoryCommands({ undo, redo });
   });
 
   afterEach(() => {
     unregisterCodeViewAccessor();
+    unregisterHistoryCommands();
     view.destroy();
     parent.remove();
   });
 
   it('returns false when no view is registered', () => {
     unregisterCodeViewAccessor();
+    expect(undoInView()).toBe(false);
+    expect(redoInView()).toBe(false);
+  });
+
+  it('returns false when no commands are registered (inert-tap contract, 29-03)', () => {
+    unregisterHistoryCommands();
     expect(undoInView()).toBe(false);
     expect(redoInView()).toBe(false);
   });
