@@ -208,6 +208,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          # Full history: the version-tag guard below reads the tag universe,
+          # and default depth-1 clones carry no tags.
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -265,6 +269,12 @@ jobs:
       # deploy can run.
       - name: Verify CDN embed constants
         run: pnpm run check:cdn-embed
+
+      # Post-build guard (REL-03): under the release-please flow package.json
+      # and the latest tag only diverge via a manual bump, a deleted tag, or
+      # a failed tagging run — red build instead of a silent version lie.
+      - name: Verify package.json matches latest v* tag
+        run: pnpm run check:version-tag
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
