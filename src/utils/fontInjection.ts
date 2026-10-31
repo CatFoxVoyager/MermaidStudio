@@ -37,6 +37,12 @@ export function ensureGoogleFont(font: GoogleFont): void {
   link.rel = 'stylesheet';
   link.href = font.url;
   link.crossOrigin = 'anonymous';
+  // A failed fetch (offline boot, captive portal, Google 5xx) must leave no
+  // element behind: the id dedup above would otherwise early-return on the
+  // dead link for the rest of the session, and the documented retry-on-next-
+  // call would never fire (WR-01). In-flight/succeeded loads keep the link,
+  // so idempotency is unchanged.
+  link.addEventListener('error', () => link.remove(), { once: true });
   document.head.appendChild(link);
 }
 

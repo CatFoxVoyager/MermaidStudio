@@ -47,6 +47,22 @@ describe('fontInjection (PERF-03 gated font loading)', () => {
     expect(links[0].crossOrigin).toBe('anonymous');
   });
 
+  it('removes the link when the stylesheet fails to load, so the next call retries', () => {
+    ensureGoogleFont(TEST_FONT);
+    expect(injectedLinks()).toHaveLength(1);
+    // A failed stylesheet fetch (offline boot, captive portal, Google 5xx)
+    // fires `error` on the link element. WR-01: the failed link must leave
+    // no element in head — otherwise the `font-<slug>` id dedup early-returns
+    // on the dead link for the rest of the session.
+    injectedLinks()[0].dispatchEvent(new Event('error'));
+    expect(injectedLinks()).toHaveLength(0);
+    // The next call (App boot effect re-run on theme change, font-picker
+    // change) must actually retry: re-create the link with the same url.
+    ensureGoogleFont(TEST_FONT);
+    expect(injectedLinks()).toHaveLength(1);
+    expect(injectedLinks()[0].href).toBe(TEST_FONT.url);
+  });
+
   it('is idempotent under repeat and same-tick double calls (id dedup, no cache)', () => {
     ensureGoogleFontsForFamily(TEST_FONT.family);
     ensureGoogleFontsForFamily(TEST_FONT.family);
