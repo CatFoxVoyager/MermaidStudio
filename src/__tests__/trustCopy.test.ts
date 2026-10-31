@@ -158,7 +158,10 @@ const enCatalog = readFileSync(resolve(__dirname, '../../src/i18n/locales/en.jso
 const frCatalog = readFileSync(resolve(__dirname, '../../src/i18n/locales/fr.json'), 'utf8');
 const indexHtml = readFileSync(resolve(__dirname, '../../index.html'), 'utf8');
 
-const BANNED_PHRASES = ['no telemetry', 'no tracking', 'sans télémétrie', 'sans suivi'] as const;
+const BANNED_PHRASES = ['no telemetry', 'no tracking', 'sans télémétrie', 'sans suivi', 'nothing is sent', "rien n'est envoyé"] as const;
+// The two added literals close the WR-01 blind spot: welcome.intro carried the
+// same absolute-denial claim class the first four banned strings missed, so
+// the census must cover the class, not the instances it happened to list.
 
 describe('PRIV-02 honesty copy (i18n catalogs + served shell)', () => {
   it('carries zero absolute-telemetry claims across en.json, fr.json and index.html', () => {
@@ -218,6 +221,14 @@ describe('PRIV-02 honesty copy (i18n catalogs + served shell)', () => {
       fr.about.how,
       'PRIV-02: fr.about.how must carry the approved cookieless-analytics wording',
     ).toBe('L\'application fonctionne entièrement dans votre navigateur — diagrammes et réglages restent sur votre appareil (stockage local), et même l\'assistant IA y tourne en local via WebGPU. Gratuit, open source, analytique sans cookies uniquement.');
+    expect(
+      en.welcome.intro,
+      'PRIV-02/WR-01: en.welcome.intro must carry the approved cookieless-analytics wording (absolute-denial claim removed)',
+    ).toBe('A fast, fully client-side editor for Mermaid diagrams. Your diagrams, settings, and AI models stay in your browser — free, open source, with cookieless analytics only.');
+    expect(
+      fr.welcome.intro,
+      'PRIV-02/WR-01: fr.welcome.intro must carry the approved cookieless-analytics wording (absolute-denial claim removed)',
+    ).toBe('Un éditeur de diagrammes Mermaid rapide et entièrement côté client. Vos diagrammes, paramètres et modèles d\'IA restent dans votre navigateur — gratuit, open source, avec une analytique sans cookies uniquement.');
     expect(en.header.appHeading).toBe('MermaidStudio — Free Online Mermaid Diagram Editor');
     expect(fr.header.appHeading).toBe('MermaidStudio — Éditeur de diagrammes Mermaid en ligne gratuit');
     expect(en.status.privacy).toBe('Privacy');

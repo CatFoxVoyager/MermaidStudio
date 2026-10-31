@@ -669,7 +669,7 @@
   },
   "welcome": {
     "title": "Bienvenue sur MermaidStudio",
-    "intro": "Un éditeur de diagrammes Mermaid rapide et entièrement côté client. Vos diagrammes, paramètres et modèles d'IA restent dans votre navigateur — rien n'est envoyé vers un serveur.",
+    "intro": "Un éditeur de diagrammes Mermaid rapide et entièrement côté client. Vos diagrammes, paramètres et modèles d'IA restent dans votre navigateur — gratuit, open source, avec une analytique sans cookies uniquement.",
     "valueProp1": "IA dans le navigateur — générez et corrigez vos diagrammes avec un LLM local qui tourne sur votre GPU. Votre code ne quitte jamais votre machine.",
     "valueProp2": "Éditeur visuel — glissez-déposez les nœuds sur l'aperçu live, avec dossiers, tags et historique de versions.",
     "valueProp3": "Gratuit & privé — open source (MIT), sans compte, local-first, analytique sans cookies, fonctionne hors ligne.",
