@@ -78,10 +78,12 @@ describe('MobileWorkspace', () => {
       expect(screen.getByTestId('mobile-workspace-tab-visual')).toBeInTheDocument();
     });
 
-    it('renders both panes in DOM (keep-alive invariant)', () => {
+    it('renders both panes in DOM (keep-alive invariant)', async () => {
       render(<MobileWorkspace {...defaultProps} />);
-      expect(screen.getByTestId('code-editor')).toBeInTheDocument();
-      expect(screen.getByTestId('preview-panel')).toBeInTheDocument();
+      // Lazy boundaries (29-03): the mocked modules arrive through dynamic
+      // imports — await their arrival.
+      expect(await screen.findByTestId('code-editor')).toBeInTheDocument();
+      expect(await screen.findByTestId('preview-panel')).toBeInTheDocument();
     });
 
     it('shows Files as the active destination by default', () => {
@@ -122,9 +124,9 @@ describe('MobileWorkspace', () => {
       expect(screen.getByTestId('mobile-files-screen')).toHaveClass('hidden');
     });
 
-    it('hides preview pane initially but keeps it mounted (keep-alive)', () => {
+    it('hides preview pane initially but keeps it mounted (keep-alive)', async () => {
       render(<MobileWorkspace {...defaultProps} />);
-      const previewPane = screen.getByTestId('preview-panel');
+      const previewPane = await screen.findByTestId('preview-panel');
 
       // Preview pane should be in DOM but its container should be hidden
       expect(previewPane).toBeInTheDocument();
@@ -158,25 +160,26 @@ describe('MobileWorkspace', () => {
       expect(previewTab).toHaveAttribute('aria-selected', 'false');
     });
 
-    it('maintains both panes mounted during toggle (keep-alive invariant)', () => {
+    it('maintains both panes mounted during toggle (keep-alive invariant)', async () => {
       render(<MobileWorkspace {...defaultProps} />);
       const previewTab = screen.getByTestId('mobile-workspace-tab-visual');
 
       // Switch to preview
       fireEvent.click(previewTab);
 
-      // Both panes should still be in DOM
-      expect(screen.getByTestId('code-editor')).toBeInTheDocument();
-      expect(screen.getByTestId('preview-panel')).toBeInTheDocument();
+      // Both panes should still be in DOM (lazy chunks resolved)
+      expect(await screen.findByTestId('code-editor')).toBeInTheDocument();
+      expect(await screen.findByTestId('preview-panel')).toBeInTheDocument();
     });
   });
 
   describe('scroll preservation', () => {
-    it('preserves scroll position when toggling between panes', () => {
+    it('preserves scroll position when toggling between panes', async () => {
       render(<MobileWorkspace {...defaultProps} />);
 
-      // Get the code container (the div with overflow-auto)
-      const codeContainer = screen.getByTestId('code-editor').closest('div.overflow-auto');
+      // Get the code container (the div with overflow-auto) — awaited through
+      // the lazy boundary (29-03)
+      const codeContainer = (await screen.findByTestId('code-editor')).closest('div.overflow-auto');
       if (!codeContainer) throw new Error('Code container not found');
 
       // Set initial scroll position
@@ -202,20 +205,20 @@ describe('MobileWorkspace', () => {
   });
 
   describe('live preview wiring', () => {
-    it('passes value changes to CodeEditor', () => {
+    it('passes value changes to CodeEditor', async () => {
       const handleChange = vi.fn();
       render(<MobileWorkspace {...defaultProps} onChange={handleChange} />);
 
-      const codeInput = screen.getByLabelText('Code editor input');
+      const codeInput = await screen.findByLabelText('Code editor input');
       fireEvent.change(codeInput, { target: { value: 'new code' } });
 
       expect(handleChange).toHaveBeenCalledWith('new code');
     });
 
-    it('passes same value to PreviewPanel for live preview', () => {
+    it('passes same value to PreviewPanel for live preview', async () => {
       render(<MobileWorkspace {...defaultProps} />);
 
-      const previewPane = screen.getByTestId('preview-panel');
+      const previewPane = await screen.findByTestId('preview-panel');
       expect(previewPane).toHaveAttribute('data-content', 'graph TD\nA[Start] --> B[End]');
     });
   });

@@ -1,14 +1,24 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown } from 'lucide-react';
-import { CodeEditor } from '@/components/editor/CodeEditor';
 import type { CodeEditorRef } from '@/components/editor/CodeEditor';
 import { registerCodePaneActivator, unregisterCodePaneActivator } from '@/lib/editor/codeViewRegistry';
-import { ExtraKeysRow } from '@/components/editor/ExtraKeysRow';
-import { PreviewPanel } from '@/components/preview/PreviewPanel';
 import { Sidebar } from '@/components/sidebar/Sidebar';
+import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
+import { LoadSkeleton } from '@/components/shared/LoadSkeleton';
+import { ChunkErrorFallback } from '@/components/shared/ChunkErrorFallback';
+import { idlePrefetch } from '@/utils/idlePrefetch';
 import { storage } from '@/utils/logger';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
+
+// Lazy boundaries (29-03, PERF-01/02): mirror of WorkspacePanel — the mobile
+// media-query chain must not re-eager what the desktop layout de-eagers
+// (Pitfall 1). Sidebar stays static (core-free since plan 02); the editor
+// trio carries the mermaid + CodeMirror runtime. The idle prefetch below
+// dynamic-imports the SAME specifiers (one module instance per chunk).
+const LazyCodeEditor = lazy(() => import('@/components/editor/CodeEditor').then(m => ({ default: m.CodeEditor })));
+const LazyExtraKeysRow = lazy(() => import('@/components/editor/ExtraKeysRow').then(m => ({ default: m.ExtraKeysRow })));
+const LazyPreviewPanel = lazy(() => import('@/components/preview/PreviewPanel').then(m => ({ default: m.PreviewPanel })));
 
 /**
  * D-4 (36.1.1): persisted collapsed state of the mobile code-pane chrome.
@@ -188,6 +198,17 @@ export function MobileWorkspace({
     onActiveViewChange?.(activeView);
   }, [activeView, onActiveViewChange]);
 
+  // Idle prefetch (29-03): warm the mobile editor trio post-first-paint —
+  // same invisible contract as the desktop panel (renders nothing,
+  // rejections swallowed).
+  useEffect(() => {
+    idlePrefetch([
+      () => import('@/components/editor/CodeEditor'),
+      () => import('@/components/editor/ExtraKeysRow'),
+      () => import('@/components/preview/PreviewPanel'),
+    ]);
+  }, []);
+
   return (
     <div data-testid="mobile-workspace" className="flex flex-col h-full bg-[var(--surface-raised)]">
       {/* Segmented toggle — tablist semantics (iter-14 P2: three unrelated
@@ -286,13 +307,17 @@ export function MobileWorkspace({
               h-full: the wrapper owns the flex sizing. */}
           <div className="relative flex-1 min-h-0">
             <div ref={codeContainerRef} className="h-full overflow-auto">
-              <CodeEditor
-                ref={codeEditorRef}
-                value={value}
-                onChange={onChange}
-                theme={theme}
-                onSave={onSave}
-              />
+              <ErrorBoundary fallback={<ChunkErrorFallback />}>
+                <Suspense fallback={<LoadSkeleton />}>
+                  <LazyCodeEditor
+                    ref={codeEditorRef}
+                    value={value}
+                    onChange={onChange}
+                    theme={theme}
+                    onSave={onSave}
+                  />
+                </Suspense>
+              </ErrorBoundary>
             </div>
             {/* D-4 history: the floating undo/redo pill was removed at the
                 2026-09-25 device walk (commit d1a62c2) and undo/redo went
@@ -350,7 +375,11 @@ export function MobileWorkspace({
               data-testid="code-chrome-collapsible"
               className={chromeCollapsed ? 'hidden' : ''}
             >
-              <ExtraKeysRow getView={() => codeEditorRef.current?.getView() ?? null} />
+              <ErrorBoundary fallback={<ChunkErrorFallback />}>
+                <Suspense fallback={<LoadSkeleton />}>
+                  <LazyExtraKeysRow getView={() => codeEditorRef.current?.getView() ?? null} />
+                </Suspense>
+              </ErrorBoundary>
             </div>
           </div>
         </div>
@@ -366,7 +395,11 @@ export function MobileWorkspace({
             activePane === 'preview' ? '' : 'hidden'
           }`}
         >
-          <PreviewPanel content={value} theme={theme} themeId={themeId} onError={onPreviewError} onChange={onChange} onOpenCode={() => switchPane('code')} />
+          <ErrorBoundary fallback={<ChunkErrorFallback />}>
+            <Suspense fallback={<LoadSkeleton />}>
+              <LazyPreviewPanel content={value} theme={theme} themeId={themeId} onError={onPreviewError} onChange={onChange} onOpenCode={() => switchPane('code')} />
+            </Suspense>
+          </ErrorBoundary>
         </div>
       </div>
     </div>
