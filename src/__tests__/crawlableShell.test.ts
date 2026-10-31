@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 // Bare 'fs'/'path' + __dirname: the repo's ambient node shims
 // (src/types/node-builtin-shims.d.ts) declare exactly these — the same
 // convention as buildTarget.test.ts / cdnEmbed.test.ts.
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { resolve } from 'path';
 
 /**
@@ -191,5 +191,143 @@ describe('no-server claim class tightened in served copy (WR-02 fix round)', () 
       html,
       'WR-02: the JSON-LD description must scope the privacy claim to diagrams and disclose cookieless analytics',
     ).toContain('No account — your diagrams stay on your device; analytics are cookieless.');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Machine-readable head surfaces (META-01/02/05, plan 30-02).
+//
+// Crawlers, card unfurlers and LLM agents read the raw head bytes: the
+// JSON-LD block must carry the screenshot pair and the author identity
+// profiles, the og:image metas must describe the composed 1200x630 card,
+// the meta description must stay inside the 155-char bound, and the ballast
+// metas (keywords / author) must stay gone. Rare literals are derived at
+// runtime from surfaces this block does not edit (the canonical link, the
+// JSON-LD's own keys, the public/ listing) - the token-immune design of the
+// 30-01 metadata suite.
+// ---------------------------------------------------------------------------
+function jsonLd(): Record<string, unknown> {
+  const m = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
+  expect(
+    m,
+    'META-01: the application/ld+json block is missing from index.html',
+  ).not.toBeNull();
+  return JSON.parse(m![1]) as Record<string, unknown>;
+}
+
+function metaContent(attr: string, name: string): string | undefined {
+  return html.match(new RegExp('<meta ' + attr + '="' + name + '" content="([^"]*)"'))?.[1];
+}
+
+const SITE_ORIGIN = (() => {
+  const m = html.match(/rel="canonical" href="(https:\/\/[^/]+)\//);
+  expect(m, 'META-01: the canonical link is missing from index.html').not.toBeNull();
+  return m![1];
+})();
+
+const SCREENSHOT_FILES = readdirSync(resolve(__dirname, '../../public'))
+  .filter((f: string) => /^screenshot-.*\.png$/.test(f))
+  .sort();
+
+describe('machine-readable head surfaces - META-01/02/05', () => {
+  it('extracts the JSON-LD block and JSON.parses it clean (structured-data validity)', () => {
+    jsonLd();
+  });
+
+  it('JSON-LD screenshot is an array of exactly the two stable screenshot URLs (META-01)', () => {
+    const shots = jsonLd().screenshot;
+    expect(
+      Array.isArray(shots),
+      'META-01: screenshot must be its own array key with exactly 2 URLs (adjacent to image, never merged into it)',
+    ).toBe(true);
+    expect(
+      SCREENSHOT_FILES,
+      'META-01: public/ must hold exactly the two screenshot assets the JSON-LD points at',
+    ).toEqual(['screenshot-narrow.png', 'screenshot-wide.png']);
+    expect(shots as string[]).toEqual([
+      SITE_ORIGIN + '/screenshot-wide.png',
+      SITE_ORIGIN + '/screenshot-narrow.png',
+    ]);
+  });
+
+  it('JSON-LD author.sameAs carries the GitHub profile and the LinkedIn URL (META-01)', () => {
+    const sameAs = (jsonLd().author as { sameAs?: string[] }).sameAs;
+    expect(
+      Array.isArray(sameAs) && sameAs!.length === 2,
+      'META-01: author.sameAs must be a 2-entry array (GitHub profile + LinkedIn)',
+    ).toBe(true);
+    const profile = (jsonLd().codeRepository as string)
+      .split('/')
+      .slice(0, 4)
+      .join('/');
+    expect(sameAs, 'META-01: author.sameAs must carry the GitHub profile URL').toContain(profile);
+    expect(
+      sameAs,
+      'META-01: author.sameAs must carry the LinkedIn URL byte-for-byte from the current sameAs array',
+    ).toContain('https://www.linkedin.com/in/jeremiedufault/');
+  });
+
+  it('app-level sameAs trims to exactly the repository (META-01 - repo already mirrored by codeRepository)', () => {
+    const j = jsonLd();
+    expect(
+      j.sameAs,
+      'META-01: the app-level sameAs must trim to the single repo URL',
+    ).toEqual([j.codeRepository]);
+  });
+
+  it('og:image metas declare the 1200x630 composed card (META-02)', () => {
+    expect(
+      metaContent('property', 'og:image:width'),
+      'META-02: og:image:width must declare 1200 (the composed card asset from 30-01)',
+    ).toBe('1200');
+    expect(
+      metaContent('property', 'og:image:height'),
+      'META-02: og:image:height must declare 630 (the composed card asset from 30-01)',
+    ).toBe('630');
+  });
+
+  it('og:image:alt describes the composed card and no longer names a version badge (META-02)', () => {
+    const alt = metaContent('property', 'og:image:alt');
+    expect(alt, 'META-02: og:image:alt is missing').toBeTruthy();
+    expect(
+      alt!,
+      'META-02: og:image:alt must not name a version badge (the composed card is badge-free)',
+    ).not.toMatch(/badge/i);
+    expect(alt!, 'META-02: og:image:alt must describe the composed share card').toMatch(/card/i);
+    const name = jsonLd().name as string;
+    expect(alt!.includes(name), 'META-02: og:image:alt must name the product').toBe(true);
+  });
+
+  it('meta description is trimmed into the <=155 bound and equals the trimmed literal (META-05)', () => {
+    const desc = metaContent('name', 'description');
+    expect(desc, 'META-05: the meta description is missing').toBeTruthy();
+    expect(
+      desc!.length,
+      `META-05: the meta description must be <= 155 chars (got ${desc!.length})`,
+    ).toBeLessThanOrEqual(155);
+    expect(
+      desc!.length,
+      'META-05: the meta description must be non-empty (an empty description is as RED as an over-long one)',
+    ).toBeGreaterThan(0);
+    const em = String.fromCharCode(8212);
+    const trimmed =
+      'Free, open-source Mermaid diagram editor that runs online in your browser ' +
+      em +
+      ' in-browser AI (WebGPU), drag-and-drop editing, folders and version history.';
+    expect(
+      desc,
+      'META-05: the description must equal the trimmed literal (trailing sentence dropped)',
+    ).toBe(trimmed);
+  });
+
+  it('ballast metas are gone: keywords and author counts are 0 (META-05)', () => {
+    expect(
+      (html.match(/<meta name="keywords"/g) ?? []).length,
+      'META-05: the keywords meta must be deleted (dead ranking signal, audit L5)',
+    ).toBe(0);
+    expect(
+      (html.match(/<meta name="author"/g) ?? []).length,
+      'META-05: the author meta must be deleted (the JSON-LD author now carries identity)',
+    ).toBe(0);
   });
 });
