@@ -166,3 +166,30 @@ describe('definitional h2 sections + value-prop strip (SHELL-03/04)', () => {
     }
   });
 });
+
+describe('no-server claim class tightened in served copy (WR-02 fix round)', () => {
+  it('shell lead paragraph scopes the privacy claim to diagrams (WR-02)', () => {
+    expect(
+      shellBlock(),
+      'WR-02: the lead paragraph under the shell h1 must scope the claim — "No account: your diagrams stay on your device." (the Privacy section below discloses Vercel cookieless analytics, so absolute no-server / everything-stays wording contradicts the same page)',
+    ).toContain('No account: your diagrams stay on your device.');
+  });
+
+  it('what-is-mermaidstudio answer drops the absolute no-server clause (WR-02)', () => {
+    expect(
+      shellBlock(),
+      'WR-02: the what-is answer must keep the claim diagram-scoped — no absolute no-server denial two sections above the analytics disclosure',
+    ).toContain('There is no account, no install — diagrams stay on your device.');
+  });
+
+  it('og:description and JSON-LD description are diagram-scoped (WR-02 twins)', () => {
+    expect(
+      html,
+      'WR-02: og:description must scope the privacy claim to diagrams and disclose cookieless analytics (no absolute no-server/everything-stays denial)',
+    ).toContain('no account — your diagrams stay on your device; analytics are cookieless.');
+    expect(
+      html,
+      'WR-02: the JSON-LD description must scope the privacy claim to diagrams and disclose cookieless analytics',
+    ).toContain('No account — your diagrams stay on your device; analytics are cookieless.');
+  });
+});
