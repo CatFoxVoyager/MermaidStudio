@@ -1,16 +1,27 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Save, Clock, Download, Sparkles, AlignLeft, Maximize, GitCompare, BookmarkPlus, FilePlus, LayoutTemplate, Terminal, Palette, SlidersHorizontal, Undo, Undo2, Redo2, Copy, Check, RotateCw, Wrench, Shapes, MoreHorizontal } from 'lucide-react';
 import { undoInView, redoInView } from '@/lib/editor/historyActions';
-import { CodeEditor } from './CodeEditor';
 import type { CodeEditorRef } from './CodeEditor';
-import { PreviewPanel } from '@/preview/PreviewPanel';
-import { VisualEditorCanvas } from '@/visual/VisualEditorCanvas';
 import { StatusBar } from './StatusBar';
 import { DiffView } from './DiffView';
 import { TabBar } from './TabBar';
+import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
+import { LoadSkeleton } from '@/components/shared/LoadSkeleton';
+import { ChunkErrorFallback } from '@/components/shared/ChunkErrorFallback';
+import { idlePrefetch } from '@/utils/idlePrefetch';
 import type { Tab } from '@/types';
 import { APP_VERSION } from '@/constants/app';
+
+// Lazy boundaries (29-03, PERF-01/02): CodeEditor, PreviewPanel and
+// VisualEditorCanvas carry the mermaid + CodeMirror runtime — named-export
+// React.lazy keeps them out of the entry's static closure (MobileLayout
+// precedent). The idle prefetch below dynamic-imports the SAME specifiers,
+// so the ESM one-instance rule keeps core.ts singletons shared with the
+// chunks. `import type { CodeEditorRef }` stays: type-only, erased at build.
+const LazyCodeEditor = lazy(() => import('./CodeEditor').then(m => ({ default: m.CodeEditor })));
+const LazyPreviewPanel = lazy(() => import('@/preview/PreviewPanel').then(m => ({ default: m.PreviewPanel })));
+const LazyVisualEditorCanvas = lazy(() => import('@/visual/VisualEditorCanvas').then(m => ({ default: m.VisualEditorCanvas })));
 
 interface Props {
   tabs: Tab[];
@@ -181,6 +192,17 @@ export function WorkspacePanel({
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
   }, [dragging]);
 
+  // Idle prefetch (29-03): warm the three lazy chunks post-first-paint —
+  // invisible by contract (renders nothing, rejections swallowed,
+  // UI-SPEC T-29-08). Same specifiers as the lazy consts above.
+  useEffect(() => {
+    idlePrefetch([
+      () => import('./CodeEditor'),
+      () => import('@/preview/PreviewPanel'),
+      () => import('@/visual/VisualEditorCanvas'),
+    ]);
+  }, []);
+
   if (!activeTab) {return <EmptyState onNewDiagram={onNewDiagram} onShowTemplates={onShowTemplates} onShowPalette={onShowPalette} onOpenAbout={onOpenAbout} />;}
 
   // Real persist timestamp from the debounced auto-save — the status bar must
@@ -346,12 +368,16 @@ export function WorkspacePanel({
 
       {viewMode === 'visual' ? (
         <div className="flex-1 flex flex-col overflow-hidden">
-          <VisualEditorCanvas
-            content={activeTab.content}
-            theme={theme}
-            themeId={themeId}
-            onChange={v => onContentChange(activeTab.id, v)}
-          />
+          <ErrorBoundary fallback={<ChunkErrorFallback />}>
+            <Suspense fallback={<LoadSkeleton />}>
+              <LazyVisualEditorCanvas
+                content={activeTab.content}
+                theme={theme}
+                themeId={themeId}
+                onChange={v => onContentChange(activeTab.id, v)}
+              />
+            </Suspense>
+          </ErrorBoundary>
         </div>
       ) : (
         <div ref={containerRef} className="flex-1 flex overflow-hidden"
@@ -360,26 +386,34 @@ export function WorkspacePanel({
             {showDiff ? (
               <DiffView original={activeTab.saved_content} modified={activeTab.content} />
             ) : (
-              <CodeEditor ref={codeEditorRef} value={activeTab.content}
-                onChange={v => onContentChange(activeTab.id, v)}
-                onSave={() => onSave(activeTab.id)} theme={theme} />
+              <ErrorBoundary fallback={<ChunkErrorFallback />}>
+                <Suspense fallback={<LoadSkeleton />}>
+                  <LazyCodeEditor ref={codeEditorRef} value={activeTab.content}
+                    onChange={v => onContentChange(activeTab.id, v)}
+                    onSave={() => onSave(activeTab.id)} theme={theme} />
+                </Suspense>
+              </ErrorBoundary>
             )}
           </div>
           <div className={`resize-handle ${dragging ? 'dragging' : ''}`} onMouseDown={onMouseDown} />
           <div style={{ width: `${100 - splitPos}%` }} className="flex flex-col overflow-hidden">
-            <PreviewPanel
-              content={activeTab.content}
-              theme={theme}
-              themeId={themeId}
-              onChange={v => onContentChange(activeTab.id, v)}
-              onExport={onShowExport}
-              onRenderTime={onRenderTime}
-              onFullscreen={onFullscreen}
-              onNodeSelect={handleNodeSelect}
-              onSelectionOpen={() => { onDiagramColorsClose(); onAdvancedStyleClose(); }}
-              externalPanelOpen={showDiagramColors || showAdvancedStyle}
-              onError={onPreviewError}
-            />
+            <ErrorBoundary fallback={<ChunkErrorFallback />}>
+              <Suspense fallback={<LoadSkeleton />}>
+                <LazyPreviewPanel
+                  content={activeTab.content}
+                  theme={theme}
+                  themeId={themeId}
+                  onChange={v => onContentChange(activeTab.id, v)}
+                  onExport={onShowExport}
+                  onRenderTime={onRenderTime}
+                  onFullscreen={onFullscreen}
+                  onNodeSelect={handleNodeSelect}
+                  onSelectionOpen={() => { onDiagramColorsClose(); onAdvancedStyleClose(); }}
+                  externalPanelOpen={showDiagramColors || showAdvancedStyle}
+                  onError={onPreviewError}
+                />
+              </Suspense>
+            </ErrorBoundary>
           </div>
         </div>
       )}

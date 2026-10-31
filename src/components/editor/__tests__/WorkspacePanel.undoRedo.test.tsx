@@ -69,6 +69,9 @@ describe('WorkspacePanel - undo/redo buttons', () => {
     const user = userEvent.setup();
     const undoSpy = vi.spyOn(historyActions, 'undoInView').mockReturnValue(true);
     render(<WorkspacePanel {...mockProps} onOpenAIPanel={vi.fn()} />);
+    // The real editor chunk arrives through the lazy boundary (29-03) —
+    // await it before interacting.
+    await screen.findByTestId('code-editor');
 
     await user.click(screen.getByTitle('shortcuts.undo'));
     expect(undoSpy).toHaveBeenCalledTimes(1);
@@ -78,6 +81,8 @@ describe('WorkspacePanel - undo/redo buttons', () => {
     const user = userEvent.setup();
     const redoSpy = vi.spyOn(historyActions, 'redoInView').mockReturnValue(true);
     render(<WorkspacePanel {...mockProps} onOpenAIPanel={vi.fn()} />);
+    // Same lazy arrival wait as the undo test (29-03).
+    await screen.findByTestId('code-editor');
 
     await user.click(screen.getByTitle('shortcuts.redo'));
     expect(redoSpy).toHaveBeenCalledTimes(1);

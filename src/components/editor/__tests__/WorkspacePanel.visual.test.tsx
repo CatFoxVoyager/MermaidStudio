@@ -100,19 +100,23 @@ describe('WorkspacePanel - Visual Editor Toggle', () => {
     previewError: null,
   };
 
-  it('should render split view by default (Code/Preview)', () => {
+  it('should render split view by default (Code/Preview)', async () => {
     render(<WorkspacePanel {...mockProps} />);
 
-    // Should have split view elements
-    expect(screen.getByTestId('code-editor')).toBeInTheDocument();
-    expect(screen.getByTestId('preview-panel')).toBeInTheDocument();
+    // Lazy boundaries (29-03): the mocked modules arrive through dynamic
+    // imports — await them; the vi.mock intercepts the dynamic specifier.
+    expect(await screen.findByTestId('code-editor')).toBeInTheDocument();
+    expect(await screen.findByTestId('preview-panel')).toBeInTheDocument();
 
     // Should NOT have visual editor
     expect(screen.queryByTestId('visual-editor-canvas')).not.toBeInTheDocument();
   });
 
-  it('should show VisualEditorCanvas when visual view is activated', () => {
+  it('should show VisualEditorCanvas when visual view is activated', async () => {
     render(<WorkspacePanel {...mockProps} />);
+
+    // Wait for the split view's lazy children before toggling away.
+    await screen.findByTestId('code-editor');
 
     // Initially should not have visual editor
     expect(screen.queryByTestId('visual-editor-canvas')).not.toBeInTheDocument();
@@ -123,15 +127,15 @@ describe('WorkspacePanel - Visual Editor Toggle', () => {
       visualButton.click();
     });
 
-    // Now should have visual editor
-    expect(screen.getByTestId('visual-editor-canvas')).toBeInTheDocument();
+    // Now should have visual editor (own lazy boundary)
+    expect(await screen.findByTestId('visual-editor-canvas')).toBeInTheDocument();
 
     // Split view should be hidden
     expect(screen.queryByTestId('code-editor')).not.toBeInTheDocument();
     expect(screen.queryByTestId('preview-panel')).not.toBeInTheDocument();
   });
 
-  it('should return to split view when split view button is clicked', () => {
+  it('should return to split view when split view button is clicked', async () => {
     render(<WorkspacePanel {...mockProps} />);
 
     // Click to visual view
@@ -140,7 +144,7 @@ describe('WorkspacePanel - Visual Editor Toggle', () => {
       visualButton.click();
     });
 
-    expect(screen.getByTestId('visual-editor-canvas')).toBeInTheDocument();
+    expect(await screen.findByTestId('visual-editor-canvas')).toBeInTheDocument();
 
     // Click back to split view
     act(() => {
@@ -148,13 +152,13 @@ describe('WorkspacePanel - Visual Editor Toggle', () => {
       splitButton.click();
     });
 
-    // Should return to split view
-    expect(screen.getByTestId('code-editor')).toBeInTheDocument();
-    expect(screen.getByTestId('preview-panel')).toBeInTheDocument();
+    // Should return to split view (lazy chunks re-resolve from cache)
+    expect(await screen.findByTestId('code-editor')).toBeInTheDocument();
+    expect(await screen.findByTestId('preview-panel')).toBeInTheDocument();
     expect(screen.queryByTestId('visual-editor-canvas')).not.toBeInTheDocument();
   });
 
-  it('should wire VisualEditorCanvas onChange to onContentChange (VIS-03 sync)', () => {
+  it('should wire VisualEditorCanvas onChange to onContentChange (VIS-03 sync)', async () => {
     render(<WorkspacePanel {...mockProps} />);
 
     // Switch to visual view
@@ -163,8 +167,8 @@ describe('WorkspacePanel - Visual Editor Toggle', () => {
       visualButton.click();
     });
 
-    // Get the visual editor and trigger a change
-    const visualCanvas = screen.getByTestId('visual-editor-canvas');
+    // Get the visual editor and trigger a change (await its lazy arrival)
+    expect(await screen.findByTestId('visual-editor-canvas')).toBeInTheDocument();
     const changeButton = screen.getByTestId('visual-onchange-btn');
 
     // Reset mock to track calls
@@ -179,11 +183,12 @@ describe('WorkspacePanel - Visual Editor Toggle', () => {
     expect(mockProps.onContentChange).toHaveBeenCalledWith('1', 'updated visual content');
   });
 
-  it('should maintain existing functionality (resize handle, DiffView, etc.) in split view', () => {
+  it('should maintain existing functionality (resize handle, DiffView, etc.) in split view', async () => {
     render(<WorkspacePanel {...mockProps} />);
 
     // Should have the resize handle in split view
-    const container = screen.getByTestId('code-editor').closest('.flex-1.flex.overflow-hidden');
+    const codeEditor = await screen.findByTestId('code-editor');
+    const container = codeEditor.closest('.flex-1.flex.overflow-hidden');
     expect(container).toBeInTheDocument();
 
     // StatusBar should be present
