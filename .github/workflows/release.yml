@@ -1,0 +1,48 @@
+# Release automation (REL-01/REL-02, phase 33) — release-please in manifest mode.
+#
+# Two phases, one workflow:
+#   1. A regular push to main: the action opens or updates the single Release PR
+#      ("chore(main): release X.Y.Z") bumping package.json + CHANGELOG.md, deriving
+#      the next semver from conventional commits since the manifest's base version
+#      (feat -> minor, fix -> patch, BREAKING CHANGE -> major).
+#   2. The Release PR merge (detected via the default "autorelease: pending" label
+#      plus the release-please branch): the same step creates the vX.Y.Z tag and the
+#      GitHub Release with generated notes.
+#
+# Manifest mode is the default: the action reads release-please-config.json and
+# .release-please-manifest.json from the repo root with zero inputs. Per-package
+# settings live in release-please-config.json; never add inline mode-selection
+# inputs here — they exit manifest mode and would derive the next version from the
+# stale legacy v1.3 tag line (a downgrade against package.json).
+name: Release
+
+on:
+  push:
+    branches: [ main ]
+
+# A tagging run must never be cancelled mid-flight: phase 2 (tag + GitHub Release)
+# happens inside this same run, triggered by the Release-PR merge push.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+# Least privilege (T-33-03): exactly the scopes the action needs — contents (tags,
+# Releases, PR branches), issues (label application), pull-requests (Release PR
+# open/update). Built-in GITHUB_TOKEN only; never a PAT or an environment secret.
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    # ubuntu-latest, deliberately deviating from ci.yml's all-self-hosted convention:
+    # this job is API-only (no repo code executed, no build), the repo is public
+    # (free), and a release-critical path must not queue behind self-hosted runner
+    # availability. Swap to [self-hosted, Linux, X64] only if runner policy demands it.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
