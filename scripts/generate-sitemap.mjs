@@ -34,7 +34,7 @@ const PUBLIC_DIR = join(ROOT, 'public');
 
 // Extensible top-of-file URL list: one entry per indexable route. /privacy is
 // live and indexable since phase 28; add future routes here.
-const URLS = ['/', '/privacy'];
+const URLS = ['/', '/privacy', '/fr/'];
 
 const TODAY = new Date().toISOString().slice(0, 10);
 

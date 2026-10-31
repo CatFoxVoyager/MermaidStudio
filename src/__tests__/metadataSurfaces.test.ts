@@ -105,16 +105,17 @@ describe('committed public sitemap (META-04)', () => {
     expect(xmlnsOf(liveSitemap)).toBe(xmlnsOf(baselineSitemap));
   });
 
-  it('carries exactly one more url than the audited baseline (adds /privacy)', () => {
-    expect(urlCount(liveSitemap)).toBe(urlCount(baselineSitemap) + 1);
+  it('carries exactly two more urls than the audited baseline (adds /privacy and /fr/)', () => {
+    expect(urlCount(liveSitemap)).toBe(urlCount(baselineSitemap) + 2);
   });
 
-  it('keeps the baseline root loc (which must equal the canonical link) and adds /privacy', () => {
+  it('keeps the baseline root loc (which must equal the canonical link) and adds /privacy then /fr/', () => {
     const baseLocs = locs(baselineSitemap);
     const liveLocs = locs(liveSitemap);
     // Cross-anchor: the audited root loc must be the canonical the site serves.
     expect(baseLocs[0]?.replace(/\/$/, '')).toBe(canonical.replace(/\/$/, ''));
-    expect(liveLocs).toEqual([...baseLocs, siteBase + '/privacy']);
+    // Order follows the generator's URLS array (phase 31 appends /fr/ last).
+    expect(liveLocs).toEqual([...baseLocs, siteBase + '/privacy', siteBase + '/fr/']);
   });
 
   it('every url carries an ISO lastmod, regenerated — never the stale baseline value', () => {
