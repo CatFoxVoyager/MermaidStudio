@@ -17,6 +17,11 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
+// Bare 'fs'/'path' + __dirname: the repo's ambient node shims
+// (src/types/node-builtin-shims.d.ts) — same convention as
+// crawlableShell.test.ts / trustCopy.test.ts (WR-04 raw-fs census below).
+import { readdirSync, readFileSync } from 'fs';
+import { resolve } from 'path';
 import { render } from '@testing-library/react';
 import App from '../../App';
 import { TopBar } from '../shared/TopBar';
@@ -315,5 +320,43 @@ describe('Privacy reachability (PRIV-03)', () => {
       (github!.compareDocumentPosition(privacy!) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
       'PRIV-03: the privacy row must sit after (beside) the GitHub row in DOM order',
     ).toBe(true);
+  });
+});
+
+// WR-04 (fix round 2026-10-31): the rendered-DOM gates above mock AppLayout
+// and ModalProvider, so a second <h1> added inside the real layout or any
+// modal would pass them — pair the rendered half with a raw-fs census over
+// shipped src (same source-bytes style as crawlableShell.test.ts) so the
+// exactly-one-h1 contract is total, not only proven where h1s are already
+// known to be absent.
+describe('shipped-src h1 census (WR-04 raw-fs half of HEAD-01)', () => {
+  it('counts exactly one h1 across shipped src — the sr-only App.tsx heading', () => {
+    const walk = (dir: string): string[] => {
+      const files: string[] = [];
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = resolve(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name === '__tests__') continue;
+          files.push(...walk(full));
+        } else if (/\.tsx?$/.test(entry.name) && !/\.(test|spec)\.tsx?$/.test(entry.name)) {
+          files.push(full);
+        }
+      }
+      return files;
+    };
+    const srcDir = resolve(__dirname, '../..');
+    const hits: string[] = [];
+    for (const file of walk(srcDir)) {
+      const occurrences = readFileSync(file, 'utf8').split('<h1').length - 1;
+      for (let i = 0; i < occurrences; i += 1) hits.push(file);
+    }
+    expect(
+      hits.length,
+      `HEAD-01/WR-04: shipped src carries ${hits.length} h1 occurrence(s) — the contract is exactly one, the sr-only App.tsx h1 (demote any new h1 to a div, like the top-bar brands)`,
+    ).toBe(1);
+    expect(
+      hits[0],
+      'HEAD-01/WR-04: the sole h1 must be the sr-only app heading in src/App.tsx',
+    ).toBe(resolve(srcDir, 'App.tsx'));
   });
 });
