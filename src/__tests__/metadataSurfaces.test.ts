@@ -197,3 +197,46 @@ describe('public/app-ads.txt removed (META-05d)', () => {
     expect(existsSync(resolve(ROOT, 'public', 'app-ads.txt'))).toBe(false);
   });
 });
+
+// --- Task 3 (META-02): og-image v2 composed card + manifest screenshot dims ---
+const ogAssetRef = indexHtml.match(/property="og:image" content="([^"]+)"/)?.[1] ?? '';
+const ogAssetName = ogAssetRef.split('/').pop() ?? '';
+const pngDims = (p: string): number[] => {
+  const b = readFileSync(p);
+  return [b.readUInt32BE(16), b.readUInt32BE(20)];
+};
+
+describe('og-image v2 composed card (META-02)', () => {
+  it('the og:image asset the site advertises is exactly 1200x630', () => {
+    expect(ogAssetName, 'index.html carries no og:image meta — anchor surface changed').not.toBe('');
+    const [w, h] = pngDims(resolve(ROOT, 'public', ogAssetName));
+    expect([w, h], 'og-image IHDR dims must be 1200x630 (baseline was 1920x1080)').toEqual([1200, 630]);
+  });
+
+  it('manifest screenshot dims stay pinned — the re-capture refreshes bytes, never dims', () => {
+    const manifest = JSON.parse(read(resolve(ROOT, 'public', 'manifest.json')));
+    const entries = manifest.screenshots;
+    expect(entries).toHaveLength(2);
+    for (const entry of entries) {
+      const dims = entry.sizes.split('x').map(Number);
+      const file = entry.src.split('/').pop() ?? '';
+      expect(file).not.toBe('');
+      expect(pngDims(resolve(ROOT, 'public', file)), `manifest entry ${file} must keep its pinned dims`).toEqual(
+        dims,
+      );
+    }
+  });
+
+  it('capture script composes the card via page.setContent, never screenshots the raw app as the og asset (T-30-02)', () => {
+    const src = read(resolve(ROOT, 'scripts', 'capture-pwa-assets.mjs'));
+    const setIdx = src.indexOf('page.setContent(');
+    const ogShotIdx = src.indexOf("path: 'public/og-image.png'");
+    expect(setIdx, 'capture script lost the composed-card mechanism').toBeGreaterThan(-1);
+    expect(ogShotIdx, 'og screenshot must follow the setContent card composition').toBeGreaterThan(setIdx);
+    const cardStart = src.indexOf('`', setIdx) + 1;
+    const cardEnd = src.indexOf('`', cardStart);
+    const cardDom = src.slice(cardStart, cardEnd);
+    expect(cardDom, 'card DOM carries an external URL — T-30-02 violation').not.toMatch(/https?:\/\//);
+    expect(cardDom, 'card DOM carries a protocol-relative URL — T-30-02 violation').not.toContain('//');
+  });
+});
