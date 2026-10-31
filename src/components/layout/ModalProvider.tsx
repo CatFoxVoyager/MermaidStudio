@@ -149,17 +149,24 @@ export function ModalProvider({
     <>
       {showTemplates && handleTemplateSelect && (
         <Suspense fallback={null}>
-          <LazyTemplateLibrary isOpen onSelect={handleTemplateSelect} onClose={onCloseTemplates} />
+          {/* WR-02: same T-29-05 chunk-failure scoping as the 29-02 edges —
+              a rejected TemplateLibrary chunk must not unmount the app to
+              the root boundary. */}
+          <ErrorBoundary fallback={<ChunkErrorFallback />}>
+            <LazyTemplateLibrary isOpen onSelect={handleTemplateSelect} onClose={onCloseTemplates} />
+          </ErrorBoundary>
         </Suspense>
       )}
       {showHistory && activeTab && handleRestore && (
         <Suspense fallback={null}>
-          <LazyVersionHistory
-            diagramId={activeTab.diagram_id}
-            currentContent={activeTab.content}
-            onRestore={handleRestore}
-            onClose={onCloseHistory}
-          />
+          <ErrorBoundary fallback={<ChunkErrorFallback />}>
+            <LazyVersionHistory
+              diagramId={activeTab.diagram_id}
+              currentContent={activeTab.content}
+              onRestore={handleRestore}
+              onClose={onCloseHistory}
+            />
+          </ErrorBoundary>
         </Suspense>
       )}
       {showPalette && newDiagram && handleNewFolder && diagrams && onOpenDiagram && toggleTheme && (
@@ -190,13 +197,15 @@ export function ModalProvider({
       )}
       {showExport && activeTab && handleCopyLink && (
         <Suspense fallback={null}>
-          <LazyExportModal
-            isOpen
-            diagramTitle={activeTab.title}
-            diagramContent={activeTab.content}
-            onClose={onCloseExport}
-            onCopyLink={handleCopyLink}
-          />
+          <ErrorBoundary fallback={<ChunkErrorFallback />}>
+            <LazyExportModal
+              isOpen
+              diagramTitle={activeTab.title}
+              diagramContent={activeTab.content}
+              onClose={onCloseExport}
+              onCopyLink={handleCopyLink}
+            />
+          </ErrorBoundary>
         </Suspense>
       )}
       {showAISettings && setAiSettingsKey && (
