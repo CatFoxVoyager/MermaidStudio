@@ -41,9 +41,11 @@ const FR_ROUTE = ORIGIN + '/fr/';
 // Pinned catalog strings (the FR page quotes these byte-for-byte).
 const frCatalog = JSON.parse(readIf(resolve(ROOT, 'src', 'i18n', 'locales', 'fr.json')) || '{}') as {
   header?: { appHeading?: string };
+  status?: { privacy?: string };
   welcome?: { intro?: string };
 };
 const APP_HEADING = frCatalog.header?.appHeading ?? '';
+const PRIVACY_LABEL = frCatalog.status?.privacy ?? '';
 
 // Sorted (hreflang, href) tuples — order-insensitive reciprocity comparison
 // (link-tag order in head is unspecified; the SET is the contract).
@@ -232,5 +234,137 @@ describe('FR title + meta description bounds (FR-01)', () => {
       desc.length,
       `FR-01: the FR meta description must be <= 155 chars (got ${desc.length})`,
     ).toBeLessThanOrEqual(155);
+  });
+});
+
+// --- FR-01: the FR shell body contract (phase 31 Task 2) -------------------
+// Mirrors the EN shell block element by element (index.html .shell): h1, lead,
+// comparison h2 + paragraph, 5-item list, value-prop strip, three anchored
+// definitional sections, trust line. The word counter and the 40-60 answer
+// extractor are the crawlableShell conventions with the subject swapped to
+// the FR block. Banned-phrase enforcement lives in trustCopy's census (the
+// fr-shell source entry) — never ad-hoc checks here.
+function frShellBlock(): string {
+  const start = fr.indexOf('<main class="shell">');
+  expect(
+    start,
+    'FR-01: <main class="shell"> not found in public/fr/index.html — the FR shell block is missing',
+  ).toBeGreaterThan(-1);
+  const end = fr.indexOf('</main>', start);
+  return fr.slice(start, end);
+}
+
+describe('FR shell body contract (FR-01)', () => {
+  it('carries >= 185 words of static prose (word floor, EN tag-strip counter)', () => {
+    const words = frShellBlock()
+      .replace(/<[^>]+>/g, ' ')
+      .split(/\s+/)
+      .filter(Boolean);
+    expect(
+      words.length,
+      `FR-01: FR shell prose word count below the 185-word crawlability floor (got ${words.length})`,
+    ).toBeGreaterThanOrEqual(185);
+  });
+
+  it('carries exactly 4 h2s (comparison + the three definitional sections)', () => {
+    const h2Count = (frShellBlock().match(/<h2/g) ?? []).length;
+    expect(
+      h2Count,
+      `FR-01: the FR shell must carry exactly 4 h2s (got ${h2Count})`,
+    ).toBe(4);
+  });
+
+  it('keeps the three EN anchor ids verbatim (heading text is French)', () => {
+    const block = frShellBlock();
+    for (const id of ['what-is-mermaidstudio', 'how-it-works', 'privacy']) {
+      expect(
+        block,
+        `FR-01: missing anchor <h2 id="${id}"> in the FR shell block`,
+      ).toContain(`<h2 id="${id}">`);
+    }
+  });
+
+  it('each definitional answer measures 40-60 words (EN extractor boundaries)', () => {
+    const block = frShellBlock();
+    for (const id of ['what-is-mermaidstudio', 'how-it-works', 'privacy']) {
+      const h2Start = block.indexOf(`<h2 id="${id}">`);
+      expect(h2Start, `FR-01: missing h2 id="${id}"`).toBeGreaterThan(-1);
+      const close = block.indexOf('</h2>', h2Start);
+      // Answer region ends at the next h2 or at the trust line — the same
+      // crawlableShell boundaries (the extractor already ends at <p class="trust").
+      const nextH2 = block.indexOf('<h2', close);
+      const trust = block.indexOf('<p class="trust"', close);
+      const candidates = [nextH2, trust].filter((i) => i !== -1);
+      const end = candidates.length === 0 ? block.length : Math.min(...candidates);
+      const answer = block
+        .slice(close + '</h2>'.length, end)
+        .replace(/<[^>]+>/g, ' ')
+        .split(/\s+/)
+        .filter(Boolean).length;
+      expect(
+        answer,
+        `FR-01: "${id}" answer must be 40-60 words (got ${answer}) — direct-answer length for AI crawlers`,
+      ).toBeGreaterThanOrEqual(40);
+      expect(
+        answer,
+        `FR-01: "${id}" answer must be 40-60 words (got ${answer})`,
+      ).toBeLessThanOrEqual(60);
+    }
+  });
+
+  it('valueprop strip carries the strong lead-in and the 400-700 Mo footnote', () => {
+    const block = frShellBlock();
+    expect(
+      block,
+      'FR-01: strip main line missing — must carry the <p class="valueprop-main"><strong> lead-in (local-GPU claim)',
+    ).toMatch(/<p class="valueprop-main"><strong>[^<]+<\/strong>/);
+    expect(
+      block,
+      'FR-01: strip footnote missing — the 400-700 Mo first-use model download must be disclosed before commitment',
+    ).toContain('400–700 Mo');
+    expect(
+      block,
+      'FR-01: the footnote must carry the runs-offline-after claim',
+    ).toContain('hors ligne');
+  });
+
+  it('trust line carries every EN trust href byte-equal plus a visible app link and the catalog privacy label', () => {
+    const trust = frShellBlock().match(/<p class="trust">[\s\S]*?<\/p>/);
+    expect(trust, 'FR-01: the FR trust line <p class="trust"> is missing').not.toBeNull();
+    const enTrust = en.match(/<p class="trust">[\s\S]*?<\/p>/);
+    expect(enTrust, 'the EN trust line is missing from index.html').not.toBeNull();
+    const enHrefs = [...enTrust![0].matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+    expect(enHrefs.length, 'EN trust href extraction failed').toBeGreaterThan(0);
+    for (const href of enHrefs) {
+      expect(
+        trust![0],
+        `FR-01: the FR trust line must carry the EN trust href byte-equal: ${href}`,
+      ).toContain(`href="${href}"`);
+    }
+    expect(
+      trust![0],
+      'FR-01: the trust line must carry a visible link to the app (anchor href="/" with its own label)',
+    ).toContain('href="/">');
+    expect(
+      PRIVACY_LABEL,
+      'the fr.json status.privacy key must exist',
+    ).not.toBe('');
+    expect(
+      trust![0],
+      'FR-01: the /privacy anchor label must equal the fr.json status.privacy bytes',
+    ).toContain(`href="/privacy">${PRIVACY_LABEL}</a>`);
+  });
+});
+
+describe('FR typography hygiene (Pitfall 9)', () => {
+  it('zero typographic apostrophes (U+2019) and zero non-breaking spaces (U+00A0)', () => {
+    expect(
+      fr.includes(String.fromCharCode(8217)),
+      'typographic apostrophe U+2019 found in public/fr/index.html — use the straight ASCII apostrophe so the catalog byte gates stay exact',
+    ).toBe(false);
+    expect(
+      fr.includes(String.fromCharCode(160)),
+      'non-breaking space U+00A0 found in public/fr/index.html — use the regular space',
+    ).toBe(false);
   });
 });

@@ -157,6 +157,10 @@ describe('public/privacy.html page contract (PRIV-01 static half)', () => {
 const enCatalog = readFileSync(resolve(__dirname, '../../src/i18n/locales/en.json'), 'utf8');
 const frCatalog = readFileSync(resolve(__dirname, '../../src/i18n/locales/fr.json'), 'utf8');
 const indexHtml = readFileSync(resolve(__dirname, '../../index.html'), 'utf8');
+// Phase 31: the FR shell page joins the census — fresh French marketing prose
+// is the exact WR-02 regression class, so all banned literals are asserted
+// zero over it too.
+const frShell = readFileSync(resolve(__dirname, '../../public/fr/index.html'), 'utf8');
 
 const BANNED_PHRASES = ['no telemetry', 'no tracking', 'sans télémétrie', 'sans suivi', 'nothing is sent', "rien n'est envoyé", 'no server', 'everything stays on your device'] as const;
 // WR-02 (fix round 2026-10-31): the two added literals close the shell's
@@ -169,11 +173,12 @@ const BANNED_PHRASES = ['no telemetry', 'no tracking', 'sans télémétrie', 'sa
 // the census must cover the class, not the instances it happened to list.
 
 describe('PRIV-02 honesty copy (i18n catalogs + served shell)', () => {
-  it('carries zero absolute-telemetry claims across en.json, fr.json and index.html', () => {
+  it('carries zero absolute-telemetry claims across en.json, fr.json, index.html and the FR shell', () => {
     const sources = [
       ['en.json', enCatalog],
       ['fr.json', frCatalog],
       ['index.html', indexHtml],
+      ['fr-shell', frShell],
     ] as const;
     for (const phrase of BANNED_PHRASES) {
       for (const [name, source] of sources) {
