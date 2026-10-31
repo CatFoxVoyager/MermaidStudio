@@ -31,8 +31,6 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC_DIR = join(ROOT, 'public');
 
-const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-void pkg; // version read lands with the Task 2 llms.txt emission
 
 // Extensible top-of-file URL list: one entry per indexable route. /privacy is
 // live and indexable since phase 28; add future routes here.
@@ -58,6 +56,12 @@ if (!canonical) {
   throw new Error('generate-sitemap: index.html carries no canonical link — cannot derive the site origin');
 }
 const SITE_BASE = canonical.replace(/\/$/, '');
+const ldOpen = indexHtml.indexOf('<script type="application/ld+json">');
+const ldClose = indexHtml.indexOf('</script>', ldOpen);
+if (ldOpen < 0 || ldClose < 0) {
+  throw new Error('generate-sitemap: index.html carries no JSON-LD block — cannot derive repo anchors');
+}
+const jsonLd = JSON.parse(indexHtml.slice(ldOpen + 35, ldClose));
 
 // Extract the wire shape from the committed sitemap (root tag, xmlns, and the
 // per-url tag names). Falls back to the sitemaps.org protocol defaults only
@@ -92,3 +96,41 @@ const sitemap =
 
 writeFileSync(sitemapPath, sitemap);
 console.log(`generate-sitemap: wrote ${sitemapPath} (${URLS.length} urls, lastmod ${TODAY})`);
+
+// --- llms.txt (META-03): the LLM-facing surface, version from package.json ---
+// Anchors derived from served surfaces (never a second hand-edited constant):
+// name / codeRepository / license from the JSON-LD block, origin from the
+// canonical link, docs host from the repo slug. Copy stays WR-02-honest: the
+// analytics disclosure is "cookieless", never an absolute no-telemetry claim.
+const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
+const repoUrl = String(jsonLd.codeRepository ?? '');
+const repoOwner = repoUrl.replace(/^https?:\/\/[^/]+\//, '').split('/')[0] ?? '';
+const repoName = repoUrl.replace(/^https?:\/\/[^/]+\//, '').split('/')[1] ?? '';
+const docsUrl = `https://${repoOwner.toLowerCase()}.github.io/${repoName}/`;
+const changelogUrl = `${repoUrl}/blob/main/CHANGELOG.md`;
+const licenseUrl = String(jsonLd.license ?? '');
+
+const llmsTxt = [
+  `# ${jsonLd.name}`,
+  '',
+  '> Free, open-source diagram editor that runs entirely in your browser:',
+  '> drag-and-drop visual editing over the live preview, folders, tags and',
+  '> version history, and in-browser AI (WebGPU) running locally on your GPU.',
+  '> The public website uses cookieless analytics.',
+  '',
+  `- Canonical site: ${SITE_BASE}/`,
+  `- Version: ${pkg.version}`,
+  `- License: MIT (${licenseUrl})`,
+  `- Source & README: ${repoUrl}`,
+  `- Docs: ${docsUrl}`,
+  `- Privacy: ${SITE_BASE}/privacy`,
+  '',
+  '## Optional',
+  '',
+  `- Changelog: ${changelogUrl}`,
+  '',
+].join('\n');
+
+const llmsPath = join(PUBLIC_DIR, 'llms.txt');
+writeFileSync(llmsPath, llmsTxt);
+console.log(`generate-sitemap: wrote ${llmsPath} (version ${pkg.version})`);
