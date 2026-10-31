@@ -30,16 +30,30 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
     });
   }, [content, themeId, parsedDiagram]);
 
+  const zoomBy = useCallback((delta: number) => {
+    setZoom(z => Math.max(0.1, Math.min(5, z + delta)));
+  }, []);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {onClose();}
-      if (e.key === '+' || e.key === '=') {setZoom(z => Math.min(5, z + 0.25));}
-      if (e.key === '-') {setZoom(z => Math.max(0.1, z - 0.25));}
-      if (e.key === '0') { setZoom(1); setPan({ x: 0, y: 0 }); }
+      if (e.key === '+' || e.key === '=') {
+        if (e.ctrlKey || e.metaKey) {e.preventDefault();}
+        zoomBy(0.25);
+      }
+      if (e.key === '-') {
+        if (e.ctrlKey || e.metaKey) {e.preventDefault();}
+        zoomBy(-0.25);
+      }
+      if (e.key === '0') {
+        if (e.ctrlKey || e.metaKey) {e.preventDefault();}
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+      }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, zoomBy]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) {return;}
@@ -50,9 +64,11 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
   useEffect(() => {
     if (!dragging) {return;}
     const onMove = (e: MouseEvent) => {
+      const dx = e.clientX - lastPos.current.x;
+      const dy = e.clientY - lastPos.current.y;
       setPan(p => ({
-        x: p.x + e.clientX - lastPos.current.x,
-        y: p.y + e.clientY - lastPos.current.y,
+        x: p.x + dx,
+        y: p.y + dy,
       }));
       lastPos.current = { x: e.clientX, y: e.clientY };
     };
@@ -64,9 +80,9 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
 
   const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setZoom(z => Math.min(5, Math.max(0.1, z + delta)));
-  }, []);
+    const clampedDeltaY = Math.max(-50, Math.min(50, e.deltaY));
+    zoomBy(-clampedDeltaY * 0.0015);
+  }, [zoomBy]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--surface-base)' }}>
@@ -106,7 +122,7 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
           {/* Safe sink: `svg` was sanitized by renderDiagram (DOMPurify) and
               the post-processing pipeline only mutates attributes via DOM APIs. */}
           {svg ? (
-            <div className="mermaid-container transition-transform duration-75"
+            <div className="mermaid-container"
               style={{
                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                 transformOrigin: 'center center',
