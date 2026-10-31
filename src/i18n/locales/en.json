@@ -667,7 +667,7 @@
   },
   "welcome": {
     "title": "Welcome to MermaidStudio",
-    "intro": "A fast, fully client-side editor for Mermaid diagrams. Your diagrams, settings, and AI models stay in your browser — nothing is sent to a server.",
+    "intro": "A fast, fully client-side editor for Mermaid diagrams. Your diagrams, settings, and AI models stay in your browser — free, open source, with cookieless analytics only.",
     "valueProp1": "In-browser AI — generate and fix diagrams with a local LLM running on your GPU. Your code never leaves your machine.",
     "valueProp2": "Visual editor — drag and drop nodes over the live preview, with folders, tags and version history.",
     "valueProp3": "Free & private — open source (MIT), no accounts, local-first, cookieless analytics, works offline.",
