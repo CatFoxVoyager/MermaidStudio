@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDiagrams } from '@/services/storage/database';
+import { logger } from '@/utils/logger';
 import { useTheme, useTabs, useLanguage } from '@/hooks';
 import type { UseTabsOptions } from '@/hooks/useTabs';
 import type { Diagram } from '@/types';
+
+const log = logger.scope('useAppState');
 
 // Exported so hooks/index.ts can re-export them (the repaired type-check
 // gate flagged the local-only declarations as unre-exportable, TS2459).
@@ -52,9 +55,17 @@ export function useAppState(
   // boot sites, so core.ts's theme singletons remain one shared instance.
   useEffect(() => {
     let cancelled = false;
+    // A rejected chunk fetch must not surface as an unhandled rejection
+    // (IN-01): log it and accept the by-design recovery — the splash's 12s
+    // swap only covers pre-mount failures, and renderDiagram re-runs doInit
+    // per call, so the next render attempt re-initializes once the chunk
+    // eventually loads.
     import('@/lib/mermaid/core').then(({ initMermaid }) => {
       if (!cancelled) initMermaid(themeState.theme);
-    });
+    })
+      .catch((err: unknown) => {
+        if (!cancelled) log.error('mermaid core chunk failed to load', err);
+      });
     return () => {
       cancelled = true;
     };
