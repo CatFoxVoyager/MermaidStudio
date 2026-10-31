@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MermaidStudio — Éditeur de diagrammes Mermaid en ligne gratuit</title>
+    <meta name="description" content="Éditeur de diagrammes Mermaid gratuit et open source, dans votre navigateur — IA locale (WebGPU), éditeur visuel, dossiers et historique de versions.">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://www.mermaidstudio.net/fr/" />
+    <!-- Page statique sans JS ni requêtes externes : aucun script hors du
+         bloc JSON-LD, aucune police ni balise d'analytique. Styles inline ;
+         Inter se résout localement si installée, sinon system-ui. -->
+    <link rel="alternate" hreflang="en" href="https://www.mermaidstudio.net/">
+    <link rel="alternate" hreflang="fr" href="https://www.mermaidstudio.net/fr/">
+    <link rel="alternate" hreflang="x-default" href="https://www.mermaidstudio.net/">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.mermaidstudio.net/fr/">
+    <meta property="og:title" content="MermaidStudio — Éditeur de diagrammes Mermaid en ligne gratuit">
+    <meta property="og:description" content="Éditeur de diagrammes Mermaid gratuit et open source, dans votre navigateur — IA locale (WebGPU), éditeur visuel, dossiers et historique de versions.">
+    <meta property="og:image" content="https://www.mermaidstudio.net/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="MermaidStudio share card: dark panel with the wordmark, a one-line value proposition and a small flowchart motif">
+    <meta property="og:locale" content="fr_FR">
+    <meta property="og:locale:alternate" content="en_US">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://www.mermaidstudio.net/fr/">
+    <meta property="twitter:title" content="MermaidStudio — Éditeur de diagrammes Mermaid en ligne gratuit">
+    <meta property="twitter:description" content="Éditeur de diagrammes Mermaid gratuit et open source, dans votre navigateur — IA locale (WebGPU), éditeur visuel, dossiers et historique de versions.">
+    <meta property="twitter:image" content="https://www.mermaidstudio.net/og-image.png">
+
+    <!-- Structured data: WebApplication, transplanted from the EN head with
+         url/inLanguage/description localized. softwareVersion is deliberately
+         OMITTED: vite substitutes its version placeholder in the build entry
+         document only — a public/ file would serve it literally, and a
+         hand-hardcoded version would recreate the dual-version-string failure
+         phase 30 eliminated. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "MermaidStudio",
+      "url": "https://www.mermaidstudio.net/fr/",
+      "description": "Éditeur de diagrammes Mermaid gratuit et open source, dans votre navigateur — IA locale (WebGPU), éditeur visuel, dossiers et historique de versions.",
+      "applicationCategory": "DesignApplication",
+      "operatingSystem": "Any",
+      "browserRequirements": "Requires JavaScript. AI features require a WebGPU-capable browser.",
+      "inLanguage": "fr",
+      "isAccessibleForFree": true,
+      "image": "https://www.mermaidstudio.net/og-image.png",
+      "screenshot": ["https://www.mermaidstudio.net/screenshot-wide.png", "https://www.mermaidstudio.net/screenshot-narrow.png"],
+      "license": "https://opensource.org/licenses/MIT",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "author": {
+        "@type": "Person",
+        "name": "Jérémie Dufault",
+        "url": "https://jeremiedufault.ca",
+        "sameAs": ["https://github.com/CatFoxVoyager", "https://www.linkedin.com/in/jeremiedufault/"]
+      },
+      "featureList": [
+        "In-browser AI diagram generation via WebGPU (local LLM)",
+        "Drag-and-drop visual editor over the live Mermaid preview",
+        "Multi-tab workspace with folders, tags and version history",
+        "SVG/PNG export with themes and custom styling",
+        "Offline-capable PWA with English and French UI"
+      ],
+      "codeRepository": "https://github.com/CatFoxVoyager/MermaidStudio",
+      "sameAs": ["https://github.com/CatFoxVoyager/MermaidStudio"]
+    }
+    </script>
+
+    <!-- Styles statiques de la coquille exploration (règles .shell copiées de
+         la head EN ; le contenu reste lisible sans JavaScript). -->
+    <style>
+      .shell{min-height:100vh;box-sizing:border-box;max-width:52rem;margin:0 auto;padding:4.5rem 1.5rem;background:#0d1117;color:#e6edf3;font-family:Inter,system-ui,-apple-system,sans-serif}
+      .shell h1{font-size:2rem;line-height:1.25;margin:0 0 1rem;font-weight:600}
+      .shell p{line-height:1.65;margin:0 0 1.25rem}
+      .shell ul{line-height:1.65;margin:0 0 1.5rem;padding-left:1.25rem}
+      .shell li{margin-bottom:.4rem}
+      .shell a{color:#58a6ff}
+      .shell .trust{font-size:.95rem;opacity:.85}
+      .shell h2{font-size:1.375rem;line-height:1.3;font-weight:600;margin:2rem 0 .75rem}
+      .shell .valueprop{border-left:4px solid #2dd4bf;background:rgba(45,212,191,.1);padding:1rem;margin:0 0 2rem;border-radius:0 8px 8px 0}
+      .shell .valueprop-note{font-size:.875rem;opacity:.85;margin:.5rem 0 0}
+      @media (prefers-color-scheme:light){.shell{background:#fafaf9;color:#1f2328}.shell a{color:#0969da}}
+      @media (prefers-color-scheme:light){.shell .valueprop{border-left-color:#0d7377;background:rgba(13,115,119,.08)}}
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <h1>MermaidStudio — Éditeur de diagrammes Mermaid en ligne gratuit</h1>
+      <p>Un éditeur de diagrammes Mermaid rapide et entièrement côté client. Vos diagrammes, paramètres et modèles d'IA restent dans votre navigateur — gratuit, open source, avec une analytique sans cookies uniquement.</p>
+    </main>
+  </body>
+</html>
