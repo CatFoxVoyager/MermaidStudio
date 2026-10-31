@@ -1,0 +1,17 @@
+# MermaidStudio
+
+> Free, open-source diagram editor that runs entirely in your browser:
+> drag-and-drop visual editing over the live preview, folders, tags and
+> version history, and in-browser AI (WebGPU) running locally on your GPU.
+> The public website uses cookieless analytics.
+
+- Canonical site: https://www.mermaidstudio.net/
+- Version: 2.2.0
+- License: MIT (https://opensource.org/licenses/MIT)
+- Source & README: https://github.com/CatFoxVoyager/MermaidStudio
+- Docs: https://catfoxvoyager.github.io/MermaidStudio/
+- Privacy: https://www.mermaidstudio.net/privacy
+
+## Optional
+
+- Changelog: https://github.com/CatFoxVoyager/MermaidStudio/blob/main/CHANGELOG.md
