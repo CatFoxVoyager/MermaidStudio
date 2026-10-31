@@ -250,6 +250,14 @@ jobs:
       - name: Verify AI chunks stay lazy
         run: pnpm run check:ai-lazy
 
+      # Post-build guard (29-03, PERF-01/02): the entry's static-import
+      # closure must reach no mermaid-*/codemirror-* chunk. Landed committed
+      # RED in plan 02 (its build named mermaid-parser in the modulepreload
+      # list); the 29-03 lazy boundaries + registry-sourced historyActions
+      # flipped it green. Red build instead of a silent re-eager.
+      - name: Editor chunks laziness guard
+        run: pnpm run check:editor-lazy
+
       # Blocking (WR-04): the `test` job is blocking (it gates Renovate auto-merge)
       # but the unit-test suite does not assert the CDN constants, so without
       # this check a stale mermaid version/SRI pair would ship green end-to-end

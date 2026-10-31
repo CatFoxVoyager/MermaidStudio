@@ -5,21 +5,17 @@
  * the cursor buttons so the soft keyboard stays open.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MobileTopBar } from '../MobileTopBar';
 import * as codeViewRegistry from '@/lib/editor/codeViewRegistry';
-import * as cmCommands from '@codemirror/commands';
 
-vi.mock('@codemirror/commands', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@codemirror/commands')>();
-  return {
-    ...actual,
-    undo: vi.fn(),
-    redo: vi.fn(),
-  };
-});
+// 29-03: the CM6 commands are registry-sourced (registered by CodeEditor on
+// mount; this suite renders the topbar standalone), so the mock seam is
+// registerHistoryCommands — NOT a @codemirror/commands module mock.
+const mockUndo = vi.fn();
+const mockRedo = vi.fn();
 
 describe('MobileTopBar undo/redo buttons', () => {
   const defaultProps = {
@@ -29,6 +25,11 @@ describe('MobileTopBar undo/redo buttons', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    codeViewRegistry.registerHistoryCommands({ undo: mockUndo, redo: mockRedo });
+  });
+
+  afterEach(() => {
+    codeViewRegistry.unregisterHistoryCommands();
   });
 
   it('renders undo and redo buttons', () => {
@@ -47,7 +48,7 @@ describe('MobileTopBar undo/redo buttons', () => {
     await user.click(screen.getByTestId('mobile-topbar-undo'));
 
     expect(activateSpy).toHaveBeenCalled();
-    expect(cmCommands.undo).toHaveBeenCalledWith(mockView);
+    expect(mockUndo).toHaveBeenCalledWith(mockView);
     expect(mockView.focus).toHaveBeenCalled();
   });
 
@@ -59,7 +60,7 @@ describe('MobileTopBar undo/redo buttons', () => {
     render(<MobileTopBar {...defaultProps} />);
     await user.click(screen.getByTestId('mobile-topbar-redo'));
 
-    expect(cmCommands.redo).toHaveBeenCalledWith(mockView);
+    expect(mockRedo).toHaveBeenCalledWith(mockView);
     expect(mockView.focus).toHaveBeenCalled();
   });
 
@@ -71,8 +72,8 @@ describe('MobileTopBar undo/redo buttons', () => {
     await user.click(screen.getByTestId('mobile-topbar-undo'));
     await user.click(screen.getByTestId('mobile-topbar-redo'));
 
-    expect(cmCommands.undo).not.toHaveBeenCalled();
-    expect(cmCommands.redo).not.toHaveBeenCalled();
+    expect(mockUndo).not.toHaveBeenCalled();
+    expect(mockRedo).not.toHaveBeenCalled();
   });
 
   it('prefers explicit onUndo/onRedo props over the registry fallback', async () => {
@@ -87,7 +88,7 @@ describe('MobileTopBar undo/redo buttons', () => {
 
     expect(onUndo).toHaveBeenCalledTimes(1);
     expect(onRedo).toHaveBeenCalledTimes(1);
-    expect(cmCommands.undo).not.toHaveBeenCalled();
+    expect(mockUndo).not.toHaveBeenCalled();
   });
 
   it('prevents default on pointerdown so the soft keyboard stays open', () => {
