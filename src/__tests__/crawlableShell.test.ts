@@ -331,3 +331,76 @@ describe('machine-readable head surfaces - META-01/02/05', () => {
     ).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Trust-line external links (DOC-01/02, plan 30-02).
+//
+// Humans and crawlers follow the shell's trust line: it must link the docs
+// Pages property and the repo changelog alongside the existing GitHub,
+// Ko-Fi and Liberapay anchors. The docs URL is derived from public/llms.txt
+// (a surface this block does not edit) so the generated surface and the
+// shell anchor must agree byte-for-byte; the changelog URL is derived from
+// the untouched noscript GitHub link. Rare-literal hygiene: the only
+// spelled literal is the case-sensitive Pages path fragment - GitHub Pages
+// project paths are case-sensitive (the lowercase variant live-probed 404).
+// ---------------------------------------------------------------------------
+const trustLine = html.match(/<p class="trust">[\s\S]*?<\/p>/);
+const trustText = trustLine ? trustLine[0] : 'text-missing';
+
+const DOCS_URL = (() => {
+  const llms = readFileSync(resolve(__dirname, '../../public/llms.txt'), 'utf8');
+  const m = llms.match(/https:\/\/[a-z0-9-]+\.github\.io\/MermaidStudio\//);
+  expect(m, 'DOC-01: public/llms.txt must advertise the docs Pages URL').not.toBeNull();
+  return m![0];
+})();
+const REPO_URL = (() => {
+  const noscript = html.match(/<noscript>[\s\S]*?<\/noscript>/)![0];
+  const m = noscript.match(/https:\/\/github\.com\/[^"]+/);
+  expect(m, 'DOC-02: the noscript GitHub link must exist (repo URL source)').not.toBeNull();
+  return m![0];
+})();
+
+describe('trust-line external links (DOC-01/02)', () => {
+  it('trust line exists (anchor for the DOC gates)', () => {
+    expect(trustLine, 'DOC-02: the trust-line paragraph is missing').not.toBeNull();
+  });
+
+  it('trust line links the docs Pages property with the exact live-probed case (DOC-01)', () => {
+    expect(
+      trustText,
+      'DOC-01: the trust line must carry a Docs anchor to ' + DOCS_URL,
+    ).toContain('href="' + DOCS_URL + '"');
+    expect(
+      trustText.includes('github.io/MermaidStudio/'),
+      'DOC-01: docs path case must be exact (capital M and S; the lowercase variant live-probed 404)',
+    ).toBe(true);
+  });
+
+  it('trust line links the changelog blob on the repo (DOC-02)', () => {
+    const changelog = REPO_URL + '/blob/main/CHANGELOG.md';
+    expect(
+      trustText,
+      'DOC-02: the trust line must carry a Changelog anchor to the CHANGELOG.md blob',
+    ).toContain('href="' + changelog + '"');
+  });
+
+  it('trust line carries >= 3 external https anchors (DOC-02 floor)', () => {
+    const origin = html.match(/rel="canonical" href="(https:\/\/[^/]+)\//)![1];
+    const hrefs = (trustText.match(/href="(https:\/\/[^"]+)"/g) ?? []).map((entry: string) =>
+      entry.slice('href="'.length, -1),
+    );
+    const external = hrefs.filter((href: string) => !href.startsWith(origin));
+    expect(
+      external.length,
+      `DOC-02: the trust line must carry >= 3 external https links (got ${external.length}; same-origin /privacy does not count toward the floor)`,
+    ).toBeGreaterThanOrEqual(3);
+  });
+
+  it('the four original anchors keep their hrefs (preservation through the edit)', () => {
+    for (const fragment of [REPO_URL + '"', 'https://ko-fi.com/', 'https://liberapay.com/', 'href="/privacy"']) {
+      expect(trustText, 'DOC-02: original anchor must survive the edit: ' + fragment).toContain(
+        fragment,
+      );
+    }
+  });
+});
