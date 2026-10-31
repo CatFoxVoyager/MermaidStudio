@@ -1,0 +1,94 @@
+name: Bug report
+description: Something isn't working in MermaidStudio
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill in the details
+        below — the more precise the reproduction steps, the faster the fix.
+        Check [existing issues](https://github.com/CatFoxVoyager/MermaidStudio/issues?q=is%3Aissue)
+        first to avoid duplicates.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including any error messages.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps starting from https://mermaidstudio.net (or a local dev server).
+      placeholder: |
+        1. Go to '...'
+        2. Open a diagram of type '...'
+        3. Click '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: mermaid-code
+    attributes:
+      label: Diagram code (if relevant)
+      description: The smallest Mermaid snippet that triggers the bug.
+      render: text
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Other / not applicable
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome / Edge
+        - Firefox
+        - Safari
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: MermaidStudio version
+      description: Shown in the About dialog, or the commit SHA if running from source.
+      placeholder: "2.2.0"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output / screenshots
+      description: Paste console errors (F12 → Console) or attach screenshots. Remove any personal data first.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked existing issues and this is not a duplicate
+          required: true
+        - label: I can reproduce this on the latest version
+          required: true
