@@ -308,6 +308,12 @@ describe('vercel.json routing config', () => {
         'Content-Security-Policy-Report-Only',
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; report-uri https://csp-report.vercel.app/report",
       ],
+      // META-05a (plan 30-02): HSTS is added at the edge with includeSubDomains -
+      // additive to the platform-default max-age (live-probed 63072000, no flags).
+      // Preload is deliberately out of scope (the hstspreload.org submission is
+      // user-owned, semi-irreversible); the redirects gate (toHaveLength(2)) must
+      // stay untouched - add zero redirects.
+      ['Strict-Transport-Security', 'max-age=63072000; includeSubDomains'],
     ];
     for (const [key, value] of expected) {
       expect(
