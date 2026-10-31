@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run type-check && vite build",
+    "prebuild": "node scripts/generate-sitemap.mjs",
+    "build": "node scripts/generate-sitemap.mjs && npm run type-check && vite build",
     "build:analyze": "vite build",
     "check:elk": "node scripts/check-elk-chunk.mjs",
     "check:ai-lazy": "node scripts/check-ai-lazy.mjs",
