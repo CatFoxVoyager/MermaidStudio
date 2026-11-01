@@ -64,7 +64,7 @@ if (typeof pkgVersion !== 'string' || pkgVersion.length === 0) {
 // never a shell command string.
 let tagOutput;
 try {
-  tagOutput = execFileSync('git', ['tag', '-l', 'v*', '--sort=-v:refname'], { encoding: 'utf8' });
+  tagOutput = execFileSync('git', ['tag', '-l', '--sort=-v:refname'], { encoding: 'utf8' });
 } catch (err) {
   fail(`git tag -l failed: ${err.message}`);
 }
@@ -73,8 +73,17 @@ const tags = tagOutput
   .map((s) => s.trim())
   .filter(Boolean);
 // Strict three-segment filter: legacy two-segment tags (v1.3, v0.2, ...)
-// must never win the "latest tag" comparison.
-const semverTags = tags.filter((t) => /^v\d+\.\d+\.\d+$/.test(t));
+// must never win the "latest tag" comparison. Component-prefixed tags from
+// release-please (mermaid-studio-v2.3.0) count via their vX.Y.Z suffix —
+// the version is the tag's tail, not its whole name.
+const semverTags = tags
+  .map((t) => {
+    const m = /^(?:.*-)?(v\d+\.\d+\.\d+)$/.exec(t);
+    return m ? { tag: t, version: m[1] } : null;
+  })
+  .filter(Boolean)
+  .sort((a, b) => b.version.localeCompare(a.version, undefined, { numeric: true }));
+const versionOf = (entry) => (entry ? entry.version : null);
 
 // (3) No strict vX.Y.Z tag at all -> fail closed with the seed instruction.
 if (semverTags.length === 0) {
@@ -86,9 +95,11 @@ if (semverTags.length === 0) {
   process.exit(1);
 }
 
-// (4) Equality — the REL-03 contract.
-const latestTag = semverTags[0];
-const latest = latestTag.slice(1);
+// (4) Equality — the REL-03 contract. Latest = highest version, whatever the
+// tag naming (bare `v2.3.0` or component-prefixed `mermaid-studio-v2.3.0`).
+const latestEntry = semverTags[0];
+const latestTag = latestEntry.tag;
+const latest = latestEntry.version.slice(1); // strip the leading v: package.json carries the bare semver
 if (pkgVersion === latest) {
   console.log(`[${CHECK}] OK: package.json ${pkgVersion} == latest tag ${latestTag}`);
   process.exit(0);
