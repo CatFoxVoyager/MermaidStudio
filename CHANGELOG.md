@@ -1,5 +1,43 @@
 # Changelog
 
+## [2.3.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.2.0...mermaid-studio-v2.3.0) (2026-11-01)
+
+
+### Features
+
+* **29-01:** apply 8s boot-splash fade composed with 12s swap ([39906c1](https://github.com/CatFoxVoyager/MermaidStudio/commit/39906c121b36a7a9ba2035777b037dc114814a18))
+* **29-01:** drop duplicated font import, pin 1-request gates ([185088f](https://github.com/CatFoxVoyager/MermaidStudio/commit/185088f578edfead3e7822ba89568fa7939c2f69))
+* **29-01:** gate Google Fonts injection to actual need ([3a68c14](https://github.com/CatFoxVoyager/MermaidStudio/commit/3a68c14da033ea350fd218d31de3c5681e48277b))
+* **29-02:** dynamic-import initMermaid in the two boot hooks ([5a7e57f](https://github.com/CatFoxVoyager/MermaidStudio/commit/5a7e57fd95f9956f0825fbd6a8fa242d1ed65685))
+* **29-02:** extract core-free diagramType module + parser repoints ([323db8c](https://github.com/CatFoxVoyager/MermaidStudio/commit/323db8c4c62f01853a07f3eb904b6a41a5aadb26))
+* **29-02:** lazy primitives, modal boundaries, census guard (RED) ([d9d857e](https://github.com/CatFoxVoyager/MermaidStudio/commit/d9d857e3f72d804f48f053b1a2e2c694c7926207))
+* **29-03:** add MobileWorkspace lazy boundaries (mobile chain closure) ([28ba097](https://github.com/CatFoxVoyager/MermaidStudio/commit/28ba097b76a911c7c80dd9ef0cfb2a5194639853))
+* **29-03:** add WorkspacePanel lazy boundaries + idle prefetch ([3c19a2e](https://github.com/CatFoxVoyager/MermaidStudio/commit/3c19a2efd4400e7ddcabaaee32138d06ecbc5b48))
+* **29-03:** de-eager historyActions, census GREEN, CI wiring ([ccbbff1](https://github.com/CatFoxVoyager/MermaidStudio/commit/ccbbff11b80c3476e8c0c39f50132e3670dcd143))
+* **30-01:** build-generated llms.txt + repo entity fields ([dc536d0](https://github.com/CatFoxVoyager/MermaidStudio/commit/dc536d03aed534431e1416b5de4f5ff11afa4467))
+* **30-01:** composed 1200x630 og-image card via capture pipeline ([81add49](https://github.com/CatFoxVoyager/MermaidStudio/commit/81add49fc3eb405ed1ae31194f687f0815d3443b))
+* **30-01:** generator emits llms.txt + gate suite completed ([7e16ab5](https://github.com/CatFoxVoyager/MermaidStudio/commit/7e16ab5431e034dbbad350d0fc8bc25ec95a021b))
+* **30-01:** prebuild generator emits build-dated 2-URL sitemap ([d12807c](https://github.com/CatFoxVoyager/MermaidStudio/commit/d12807ca0cb22dae3f920ba3f7f5067676cf3996))
+* **30-02:** add HSTS includeSubDomains to the edge headers ([bbd9578](https://github.com/CatFoxVoyager/MermaidStudio/commit/bbd95785d6b69b45e561f013424dd3974e3ae70e))
+* **30-02:** link docs and changelog from the shell trust line ([6376b41](https://github.com/CatFoxVoyager/MermaidStudio/commit/6376b416911e3b389c0b8c2fbd66fbf87b2da015))
+* **30-02:** merged JSON-LD head, og card metas, description trim ([5ad59f6](https://github.com/CatFoxVoyager/MermaidStudio/commit/5ad59f64c6903f2ca42b014abd7a860f9a179e57))
+* **31-01:** french route head contract + sitemap leg ([98adf15](https://github.com/CatFoxVoyager/MermaidStudio/commit/98adf15f626a8fd36fa0f2edb2de3675e91a1f33))
+* **31-01:** french shell body + honesty census ([6184a08](https://github.com/CatFoxVoyager/MermaidStudio/commit/6184a08a97b29c3044cc621a204d4afe6bcb5eb6))
+* **33-01:** version-tag drift guard + fixture suite ([34e1698](https://github.com/CatFoxVoyager/MermaidStudio/commit/34e16982c215f6c5bd1e1868a899c269a371758f))
+* **33-01:** wire version-tag guard into the build job ([fdabdd8](https://github.com/CatFoxVoyager/MermaidStudio/commit/fdabdd883e3959952d77fc0622a0ebf34fed733e))
+
+
+### Bug Fixes
+
+* **28:** wR-01 honest welcome.intro copy, census the claim class ([379bf8f](https://github.com/CatFoxVoyager/MermaidStudio/commit/379bf8ff40ca9c5bfcdbabc12988bf9e672ba87e))
+* **28:** wR-02 drop absolute no-server claims from shell copy ([8c5e52b](https://github.com/CatFoxVoyager/MermaidStudio/commit/8c5e52be2146bbbf4bb2f4e25a4109b761ba475e))
+* **28:** wR-04 fs census makes exactly-one-h1 contract total ([ed4edff](https://github.com/CatFoxVoyager/MermaidStudio/commit/ed4edff14ca469cb8cbcb5a77b43b802b5ec0f34))
+* **29:** in-01 catch rejected mermaid boot imports in both hooks ([f5be246](https://github.com/CatFoxVoyager/MermaidStudio/commit/f5be246bc78403e3c627befa90e49ecdbf899624))
+* **29:** wr-01 self-clean failed font links so the next call retries ([160e85a](https://github.com/CatFoxVoyager/MermaidStudio/commit/160e85a9ffcf5107e88873fcdbc47a3b72e3768e))
+* **29:** wr-02 scope sibling lazy modal chunks with error boundaries ([e928547](https://github.com/CatFoxVoyager/MermaidStudio/commit/e928547576af974b680d7cd1c8f3a2c39041bb28))
+* **ci:** let action-setup read pnpm version from packageManager ([4d87654](https://github.com/CatFoxVoyager/MermaidStudio/commit/4d87654eb87740e89e2d680f6c2fbde332c69a5e))
+* **ci:** packages write for GHCR first publish; docs landing index ([7440f43](https://github.com/CatFoxVoyager/MermaidStudio/commit/7440f43e0222993fe8d987ffc0b6797171e75f6e))
+
 ## [2.1.0] - 2026-10-09
 
 ### Changed
