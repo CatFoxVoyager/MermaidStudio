@@ -1,0 +1,40 @@
+[
+  {
+    "canonical": "https://www.mermaidstudio.net/",
+    "cwv_json": null,
+    "h1": "MermaidStudio — Free & Open-Source Mermaid Diagram Editor",
+    "h2_json": "[\"A free online Mermaid diagram editor \\u2014 an open-source alternative to the Mermaid Live Editor\", \"What is MermaidStudio\", \"How it works\", \"Privacy\"]",
+    "h3_json": "[]",
+    "html_hash": "a37b8c65c0d7365b6f6b12c3146b878d4fce3e8e9721f51ce3e07993815c7b13",
+    "id": 47,
+    "meta_description": "Free, open-source Mermaid diagram editor that runs online in your browser — in-browser AI (WebGPU), drag-and-drop editing, folders and version history.",
+    "og_json": "{\"og:type\": \"website\", \"og:url\": \"https://www.mermaidstudio.net/\", \"og:title\": \"MermaidStudio \\u2014 Free Open-Source Mermaid Diagram Editor\", \"og:description\": \"In-browser AI (WebGPU), drag-and-drop visual editor, folders and version history. Free, open source, no account \\u2014 your diagrams stay on your device; analytics are cookieless.\", \"og:image\": \"https://www.mermaidstudio.net/og-image.png\", \"og:image:width\": \"1200\", \"og:image:height\": \"630\", \"og:image:alt\": \"MermaidStudio share card: dark panel with the wordmark, a one-line value proposition and a small flowchart motif\", \"og:locale\": \"en_US\", \"og:locale:alternate\": \"fr_FR\"}",
+    "robots": "index, follow",
+    "schema_hash": "4b207825f68af9678ae6e80db90efa944f3827f88bc62b81410f538042789454",
+    "schema_json": "[{\"@context\": \"https://schema.org\", \"@type\": \"WebApplication\", \"name\": \"MermaidStudio\", \"url\": \"https://www.mermaidstudio.net/\", \"description\": \"Free, open-source Mermaid diagram editor with in-browser AI (WebGPU), drag-and-drop visual editor, folders and version history. No account \\u2014 your diagrams stay on your device; analytics are cookieless.\", \"applicationCategory\": \"DesignApplication\", \"operatingSystem\": \"Any\", \"browserRequirements\": \"Requires JavaScript. AI features require a WebGPU-capable browser.\", \"inLanguage\": [\"en\", \"fr\"], \"isAccessibleForFree\": true, \"image\": \"https://www.mermaidstudio.net/og-image.png\", \"screenshot\": [\"https://www.mermaidstudio.net/screenshot-wide.png\", \"https://www.mermaidstudio.net/screenshot-narrow.png\"], \"license\": \"https://opensource.org/licenses/MIT\", \"offers\": {\"@type\": \"Offer\", \"price\": \"0\", \"priceCurrency\": \"USD\"}, \"author\": {\"@type\": \"Person\", \"name\": \"J\\u00e9r\\u00e9mie Dufault\", \"url\": \"https://jeremiedufault.ca\", \"sameAs\": [\"https://github.com/CatFoxVoyager\", \"https://www.linkedin.com/in/jeremiedufault/\"]}, \"featureList\": [\"In-browser AI diagram generation via WebGPU (local LLM)\", \"Drag-and-drop visual editor over the live Mermaid preview\", \"Multi-tab workspace with folders, tags and version history\", \"SVG/PNG export with themes and custom styling\", \"Offline-capable PWA with English and French UI\"], \"softwareVersion\": \"2.2.0\", \"codeRepository\": \"https://github.com/CatFoxVoyager/MermaidStudio\", \"sameAs\": [\"https://github.com/CatFoxVoyager/MermaidStudio\"]}]",
+    "status_code": 200,
+    "timestamp": "2026-11-01T03:34:52.928040+00:00",
+    "title": "MermaidStudio — Free Online Mermaid Diagram Editor",
+    "url": "https://www.mermaidstudio.net/",
+    "url_hash": "fb88cbb71c4388e1"
+  },
+  {
+    "canonical": "https://www.mermaidstudio.net/fr/",
+    "cwv_json": null,
+    "h1": "MermaidStudio — Éditeur de diagrammes Mermaid en ligne gratuit",
+    "h2_json": "[\"Un \\u00e9diteur de diagrammes Mermaid en ligne gratuit \\u2014 une alternative open source au Mermaid Live Editor\", \"Qu'est-ce que MermaidStudio\", \"Comment \\u00e7a fonctionne\", \"Confidentialit\\u00e9\"]",
+    "h3_json": "[]",
+    "html_hash": "607cb8a875ed49dfc8523ef6953487889a9bfb8344eb5a6bc05f76d71743463e",
+    "id": 48,
+    "meta_description": "Éditeur de diagrammes Mermaid gratuit et open source, dans votre navigateur — IA locale (WebGPU), éditeur visuel, dossiers et historique de versions.",
+    "og_json": "{\"og:type\": \"website\", \"og:url\": \"https://www.mermaidstudio.net/fr/\", \"og:title\": \"MermaidStudio \\u2014 \\u00c9diteur de diagrammes Mermaid en ligne gratuit\", \"og:description\": \"\\u00c9diteur de diagrammes Mermaid gratuit et open source, dans votre navigateur \\u2014 IA locale (WebGPU), \\u00e9diteur visuel, dossiers et historique de versions.\", \"og:image\": \"https://www.mermaidstudio.net/og-image.png\", \"og:image:width\": \"1200\", \"og:image:height\": \"630\", \"og:image:alt\": \"MermaidStudio share card: dark panel with the wordmark, a one-line value proposition and a small flowchart motif\", \"og:locale\": \"fr_FR\", \"og:locale:alternate\": \"en_US\"}",
+    "robots": "index, follow",
+    "schema_hash": "953e3009067571c0f008e0b05b82dbcce83a651d4b578fe2561a456caebd6958",
+    "schema_json": "[{\"@context\": \"https://schema.org\", \"@type\": \"WebApplication\", \"name\": \"MermaidStudio\", \"url\": \"https://www.mermaidstudio.net/fr/\", \"description\": \"\\u00c9diteur de diagrammes Mermaid gratuit et open source, dans votre navigateur \\u2014 IA locale (WebGPU), \\u00e9diteur visuel, dossiers et historique de versions.\", \"applicationCategory\": \"DesignApplication\", \"operatingSystem\": \"Any\", \"browserRequirements\": \"Requires JavaScript. AI features require a WebGPU-capable browser.\", \"inLanguage\": \"fr\", \"isAccessibleForFree\": true, \"image\": \"https://www.mermaidstudio.net/og-image.png\", \"screenshot\": [\"https://www.mermaidstudio.net/screenshot-wide.png\", \"https://www.mermaidstudio.net/screenshot-narrow.png\"], \"license\": \"https://opensource.org/licenses/MIT\", \"offers\": {\"@type\": \"Offer\", \"price\": \"0\", \"priceCurrency\": \"USD\"}, \"author\": {\"@type\": \"Person\", \"name\": \"J\\u00e9r\\u00e9mie Dufault\", \"url\": \"https://jeremiedufault.ca\", \"sameAs\": [\"https://github.com/CatFoxVoyager\", \"https://www.linkedin.com/in/jeremiedufault/\"]}, \"featureList\": [\"In-browser AI diagram generation via WebGPU (local LLM)\", \"Drag-and-drop visual editor over the live Mermaid preview\", \"Multi-tab workspace with folders, tags and version history\", \"SVG/PNG export with themes and custom styling\", \"Offline-capable PWA with English and French UI\"], \"codeRepository\": \"https://github.com/CatFoxVoyager/MermaidStudio\", \"sameAs\": [\"https://github.com/CatFoxVoyager/MermaidStudio\"]}]",
+    "status_code": 200,
+    "timestamp": "2026-11-01T03:35:02.758994+00:00",
+    "title": "MermaidStudio — Éditeur de diagrammes Mermaid en ligne gratuit",
+    "url": "https://www.mermaidstudio.net/fr",
+    "url_hash": "43db4e461a9cf740"
+  }
+]
