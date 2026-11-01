@@ -1,0 +1,101 @@
+MermaidStudio — Free Online Mermaid Diagram Editor
+Mermaid
+Studio
+v2.1.0
+New Diagram
+Templates
+Backup & Import
+About
+Release Notes
+Explorer
+architecture
+workflow
+draft
+Welcome Diagram
+Welcome Diagram
+Save
+Diff
+Export
+AI
+Fix
+Code / Preview
+Visual
+Collapse
+9
+1
+2
+3
+4
+5
+6
+›
+flowchart
+TD
+A([Start])
+-->
+B{Is it working?}
+B
+-->
+|Yes| C[🎉 Great!]
+B
+-->
+|No| D[Debug it]
+D
+-->
+B
+C
+-->
+E([
+End
+])
+Preview
+Flowchart
+100%
+1:1
+Subgraph
+Select
+Connect
+Box
+Round
+Stadium
+Diamond
+Circle
+Hexagon
+Cylinder
+Slant
+Slant (mirrored)
+Trapezoid
+More
+Box
+Round
+Stadium
+Diamond
+Circle
+Hexagon
+Cylinder
+Slant
+Slant (mirrored)
+Trapezoid
+Trapezoid (mirrored)
+Subroutine
+Flag
+Double Circle
+Person
+Delay
+Sloped rect
+Divided rect
+Folder
+Data store
+Cloud
+Browser
+Bolt
+Triangle
+Hourglass
+Document
+Flowchart
+6 lines
+134 chars
+85ms render
+Just saved
+|
+MermaidStudio is open source
