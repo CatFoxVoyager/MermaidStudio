@@ -20,13 +20,13 @@ Two complementary nets exist:
 ## 1. Pinned baseline
 
 The regression net points at exactly these captures (rows in
-`src/__tests__/fixtures/drift-baseline-2026-10-31.json`, exported verbatim from
+`src/__tests__/fixtures/drift-baseline-2026-11-02.json`, exported verbatim from
 the drift store):
 
 | Route | Baseline id | Captured (UTC) | Served version at capture |
 |---|---|---|---|
-| `https://www.mermaidstudio.net/` | **47** | 2026-11-01T03:34:52.928040+00:00 | llms.txt Version 2.2.0 |
-| `https://www.mermaidstudio.net/fr` | **48** | 2026-11-01T03:35:02.758994+00:00 | llms.txt Version 2.2.0 |
+| `https://www.mermaidstudio.net/` | **49** | 2026-11-02T09:58:39.312717+00:00 | llms.txt Version 2.3.0 |
+| `https://www.mermaidstudio.net/fr` | **50** | 2026-11-02T09:58:45.293392+00:00 | llms.txt Version 2.3.0 |
 
 **Critical selection rule:** `drift_compare` silently compares against the
 LATEST baseline row per URL (`ORDER BY id DESC`) unless `--baseline-id` is
