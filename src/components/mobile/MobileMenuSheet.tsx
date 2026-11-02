@@ -63,7 +63,7 @@ export function MobileMenuSheet({
             Android note moved to a bottom footnote (critique iter-7: the
             promo card owned the prime slot as a card-inside-card with a
             4px accent strip, all craft-floor violations). */}
-        <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+        <div className="space-y-1">
           {/* Commands — the palette was plumbed into the top bar but this
               menu always shadowed it: unreachable by touch anywhere
               (iter-20 P1). */}
