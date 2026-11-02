@@ -45,6 +45,12 @@ export function MobileMenuSheet({
 
   const currentLanguageName = i18n.language?.startsWith('fr') ? 'Français' : 'English';
 
+  // Badge alt doubles as the tail of the promo anchor's accessible name
+  // (aria-label below): one shared literal, never re-typed (review WR-02).
+  const badgeAlt = i18n.language?.startsWith('fr')
+    ? 'Obtenir MermaidStudio sur Google Play'
+    : 'Get MermaidStudio on Google Play';
+
   const handleToggleLanguage = () => {
     const nextLang = i18n.language?.startsWith('fr') ? 'en' : 'fr';
     i18n.changeLanguage(nextLang);
@@ -304,6 +310,7 @@ export function MobileMenuSheet({
             href={PLAY_STORE_URL}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label={`${t('menu.androidTitle', 'MermaidStudio for Android')}: ${badgeAlt}`}
             className="menu-row w-full flex items-center gap-3.5 py-3.5 text-left transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] rounded-xl px-2 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
           >
             <div
@@ -312,11 +319,7 @@ export function MobileMenuSheet({
             >
               <img
                 src={`/badges/google-play-badge-${i18n.language?.startsWith('fr') ? 'fr' : 'en'}.png`}
-                alt={
-                  i18n.language?.startsWith('fr')
-                    ? 'Obtenir MermaidStudio sur Google Play'
-                    : 'Get MermaidStudio on Google Play'
-                }
+                alt={badgeAlt}
                 className="h-8 w-auto block"
                 width={646}
                 height={250}

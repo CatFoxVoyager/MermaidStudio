@@ -141,6 +141,27 @@ describe('MobileMenuSheet', () => {
     );
   });
 
+  it('exposes an explicit accessible name built from the visible title and the badge alt', () => {
+    // Review WR-02: with no author-defined name the anchor's computed name is
+    // the flattened subtree — badge alt + title + sub-line, three
+    // near-duplicates. The explicit aria-label ends on the badge alt (UI-SPEC
+    // Copywriting Contract) while keeping the visible title text inside it:
+    // an alt-only label would sever WCAG 2.5.3 Label-in-Name with the visible
+    // row text. Same pattern as the Language row's aria-label.
+    render(<MobileMenuSheet {...defaultProps} />);
+    expect(screen.getByTestId('mobile-menu-android-card')).toHaveAccessibleName(
+      `${en.menu.androidTitle}: Get MermaidStudio on Google Play`
+    );
+  });
+
+  it('exposes the same accessible-name pattern with the fr.json strings', () => {
+    i18nMock.language = 'fr';
+    render(<MobileMenuSheet {...defaultProps} />);
+    expect(screen.getByTestId('mobile-menu-android-card')).toHaveAccessibleName(
+      `${fr.menu.androidTitle}: Obtenir MermaidStudio sur Google Play`
+    );
+  });
+
   it('renders nothing where the promo card would be inside a native shell', () => {
     // The installed Android app must not promote its own store listing:
     // under the native bridge shape the promo slot renders NO element at
