@@ -127,6 +127,9 @@
       "onnxruntime-node",
       "protobufjs",
       "sharp"
-    ]
+    ],
+    "overrides": {
+      "undici": "8.11.2"
+    }
   }
 }
