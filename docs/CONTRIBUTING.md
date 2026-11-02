@@ -100,4 +100,4 @@ When reporting bugs, please include:
 - Browser version
 - Screenshots if helpful
 
-*Last updated: 2026-07-01*
+*Last updated: 2026-11-02*
