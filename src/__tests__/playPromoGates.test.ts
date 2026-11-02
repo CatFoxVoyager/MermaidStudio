@@ -171,3 +171,34 @@ describe('D5 badge asset integrity + hot-link ban (PROM-05)', () => {
     ).toBe(0);
   });
 });
+
+// D6 — spacing rhythm (PROM-04). The items wrapper must separate rows by
+// spacing ONLY: the divide-y class AND its inline borderColor style both go
+// (a class-only removal leaves a dead style prop and a vacuous green —
+// partial-removal pitfall), space-y-1 gains, and every row keeps py-3.5 so
+// the rounded-xl hover pills read as distinct rows with 4px gaps.
+const MENU_SHEET_SRC = readFileSync(
+  join(ROOT, 'src/components/mobile/MobileMenuSheet.tsx'),
+  'utf8',
+);
+// String.match returns null at zero occurrences — a bare .length on that is
+// undefined, which silently breaks exact-count assertions; ?? [] normalizes.
+const countOccurrences = (source: string, pattern: RegExp) =>
+  (source.match(pattern) ?? []).length;
+
+describe('D6 menu-sheet spacing rhythm (PROM-04)', () => {
+  it('separates rows by spacing rhythm only (no divide-y, no border-subtle token)', () => {
+    const counts = {
+      divideY: countOccurrences(MENU_SHEET_SRC, /divide-y/g),
+      borderSubtle: countOccurrences(MENU_SHEET_SRC, /border-subtle/g),
+      spaceY1Wrapper: countOccurrences(MENU_SHEET_SRC, /className="space-y-1"/g),
+      py35Rows: countOccurrences(MENU_SHEET_SRC, /py-3\.5/g),
+    };
+    expect(
+      counts,
+      `PROM-04: the menu-sheet wrapper must separate rows by spacing rhythm only — ` +
+        `divide-y=0 AND border-subtle=0 (both mechanisms go, never the class alone), ` +
+        `className="space-y-1"=1 on the items wrapper, py-3.5=9 (8 rows + the promo anchor).`,
+    ).toEqual({ divideY: 0, borderSubtle: 0, spaceY1Wrapper: 1, py35Rows: 9 });
+  });
+});
