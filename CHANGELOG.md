@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.1](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.4.0...mermaid-studio-v2.4.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **ci:** read pnpm version from packageManager ([7fab35a](https://github.com/CatFoxVoyager/MermaidStudio/commit/7fab35ae818ae268b13309d457fed9a87d7220c4))
+
 ## [2.4.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.3.0...mermaid-studio-v2.4.0) (2026-11-02)
 
 
