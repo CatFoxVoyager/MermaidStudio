@@ -30,9 +30,9 @@ MermaidStudio is available **on Google Play** — the full Mermaid diagram edito
 [![Get it on Google Play](./docs/images/google-play-badge-en.png)](https://play.google.com/store/apps/details?id=com.mermaidstudio.net)
 
 <p float="left">
-  <img src="./docs/images/app-1.png" alt="MermaidStudio Android app — code editor with live preview" width="220" />
-  <img src="./docs/images/app-2.png" alt="MermaidStudio Android app — visual flowchart editor" width="220" />
-  <img src="./docs/images/app-3.png" alt="MermaidStudio Android app — rendered diagram preview" width="220" />
+  <img src="./docs/images/app-1.png" alt="MermaidStudio Android app — code and visual editing" width="220" />
+  <img src="./docs/images/app-2.png" alt="MermaidStudio Android app — live preview with the visual flowchart editor" width="220" />
+  <img src="./docs/images/app-3.png" alt="MermaidStudio Android app — dark and light, local-first" width="220" />
 </p>
 
 | Capability | Android app | Web |
