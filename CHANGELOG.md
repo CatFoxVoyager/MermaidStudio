@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.2](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.4.1...mermaid-studio-v2.4.2) (2026-11-02)
+
+
+### Bug Fixes
+
+* **e2e:** disable webkit DMABUF renderer in CI ([ac0f569](https://github.com/CatFoxVoyager/MermaidStudio/commit/ac0f5692607d84d7d77cb12d7fd285fcdd0f2215))
+
 ## [2.4.1](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.4.0...mermaid-studio-v2.4.1) (2026-11-02)
 
 
