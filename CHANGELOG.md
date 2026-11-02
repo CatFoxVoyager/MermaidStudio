@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.4.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.3.0...mermaid-studio-v2.4.0) (2026-11-02)
+
+
+### Features
+
+* **34-01:** play promo anchor + isNativeShell util + badges ([d3343c3](https://github.com/CatFoxVoyager/MermaidStudio/commit/d3343c33b55f4c8226695e6a6fa60ff71f37729e))
+* **34-02:** retire android coming-soon copy, guard banner natively ([5fc29d0](https://github.com/CatFoxVoyager/MermaidStudio/commit/5fc29d063469dde07a493742ac3a365821869a66))
+* **34-02:** swap menu-sheet divide-y for spacing rhythm via d6 gate ([ccfb801](https://github.com/CatFoxVoyager/MermaidStudio/commit/ccfb801100af19eea9892dac647adf714aaf70ca))
+* **36-01:** consent-denied GA4 loader + behavioral contract ([776ff0d](https://github.com/CatFoxVoyager/MermaidStudio/commit/776ff0d55977c759a33be2fa66343ec06bfd9246))
+* **36-01:** repo-owned CSP collector + GA4-no-Ads origins ([b9353bf](https://github.com/CatFoxVoyager/MermaidStudio/commit/b9353bf861e818e882432ca4b0bef2065a8984fc))
+* **36-01:** trust-copy sweep discloses consent-denied GA4 ([a029ae7](https://github.com/CatFoxVoyager/MermaidStudio/commit/a029ae7d7ca85fa4c81cba0e93da26a5d612cdd5))
+
+
+### Bug Fixes
+
+* **33:** guard reads component-prefixed tags; llms.txt pin scoped ([95d3657](https://github.com/CatFoxVoyager/MermaidStudio/commit/95d3657b5940d92b9d973827773089ad5fecbcca))
+* **33:** version-tag guard reads component-prefixed release tags ([0d02cb2](https://github.com/CatFoxVoyager/MermaidStudio/commit/0d02cb29f5bac07947df37c02d7d06ce91fb223c))
+* **34:** wr-01 census bans retired EN coming-soon value by fragment ([599ebd0](https://github.com/CatFoxVoyager/MermaidStudio/commit/599ebd005a38f847d00ec000ff4ca368096e09d6))
+* **34:** wr-02 explicit accessible name on Play promo anchor ([d3d7036](https://github.com/CatFoxVoyager/MermaidStudio/commit/d3d7036186d70341bc20fdd24bbb8704c77f9c4f))
+* **36:** wr-01 scope the consent-form claim to the ads leg ([23bf0b4](https://github.com/CatFoxVoyager/MermaidStudio/commit/23bf0b4c6b202085e8ebea9f23d74a01c84cb290))
+* **36:** wr-02 allowlist collector directive before logging ([5186583](https://github.com/CatFoxVoyager/MermaidStudio/commit/51865834ce720bfea584032f21a8d80341ace37e))
+* **36:** wr-03 stub empty measurement id in no-op test ([aa7194b](https://github.com/CatFoxVoyager/MermaidStudio/commit/aa7194b91652d03b3e78a0b496f598af8b57094e))
+
 ## [2.3.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.2.0...mermaid-studio-v2.3.0) (2026-11-01)
 
 
