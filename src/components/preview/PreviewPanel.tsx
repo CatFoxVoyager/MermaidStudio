@@ -1346,6 +1346,10 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       } else if (e.key === '0') {
         e.preventDefault();
         setZoom(1);
+        if (containerRef.current) {
+          containerRef.current.scrollLeft = 0;
+          containerRef.current.scrollTop = 0;
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
