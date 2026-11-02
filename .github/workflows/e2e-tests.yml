@@ -10,6 +10,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# WebKit (GTK) hang ou crashe dans un runner conteneurisé quand le renderer
+# DMABUF est actif — le suite passe alors en 3-4 min avec ce flag (validé le
+# 2026-11-02 par repro dans l'image runner exacte, qui passe sans lui sur un
+# conteneur neuf mais hang sur les runners longuement vécus).
+env:
+  WEBKIT_DISABLE_DMABUF_RENDERER: "1"
+
 jobs:
   e2e-tests:
     name: End-to-End Tests
