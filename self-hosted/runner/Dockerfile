@@ -4,7 +4,7 @@ FROM ghcr.io/actions/actions-runner:2.338.2
 
 # Aligné avec @playwright/test de package.json — le regexManager Renovate
 # (renovate.json, Task 3) mettra à jour ce ARG quand le repo bump playwright.
-ARG PLAYWRIGHT_VERSION=1.63.0
+ARG PLAYWRIGHT_VERSION=1.64.1
 
 USER root
 # docker.io: CLI Docker pour le job docker-build (push GHCR) via le socket monté.
