@@ -1,0 +1,171 @@
+{
+  "summary": {
+    "health_score": 51,
+    "business_type": "Free open-source developer tool (browser-based Mermaid diagram editor with in-browser WebGPU AI) — mono-page React SPA on Vercel",
+    "top_findings": [
+      "CRITICAL: crawlable HTML shell deleted from production (commit d169dbf, 2026-10-06) — served body has zero headings/paragraphs; every JS-blind crawler (Google first wave, GPTBot, ClaudeBot, PerplexityBot, social) indexes nothing",
+      "HIGH: apex→www redirect is 307 Temporary instead of 301/308 permanent — host signal not consolidated",
+      "HIGH: rendered heading structure broken — one text-sm h1 with a button nested inside, zero h2/h3 in the entire rendered DOM",
+      "HIGH: 'no telemetry / no tracking' copy contradicted by mounted Vercel Analytics + Speed Insights; /privacy returns 404 while PRIVACY.md exists in repo and omits Vercel Analytics",
+      "HIGH (perf): 1.24 MiB brotli eager JS+CSS before first paint — 73% is statically-imported mermaid+CodeMirror; mobile lab LCP 15.4s; 19 Google Fonts requests per load (2 render-blocking, duplicated weight sets)"
+    ],
+    "quick_wins": [
+      "Restore crawlable shell from `git show d169dbf~1:index.html` (1 commit + deploy) — unblocks Content, GEO, citability and headings at once",
+      "Flip apex→www to 308 permanent in vercel.json (5 lines)",
+      "Add screenshot property to existing JSON-LD (assets already served 200) + move person sameAs into author",
+      "Regenerate og-image without version badge (current asset bakes v0.9.0; app is v2.1.0)",
+      "Add public/llms.txt + package.json entity fields (repository/homepage/description/author/license)",
+      "Delete src/index.css:1 @import → one render-blocking Google Fonts request removed"
+    ]
+  },
+  "categories": [
+    {
+      "name": "Technical SEO",
+      "score": 62,
+      "what_works": [
+        "robots.txt correct + declared sitemap (22/22 validation checks pass)",
+        "Canonical self-referencing, consistent across og:url / sitemap / JSON-LD",
+        "http→https 308 hops correct; real 404s (no soft-404 factory); clean 1-URL URL structure",
+        "HSTS, nosniff, Referrer-Policy, Permissions-Policy, COOP+COEP (WebGPU requirement)",
+        "hreflang correctly absent (documented decision; /fr/ is a real 404)",
+        "Valid WebApplication JSON-LD with %APP_VERSION% build substitution verified"
+      ],
+      "findings": [
+        {"title": "Crawlable shell removed from production HTML since 2026-10-06 (regression, not design)", "severity": "Critical", "description": "index.html:161 '<!-- Shell removed for dev -->' shipped to prod; body = boot splash + 12s fallback + noscript; zero h1/h2/paragraphs in raw HTML", "recommendation": "Restore the <main class=\"shell\"> block from git show d169dbf~1:index.html; gate by env in dev instead of deleting"},
+        {"title": "apex→www is 307 Temporary for a permanent host move", "severity": "High", "description": "curl -sSI https://mermaidstudio.net/ → HTTP/1.1 307 Location https://www.mermaidstudio.net/; not in vercel.json (Vercel domain settings)", "recommendation": "Add vercel.json redirects block with has:host filter and permanent:true, or flip in Vercel domain settings"},
+        {"title": "Rendered DOM: one text-sm h1 (brand) with nested button, zero h2/h3", "severity": "High", "description": "render-home.json: only h1 is topbar brand with About button inside; 'Free Online Mermaid Diagram Editor' exists only in title/meta", "recommendation": "App-root visible h1; demote topbar brand to div; remove button from heading; h2 for natural sections (port to Android app repo required)"},
+        {"title": "CSP Report-Only only", "severity": "Medium", "description": "Content-Security-Policy-Report-Only observed; script-src 'self' would block inline bootstrap — hash or externalize before enforcing", "recommendation": "Monitor reports, hash the inline bootstrap, then flip to enforcing"},
+        {"title": "HSTS lacks includeSubDomains/preload; sitemap lastmod hand-maintained and stale (27 content commits since 2026-10-04); /index.html 200 instead of 301; meta keywords + app-ads.txt ballast; meta description ~163 chars", "severity": "Low", "description": "Vercel platform default HSTS; sitemap.xml:5; L1-L7 findings", "recommendation": "HSTS includeSubDomains; wire lastmod to build (scripts/generate-sitemap.mjs prebuild); 301 /index.html→/; drop keywords + app-ads.txt; trim description"}
+      ]
+    },
+    {
+      "name": "Content Quality",
+      "score": 34,
+      "what_works": [
+        "Honest, self-contained meta description (158 chars, quotable)",
+        "JSON-LD featureList verified accurate against the codebase",
+        "Zero filler/AI-slop in all existing copy (filler_score 0, ai_pattern_score 0); deleted shell prose was good writing (FRE 47.4) — restore, don't rewrite",
+        "Genuine first-hand origin story exists in i18n (en.json:682)"
+      ],
+      "findings": [
+        {"title": "Effective content depth ≈ 0 (Critical, convergence with shell removal)", "severity": "Critical", "description": "Rendered visible text = ~116 word tokens, 100% UI labels, 0 prose paragraphs, 1 h1; fails homepage 500 / product 300+ floors", "recommendation": "Restore the 185-word shell prose verbatim"},
+        {"title": "Privacy claims conflict with production code; no privacy page on-domain", "severity": "High", "description": "en.json:670 'no telemetry, no tracking' vs App.tsx:161-162 mounts Vercel Analytics + SpeedInsights; /privacy 404; PRIVACY.md omits Vercel Analytics disclosure", "recommendation": "Publish /privacy from PRIVACY.md (amended: disclose Vercel Analytics); align copy to 'no accounts, local-first, cookieless analytics'"},
+        {"title": "French content unreachable at every URL despite bilingual positioning", "severity": "High", "description": "fr.json maintains 611 keys; src/i18n/config.ts:13 hardcodes lng:'en'; /fr/ 404; crawlers see zero French words", "recommendation": "Either ship /fr/ with a rendered FR shell or drop machine-facing FR declarations (og:locale:alternate, inLanguage) until reachable"},
+        {"title": "All supporting/authority content exists but is unreachable or unlinked", "severity": "High", "description": "docs/ deploys to GitHub Pages but the property is not live (404/NXDOMAIN); CHANGELOG reachable only via Welcome modal; exactly 1 <a> in rendered DOM", "recommendation": "Ship the docs property (fix CI runners), link docs/CHANGELOG/GitHub from shell footer"},
+        {"title": "Author identity invisible on-page (JSON-LD only); AI-citation passage structure absent", "severity": "Medium", "description": "JSON-LD author Jérémie Dufault never visible; meta author says 'MermaidStudio'; no definitional passage or heading-anchored sections in rendered DOM", "recommendation": "Footer credit matching JSON-LD Person; restore definition passage + 2-3 h2 sections"}
+      ]
+    },
+    {
+      "name": "On-Page SEO",
+      "score": 55,
+      "what_works": [
+        "Title 51 chars, keyword-rich, survives rendering; og:/twitter: complete with absolute URLs + alt + dimensions; favicon/apple-touch-icon live-verified 200",
+        "Page-type ALIGNED with SERP intent (tool page for tool queries — no blog pivot needed); UX call of updates-only welcome modal is defensible",
+        "Query-set SERP consensus is 10/10 tool-type results — the page type is right"
+      ],
+      "findings": [
+        {"title": "Heading hierarchy broken (from Technical H2) — drag on On-Page score", "severity": "High", "description": "One brand h1 with nested button; zero h2/h3 anywhere", "recommendation": "Real app-root h1 + section h2s (app-repo port flagged)"},
+        {"title": "Site appears in 0 of 30 observed top-10 results for its own queries; GitHub repo ranks #7 for 'mermaid live editor alternative'", "severity": "High", "description": "DDG Lite transcript (Bing-backed proxy), 3 queries; comparison intent (7/10 listicles incl. trymermaid.app dedicated compare page) ceded to third parties", "recommendation": "Restore shell h2 'an open-source alternative to the Mermaid Live Editor' framing; later a dedicated comparison section"},
+        {"title": "First-3-seconds rendered experience is a silent tool; trust/AI-safety answers click-gated (2 clicks, crawler-invisible); 400-700MB AI model cost disclosed only post-commitment", "severity": "High", "description": "visible-text.txt = 101 lines of UI labels; App.tsx:125-130 updates-only modal; en.json:257 cost disclosure panel-only", "recommendation": "Always-visible one-line value-prop strip (rendered, crawlable): 'AI runs locally on your GPU — your code never leaves your machine' + footnote the model download size"},
+        {"title": "Meta description ~163 chars (truncation risk); obsolete meta keywords", "severity": "Low", "description": "index.html:17,40", "recommendation": "Trim to ~155; delete keywords"}
+      ]
+    },
+    {
+      "name": "Schema / Structured Data",
+      "score": 82,
+      "what_works": [
+        "Valid WebApplication JSON-LD — all Google-required properties present (name, applicationCategory:DesignApplication, operatingSystem:Any, offers price 0 USD)",
+        "isAccessibleForFree:true, browserRequirements accurate (JS + WebGPU), softwareVersion 2.1.0 build-substituted and verified, codeRepository + sameAs live",
+        "Correct type choice (WebApplication over SoftwareApplication — keeps browserRequirements semantics); Person author correct over fabricated Organization",
+        "Honest-omission policy in code (no fabricated aggregateRating/HowTo/FAQPage — compliant with quality gates)"
+      ],
+      "findings": [
+        {"title": "Recommended screenshot property missing while assets already ship", "severity": "High", "description": "screenshot-wide.png + screenshot-narrow.png are 200 on prod and referenced by manifest.json — absent from JSON-LD", "recommendation": "Add screenshot array (ready-to-paste block in findings/schema.md, replace index.html:50-80)"},
+        {"title": "sameAs hygiene: person identities on app node; GitHub profile asserted nowhere", "severity": "Low", "description": "LinkedIn on app sameAs; author.sameAs missing github profile", "recommendation": "Move person links into author.sameAs; app sameAs = repo (mirrors codeRepository)"},
+        {"title": "No dateModified freshness signal", "severity": "Low", "description": "Block lacks datePublished/dateModified", "recommendation": "Optional %BUILD_DATE% placeholder extension in vite.config.ts appVersionHtmlPlugin"}
+      ]
+    },
+    {
+      "name": "Performance (CWV)",
+      "score": 40,
+      "what_works": [
+        "CLS 0.04 lab — structural corroboration: boot splash is position:fixed, replaced not shifted",
+        "Vite advancedChunks config is correct (ai-webgpu 6MB correctly lazy); Brotli + immutable caching on all eager chunks; SW network-first docs (never stale HTML)",
+        "Canonical entry (www) is single-hop; COOP/COEP verified on document + assets"
+      ],
+      "findings": [
+        {"title": "Eager 4.67 MiB raw / 1.24 MiB brotli JS+CSS before first paint — 73% statically-imported mermaid+CodeMirror", "severity": "High", "description": "modulepreload census: 11 chunks; WorkspacePanel.tsx:5,7 → CodeEditor.tsx:2-7, PreviewPanel.tsx:4; drives mobile lab LCP 15.4s / FCP 9.1s / TBT 610ms; unused-JS 1,599 KiB", "recommendation": "Dynamic-import @/lib/mermaid/core in PreviewPanel render effect (in-repo precedent: ai-webgpu); React.lazy CodeEditor + idle preload; verified falsifiable: modulepreload count 11 → ≤9, mermaid matches → 0"},
+        {"title": "Google Fonts triple-injection: 19 requests per load (2 render-blocking with duplicated weight sets)", "severity": "Medium", "description": "index.html:102 link + src/index.css:1 @import (duplicate weight set) + App.tsx:18-28 eager injection of 17 SUPPORTED_GOOGLE_FONTS", "recommendation": "Delete src/index.css:1 @import; gate the 17-font injection behind actual font selection; keep crossorigin (COEP)"},
+        {"title": "No field data exists: origin below CrUX eligibility; GSC property not shared with service account (403 both forms)", "severity": "Info", "description": "CrUX URL+origin+history all 404 (2026-10-29); lab numbers are the only instrument", "recommendation": "Share sc-domain:mermaidstudio.net with pagespeed@home-22395.iam.gserviceaccount.com (Restricted); configure ga4_property_id; re-probe CrUX monthly"},
+        {"title": "Splash fade-out (8s) is dead code; apex entrants pay a 307 hop", "severity": "Low", "description": "boot-splash-out keyframes defined, never applied (occurrence count 1); apex→www 307 adds a document hop for non-canonical entrants", "recommendation": "Apply the fade at 8s; flip redirect to 308 (shared with Technical)"}
+      ]
+    },
+    {
+      "name": "Images",
+      "score": 62,
+      "what_works": [
+        "Post-mount layout integrity strong on desktop 1920 and mobile 375 — no overlap/clipping/horizontal scroll",
+        "t=0 splash styled from inline head CSS (no FOUC), system-scheme aware, reduced-motion honored; 12s error fallback works and is styled",
+        "Body has zero <img> (nothing to mis-label); og-image absolute URL + alt + dimensions declared"
+      ],
+      "findings": [
+        {"title": "og-image bakes a stale v0.9.0 badge while app is v2.1.0", "severity": "High", "description": "md5-identical repo/CDN (52c0b89b26a04b3e46e9b5b0aad0406e) with fresh CDN Last-Modified — stale badge is in the source asset; inconsistent with JSON-LD 2.1.0 and og:image:alt promising a version badge", "recommendation": "Regenerate og-image without any version line (shell/JSON-LD carry the version)"},
+        {"title": "og-image illegible at feed size, no tagline", "severity": "Medium", "description": "1920px source text scales to ~4px at 400-560px feed widths; survives only as 'dark app with flowchart' gestalt", "recommendation": "Purpose-built share card: large wordmark + one-line value prop + enlarged diagram motif at 1200x630"},
+        {"title": "PWA manifest screenshots likely same v0.9.0 vintage; mobile top-bar icons borderline 48px touch targets", "severity": "Low", "description": "manifest.json:50-63 files dated Oct 4; icons ~32-40px CSS estimated from 2x capture", "recommendation": "Re-capture manifest screenshots at release; measure and bump touch targets"}
+      ]
+    },
+    {
+      "name": "AI Search Readiness",
+      "score": 37,
+      "what_works": [
+        "robots.txt blanket-allow covers all 13 AI crawlers (correct posture for a free OSS tool)",
+        "JSON-LD entity completeness above-typical for a tool page (applicationCategory, featureList, codeRepository, license, isAccessibleForFree, sameAs)",
+        "Citable corpus that does exist is high-quality: 27-word definitional meta description, verified featureList, honest noscript"
+      ],
+      "findings": [
+        {"title": "JS-blind crawler corpus ≈ 50 words vs 134-167 optimal citation passage (convergence with shell removal)", "severity": "Critical", "description": "GPTBot/OAI-SearchBot/ClaudeBot/PerplexityBot are JS-blind; raw HTML = title + meta + noscript + JSON-LD; zero headings in raw AND rendered DOM", "recommendation": "Shell restore with h1 + 134-167-word definitional paragraph + 3 question-style h2 with 40-60-word answers"},
+        {"title": "llms.txt / llms-full.txt 404", "severity": "High", "description": "Both 404 (Vercel NOT_FOUND); near-zero standalone impact for a 1-URL site but trivially cheap", "recommendation": "Add public/llms.txt (tool summary, canonical URL, version, license, GitHub README link) bundled with the shell fix"},
+        {"title": "Brand corroboration unseeded: 15★ GitHub, no Wikipedia entity; HN/Reddit/X/YouTube UNVERIFIED (platform-evidence ceiling)", "severity": "High", "description": "CC web graph: domain absent (vintage cc-main-2026-jan-feb-mar); 1 verified inbound link total (self-authored, nofollow); YouTube mention correlation ~0.737 is the highest-leverage off-page gap", "recommendation": "Brand seeds: 2-min YouTube demo, Show HN, awesome-mermaid PRs, r/mermaid — after the docs property ships (currently 404/NXDOMAIN)"},
+        {"title": "package.json entity fields missing (repository/homepage/description/author/license)", "severity": "Medium", "description": "grep: only 'version' matched", "recommendation": "Add the five fields (10 min)"}
+      ]
+    }
+  ],
+  "action_plan": {
+    "phases": [
+      {"name": "Phase 1: Critical Fixes (shell + consolidation)", "timeframe": "Week 1", "items": [
+        "Restore crawlable shell from git show d169dbf~1:index.html into index.html (h1, 2 paragraphs, 5-item feature list, trust links) + verify: grep -c '<h1' on served HTML ≥1",
+        "Flip apex→www to 308 permanent (vercel.json has:host redirect block) — verify: curl -sSI apex → 301/308",
+        "App-root h1 'MermaidStudio — Free Online Mermaid Diagram Editor'; demote topbar brand; remove button from h1 (FLAG: port to MermaidStudio-App per cross-repo rule)",
+        "Publish /privacy from amended PRIVACY.md (disclose Vercel Analytics); align 'no telemetry' copy; link from shell + app footer",
+        "Share GSC property with service account (Restricted) — unlocks indexation + performance data"
+      ]},
+      {"name": "Phase 2: High-Impact Improvements", "timeframe": "Weeks 2-3", "items": [
+        "De-eager mermaid stack (dynamic-import @/lib/mermaid/core in PreviewPanel; React.lazy CodeEditor + idle preload) — verify: modulepreload ≤9, mermaid matches 0, PSI unused-JS <400 KiB",
+        "Google Fonts dedup: delete src/index.css:1 @import; gate 17-font injection behind font selection — verify: 1 Google CSS request per load",
+        "JSON-LD: add screenshot array + author.sameAs GitHub profile (replace index.html:50-80)",
+        "Regenerate og-image (no version badge, 1200x630 share card with tagline); re-capture manifest screenshots",
+        "public/llms.txt + package.json entity fields + scripts/generate-sitemap.mjs prebuild lastmod",
+        "Fix splash fade dead code (apply boot-splash-out at 8s); drop meta keywords + app-ads.txt; 301 /index.html→/; HSTS includeSubDomains",
+        "Ship the docs GitHub Pages property (verify self-hosted CI runners active) and link docs/CHANGELOG from shell footer"
+      ]},
+      {"name": "Phase 3: Content & Authority", "timeframe": "Month 2", "items": [
+        "Always-visible rendered value-prop strip: 'AI runs locally on your GPU (WebGPU) — your code never leaves your machine' + model-size footnote (survives shell fix; addresses AI-curious persona 4/10)",
+        "French strategy decision: ship /fr/ with rendered FR shell (611 keys ready) OR drop og:locale:alternate + inLanguage until reachable",
+        "Brand seeds: 2-min YouTube demo, Show HN, awesome-mermaid PRs, r/mermaid + adjacent subs, dev.to build-log",
+        "3 h2-anchored sections in restored shell area (What is / How it works / Privacy) for passage citability",
+        "Configure ga4_property_id for Tier-2 organic reporting; Author surface (footer credit matching JSON-LD Person); meta author fix"
+      ]},
+      {"name": "Phase 4: Monitoring & Iteration", "timeframe": "Ongoing", "items": [
+        "Capture drift baseline (claude-seo run drift_baseline.py) after Phase 1-2 land — regression net for future deploys",
+        "Re-probe CrUX eligibility monthly (field INP/LCP become measurable once traffic qualifies)",
+        "Re-run the 3-query SERP check quarterly (site URL presence in top-20; listicle placements)",
+        "CSP: after quiet report window, hash inline bootstrap and flip to enforcing",
+        "Re-audit post-fix (expected: health score 51 → 80+ on shell+redirect+headings+privacy alone)"
+      ]}
+    ]
+  },
+  "artifacts": {
+    "findings_dir": "findings/",
+    "screenshots_dir": "screenshots/"
+  }
+}

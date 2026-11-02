@@ -10,9 +10,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-env:
-  PNPM_VERSION: '10'
-
 jobs:
   e2e-tests:
     name: End-to-End Tests
@@ -33,8 +30,6 @@ jobs:
 
     - name: Setup pnpm
       uses: pnpm/action-setup@v4
-      with:
-        version: ${{ env.PNPM_VERSION }}
 
     - name: Get pnpm store directory
       shell: bash
@@ -112,8 +107,6 @@ jobs:
 
     - name: Setup pnpm
       uses: pnpm/action-setup@v4
-      with:
-        version: ${{ env.PNPM_VERSION }}
 
     - name: Get pnpm store directory
       shell: bash
@@ -170,8 +163,6 @@ jobs:
 
     - name: Setup pnpm
       uses: pnpm/action-setup@v4
-      with:
-        version: ${{ env.PNPM_VERSION }}
 
     - name: Get pnpm store directory
       shell: bash

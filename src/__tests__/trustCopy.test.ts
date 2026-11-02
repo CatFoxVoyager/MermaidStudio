@@ -21,9 +21,9 @@ const privacyHtml: string | null = existsSync(privacyHtmlPath)
   : null;
 
 const ANALYTICS_SECTION =
-  'The public website measures aggregate, anonymous usage with Vercel Analytics and Vercel Speed Insights: page views, referrers, and coarse geography.';
+  'The public website measures aggregate, anonymous usage with Vercel Analytics, Vercel Speed Insights, and Google Analytics 4 in consent-denied (cookieless) mode: page views, referrers, and coarse geography.';
 const AMENDED_SHORT_VERSION =
-  "We run no accounts and no servers. The public website uses Vercel's cookieless analytics (see Analytics below).";
+  "We run no accounts. The public website uses Vercel's cookieless analytics and Google Analytics 4 in consent-denied (cookieless) mode (see Analytics below).";
 const STALE_SHORT_VERSION =
   'We run no accounts, no servers, and no analytics of our own.';
 const AMENDED_NEVER_DO =
@@ -59,11 +59,18 @@ describe('PRIVACY.md amendments (PRIV-01)', () => {
     ).toBe(true);
   });
 
+  it('replaces the falsified "only third party" sentence with the GA4-inclusive form (36-01)', () => {
+    expect(
+      privacyMd.includes(THIRD_PARTY_SENTENCE),
+      'PRIV-01: the short version must name the cookieless GA4 pings in the third-party sentence',
+    ).toBe(true);
+  });
+
   it('bumps the Last updated date for the amendment', () => {
     expect(
       privacyMd,
       'PRIV-01: the Last updated date must be bumped when the policy changes',
-    ).toMatch(/\*\*Last updated:\*\* 2026-10-30/);
+    ).toMatch(/\*\*Last updated:\*\* 2026-11-02/);
   });
 });
 
@@ -81,10 +88,15 @@ describe('public/privacy.html page contract (PRIV-01 static half)', () => {
     expect(page).toContain('<title>Privacy Policy — MermaidStudio</title>');
     expect(
       page.includes(
-        '<meta name="description" content="MermaidStudio privacy policy: local-first diagrams, local WebGPU AI, Vercel cookieless analytics on the web, AdMob ads only in the Android app.">',
+        '<meta name="description" content="MermaidStudio privacy policy: local-first diagrams, local WebGPU AI, Vercel + Google Analytics 4 cookieless on the web, AdMob ads only on Android.">',
       ),
       'PRIV-01: the contracted meta description (<= 155 chars) is required',
     ).toBe(true);
+    const desc = page.match(/<meta name="description" content="([^"]+)"/)?.[1] ?? '';
+    expect(
+      desc.length,
+      'PRIV-01: the meta description must stay <= 155 chars',
+    ).toBeLessThanOrEqual(155);
     expect(
       page.includes('rel="canonical" href="https://www.mermaidstudio.net/privacy"'),
       'PRIV-01: the page must carry a canonical URL',
@@ -146,6 +158,7 @@ describe('public/privacy.html page contract (PRIV-01 static half)', () => {
   it('mirrors the amended policy content (Analytics disclosure present)', () => {
     const page = privacyHtml!;
     expect(page).toContain(ANALYTICS_SECTION);
+    expect(page).toContain(THIRD_PARTY_SENTENCE);
     expect(page).toContain('← Back to MermaidStudio');
   });
 });
@@ -163,6 +176,17 @@ const indexHtml = readFileSync(resolve(__dirname, '../../index.html'), 'utf8');
 const frShell = readFileSync(resolve(__dirname, '../../public/fr/index.html'), 'utf8');
 
 const BANNED_PHRASES = ['no telemetry', 'no tracking', 'sans télémétrie', 'sans suivi', 'nothing is sent', "rien n'est envoyé", 'no server', 'everything stays on your device'] as const;
+// 36-01 (GA4-03): the third-party sentence disclosed on both policy surfaces —
+// the old "only third party" form was falsified by GA4's consent-denied pings.
+// WR-01 (fix round 2026-11-02): "you control those with a consent form"
+// falsified the web half — the web deliberately has no consent form; the
+// sentence now scopes the form to the Android ads (GDPR) and states the web
+// posture (consent denied, cookieless) instead.
+// Declared AFTER BANNED_PHRASES on purpose: metadataSurfaces.test.ts slices
+// this file from BANNED_PHRASES to the first ']' + ' as const' to extract the
+// census, and that slice must stay exactly the claim-class array.
+const THIRD_PARTY_SENTENCE =
+  'The other third party that processes data is Google: cookieless web-analytics pings on the web, and the ads shown in the Android app — the ads ask via Google\'s consent form (GDPR); the web pings run with consent denied (cookieless).';
 // WR-02 (fix round 2026-10-31): the two added literals close the shell's
 // absolute no-server/everything-stays denials — index.html discloses Vercel
 // cookieless analytics in its Privacy section, so those absolutes are
@@ -309,9 +333,14 @@ describe('vercel.json routing config', () => {
       ['X-Content-Type-Options', 'nosniff'],
       ['Referrer-Policy', 'strict-origin-when-cross-origin'],
       ['Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()'],
+      // 36-01 (GA4-02/GA4-05): GA4-no-Ads origins (no doubleclick/pagead
+      // hosts) + repo-owned collector. The enforcement flip is deliberately
+      // deferred to SEC-01 (v2) - Report-Only by design per the locked
+      // decision; reports go to the repo-owned log-only api/csp-report.js
+      // (204 on a csp-report POST, 405 otherwise).
       [
         'Content-Security-Policy-Report-Only',
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; report-uri https://csp-report.vercel.app/report",
+        "default-src 'self'; script-src 'self' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://www.googletagmanager.com https://*.google-analytics.com; connect-src 'self' https://www.googletagmanager.com https://*.google-analytics.com https://*.google.com https://*.analytics.google.com; report-uri https://www.mermaidstudio.net/api/csp-report",
       ],
       // META-05a (plan 30-02): HSTS is added at the edge with includeSubDomains -
       // additive to the platform-default max-age (live-probed 63072000, no flags).
