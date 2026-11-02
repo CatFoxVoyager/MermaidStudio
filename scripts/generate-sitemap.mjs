@@ -116,7 +116,7 @@ const llmsTxt = [
   '> Free, open-source diagram editor that runs entirely in your browser:',
   '> drag-and-drop visual editing over the live preview, folders, tags and',
   '> version history, and in-browser AI (WebGPU) running locally on your GPU.',
-  '> The public website uses cookieless analytics.',
+  '> The public website uses cookieless analytics: Vercel Analytics and Google Analytics 4 in consent-denied (cookieless) mode.',
   '',
   `- Canonical site: ${SITE_BASE}/`,
   `- Version: ${pkg.version}`,

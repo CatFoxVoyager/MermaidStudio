@@ -10,6 +10,7 @@ import { useKeyboardShortcuts, useDiagramActions, useAppShortcuts, useToast } fr
 import { useAppState } from './hooks/app/useAppState';
 import { useModalState } from './hooks/app/useModalState';
 import { ensureGoogleFontsForFamily } from '@/utils/fontInjection';
+import { log } from '@/utils/logger';
 import { APP_VERSION } from '@/constants/app';
 import { getSettings, updateSettings } from '@/services/storage/database';
 
@@ -34,6 +35,25 @@ export default function App() {
   useEffect(() => {
     ensureGoogleFontsForFamily(appState.defaultTheme?.coreColors.fontFamily);
   }, [appState.defaultTheme?.coreColors.fontFamily]);
+
+  // GA4 (36-01): consent-denied loader, dynamically imported post-mount so
+  // the boot chain never statically reaches it. Boot-non-critical — a failed
+  // chunk fetch is logged and accepted (same recovery shape as the mermaid
+  // core import in useAppState); the loader itself no-ops on native shells
+  // and until VITE_GA4_MEASUREMENT_ID exists (USR-01).
+  useEffect(() => {
+    let cancelled = false;
+    import('@/lib/analytics/ga4')
+      .then(({ initGa4 }) => {
+        if (!cancelled) initGa4();
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) log.error('GA4 chunk failed to load', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Get modal state with mutual exclusion logic
   const {
