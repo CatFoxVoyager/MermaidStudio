@@ -1,0 +1,120 @@
+{
+  "meta": {
+    "target_domain": "mermaidstudio.net",
+    "canonical": "https://www.mermaidstudio.net/",
+    "tier": 0,
+    "analysis_date": "2026-10-29",
+    "sources": {
+      "moz": "unavailable (no API key)",
+      "bing_webmaster": "unavailable (no API key)",
+      "dataforseo": "unavailable (premium tier not installed)",
+      "common_crawl": {
+        "release": "cc-main-2026-jan-feb-mar",
+        "crawl_period": "2026-01 to 2026-03",
+        "lookup_cached_at": "2026-10-04T14:19:23Z",
+        "confidence": 0.50
+      },
+      "verify_crawler": {
+        "runs": ["2026-10-29T13:07:42Z", "2026-10-29T13:10:36Z"],
+        "confidence": 0.95
+      }
+    }
+  },
+  "cc_data": {
+    "status": "success",
+    "data": {
+      "domain": "mermaidstudio.net",
+      "in_crawl": false,
+      "in_rankings": false,
+      "pagerank": null,
+      "pagerank_rank": null,
+      "harmonic_centrality": null,
+      "harmonic_centrality_rank": null,
+      "n_hosts": null,
+      "note": "Domain not found in Common Crawl data. It may be too new, too small, or not yet crawled.",
+      "www_variant": "www.mermaidstudio.net queried separately; tool normalized to registrable domain mermaidstudio.net; identical absent result"
+    },
+    "metadata": {
+      "source": "commoncrawl",
+      "release": "cc-main-2026-jan-feb-mar",
+      "from_cache": true,
+      "timestamp": "2026-10-04T14:19:23Z"
+    }
+  },
+  "verify_data": {
+    "status": "success",
+    "data": {
+      "target_url": "https://www.mermaidstudio.net/",
+      "summary": {
+        "total": 4,
+        "verified": 1,
+        "lost": 2,
+        "moved": 0,
+        "link_removed": 0,
+        "unverifiable_js": 0,
+        "exists": 0,
+        "error": 1
+      },
+      "results": [
+        {
+          "source_url": "https://github.com/CatFoxVoyager/MermaidStudio",
+          "target_url": "https://www.mermaidstudio.net/",
+          "status": "verified",
+          "http_status": 200,
+          "target_found": true,
+          "anchor_text": "www.mermaidstudio.net",
+          "rel_attributes": ["noopener", "noreferrer", "nofollow"],
+          "match_type": "exact_url"
+        },
+        {
+          "source_url": "https://catfoxvoyager.github.io/MermaidStudio/",
+          "target_url": "https://www.mermaidstudio.net/",
+          "status": "lost",
+          "http_status": 404,
+          "target_found": false,
+          "note": "Project Pages URL 404 — docs property not deployed (not a removed link)"
+        },
+        {
+          "source_url": "https://docs.mermaidstudio.net/",
+          "target_url": "https://www.mermaidstudio.net/",
+          "status": "error",
+          "http_status": null,
+          "error": "DNS resolution failed for docs.mermaidstudio.net — subdomain does not exist (NXDOMAIN)"
+        },
+        {
+          "source_url": "https://catfoxvoyager.github.io/",
+          "target_url": "https://www.mermaidstudio.net/",
+          "status": "lost",
+          "http_status": 404,
+          "target_found": false,
+          "note": "GitHub user-site root 404 — no user-site property exists (not a removed link)"
+        }
+      ]
+    },
+    "metadata": {
+      "source": "verify_crawler",
+      "runs": ["2026-10-29T13:07:42Z", "2026-10-29T13:10:36Z"]
+    }
+  },
+  "scoring_factors": {
+    "total_factors": 7,
+    "factors_with_data": 2,
+    "score": null,
+    "verdict": "INSUFFICIENT_DATA — no numeric Backlink Health Score issued at Tier 0",
+    "factors_scored": [
+      "follow/nofollow ratio (n=1 verified link, nofollow)",
+      "anchor text (n=1 verified link, raw-URL anchor)"
+    ],
+    "factors_skipped": [
+      "referring domain count (no source at Tier 0)",
+      "domain quality distribution (no source at Tier 0)",
+      "toxic link ratio (no source at Tier 0)",
+      "link velocity trend (DataForSEO only)",
+      "geographic relevance (no source at Tier 0)"
+    ]
+  },
+  "ceiling_notes": {
+    "social_platforms": "Reddit, X, Hacker News, YouTube, LinkedIn were NOT fetched: JS-wall SPAs; verdict ceiling is 'platform evidence only'; presence/absence UNVERIFIED at Tier 0",
+    "toxic_links": "No toxic-link verdict possible with CC-only data and zero CC link rows; no DA/PA available (no Moz key)"
+  }
+}
