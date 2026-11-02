@@ -148,6 +148,12 @@ claude-seo run pagespeed_check.py https://www.mermaidstudio.net/ --crux-only
 - Once qualified: CrUX History provides the 25-week trend; the Performance
   category of the re-score (section 9) then gains a field-data leg.
 
+**GA4 does not create CrUX field data.** Creating the GA4 property (section 7)
+does not move this origin toward field data: CrUX eligibility is a
+Chrome-traffic bar — a publicly discoverable origin with sufficient Chrome
+visitor traffic — and CrUX never links analytics properties. A
+below-eligibility result remains the expected outcome regardless of GA4 state.
+
 ## 6. Quarterly SERP re-check
 
 Run the 3 observed target queries and check for the site URL in the top-20 of
@@ -166,16 +172,35 @@ this split, not absolutes.
 
 ## 7. GSC / GA4 manual-action checklist
 
-Both items are dashboard/account actions (user-owned; no code path exists):
+Both items are dashboard/account actions (user-owned; no code path exists).
+Each item is written state-independent — check the current state before
+re-running any step; the verification probes decide, not assumptions.
 
 - [ ] **GSC property sharing** — share the Search Console property with the
       audit service account `pagespeed@home-22395.iam.gserviceaccount.com`
       (a public principal id, not a credential). Until shared, GSC API calls
       answer **403** — that is the empty state, not a site defect; come back
-      to this step.
-- [ ] **GA4 configuration** — create the GA4 property and record its
-      `ga4_property_id` in the claude-seo configuration (values live in the
-      local tool config or environment, never in this repo).
+      to this step. Path: Search Console → property `sc-domain:mermaidstudio.net`
+      → Settings → Users and permissions → Add user → paste the
+      service-account email (`pagespeed@home-22395.iam.gserviceaccount.com`) →
+      role **Restricted** (sufficient for read-only reporting; propagation is
+      "very quickly"). After the share, `claude-seo run gsc_query.py sites`
+      lists `sc-domain:mermaidstudio.net`, and
+      `claude-seo run gsc_query.py query --property sc-domain:mermaidstudio.net --days 28`
+      exits 0 (zero rows is normal — GSC carries a 2–3 day reporting lag).
+      Under Restricted, URL Inspection is "Fetch only": a 403 from
+      `gsc_inspect.py` is **role semantics, not a failed share** — escalate
+      the role to Full if inspection matters; don't debug the API.
+- [ ] **GA4 property creation + configuration** — Google Analytics → Admin →
+      Create property → Web stream for `https://www.mermaidstudio.net` →
+      copy the Measurement ID (`G-…`) → Vercel dashboard → Project →
+      Settings → Environment Variables → add `VITE_GA4_MEASUREMENT_ID`
+      (Production **and** Preview) → redeploy so the variable reaches the
+      build. Then record the property's numeric `ga4_property_id` in the
+      claude-seo configuration (values live in the local tool config or
+      environment, never in this repo). The site's GA4 disclosure itself is
+      enforced at PR time by the trust-copy census gates, not by this
+      checklist.
 
 ## 8. Operational status items
 
