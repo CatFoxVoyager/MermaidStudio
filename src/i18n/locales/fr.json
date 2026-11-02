@@ -45,6 +45,7 @@
     "commands": "Commandes",
     "aiRequiresWebGPU": "Nécessite WebGPU (indisponible dans ce navigateur)",
     "androidTitle": "MermaidStudio pour Android",
+    "androidOnPlay": "Disponible sur Google Play",
     "androidComingSoon": "Une application Android dédiée arrive bientôt."
   },
   "upsell": {

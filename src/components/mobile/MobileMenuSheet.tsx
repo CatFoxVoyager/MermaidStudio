@@ -1,7 +1,9 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowUpDown, Languages, ScrollText, Settings, Sparkles, Smartphone, Info, Command } from 'lucide-react';
+import { ArrowUpDown, Languages, ScrollText, Settings, Sparkles, Info, Command } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
+import { isNativeShell } from '@/utils/platform';
+import { PLAY_STORE_URL } from '@/constants/playStore';
 
 export interface MobileMenuSheetProps {
   isOpen: boolean;
@@ -292,16 +294,47 @@ export function MobileMenuSheet({
           </button>
         </div>
 
-        {/* Android note — demoted footnote (testid contract kept: still a
-            non-interactive DIV, never a paywall card). */}
-        <div
-          data-testid="mobile-menu-android-card"
-          className="flex items-center justify-center gap-2 pt-1 text-xs"
-          style={{ color: 'var(--text-secondary)' }}
-        >
-          <Smartphone size={16} aria-hidden="true" style={{ color: 'var(--text-tertiary)' }} />
-          <span>{t('menu.androidComingSoon', 'A dedicated Android app is coming soon.')}</span>
-        </div>
+        {/* Play promo card — the app is live on Google Play (v1.7): official
+            badge art is the CTA, plain https listing link. testid contract
+            kept, semantics deliberately flipped DIV → anchor (documented in
+            the test). Native shells render nothing (no self-promotion). */}
+        {!isNativeShell() && (
+          <a
+            data-testid="mobile-menu-android-card"
+            href={PLAY_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="menu-row w-full flex items-center gap-3.5 py-3.5 text-left transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] rounded-xl px-2 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+          >
+            <div
+              className="w-fit rounded-xl p-2 shrink-0"
+              style={{ background: 'var(--surface-container)' }}
+            >
+              <img
+                src={`/badges/google-play-badge-${i18n.language?.startsWith('fr') ? 'fr' : 'en'}.png`}
+                alt={
+                  i18n.language?.startsWith('fr')
+                    ? 'Obtenir MermaidStudio sur Google Play'
+                    : 'Get MermaidStudio on Google Play'
+                }
+                className="h-8 w-auto block"
+                width={646}
+                height={250}
+              />
+            </div>
+            <div className="flex flex-col">
+              <span
+                className="text-[15px] font-medium"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                {t('menu.androidTitle', 'MermaidStudio for Android')}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                {t('menu.androidOnPlay', 'Now available on Google Play')}
+              </span>
+            </div>
+          </a>
+        )}
       </div>
     </Modal>
   );
