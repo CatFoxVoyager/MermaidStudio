@@ -309,9 +309,14 @@ describe('vercel.json routing config', () => {
       ['X-Content-Type-Options', 'nosniff'],
       ['Referrer-Policy', 'strict-origin-when-cross-origin'],
       ['Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()'],
+      // 36-01 (GA4-02/GA4-05): GA4-no-Ads origins (no doubleclick/pagead
+      // hosts) + repo-owned collector. The enforcement flip is deliberately
+      // deferred to SEC-01 (v2) - Report-Only by design per the locked
+      // decision; reports go to the repo-owned log-only api/csp-report.js
+      // (204 on a csp-report POST, 405 otherwise).
       [
         'Content-Security-Policy-Report-Only',
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; report-uri https://csp-report.vercel.app/report",
+        "default-src 'self'; script-src 'self' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://www.googletagmanager.com https://*.google-analytics.com; connect-src 'self' https://www.googletagmanager.com https://*.google-analytics.com https://*.google.com https://*.analytics.google.com; report-uri https://www.mermaidstudio.net/api/csp-report",
       ],
       // META-05a (plan 30-02): HSTS is added at the edge with includeSubDomains -
       // additive to the platform-default max-age (live-probed 63072000, no flags).
