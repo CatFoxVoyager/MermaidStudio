@@ -23,10 +23,15 @@ const ROOT = resolve(__dirname, '../..');
 // fail the truthful AISettingsModal hardware-tier chip
 // (src/components/ai/AISettingsModal.tsx:179 — that tier genuinely is not
 // available yet and is unrelated to Android). The banned class is exactly the
-// four Android-copy literals: the retired catalog key plus the three retired
-// value fragments (EN note, FR menu line, FR note).
+// five Android-copy literals: the retired catalog key plus the four retired
+// value fragments (EN menu line, EN note, FR menu line, FR note). The EN
+// menu-line VALUE is banned key-independently (review WR-01): renaming the
+// key must not resurrect "A dedicated Android app is coming soon." under a
+// green gate — truthful Android copy says "available on Google Play", never
+// "a dedicated Android app is coming", and the AISettingsModal chip matches
+// none of the fragments.
 const BANNED_ANDROID_COPY =
-  /androidComingSoon|coming soon to Google Play|arrive bientôt|bientôt sur Google Play/g;
+  /androidComingSoon|A dedicated Android app|coming soon to Google Play|arrive bientôt|bientôt sur Google Play/g;
 
 function censusMatches(source: string): string[] {
   return source.match(BANNED_ANDROID_COPY) ?? [];
