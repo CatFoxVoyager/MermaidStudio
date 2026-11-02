@@ -178,11 +178,15 @@ const frShell = readFileSync(resolve(__dirname, '../../public/fr/index.html'), '
 const BANNED_PHRASES = ['no telemetry', 'no tracking', 'sans télémétrie', 'sans suivi', 'nothing is sent', "rien n'est envoyé", 'no server', 'everything stays on your device'] as const;
 // 36-01 (GA4-03): the third-party sentence disclosed on both policy surfaces —
 // the old "only third party" form was falsified by GA4's consent-denied pings.
+// WR-01 (fix round 2026-11-02): "you control those with a consent form"
+// falsified the web half — the web deliberately has no consent form; the
+// sentence now scopes the form to the Android ads (GDPR) and states the web
+// posture (consent denied, cookieless) instead.
 // Declared AFTER BANNED_PHRASES on purpose: metadataSurfaces.test.ts slices
 // this file from BANNED_PHRASES to the first ']' + ' as const' to extract the
 // census, and that slice must stay exactly the claim-class array.
 const THIRD_PARTY_SENTENCE =
-  'The other third party that processes data is Google: cookieless web-analytics pings and the ads shown in the Android app — and you control those with a consent form.';
+  'The other third party that processes data is Google: cookieless web-analytics pings on the web, and the ads shown in the Android app — the ads ask via Google\'s consent form (GDPR); the web pings run with consent denied (cookieless).';
 // WR-02 (fix round 2026-10-31): the two added literals close the shell's
 // absolute no-server/everything-stays denials — index.html discloses Vercel
 // cookieless analytics in its Privacy section, so those absolutes are
