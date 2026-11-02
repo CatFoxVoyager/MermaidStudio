@@ -47,6 +47,21 @@ This document provides a comprehensive overview of the MermaidStudio API and int
 
 ---
 
+### useUseMediaQuery
+
+* Subscribe to a CSS media query. Returns true while the query matches.
+*
+* Desktop-default: getServerSnapshot returns false so that pre-hydration paint
+* (and any hypothetical SSR) renders the desktop tree — preserving the current
+* desktop first paint with zero mobile flash. The client revalidates in an effect.
+*
+* @param query e.g. '(max-width: 767.98px)' for the mobile branch.
+
+**Functions:**
+- useMediaQuery(): boolean
+
+---
+
 ### useUseModalManager
 
 * useModalManager Hook
@@ -78,6 +93,8 @@ This document provides a comprehensive overview of the MermaidStudio API and int
 
 ### useUseTabs
 
+* Called when persisting a diagram fails (debounced auto-save or manual
+* save), so the UI can surface it — the hook itself only logs.
 
 **Functions:**
 - useTabs(): void
@@ -148,6 +165,9 @@ This document provides a comprehensive overview of the MermaidStudio API and int
 - export interface DiagramStyleOptions
 - export interface StylingCapabilities
 
+### node-builtin-shims.d
+
+
 ### storage
 
 - export interface Folder
@@ -170,4 +190,4 @@ This document provides a comprehensive overview of the MermaidStudio API and int
 - export interface UserTemplate
 - export interface BackupData
 
-*Last updated: 2026-07-01*
+*Last updated: 2026-11-02*
