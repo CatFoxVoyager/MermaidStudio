@@ -131,6 +131,18 @@ describe('drift baseline fixture (MON-01)', () => {
     ).not.toBe(frRow.id);
   });
 
+  it('exactly one drift-baseline-*.json fixture exists (discovery glob gate)', () => {
+    const matches = readdirSync(fixtureDir).filter((f: string) =>
+      /^drift-baseline-.*\.json$/.test(f),
+    );
+    expect(
+      matches,
+      `the fixture glob must resolve exactly ONE drift-baseline-*.json (found: ${
+        matches.join(', ') || '(none)'
+      }); with two matches the discovery's unsorted readdirSync(...).find() picks arbitrarily, so the suite could silently test the OLD fixture while green`,
+    ).toHaveLength(1);
+  });
+
   it('both captured rows recorded a 200 status from the fixed production state', () => {
     expect(Number(enRow.status_code), 'EN capture status_code').toBe(200);
     expect(Number(frRow.status_code), 'FR capture status_code').toBe(200);

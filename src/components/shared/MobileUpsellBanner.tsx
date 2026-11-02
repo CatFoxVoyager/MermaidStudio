@@ -1,5 +1,6 @@
 import { Smartphone } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { isNativeShell } from '@/utils/platform';
 
 interface MobileUpsellBannerProps {
   featureName: string;
@@ -15,13 +16,18 @@ interface MobileUpsellBannerProps {
  */
 export function MobileUpsellBanner({ featureName }: MobileUpsellBannerProps) {
   const { t } = useTranslation();
+  // Native shells render nothing (UI-SPEC E3 empty): promoting the Google
+  // Play listing from inside the installed Android app is absurd. The guard
+  // sits AFTER useTranslation — a conditional return must never skip a hook
+  // (rules of hooks). Same single isNativeShell() source as the menu sheet.
+  if (isNativeShell()) return null;
   return (
     <p className="flex items-start gap-2 py-1 text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
       <Smartphone size={16} aria-hidden="true" className="mt-0.5 shrink-0" style={{ color: 'var(--text-tertiary)' }} />
       <span>
         <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{featureName}</span>
         {': '}
-        {t('common.mobileAppNote', 'Available in the mobile app, coming soon to Google Play.')}
+        {t('common.mobileAppNote', 'Available in the mobile app on Google Play.')}
       </span>
     </p>
   );
