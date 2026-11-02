@@ -1,7 +1,7 @@
 {
   "name": "mermaid-studio",
   "private": true,
-  "version": "2.4.2",
+  "version": "2.4.3",
   "description": "Free, open-source Mermaid diagram editor with in-browser AI (WebGPU), drag-and-drop visual editor, folders and version history. No account.",
   "homepage": "https://www.mermaidstudio.net/",
   "author": "Jérémie Dufault",

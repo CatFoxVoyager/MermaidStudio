@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.4.3](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.4.2...mermaid-studio-v2.4.3) (2026-11-02)
+
+
+### Bug Fixes
+
+* **deps:** bump CDN embed pin and SRI hash to mermaid 12.2.0 ([44f4370](https://github.com/CatFoxVoyager/MermaidStudio/commit/44f4370655d3f95c42d554c5816d6d063b516c13))
+* **deps:** pin undici to 8.11.2 ([a747aef](https://github.com/CatFoxVoyager/MermaidStudio/commit/a747aeff1075d7c1c469d2965f9916472f283898))
+* **deps:** update chore(deps): non-major updates ([f5e4ead](https://github.com/CatFoxVoyager/MermaidStudio/commit/f5e4ead044cb4319f7ebcf1ace2ebaf62faffb10))
+* **deps:** update dependency crewai to &gt;=1.15.34,&lt;2.0.0 ([5e157ce](https://github.com/CatFoxVoyager/MermaidStudio/commit/5e157cef3abcde7f185bdaa8ca6f6baf0da486d1))
+
 ## [2.4.2](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.4.1...mermaid-studio-v2.4.2) (2026-11-02)
 
 
