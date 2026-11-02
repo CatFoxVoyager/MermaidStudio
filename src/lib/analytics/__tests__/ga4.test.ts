@@ -7,9 +7,10 @@
 // Env-stub mechanism note: vi.stubEnv('VITE_GA4_MEASUREMENT_ID', …) DOES
 // reach import.meta.env under this vitest 5 transform — probed when the
 // happy-path test first went green (the loader's in-function
-// import.meta.env read only sees the id through the stub; the no-op tests
-// prove the unstubbed/absent path). No direct import.meta.env assignment
-// was needed.
+// import.meta.env read only sees the id through the stub; every no-op
+// test stubs explicitly since WR-03 — an ambient .env.local id must not
+// flip a designed no-op RED). No direct import.meta.env assignment was
+// needed.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { initGa4 } from '@/lib/analytics/ga4';
 
@@ -79,6 +80,12 @@ describe('initGa4 (GA4-01 consent-denied loader)', () => {
   });
 
   it('missing env no-op: zero script tags (designed no-op until USR-01)', () => {
+    // WR-03: stub the empty value explicitly — a dev who sets the id in
+    // .env.local (the documented USR-01 activation step) must not flip
+    // this designed no-op RED. '' is falsy, so the loader takes the same
+    // missing-env branch deterministically (afterEach unstubAllEnvs
+    // restores the ambient value).
+    vi.stubEnv('VITE_GA4_MEASUREMENT_ID', '');
     initGa4();
 
     expect(scriptTags()).toHaveLength(0);
