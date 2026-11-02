@@ -30,16 +30,37 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
     });
   }, [content, themeId, parsedDiagram]);
 
+  const zoomBy = useCallback((delta: number) => {
+    setZoom(z => Math.max(0.1, Math.min(5, z + delta)));
+  }, []);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      const handled = e.key === 'Escape' || e.key === '+' || e.key === '=' ||
+        e.key === '-' || e.key === '0';
+      if (!handled) {return;}
+      // Capture phase: the preview panel keeps its own ctrl+zoom window
+      // listener while this modal is open — stop the event here so the
+      // diagram behind the fullscreen view is not zoomed twice.
+      e.stopPropagation();
       if (e.key === 'Escape') {onClose();}
-      if (e.key === '+' || e.key === '=') {setZoom(z => Math.min(5, z + 0.25));}
-      if (e.key === '-') {setZoom(z => Math.max(0.1, z - 0.25));}
-      if (e.key === '0') { setZoom(1); setPan({ x: 0, y: 0 }); }
+      if (e.key === '+' || e.key === '=') {
+        if (e.ctrlKey || e.metaKey) {e.preventDefault();}
+        zoomBy(0.25);
+      }
+      if (e.key === '-') {
+        if (e.ctrlKey || e.metaKey) {e.preventDefault();}
+        zoomBy(-0.25);
+      }
+      if (e.key === '0') {
+        if (e.ctrlKey || e.metaKey) {e.preventDefault();}
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+      }
     }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [onClose, zoomBy]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) {return;}
@@ -50,9 +71,11 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
   useEffect(() => {
     if (!dragging) {return;}
     const onMove = (e: MouseEvent) => {
+      const dx = e.clientX - lastPos.current.x;
+      const dy = e.clientY - lastPos.current.y;
       setPan(p => ({
-        x: p.x + e.clientX - lastPos.current.x,
-        y: p.y + e.clientY - lastPos.current.y,
+        x: p.x + dx,
+        y: p.y + dy,
       }));
       lastPos.current = { x: e.clientX, y: e.clientY };
     };
@@ -62,11 +85,20 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
   }, [dragging]);
 
-  const onWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setZoom(z => Math.min(5, Math.max(0.1, z + delta)));
-  }, []);
+  // React registers `wheel` as a passive listener, where preventDefault is
+  // ignored — a native listener is needed to block the browser's ctrl+wheel
+  // page zoom. Same pattern as the preview panel.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) {return;}
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const clampedDeltaY = Math.max(-50, Math.min(50, e.deltaY));
+      zoomBy(-clampedDeltaY * 0.0015);
+    };
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [zoomBy]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ background: 'var(--surface-base)' }}>
@@ -100,13 +132,12 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
       <div ref={containerRef}
         className="flex-1 overflow-hidden cursor-grab active:cursor-grabbing preview-grid"
         onMouseDown={onMouseDown}
-        onWheel={onWheel}
         style={{ userSelect: 'none' }}>
         <div className="w-full h-full flex items-center justify-center">
           {/* Safe sink: `svg` was sanitized by renderDiagram (DOMPurify) and
               the post-processing pipeline only mutates attributes via DOM APIs. */}
           {svg ? (
-            <div className="mermaid-container transition-transform duration-75"
+            <div className="mermaid-container"
               style={{
                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
                 transformOrigin: 'center center',
