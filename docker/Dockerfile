@@ -1,5 +1,5 @@
 # Build stage
-FROM node:24-alpine AS builder
+FROM node:24.22.2-alpine AS builder
 
 # pnpm is the canonical package manager (pnpm-lock.yaml committed; ci.yml
 # installs with pnpm@10 --frozen-lockfile). npm ci cannot work here: there
