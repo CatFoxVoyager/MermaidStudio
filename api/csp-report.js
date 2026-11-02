@@ -22,10 +22,18 @@ export default {
     const body = await request.text();
     try {
       const report = JSON.parse(body)['csp-report'] ?? {};
-      const directive =
+      // WR-02 (fix round 2026-11-02): the directive value is attacker-
+      // controlled — anchor-allowlist the CSP directive charset ([\w-],
+      // capped at 64) before it reaches the log. Newlines/control chars,
+      // oversized tokens and non-string values degrade to 'unknown' so a
+      // raw-text drain cannot render forged log lines. Receipt semantics
+      // (204 on any POST, 405 otherwise) are untouched.
+      const raw =
         report['effective-directive'] ??
         report['violated-directive'] ??
         'unknown';
+      const directive =
+        typeof raw === 'string' && /^[\w-]{1,64}$/.test(raw) ? raw : 'unknown';
       console.log(`[csp-report] ${directive} ${body.length}B`);
     } catch {
       // A non-JSON probe body is still a valid receipt — log it minimally.
