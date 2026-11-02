@@ -370,6 +370,17 @@ Embed diagrams in other websites:
 | `Ctrl/Cmd + Shift + F` | Fix with AI |
 | `Ctrl/Cmd + Shift + I` | Improve with AI |
 
+### Preview Zoom Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl/Cmd + Scroll` | Zoom the preview panel in/out |
+| `Ctrl/Cmd + +` / `Ctrl/Cmd + -` | Zoom the preview (and fullscreen preview) in/out |
+| `Ctrl/Cmd + 0` | Reset zoom level (resets pan in fullscreen) |
+
+In the fullscreen preview, plain `+` / `-` / `0` also work, drag pans the
+diagram, and scroll zooms without modifiers.
+
 ### UI Shortcuts
 
 | Shortcut | Action |
