@@ -8,7 +8,7 @@ application and the Android application.
 ## The short version
 
 MermaidStudio is **local-first**: your diagrams are stored on your device and never sent
-to us. We run no accounts. The public website uses Vercel's cookieless analytics and Google Analytics 4 in consent-denied (cookieless) mode (see Analytics below). The other third party that processes data is Google: cookieless web-analytics pings and the ads shown in the Android app — and you control those with a consent form.
+to us. We run no accounts. The public website uses Vercel's cookieless analytics and Google Analytics 4 in consent-denied (cookieless) mode (see Analytics below). The other third party that processes data is Google: cookieless web-analytics pings on the web, and the ads shown in the Android app — the ads ask via Google's consent form (GDPR); the web pings run with consent denied (cookieless).
 
 ## Data storage (web and Android)
 
