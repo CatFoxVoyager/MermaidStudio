@@ -21,9 +21,9 @@ const privacyHtml: string | null = existsSync(privacyHtmlPath)
   : null;
 
 const ANALYTICS_SECTION =
-  'The public website measures aggregate, anonymous usage with Vercel Analytics and Vercel Speed Insights: page views, referrers, and coarse geography.';
+  'The public website measures aggregate, anonymous usage with Vercel Analytics, Vercel Speed Insights, and Google Analytics 4 in consent-denied (cookieless) mode: page views, referrers, and coarse geography.';
 const AMENDED_SHORT_VERSION =
-  "We run no accounts and no servers. The public website uses Vercel's cookieless analytics (see Analytics below).";
+  "We run no accounts. The public website uses Vercel's cookieless analytics and Google Analytics 4 in consent-denied (cookieless) mode (see Analytics below).";
 const STALE_SHORT_VERSION =
   'We run no accounts, no servers, and no analytics of our own.';
 const AMENDED_NEVER_DO =
@@ -59,11 +59,18 @@ describe('PRIVACY.md amendments (PRIV-01)', () => {
     ).toBe(true);
   });
 
+  it('replaces the falsified "only third party" sentence with the GA4-inclusive form (36-01)', () => {
+    expect(
+      privacyMd.includes(THIRD_PARTY_SENTENCE),
+      'PRIV-01: the short version must name the cookieless GA4 pings in the third-party sentence',
+    ).toBe(true);
+  });
+
   it('bumps the Last updated date for the amendment', () => {
     expect(
       privacyMd,
       'PRIV-01: the Last updated date must be bumped when the policy changes',
-    ).toMatch(/\*\*Last updated:\*\* 2026-10-30/);
+    ).toMatch(/\*\*Last updated:\*\* 2026-11-02/);
   });
 });
 
@@ -81,10 +88,15 @@ describe('public/privacy.html page contract (PRIV-01 static half)', () => {
     expect(page).toContain('<title>Privacy Policy — MermaidStudio</title>');
     expect(
       page.includes(
-        '<meta name="description" content="MermaidStudio privacy policy: local-first diagrams, local WebGPU AI, Vercel cookieless analytics on the web, AdMob ads only in the Android app.">',
+        '<meta name="description" content="MermaidStudio privacy policy: local-first diagrams, local WebGPU AI, Vercel + Google Analytics 4 cookieless on the web, AdMob ads only on Android.">',
       ),
       'PRIV-01: the contracted meta description (<= 155 chars) is required',
     ).toBe(true);
+    const desc = page.match(/<meta name="description" content="([^"]+)"/)?.[1] ?? '';
+    expect(
+      desc.length,
+      'PRIV-01: the meta description must stay <= 155 chars',
+    ).toBeLessThanOrEqual(155);
     expect(
       page.includes('rel="canonical" href="https://www.mermaidstudio.net/privacy"'),
       'PRIV-01: the page must carry a canonical URL',
@@ -146,6 +158,7 @@ describe('public/privacy.html page contract (PRIV-01 static half)', () => {
   it('mirrors the amended policy content (Analytics disclosure present)', () => {
     const page = privacyHtml!;
     expect(page).toContain(ANALYTICS_SECTION);
+    expect(page).toContain(THIRD_PARTY_SENTENCE);
     expect(page).toContain('← Back to MermaidStudio');
   });
 });
@@ -163,6 +176,13 @@ const indexHtml = readFileSync(resolve(__dirname, '../../index.html'), 'utf8');
 const frShell = readFileSync(resolve(__dirname, '../../public/fr/index.html'), 'utf8');
 
 const BANNED_PHRASES = ['no telemetry', 'no tracking', 'sans télémétrie', 'sans suivi', 'nothing is sent', "rien n'est envoyé", 'no server', 'everything stays on your device'] as const;
+// 36-01 (GA4-03): the third-party sentence disclosed on both policy surfaces —
+// the old "only third party" form was falsified by GA4's consent-denied pings.
+// Declared AFTER BANNED_PHRASES on purpose: metadataSurfaces.test.ts slices
+// this file from BANNED_PHRASES to the first ']' + ' as const' to extract the
+// census, and that slice must stay exactly the claim-class array.
+const THIRD_PARTY_SENTENCE =
+  'The other third party that processes data is Google: cookieless web-analytics pings and the ads shown in the Android app — and you control those with a consent form.';
 // WR-02 (fix round 2026-10-31): the two added literals close the shell's
 // absolute no-server/everything-stays denials — index.html discloses Vercel
 // cookieless analytics in its Privacy section, so those absolutes are
