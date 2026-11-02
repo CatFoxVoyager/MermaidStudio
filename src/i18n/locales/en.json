@@ -17,7 +17,7 @@
     "apply": "Apply",
     "back": "Back",
     "menu": "Menu",
-    "mobileAppNote": "Available in the mobile app, coming soon to Google Play.",
+    "mobileAppNote": "Available in the mobile app on Google Play.",
     "chunkLoadError": "This part of the editor failed to load."
   },
   "header": {
@@ -45,8 +45,7 @@
     "commands": "Commands",
     "aiRequiresWebGPU": "Requires WebGPU (not available in this browser)",
     "androidTitle": "MermaidStudio for Android",
-    "androidOnPlay": "Now available on Google Play",
-    "androidComingSoon": "A dedicated Android app is coming soon."
+    "androidOnPlay": "Now available on Google Play"
   },
   "upsell": {
     "highResExport": "High-resolution export",
