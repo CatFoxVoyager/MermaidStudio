@@ -260,6 +260,18 @@ jobs:
       - name: Verify package.json matches latest v* tag
         run: pnpm run check:version-tag
 
+      # Blocking (GH-01/GH-02): the public README's Android App section must
+      # keep the linked official badge, the exact trademark attribution, the
+      # honest parity row, and the byte-pinned top block — red build instead
+      # of silent content drift.
+      - name: Verify README app section
+        run: pnpm run check:readme-app-section
+
+      # Blocking: a gate that cannot fail proves nothing — every assertion
+      # group must fire on a mutated copy before any green run is trusted.
+      - name: Self-test README app section gate
+        run: pnpm run check:readme-app-section:selftest
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:

@@ -22,6 +22,8 @@
     "check:editor-lazy": "node scripts/check-editor-lazy.mjs",
     "check:cdn-embed": "vitest run src/constants/__tests__/cdnEmbed.test.ts",
     "check:version-tag": "node scripts/check-version-tag.mjs",
+    "check:readme-app-section": "node scripts/check-readme-app-section.mjs",
+    "check:readme-app-section:selftest": "node scripts/check-readme-app-section.mjs --self-test",
     "preview": "vite preview",
     "benchmark": "node scripts/build/benchmark.mjs",
     "test": "vitest",

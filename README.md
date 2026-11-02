@@ -23,6 +23,28 @@ MermaidStudio is an open-source, self-hosted Mermaid diagram editor that runs en
 
 [![MermaidStudio Screenshot](./docs/images/screenshot.png)](./docs/images/screenshot.png)
 
+## 📱 Android App
+
+MermaidStudio is available **on Google Play** — the full Mermaid diagram editor for Android, no account required:
+
+[![Get it on Google Play](./docs/images/google-play-badge-en.png)](https://play.google.com/store/apps/details?id=com.mermaidstudio.net)
+
+<p float="left">
+  <img src="./docs/images/app-1.png" alt="MermaidStudio Android app — code editor with live preview" width="220" />
+  <img src="./docs/images/app-2.png" alt="MermaidStudio Android app — visual flowchart editor" width="220" />
+  <img src="./docs/images/app-3.png" alt="MermaidStudio Android app — rendered diagram preview" width="220" />
+</p>
+
+| Capability | Android app | Web |
+|------------|-------------|-----|
+| Code editor + live preview | ✅ Same editor, touch-optimized | ✅ |
+| Visual flowchart editor | ✅ | ✅ |
+| Local library — folders, tags, templates, version history, backup | ✅ On-device, no account | ✅ In-browser (IndexedDB) |
+| Export — SVG, PNG, Markdown, share link | ✅ | ✅ |
+| AI assistant (WebGPU, in-browser) | ❌ Web-only — not in the Android v1 build | ✅ |
+
+*Google Play and the Google Play logo are trademarks of Google LLC.*
+
 ## ✨ Features
 
 ### 🎨 Main Editor
