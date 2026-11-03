@@ -21,6 +21,10 @@ jobs:
   e2e-tests:
     name: End-to-End Tests
     runs-on: [self-hosted, Linux, X64]
+    # Cap runtime: a hung browser job must not pin a runner for GitHub's
+    # 6h default — 30 min covers the slowest healthy full suite (observed
+    # ~12-15 min warm).
+    timeout-minutes: 30
 
     strategy:
       matrix:
@@ -102,6 +106,10 @@ jobs:
   e2e-tests-performance:
     name: Performance Tests
     runs-on: [self-hosted, Linux, X64]
+    # Cap runtime: a hung browser job must not pin a runner for GitHub's
+    # 6h default — 30 min covers the slowest healthy full suite (observed
+    # ~12-15 min warm).
+    timeout-minutes: 30
 
     steps:
     - name: Checkout repository
@@ -155,6 +163,10 @@ jobs:
   e2e-tests-cross-browser:
     name: Cross-Browser Tests
     runs-on: [self-hosted, Linux, X64]
+    # Cap runtime: a hung browser job must not pin a runner for GitHub's
+    # 6h default — 30 min covers the slowest healthy full suite (observed
+    # ~12-15 min warm).
+    timeout-minutes: 30
     strategy:
       matrix:
         browser: [chromium, firefox, webkit, edge, chrome]
