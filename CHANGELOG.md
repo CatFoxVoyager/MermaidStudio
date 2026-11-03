@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.4](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.4.3...mermaid-studio-v2.4.4) (2026-11-03)
+
+
+### Bug Fixes
+
+* **e2e:** cap self-hosted job runtime at 30 min ([50111aa](https://github.com/CatFoxVoyager/MermaidStudio/commit/50111aa77111ba825f33efa9c72dcb4542edd6a5))
+
 ## [2.4.3](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.4.2...mermaid-studio-v2.4.3) (2026-11-02)
 
 
