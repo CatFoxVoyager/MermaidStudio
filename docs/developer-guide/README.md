@@ -19,8 +19,8 @@ This guide provides comprehensive information for developers who want to contrib
 
 ### Prerequisites
 
-- Node.js 18.0 or higher
-- npm 8.0 or higher
+- Node.js 24 (engines: `^24.22.2`)
+- pnpm 10 (canonical; npm >= 10.9.9 also works)
 - Git
 - Modern web browser (for testing)
 
@@ -28,8 +28,8 @@ This guide provides comprehensive information for developers who want to contrib
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/your-username/mermaid-studio.git
-cd mermaid-studio
+git clone https://github.com/CatFoxVoyager/MermaidStudio.git
+cd MermaidStudio
 ```
 
 2. **Install dependencies**
@@ -84,9 +84,9 @@ mermaid-studio/
 │   │       └── autocomplete.ts   # Autocomplete
 │   ├── services/                 # Business logic services
 │   │   ├── ai/                   # AI services
-│   │   │   └── providers.ts      # AI provider implementations
+│   │   │   └── providers.ts      # AI entrypoint (in-browser WebGPU/MLC)
 │   │   └── storage/              # Storage services
-│   │       └── database.ts       # LocalStorage management
+│   │       └── database.ts       # IndexedDB database wrapper
 │   ├── hooks/                    # Custom React hooks
 │   ├── types/                    # TypeScript type definitions
 │   ├── utils/                    # Utility functions
@@ -113,7 +113,7 @@ npm run build        # Build for production
 npm run preview      # Preview production build
 
 # Code Quality
-npm run lint         # Run ESLint
+npm run lint         # Run OxLint (oxlint src)
 npm run lint:fix     # Fix auto-fixable issues
 npm run type-check   # Run TypeScript type checking
 npm run format       # Format code with Prettier
@@ -131,9 +131,8 @@ npm run prepare      # Install Git hooks
 
 The project uses Husky for Git hooks:
 
-1. **Pre-commit**: Runs ESLint, TypeScript check, and tests
-2. **Pre-push**: Full test suite
-3. **Commit-msg**: Enforces conventional commits
+1. **Pre-commit**: Runs OxLint and TypeScript check (the full unit suite runs in CI, not in the hook)
+2. **Commit-msg**: Enforces conventional commits
 
 ### Workflow Steps
 
@@ -274,108 +273,47 @@ export function useTabs() {
 
 ### AI Service Architecture
 
+The only active AI backend is **in-browser WebGPU/MLC** — no cloud calls, no
+API keys. `src/services/ai/providers.ts` is a provider-agnostic entrypoint that
+re-exports the WebGPU MLC path (`src/services/ai/WebGPUMLCProvider.ts`, which
+dynamically imports the vendored `@mlc-ai/web-llm` tarball):
+
 ```typescript
 // src/services/ai/providers.ts
-interface AIProvider {
-  name: string;
-  generateDiagram: (prompt: string) => Promise<string>;
-  fixDiagram: (code: string, error: string) => Promise<string>;
-  improveDiagram: (code: string, instructions: string) => Promise<string>;
+export interface MachineOption {
+  /* machine size: 'low' | 'high' */
 }
 
-interface AIProviderConfig {
-  provider: string;
-  apiKey: string;
-  model?: string;
-  maxTokens?: number;
-  temperature?: number;
-  baseUrl?: string;
-}
+export function getMachineOptions(): MachineOption[];          // selectable model sizes
+
+export async function callAI(
+  machineSize: 'low' | 'high',
+  messages: ChatMessage[],
+  onProgress?: (progress: string) => void
+): Promise<AsyncIterable<string>>;                             // streaming inference
+
+export async function testConnection(machineSize: 'low' | 'high'): Promise<boolean>;
 ```
 
-### Creating AI Providers
+Inference runs on the user's GPU via WebGPU, which requires cross-origin
+isolation (`COOP`/`COEP` headers are set by `vite.config.ts` and
+`vercel.json`).
 
-```typescript
-// OpenAI Provider
-export class OpenAIProvider implements AIProvider {
-  private config: OpenAIProviderConfig;
+### Adding AI Capabilities
 
-  constructor(config: OpenAIProviderConfig) {
-    this.config = config;
-  }
-
-  async generateDiagram(prompt: string): Promise<string> {
-    const response = await openai.chat.completions.create({
-      model: this.config.model || 'gpt-4',
-      messages: [
-        {
-          role: 'system',
-          content: this.getSystemPrompt()
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      max_tokens: this.config.maxTokens || 1000,
-      temperature: this.config.temperature || 0.7
-    });
-
-    return response.choices[0].message.content;
-  }
-
-  private getSystemPrompt(): string {
-    return `
-You are a diagram expert specializing in Mermaid syntax.
-
-Given a description, generate clean, valid Mermaid diagram code.
-
-Rules:
-1. Use modern Mermaid syntax
-2. Follow the specified diagram type
-3. Include appropriate styling
-4. Add comments for complex sections
-5. Ensure all brackets are properly closed
-`;
-  }
-}
-```
+All AI features (generate, fix, improve) go through `callAI` with a shared
+system prompt (`src/components/ai/mermaidSystemPrompt.ts`) and the
+RAG-style retrieval helper `src/services/ai/MermaidRAGService.ts`. Do not add
+per-provider `generateDiagram`/`fixDiagram` methods — older docs describing an
+`AIProvider` interface with OpenAI/Anthropic/Google providers are historical;
+those SDKs are not wired into the current code.
 
 ### Using AI in Components
 
-```typescript
-export function AIPanel() {
-  const [prompt, setPrompt] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [diagram, setDiagram] = useState('');
-
-  const generateDiagram = async () => {
-    setLoading(true);
-    try {
-      const aiProvider = createAIProvider(getAIConfig());
-      const result = await aiProvider.generateDiagram(prompt);
-      setDiagram(result);
-    } catch (error) {
-      showToast('Failed to generate diagram', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="ai-panel">
-      <textarea
-        value={prompt}
-        onChange={(e) => setPrompt(e.target.value)}
-        placeholder="Describe your diagram..."
-      />
-      <button onClick={generateDiagram} disabled={loading}>
-        {loading ? 'Generating...' : 'Generate'}
-      </button>
-    </div>
-  );
-}
-```
+`src/components/ai/AIPanel.tsx` hosts the chat UI and drives `callAI` with the
+selected machine size (`low`/`high` configured in `AISettingsModal.tsx`),
+streaming tokens into the message list and applying suggestions to the active
+diagram tab.
 
 ## Testing
 
@@ -391,6 +329,7 @@ export function AIPanel() {
 
 ```typescript
 import { render, screen, fireEvent } from '@testing-library/react';
+import { vi } from 'vitest';
 import { CodeEditor } from './CodeEditor';
 
 describe('CodeEditor', () => {
@@ -400,7 +339,7 @@ describe('CodeEditor', () => {
     render(
       <CodeEditor
         content={mockContent}
-        onChange={jest.fn()}
+        onChange={vi.fn()}
       />
     );
 
@@ -408,7 +347,7 @@ describe('CodeEditor', () => {
   });
 
   it('calls onChange when content changes', () => {
-    const mockOnChange = jest.fn();
+    const mockOnChange = vi.fn();
     const mockContent = 'flowchart TD\n    A --> B';
 
     render(
@@ -456,11 +395,11 @@ import { Diagram } from '../types';
 
 describe('Storage Service', () => {
   beforeEach(() => {
-    // Clear localStorage before each test
+    // Storage tests run against fake-indexeddb; reset persisted state
     localStorage.clear();
   });
 
-  it('saves diagram to localStorage', async () => {
+  it('saves diagram to IndexedDB', async () => {
     const mockDiagram: Diagram = {
       id: 'test-id',
       title: 'Test Diagram',
@@ -473,7 +412,6 @@ describe('Storage Service', () => {
     const result = await saveDiagram(mockDiagram);
 
     expect(result).toBe(true);
-    expect(localStorage.getItem('diagrams')).toBeDefined();
   });
 
   it('retrieves saved diagrams', async () => {
@@ -528,71 +466,47 @@ npm run build
 
 ### Environment Variables
 
-Create `.env.local` for development:
+The app needs **no API keys** (AI runs in-browser via WebGPU). Optional settings
+in `.env.local`:
 
 ```env
-# AI Configuration
-OPENAI_API_KEY=your_key_here
-ANTHROPIC_API_KEY=your_key_here
-GOOGLE_AI_API_KEY=your_key_here
+# Configuration (optional)
+VITE_DEFAULT_THEME=dark
+VITE_DEFAULT_LANGUAGE=en
 
 # Development
 VITE_DEV_SERVER_PORT=5173
-
-# Analytics (optional)
-VITE_GOOGLE_ANALYTICS_ID=your_ga_id
 ```
 
 ### Deployment Options
 
-#### Vercel (Recommended)
+#### Vercel (Primary)
 
 1. Connect GitHub repository
-2. Set environment variables
-3. Deploy on push to main
+2. Deploy on push to main
 
-```json
-// vercel.json
-{
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ]
-}
-```
+The committed `vercel.json` sets `cleanUrls`, apex→www redirects, cache-control
+headers, and the `COOP`/`COEP` cross-origin-isolation headers required by
+WebGPU.
 
 #### Docker
 
 ```dockerfile
-# Multi-stage build
-FROM node:18-alpine AS deps
-RUN npm ci
-
-FROM node:18-alpine AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-RUN npm run build
+# Multi-stage build (docker/Dockerfile)
+FROM node:24.22.2-alpine AS builder
+# ... build steps (pnpm) ...
 
 FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# serves the built dist/ via docker/nginx.conf
 ```
 
-#### Static Hosting
+The CI pipeline builds and pushes this image to GitHub Container Registry
+(ghcr.io) for linux/amd64 + linux/arm64 on every push to main.
 
-```bash
-# Build for static hosting
-npm run build
+#### GitHub Pages
 
-# Deploy to GitHub Pages
-npm run deploy:gh-pages
-```
+The `docs` job in `.github/workflows/ci.yml` uploads `docs/` and deploys it to
+GitHub Pages on push to main (no manual deploy script).
 
 ## Code Standards
 
@@ -678,7 +592,7 @@ export function MyComponent({ data }) {
 
 - Components: PascalCase (e.g., `CodeEditor`)
 - Hooks: camelCase with 'use' prefix (e.g., `useTheme`)
-- Files: kebab-case (e.g., `code-editor.tsx`)
+- Files: PascalCase for components (e.g., `CodeEditor.tsx`), camelCase for utilities and hooks
 - Interfaces: PascalCase (e.g., `ComponentProps`)
 - Types: PascalCase (e.g., `DiagramType`)
 
@@ -707,7 +621,7 @@ try {
 
 ### Development Guidelines
 
-1. **Follow the code style** (ESLint + Prettier enforced)
+1. **Follow the code style** (OxLint + Prettier enforced)
 2. **Write tests** for new features
 3. **Update documentation** when adding features
 4. **Use conventional commits**:
@@ -798,9 +712,11 @@ function validateDiagramContent(content: string): ValidationResult {
 
 ### API Key Security
 
+The current AI stack needs no API keys (in-browser WebGPU only). If you ever
+re-introduce key-based providers:
+
 - Store keys in localStorage (user-controlled)
 - Never commit API keys to repository
-- Use environment variables in production
 - Clear storage on logout
 
 ## Debugging
@@ -844,3 +760,5 @@ npx vite build --filter src/components/CodeEditor.tsx
 ---
 
 Happy coding! 🚀
+
+*Updated: 2026-11-03*

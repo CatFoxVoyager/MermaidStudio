@@ -190,4 +190,4 @@ This document provides a comprehensive overview of the MermaidStudio API and int
 - export interface UserTemplate
 - export interface BackupData
 
-*Last updated: 2026-11-02*
+*Updated: 2026-11-03*

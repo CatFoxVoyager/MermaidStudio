@@ -2,6 +2,8 @@
 
 Welcome to the MermaidStudio tutorials section! This guide walks you through common scenarios with step-by-step instructions.
 
+> **What's new in the shapes palette**: 12 new node shapes were added (v1.5), including `double-circle` — written `((( Node )))` in code or picked from the visual editor. Shapes can also be declared with the `@{ shape: double-circle }` directive syntax.
+
 ## Tutorial 1: Creating a User Registration Flow
 
 ### Goal: Create a complete user registration flowchart
@@ -924,8 +926,8 @@ graph TB
 
 1. **Open AI Panel**
    - Click the lightning bolt icon
-   - Select your AI provider
-   - Enter API key if needed
+   - No API key needed — the AI runs in-browser on your GPU (WebGPU)
+   - Pick a machine size ("low" or "high") in the AI settings if you haven't already
 
 2. **Write a Clear Prompt**
    ```
@@ -1010,35 +1012,23 @@ graph TB
    - Enable line numbers
 
 3. **AI Settings**
-   - Set default provider
-   - Configure API keys
-   - Adjust response length
+   - Choose machine size ("low" or "high") — the model runs locally via WebGPU, no API keys
+   - Load or unload the model from memory
 
 ### Exporting Diagrams
 
 #### Exporting Images
 
-1. Click "Export" button
+1. Click "Export" button (or `Ctrl/Cmd + E`)
 2. Select format:
    - PNG for documents
-   - JPEG for web use
    - SVG for scalability
-   - PDF for printing
-
-3. Choose size:
-   - Small: 800x600
-   - Medium: 1200x900
-   - Large: 1600x1200
-   - Custom: Specify dimensions
+   - Copy as Markdown, embed code (with pinned mermaid version + SRI), or share link
 
 #### Sharing Diagrams
 
 1. Click "Share" button
-2. Choose sharing options:
-   - Public link
-   - Password protected
-   - Expiring link
-
+2. The diagram is encoded into a URL (nothing is uploaded to a server)
 3. Copy the link and share
 
 ### Embedding in Documentation
@@ -1078,12 +1068,6 @@ flowchart TD
 
 ### Batch Operations
 
-#### Export Multiple Diagrams
-1. Select diagrams in sidebar
-2. Right-click and choose "Export Selected"
-3. Choose format and location
-4. All diagrams will be exported
-
 #### Copy Between Projects
 1. Open source diagram
 2. Click "Copy to Clipboard"
@@ -1095,3 +1079,5 @@ flowchart TD
 ## Conclusion
 
 These tutorials cover the most common use cases for MermaidStudio. Practice with different diagram types and explore the AI features to create professional diagrams quickly. Remember to save your work regularly and use version history for important diagrams.
+
+*Updated: 2026-11-03*

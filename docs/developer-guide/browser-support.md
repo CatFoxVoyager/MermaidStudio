@@ -7,7 +7,7 @@ the planned long-term fix is. Written for Phase 24 / VAL-02 (decision D8).
 ## Build target
 
 - `vite.config.ts` sets `build.target: 'esnext'` (the `build:` block,
-  `vite.config.ts:84`).
+  `vite.config.ts:89`).
 - The value is **locked by a guard test**:
   [`src/constants/__tests__/buildTarget.test.ts`](../../src/constants/__tests__/buildTarget.test.ts)
   reads the config as text and asserts the `esnext` target inside the `build:`
@@ -49,3 +49,5 @@ The planned long-term fix for pre-ES2024 browsers is **FR-03 — dynamic
 even when mermaid cannot load. It is deferred to v2 (see REQUIREMENTS.md). The
 iOS ≤ 17.3 statement above points here as the real future fix; a lower build
 target is explicitly not the fix.
+
+*Updated: 2026-11-03*

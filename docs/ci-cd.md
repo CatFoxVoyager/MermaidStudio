@@ -2,47 +2,53 @@
 
 ## Overview
 
-This project has a comprehensive CI/CD pipeline set up using GitHub Actions that automates testing, building, and deployment processes.
+This project has a comprehensive CI/CD pipeline set up using GitHub Actions that automates testing, building, and deployment processes. All pipeline jobs run on **self-hosted Linux (X64) runners** and use **pnpm** (the canonical package manager; `pnpm install --frozen-lockfile` everywhere).
 
 ## Pipeline Stages
 
 ### 1. Lint & Type Check
-- **Triggered on**: Push to any branch, PR to main/develop
+- **Triggered on**: Push/PR to main or develop
 - **Actions**:
-  - Run ESLint to catch code style issues
-  - Run TypeScript type checking
+  - Run OxLint to catch code style issues (`pnpm run lint` → `oxlint src`)
+  - Run TypeScript type checking (`tsc --noEmit` on both `tsconfig.app.json` and `tsconfig.node.json`)
 - **Purpose**: Ensure code quality before proceeding
 
 ### 2. Testing
-- **Triggered on**: Push to any branch, PR to main/develop
+- **Triggered on**: Push/PR to main or develop
 - **Actions**:
-  - Run tests across Node.js 16, 18, and 20
-  - Generate coverage reports
-  - Upload coverage to Codecov
+  - Run the unit suite across a Node.js matrix: **22.12 and 24**
+  - Generate coverage reports (`vitest run --coverage`, blocking)
+  - Upload coverage to Codecov (advisory)
 - **Purpose**: Ensure application functionality across different environments
 
 ### 3. Security Scan
-- **Triggered on**: Push to main and develop branches
+- **Advisory** (job-level `continue-on-error`; not a required check)
 - **Actions**:
-  - Run npm audit to check for vulnerabilities
-  - Run Snyk security scan (if token configured)
+  - Run `pnpm audit --audit-level=moderate`
+  - Run Snyk security scan (if `SNYK_TOKEN` configured)
 - **Purpose**: Identify security vulnerabilities
 
 ### 4. Build
-- **Triggered on**: After linting, testing, and security pass
+- **Triggered on**: After linting, testing, security, and docs pass
 - **Actions**:
   - Build the application
+  - Run the post-build guards: `check:elk` (ELK stays lazy), `check:ai-lazy` (AI chunks stay lazy), `check:editor-lazy` (editor chunk boundaries), `check:cdn-embed` (CDN version/SRI constants), `check:version-tag` (package.json matches latest `v*` tag), `check:readme-app-section` + its self-test
   - Upload build artifacts
 - **Purpose**: Create production-ready build
 
 ### 5. Docker Build and Push
 - **Triggered on**: Push to main branch
 - **Actions**:
-  - Build Docker image
-  - Push to GitHub Container Registry
+  - Build Docker image (`docker/Dockerfile`) for **linux/amd64 and linux/arm64**
+  - Push to GitHub Container Registry (ghcr.io), tagged `latest` on the default branch
 - **Purpose**: Containerize application for deployment
 
-### 6. Deployment
+### 6. Documentation
+- **Triggered on**: Push to main branch
+- **Actions**:
+  - Upload `docs/` and deploy it to **GitHub Pages**
+
+### 7. Deployment
 #### Staging Deployment
 - **Triggered on**: Push to develop branch
 - **Environment**: Staging
@@ -53,7 +59,9 @@ This project has a comprehensive CI/CD pipeline set up using GitHub Actions that
 - **Environment**: Production
 - **Actions**: Deploy build to production environment
 
-### 7. Smoke Test
+> Releases are versioned by **release-please** (manifest mode, `release.yml`): a push to main opens/updates the Release PR, and merging it tags `vX.Y.Z` and publishes the GitHub Release.
+
+### 8. Smoke Test
 - **Triggered after**: Staging deployment
 - **Purpose**: Basic verification that deployment works
 
@@ -62,9 +70,7 @@ This project has a comprehensive CI/CD pipeline set up using GitHub Actions that
 ### GitHub Secrets
 Configure the following secrets in your GitHub repository:
 
-1. `SNYK_TOKEN` - For Snyk security scanning
-2. `SLACK_WEBHOOK` - For Slack notifications
-3. `DEPLOY_KEY` - For deployment (if needed)
+1. `SNYK_TOKEN` - For Snyk security scanning (optional; the scan is advisory without it)
 
 ### Branch Strategy
 
@@ -78,18 +84,19 @@ Configure the following secrets in your GitHub repository:
 ### Quality Gates
 
 The pipeline enforces the following quality gates:
-- No linting errors
+- No OxLint errors
 - No TypeScript errors
-- Test coverage ≥ 75% (lines, functions, branches, statements)
-- No critical security vulnerabilities
+- Coverage thresholds enforced by `vitest run --coverage` (lines 60 / functions 58 / branches 53 / statements 57 — see `vitest.config.ts`); this job is blocking and gates Renovate auto-merge
+- Post-build guards must pass: ELK lazy, AI chunks lazy, editor chunk boundaries, CDN embed constants, package.json/tag agreement, README app section (plus its self-test)
 
 ## Local Development Setup
 
 ### Pre-commit Hooks
 The project uses Husky for pre-commit hooks that automatically run:
-- ESLint
-- TypeScript type checking
-- Tests
+- OxLint (`pnpm run lint`)
+- TypeScript type checking (`pnpm run type-check`)
+
+The full unit suite intentionally runs in CI (the `test:coverage` job), not in the hook — see `.husky/pre-commit`.
 
 To set up:
 ```bash
@@ -98,9 +105,9 @@ npm install
 
 ### Code Quality Tools
 
-#### ESLint
+#### OxLint
 ```bash
-npm run lint        # Check for issues
+npm run lint        # Check for issues (oxlint src)
 npm run lint:fix    # Fix auto-fixable issues
 ```
 
@@ -136,24 +143,22 @@ To trigger a manual deployment:
 ### Rollback Strategy
 
 If a deployment fails:
-1. The pipeline will notify via Slack
-2. Check the deployment logs
-3. Rollback using your deployment tool's rollback feature
-4. Investigate and fix issues
+1. Check the deployment logs in the Actions tab
+2. Rollback using your deployment tool's rollback feature
+3. Investigate and fix issues
 
 ## Monitoring and Notifications
 
 ### Notifications
-- Slack notifications for:
-  - Deployment start/completion
-  - Pipeline failures
-  - Security alerts
+- No chat notifications are wired; failures surface in the GitHub Actions UI
+- The dependency-audit workflow opens an issue for critical/high vulnerabilities
+- The documentation-maintenance workflow opens a "Documentation Update Required" issue when docs go stale
 
 ### Monitoring
 - Application health checks
 - Deployment status tracking
-- Test coverage trends
-- Security vulnerability alerts
+- Test coverage trends (Codecov, advisory)
+- Security vulnerability alerts (`pnpm audit` + Snyk, advisory)
 
 ## Best Practices
 
@@ -161,7 +166,7 @@ If a deployment fails:
 2. **Keep PRs small** to make debugging easier
 3. **Monitor pipeline performance** and optimize if needed
 4. **Review deployment logs** after each deployment
-5. **Update dependencies regularly** to get security patches
+5. **Update dependencies regularly** to get security patches (Renovate automates weekly non-major updates)
 
 ## Troubleshooting
 
@@ -197,3 +202,5 @@ To debug a specific step:
 3. **Database Migration Automation**: Automate database schema changes
 4. **Environment-specific Configs**: Manage configs per environment
 5. **Infrastructure as Code**: Use Terraform for infrastructure provisioning
+
+*Updated: 2026-11-03*

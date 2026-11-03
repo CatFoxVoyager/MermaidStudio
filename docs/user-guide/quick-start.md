@@ -5,15 +5,16 @@ Get up and running with MermaidStudio in minutes!
 ## 1. First Time Setup
 
 ### Open MermaidStudio
-1. Navigate to [app.mermaidstudio.com](https://app.mermaidstudio.com)
+1. Navigate to [www.mermaidstudio.net](https://www.mermaidstudio.net)
 2. The app loads directly in your browser
-3. No sign-up required!
+3. No sign-up required — everything is stored locally on your device (IndexedDB)
 
 ### Familiarize Yourself
-- **Top Toolbar**: Main actions (New, Open, Save, Export)
-- **Sidebar**: Your diagrams and folders
-- **Workspace**: Editor (left) and Preview (right)
+- **Sidebar**: Your files and folders
+- **Workspace**: Editor tabs (Code + live Preview side by side, or the drag-and-drop **Visual** editor)
 - **Status Bar**: Current status and info
+
+> **What's new**: preview **zoom controls** (v1.7), **French UI** (switch EN/FR in the menu, v1.6), and **12 new node shapes** in the visual editor — including `double-circle`, written `((( Node )))` or `@{ shape: double-circle }` (v1.5).
 
 ## 2. Create Your First Diagram
 
@@ -36,8 +37,7 @@ flowchart TD
 ### Option C: Generate with AI
 1. Click lightning bolt icon (**"AI Generate"**)
 2. Type: "Create a simple flowchart"
-3. Choose AI provider
-4. Click "Generate"
+3. Generate — the AI runs **in-browser on your GPU** (WebGPU), no account or API key needed
 
 ## 3. Basic Editing
 
@@ -65,8 +65,9 @@ flowchart TD
 ### Keyboard Shortcuts
 - `Ctrl/Cmd + S` - Save
 - `Ctrl/Cmd + N` - New
-- `Ctrl/Cmd + /` - Comment
-- `F11` - Fullscreen
+- `Ctrl/Cmd + K` - Command palette
+- `Ctrl/Cmd + /` - Toggle AI panel
+- `F11` - Fullscreen preview
 
 ## 4. Save and Organize
 
@@ -88,17 +89,16 @@ When saving:
 ## 5. Export Your Work
 
 ### Quick Export
-1. Click **"Export"** button
+1. Click **"Export"** button (or `Ctrl/Cmd + E`)
 2. Choose format:
    - PNG (for documents)
    - SVG (scalable)
-   - PDF (print-ready)
-3. Download or copy
+   - Copy as Markdown, embed code, or share link
 
 ### Share Online
 1. Click **"Share"**
-2. Copy shareable link
-3. Choose view/edit permissions
+2. Copy the link — the diagram is encoded in the URL itself
+3. Anyone opening the link sees the diagram in their browser; nothing is uploaded to a server
 
 ## 6. Advanced Features
 
@@ -108,8 +108,8 @@ When saving:
 - **Improve**: Select text + "Improve with AI"
 
 ### Version History
-1. Click **"History"**
-2. See all previous versions
+1. Click **"History"** (in the workspace "More" menu)
+2. See the last 50 versions
 3. Restore any version with one click
 
 ### Visual Editor
@@ -164,14 +164,14 @@ classDiagram
 ## 8. Troubleshooting
 
 ### Preview Not Working?
-- Check for syntax errors
+- Check for syntax errors — the preview shows the mermaid error message
 - Ensure brackets are closed
-- Try "Check Syntax" button
+- Use **Fix with AI** from the AI panel
 
 ### AI Not Responding?
-- Check internet connection
-- Verify API key is set
-- Try different provider
+- The AI runs locally on your GPU via **WebGPU** — no API key or internet model download mid-session
+- Use a WebGPU-capable browser (Chrome or Edge; Safari support varies)
+- Pick a smaller machine size ("low") in the AI settings if loading fails
 
 ### Slow Performance?
 - Close unused tabs
@@ -194,16 +194,16 @@ classDiagram
 
 ## Need Help?
 
-- **Help Menu**: Press `Ctrl + ,` or click Help
+- **Help Menu**: Click Help in the app
 - **Keyboard Shortcuts**: See full list in Help
-- **Community**: Join our Discord
-- **Report Issues**: GitHub repository
+- **Report Issues**: [GitHub repository](https://github.com/CatFoxVoyager/MermaidStudio/issues)
 
 ---
 
 **Next Steps**:
 - Try the [full tutorials](./tutorials.md)
-- Explore [advanced features](./advanced.md)
 - Check out the [API documentation](../api/README.md)
 
 Happy diagramming! 🎨
+
+*Updated: 2026-11-03*

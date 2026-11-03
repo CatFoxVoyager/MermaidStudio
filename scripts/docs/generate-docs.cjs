@@ -166,7 +166,7 @@ function generateAPIDocs() {
 
   // Update last modified date
   const today = new Date().toISOString().split('T')[0];
-  content += `*Last updated: ${today}*\n`;
+  content += `*Updated: ${today}*\n`;
 
   writeFile(apiDocsPath, content);
   console.log(`✅ API documentation generated: ${apiDocsPath}`);
@@ -240,7 +240,7 @@ function generateArchitectureDocs() {
 
   // Update last modified date
   const today = new Date().toISOString().split('T')[0];
-  content += `*Last updated: ${today}*\n`;
+  content += `*Updated: ${today}*\n`;
 
   writeFile(archDocsPath, content);
   console.log(`✅ Architecture documentation generated: ${archDocsPath}`);
@@ -345,7 +345,7 @@ function generateContributingDocs() {
 
   // Update last modified date
   const today = new Date().toISOString().split('T')[0];
-  content += `*Last updated: ${today}*\n`;
+  content += `*Updated: ${today}*\n`;
 
   writeFile(contributingPath, content);
   console.log(`✅ Contributing guidelines generated: ${contributingPath}`);
@@ -393,12 +393,12 @@ function updateDocsIndex() {
   content += `### For Contributors\n`;
   content += `- [Contributing](CONTRIBUTING.md) - How to contribute\n\n`;
   content += `## Quick Links\n\n`;
-  content += `- [Live Demo](https://app.mermaidstudio.com)\n`;
-  content += `- [GitHub Repository](https://github.com/your-username/mermaid-studio)\n`;
-  content += `- [Issues](https://github.com/your-username/mermaid-studio/issues)\n\n`;
+  content += `- [Live App](https://www.mermaidstudio.net)\n`;
+  content += `- [GitHub Repository](https://github.com/CatFoxVoyager/MermaidStudio)\n`;
+  content += `- [Issues](https://github.com/CatFoxVoyager/MermaidStudio/issues)\n\n`;
 
   const today = new Date().toISOString().split('T')[0];
-  content += `*Last updated: ${today}*\n`;
+  content += `*Updated: ${today}*\n`;
 
   writeFile(indexPath, content);
   console.log(`✅ Documentation index updated: ${indexPath}`);

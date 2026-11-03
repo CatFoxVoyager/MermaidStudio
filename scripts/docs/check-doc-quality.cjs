@@ -101,8 +101,12 @@ function checkDocumentationCoverage() {
 
     for (const file of files) {
       if (file.isDirectory()) {
+        // Test files and ambient declarations are not JSDoc targets: they
+        // would otherwise dominate the denominator and mask real gaps.
+        if (file.name === '__tests__' || file.name.endsWith('.d.ts')) continue;
         findTsFiles(path.join(dir, file.name));
       } else if (extensions.includes(path.extname(file.name))) {
+        if (file.name.includes('.test.') || file.name.endsWith('.d.ts')) continue;
         tsFiles.push(path.join(dir, file.name));
       }
     }
@@ -142,7 +146,10 @@ function checkOutdatedDocs() {
   };
 
   const markdownFiles = fs.readdirSync(DOC_ROOT, { recursive: true })
-    .filter(file => file.endsWith('.md'));
+    .filter(file => file.endsWith('.md'))
+    // Frozen planning archives and generated reports are not living docs:
+    // their mtime age carries no staleness signal.
+    .filter(file => !file.startsWith('plans') && !file.startsWith('reports'));
 
   const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
 
@@ -158,9 +165,9 @@ function checkOutdatedDocs() {
       });
     }
 
-    // Extract last update date from content
+    // Extract last update date from content (accept both footer casings)
     const content = readFile(filePath);
-    const dateMatch = content.match(/Last updated: (\d{4}-\d{2}-\d{2})/);
+    const dateMatch = content.match(/[Uu]pdated: (\d{4}-\d{2}-\d{2})/);
     if (dateMatch) {
       results.lastUpdates[file] = dateMatch[1];
     }

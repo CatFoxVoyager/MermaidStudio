@@ -1,25 +1,29 @@
 # 📚 Dependency Management Quick Reference
 
+The canonical package manager is **pnpm 10** (`pnpm-lock.yaml` is committed;
+`packageManager: pnpm@10.34.9`). Most routine updates are automated by
+**Renovate** (see below) — this reference covers what you do by hand.
+
 ## Daily Commands
 
 ### Check for vulnerabilities
 ```bash
-npm audit
+pnpm audit
 ```
 
 ### Check for outdated packages
 ```bash
-npm outdated
+pnpm outdated
 ```
 
 ### Update packages (non-breaking)
 ```bash
-npm update
+pnpm update
 ```
 
 ### Install security fixes (non-breaking)
 ```bash
-npm audit fix
+pnpm audit --fix
 ```
 
 ## Weekly Tasks
@@ -27,12 +31,9 @@ npm audit fix
 ### Full dependency audit
 ```bash
 # Check everything
-npm audit --audit-level=moderate
-npm outdated --long
-npx license-checker
-
-# Generate report
-npx audit-ci --moderate
+pnpm audit --audit-level=moderate
+pnpm outdated --long
+pnpm exec license-checker
 ```
 
 ### Test updates
@@ -41,7 +42,7 @@ npx audit-ci --moderate
 git checkout -b deps/update-$(date +%Y%m%d)
 
 # Update packages
-npm update
+pnpm update
 
 # Test everything
 npm run type-check
@@ -50,7 +51,7 @@ npm test
 npm run build
 
 # If successful, commit
-git add package.json package-lock.json
+git add package.json pnpm-lock.yaml
 git commit -m "chore: update dependencies"
 git push origin deps/update-$(date +%Y%m%d)
 ```
@@ -60,10 +61,10 @@ git push origin deps/update-$(date +%Y%m%d)
 ### Major version updates
 ```bash
 # Review outdated packages
-npm outdated | grep "Major"
+pnpm outdated
 
 # Plan major updates (one at a time)
-npm install package@latest
+pnpm add package@latest
 
 # Test thoroughly
 npm run test:coverage
@@ -86,8 +87,8 @@ npx bundle-phobia-cli
 ### Immediate action (high/critical vulnerabilities)
 ```bash
 # 1. Stop deployments
-# 2. Fix immediately
-npm audit fix --force
+# 2. Fix immediately (breaking fixes may need manual edits)
+pnpm audit --fix
 
 # 3. Test thoroughly
 npm test
@@ -123,23 +124,22 @@ git push
 ### Scenario 1: Security Vulnerability Found
 ```bash
 # Check severity
-npm audit
+pnpm audit
 
 # Auto-fix if possible
-npm audit fix
+pnpm audit --fix
 
-# If force required
-npm audit fix --force
-# Then test everything!
+# If breaking changes are involved
+# edit the code manually, then test everything!
 ```
 
 ### Scenario 2: Major Version Update
 ```bash
 # Check current version
-npm list package-name
+pnpm list package-name
 
 # Install latest major
-npm install package-name@latest
+pnpm add package-name@latest
 
 # Read migration guide
 # Update code as needed
@@ -148,20 +148,20 @@ npm install package-name@latest
 
 **Mermaid specifically:** the mermaid pin is exact and the CDN embed carries a
 matching SRI — for the revert path (known-good pair 11.17.2 + layout-elk 0.2.3
-via `git revert bf3658e`) and the 12.0.x fast-follow procedure, see
+via `git revert bf3658e`) and the fast-follow bump procedure, see
 [developer-guide/mermaid-revert-and-tracking.md](./developer-guide/mermaid-revert-and-tracking.md).
 
 ### Scenario 3: License Compatibility Issue
 ```bash
 # Check licenses
-npx license-checker
+pnpm exec license-checker
 
 # Find alternative packages
-npm search alternative-name
+pnpm search alternative-name
 
 # Replace package
-npm uninstall bad-package
-npm install good-package
+pnpm remove bad-package
+pnpm add good-package
 ```
 
 ### Scenario 4: Bundle Size Too Large
@@ -177,6 +177,14 @@ npx vite-bundle-visualizer
 
 ## Automated Monitoring
 
+### Renovate
+`renovate.json` automates routine updates (schedule: before 7am on Mondays):
+- npm non-major updates and GitHub Actions updates are **grouped and auto-merged when CI is green**
+- Major updates open **separate PRs for manual review**
+- Weekly lockfile maintenance (auto-merge on green)
+- Vulnerability alerts are labeled `security`
+- A regex manager keeps the Playwright version of the self-hosted runner Dockerfile aligned with the npm dependency
+
 ### GitHub Actions
 The workflow `.github/workflows/dependency-audit.yml` runs daily to:
 - Scan for vulnerabilities
@@ -186,19 +194,16 @@ The workflow `.github/workflows/dependency-audit.yml` runs daily to:
 
 ### Pre-commit Hooks
 ```bash
-# Run on every commit
-npm audit --audit-level=high
-npm outdated
+# .husky/pre-commit runs on every commit (fast, ~10s)
+pnpm run lint
+pnpm run type-check
 ```
+The full unit suite runs in CI (the `test:coverage` job), not in the hook.
 
 ### CI/CD Integration
-Add to your pipeline:
-```yaml
-- name: Dependency Check
-  run: |
-    npm audit --audit-level=moderate
-    npm outdated
-```
+Already wired into the pipeline:
+- `ci.yml` — Security Scan job: `pnpm audit --audit-level=moderate` + Snyk (advisory)
+- `dependency-audit.yml` — daily audit, outdated check, license check, critical-issue creation, PR comments
 
 ## Best Practices
 
@@ -236,4 +241,4 @@ Add to your pipeline:
 
 ---
 
-*Last updated: 2026-03-23*
+*Updated: 2026-11-03*

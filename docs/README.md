@@ -19,8 +19,8 @@ Welcome to the MermaidStudio documentation!
 
 ## Quick Links
 
-- [Live Demo](https://app.mermaidstudio.com)
-- [GitHub Repository](https://github.com/your-username/mermaid-studio)
-- [Issues](https://github.com/your-username/mermaid-studio/issues)
+- [Live App](https://www.mermaidstudio.net)
+- [GitHub Repository](https://github.com/CatFoxVoyager/MermaidStudio)
+- [Issues](https://github.com/CatFoxVoyager/MermaidStudio/issues)
 
-*Last updated: 2026-11-02*
+*Updated: 2026-11-03*

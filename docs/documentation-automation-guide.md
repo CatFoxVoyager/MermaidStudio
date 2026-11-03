@@ -68,17 +68,17 @@ node scripts/docs/test-docs.cjs
 ### Main Pipeline (`.github/workflows/ci.yml`)
 
 The main CI pipeline includes:
-- **Documentation Generation**: Runs on all branches
+- **Documentation Generation**: Runs on pushes and PRs to main/develop
 - **Quality Checks**: Validates documentation before deployment
-- **Deployment**: Automatically deploys to GitHub Pages on main branch
+- **Deployment**: Automatically deploys `docs/` to GitHub Pages on main branch
 
 ### Documentation Maintenance (`.github/workflows/docs.yml`)
 
 Dedicated workflow for documentation maintenance:
-- **Freshness Check**: Monitors documentation age
-- **Quality Reports**: Generates periodic quality assessments
-- **Stale Issues**: Automatically creates issues for outdated docs
-- **Scheduled Reviews**: Monthly review reminders
+- **Freshness Check**: Reads the `Updated:` token in `docs/README.md`; if older than 30 days, flags the docs as stale
+- **Quality Reports**: Generates periodic quality assessments (uploaded as artifacts)
+- **Stale Issues**: Automatically creates a "Documentation Update Required" issue (with an open-issue dedup guard)
+- **Scheduled Runs**: Daily at 2 AM UTC, plus on changes to `docs/**`, `src/**`, or `README.md`
 
 ## Documentation Structure
 
@@ -90,8 +90,8 @@ docs/
 │   └── README.md              # Generated from hooks and services
 ├── architecture/               # Architecture documentation
 │   └── README.md              # System architecture overview
-├── user-guide/                # User documentation (placeholder)
-├── developer-guide/           # Developer documentation (placeholder)
+├── user-guide/                # User documentation
+├── developer-guide/           # Developer documentation
 └── reports/                   # Quality and test reports
     ├── quality-report.md      # Documentation quality assessment
     └── test-report.json        # Test suite results
@@ -169,4 +169,4 @@ When contributing to documentation:
 3. Update links when moving or renaming files
 4. Run quality checks before submitting changes
 
-*Last updated: 2026-03-23*
+*Updated: 2026-11-03*

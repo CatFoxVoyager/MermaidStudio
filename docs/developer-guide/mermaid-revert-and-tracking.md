@@ -1,18 +1,18 @@
-# Mermaid Revert Path & 12.0.x Tracking (Developer Guide)
+# Mermaid Revert Path & 12.x Tracking (Developer Guide)
 
 How to retreat from mermaid 12 to the known-good mermaid 11 pair, and how to
 track 12.0.x point releases without floating pins. Written for Phase 24 /
 VAL-03 (decision D9). The companion browser-floor doc is
 [browser-support.md](./browser-support.md).
 
-## Current state (v1.3)
+## Current state (as of v2.4.3)
 
 | Surface | Pin | Guard |
 |---|---|---|
-| `package.json` mermaid | exact `12.0.0` (no caret) | lockfile specifier synced |
+| `package.json` mermaid | exact `12.2.0` (no caret) | lockfile specifier synced |
 | `@mermaid-js/layout-elk` | **removed** (mermaid 12 bundles ELK, lazy-loaded) | `npm run check:elk` |
-| CDN embed (`src/constants/cdnEmbed.ts:19-24`) | exact `12.0.0` + sha384 SRI | `check:cdn-embed` (recomputes SRI from installed bytes) |
-| Renderer defaults (`doInit()`) | `layout: 'dagre'`, `look: 'classic'` (v11 defaults) | Phase 21 locks |
+| CDN embed (`src/constants/cdnEmbed.ts:19-24`) | exact `12.2.0` + sha384 SRI | `check:cdn-embed` (recomputes SRI from installed bytes) |
+| Renderer defaults (`doInit()`) | `layout: 'dagre'`, `look: 'neo'` (the Phase-21 `classic` pin was deliberately flipped to `neo` — marked revert-safe in `core.ts`) | Phase 21 locks |
 
 ## The known-good pair
 
@@ -32,6 +32,10 @@ commit: `package.json`, `pnpm-lock.yaml`, and `src/lib/mermaid/core.ts`.
 Reverting it restores the known-good pair in one step: the manifest returns to
 `mermaid ^11.17.2` + `@mermaid-js/layout-elk ^0.2.3`, the lockfile returns to
 its pre-flip content, and the ELK loader registration returns to `core.ts`.
+Note that mermaid bumps have landed on the same lines since the flip
+(`12.1.0` → `12.2.0`, CDN pin/SRI re-synced in `44f4370`), so a bare
+`git revert bf3658e` may surface conflicts — resolve them toward the
+`11.17.2` pin.
 
 After the revert, re-install dependencies with the canonical package manager
 (pnpm 10 — `pnpm-lock.yaml` is the committed lockfile the revert restores).
@@ -41,10 +45,11 @@ exact known-good restoration, tighten both to exact pins (`11.17.2` /
 
 ### What survives the revert, and why it is safe
 
-- **The v11-default pins in `doInit()`** (`layout: 'dagre'`, `look:
-  'classic'`) are harmless under v11 **by design** (Phase 21 revert-safety):
-  dagre/classic were v11's own defaults, so the pins are a no-op on the
-  reverted pair.
+- **The v11-default `layout: 'dagre'` pin in `doInit()`** is harmless under
+  v11 **by design** (Phase 21 revert-safety): dagre was v11's own default, so
+  the pin is a no-op on the reverted pair. The `look: 'neo'` value deliberately
+  replaced the Phase-21 `classic` pin (v12's neo/redux-color look) and is
+  marked revert-safe in `core.ts`.
 - **The Phase 22 `renderDiagram` cleanup** (error-SVG + render-container-div
   removal) is version-agnostic — it manipulates the app's own DOM state, not
   mermaid-version-specific output.
@@ -96,13 +101,15 @@ adoption, not the v11 regression contract:
 These failures are the documented divergence between the rollback and the
 v12-adoption record; do not "fix" them by weakening the locks.
 
-## 12.0.x fast-follow procedure (no floating ranges)
+## Fast-follow mermaid bumps (no floating ranges)
 
-12.0.x tracking is a **milestone-watch item**: no point releases existed at
-the v1.3 freeze (12.0.0 was published 2026-09-10). The trigger condition is
-the **first 12.0.x release**. When one ships:
+Mermaid tracking is a **milestone-watch item** with exact pins, no floating
+ranges. Since the v1.3 freeze (12.0.0, published 2026-09-10) the pin has
+already moved twice — `12.1.0` then `12.2.0` (landed as a Renovate non-major
+update, with the CDN pin + SRI re-synced in `44f4370`). The same procedure
+applies to the next release. When one ships:
 
-1. **Bump the exact pin** in `package.json` (e.g. `12.0.0` → `12.0.1`) and
+1. **Bump the exact pin** in `package.json` (e.g. `12.2.0` → `12.2.1`) and
    sync the lockfile. No caret, no range.
 2. **Update `MERMAID_CDN_VERSION`** in `src/constants/cdnEmbed.ts` and
    **recompute the sha384 SRI** from the installed bytes:
@@ -115,3 +122,5 @@ the **first 12.0.x release**. When one ships:
    type-check, production build) **and the ×3 E2E matrix** (chromium,
    firefox, webkit).
 4. **Record the bump in CHANGELOG.md.**
+
+*Updated: 2026-11-03*
