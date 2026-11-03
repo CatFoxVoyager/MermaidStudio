@@ -279,3 +279,40 @@ start-dev.bat
 
 # Impeccable B21 design mockups (local comp snapshots, not shipped artifacts)
 impeccable-B21-*.jpeg
+
+# ── Internal working artifacts — never in the public repo ──────────────
+# This repo ships the product only. Planning, agent tooling, audits and
+# personal infrastructure live elsewhere (local backup / private repos).
+
+# GSD planning workspace
+.planning/
+
+# Agent & AI tooling
+.agents/
+.claude/
+.omc/
+.aider*
+.cursor*
+.trae*
+.codeium*
+.windsurf*
+CLAUDE.md
+AGENTS.md
+skills-lock.json
+
+# CrewAI workbench (personal)
+crew/
+
+# Self-hosted CI runner infrastructure (private ops)
+self-hosted/
+
+# SEO audit workspace (internal evidence)
+www.mermaidstudio.net-audit/
+
+# Internal plan/spec archives under docs/
+docs/plans/
+docs/superpowers/
+
+# Ad-hoc research scratch
+tmp-*.json
+
