@@ -71,8 +71,9 @@ describe('WorkspacePanel - undo/redo buttons', () => {
     render(<WorkspacePanel {...mockProps} onOpenAIPanel={vi.fn()} />);
     // The real editor chunk arrives through the lazy boundary (29-03) —
     // await it before interacting. Generous timeout: under full-suite
-    // contention the heavy chunk import can exceed the 1s default.
-    await screen.findByTestId('code-editor', {}, { timeout: 5000 });
+    // contention (cold self-hosted runner, Node 22.12 leg) the heavy chunk
+    // import can exceed the 1s default — observed past 5s too (2026-11-09).
+    await screen.findByTestId('code-editor', {}, { timeout: 15000 });
 
     await user.click(screen.getByTitle('shortcuts.undo'));
     expect(undoSpy).toHaveBeenCalledTimes(1);
@@ -83,7 +84,7 @@ describe('WorkspacePanel - undo/redo buttons', () => {
     const redoSpy = vi.spyOn(historyActions, 'redoInView').mockReturnValue(true);
     render(<WorkspacePanel {...mockProps} onOpenAIPanel={vi.fn()} />);
     // Same lazy arrival wait as the undo test (29-03), same generous timeout.
-    await screen.findByTestId('code-editor', {}, { timeout: 5000 });
+    await screen.findByTestId('code-editor', {}, { timeout: 15000 });
 
     await user.click(screen.getByTitle('shortcuts.redo'));
     expect(redoSpy).toHaveBeenCalledTimes(1);
