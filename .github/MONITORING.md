@@ -192,12 +192,11 @@ re-running any step; the verification probes decide, not assumptions.
       `gsc_inspect.py` is **role semantics, not a failed share** — escalate
       the role to Full if inspection matters; don't debug the API.
       **DONE 2026-11-12** — property created (Domain, DNS TXT verified at
-      Cloudflare), share Restricted applied by the owner; flip proven:
-      `gsc_query.py sites` lists the property as `siteRestrictedUser` and the
-      scoped query exits 200. Sitemap submission via API 403s as expected
-      under Restricted (write requires Full) — submit via the GSC UI
-      (Sitemaps → `https://www.mermaidstudio.net/sitemap.xml`) or escalate
-      the SA role to Full if automated submission is wanted.
+      Cloudflare), share applied by the owner; flip proven:
+      `gsc_query.py sites` lists the property and the scoped query exits 200.
+      Role escalated to **Full** same day; sitemap submitted via API
+      (`last: 2026-11-12T20:11Z`, 0 errors, 0 warnings) — submission is now
+      scriptable from the §2 cadence if ever needed again.
 - [ ] **GA4 property creation + configuration** — Google Analytics → Admin →
       Create property → Web stream for `https://www.mermaidstudio.net` →
       copy the Measurement ID (`G-…`) → Vercel dashboard → Project →
