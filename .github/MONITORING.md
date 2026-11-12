@@ -197,7 +197,7 @@ re-running any step; the verification probes decide, not assumptions.
       Role escalated to **Full** same day; sitemap submitted via API
       (`last: 2026-11-12T20:11Z`, 0 errors, 0 warnings) — submission is now
       scriptable from the §2 cadence if ever needed again.
-- [ ] **GA4 property creation + configuration** — Google Analytics → Admin →
+- [x] **GA4 property creation + configuration** — Google Analytics → Admin →
       Create property → Web stream for `https://www.mermaidstudio.net` →
       copy the Measurement ID (`G-…`) → Vercel dashboard → Project →
       Settings → Environment Variables → add `VITE_GA4_MEASUREMENT_ID`
@@ -207,6 +207,15 @@ re-running any step; the verification probes decide, not assumptions.
       environment, never in this repo). The site's GA4 disclosure itself is
       enforced at PR time by the trust-copy census gates, not by this
       checklist.
+      **DONE 2026-11-12** — property `MermaidStudio2` (account `cvjed`,
+      id 352086625) + web stream `www.mermaidstudio.net` (stream id 485575284,
+      `G-MH9C71WLRS`); env var set via Vercel API (encrypted, prod+preview),
+      deployed live (dpl_G9Xm3VRW). Production battery green: gtag serves
+      `G-MH9C71WLRS` (2 requests observed) and **zero cookies** are set —
+      consent-denied holds in production (phase 36 leg 4 proof). Note: the
+      Vercel attack-challenge mode fired during verification probing and was
+      switched off (`update_attack_challenge_mode: false`) — watch for it if
+      probe loops hammer the domain again.
 
 ## 8. Operational status items
 
