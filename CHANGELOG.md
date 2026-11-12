@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.5.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.4.3...mermaid-studio-v2.5.0) (2026-11-12)
+
+
+### Features
+
+* **editor:** add Google Play Android link on empty workspace ([19137e7](https://github.com/CatFoxVoyager/MermaidStudio/commit/19137e7c149794c94d49864f720f4d5cb03405e1))
+
+
+### Bug Fixes
+
+* **e2e:** cap self-hosted job runtime at 30 min ([a2d450b](https://github.com/CatFoxVoyager/MermaidStudio/commit/a2d450b4512c032896b79dec839c94c717f516cc))
+
 ## [2.4.3](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.4.2...mermaid-studio-v2.4.3) (2026-11-02)
 
 
