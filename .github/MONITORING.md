@@ -176,7 +176,7 @@ Both items are dashboard/account actions (user-owned; no code path exists).
 Each item is written state-independent — check the current state before
 re-running any step; the verification probes decide, not assumptions.
 
-- [ ] **GSC property sharing** — share the Search Console property with the
+- [x] **GSC property sharing** — share the Search Console property with the
       audit service account `pagespeed@home-22395.iam.gserviceaccount.com`
       (a public principal id, not a credential). Until shared, GSC API calls
       answer **403** — that is the empty state, not a site defect; come back
@@ -191,6 +191,13 @@ re-running any step; the verification probes decide, not assumptions.
       Under Restricted, URL Inspection is "Fetch only": a 403 from
       `gsc_inspect.py` is **role semantics, not a failed share** — escalate
       the role to Full if inspection matters; don't debug the API.
+      **DONE 2026-11-12** — property created (Domain, DNS TXT verified at
+      Cloudflare), share Restricted applied by the owner; flip proven:
+      `gsc_query.py sites` lists the property as `siteRestrictedUser` and the
+      scoped query exits 200. Sitemap submission via API 403s as expected
+      under Restricted (write requires Full) — submit via the GSC UI
+      (Sitemaps → `https://www.mermaidstudio.net/sitemap.xml`) or escalate
+      the SA role to Full if automated submission is wanted.
 - [ ] **GA4 property creation + configuration** — Google Analytics → Admin →
       Create property → Web stream for `https://www.mermaidstudio.net` →
       copy the Measurement ID (`G-…`) → Vercel dashboard → Project →
