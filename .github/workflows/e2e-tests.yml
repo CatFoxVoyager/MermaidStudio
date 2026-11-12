@@ -168,9 +168,11 @@ jobs:
     name: Cross-Browser Tests
     runs-on: [self-hosted, Linux, X64]
     # Cap runtime: a hung browser job must not pin a runner for GitHub's
-    # 6h default — 30 min covers the slowest healthy full suite (observed
-    # ~12-15 min warm).
-    timeout-minutes: 30
+    # 6h default. 45 min since 2026-11-12: the healthy firefox leg was
+    # killed by the 30-min cap at 30:02 with every completed step green
+    # (sequential single runner + queue contention; warm dedicated-runner
+    # observation was ~12-15 min). Matches the e2e-tests matrix cap above.
+    timeout-minutes: 45
     strategy:
       matrix:
         browser: [chromium, firefox, webkit, edge, chrome]
