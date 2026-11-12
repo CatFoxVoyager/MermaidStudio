@@ -1,9 +1,17 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowUpDown, Languages, ScrollText, Settings, Sparkles, Info, Command } from 'lucide-react';
+import {
+  ArrowUpDown,
+  Languages,
+  ScrollText,
+  Settings,
+  Sparkles,
+  Info,
+  Command,
+} from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
 import { isNativeShell } from '@/utils/platform';
-import { PLAY_STORE_URL } from '@/constants/playStore';
+import { PLAY_STORE_URL, getPlayStoreBadge } from '@/constants/playStore';
 
 export interface MobileMenuSheetProps {
   isOpen: boolean;
@@ -47,9 +55,7 @@ export function MobileMenuSheet({
 
   // Badge alt doubles as the tail of the promo anchor's accessible name
   // (aria-label below): one shared literal, never re-typed (review WR-02).
-  const badgeAlt = i18n.language?.startsWith('fr')
-    ? 'Obtenir MermaidStudio sur Google Play'
-    : 'Get MermaidStudio on Google Play';
+  const { src: badgeSrc, alt: badgeAlt } = getPlayStoreBadge(i18n?.language);
 
   const handleToggleLanguage = () => {
     const nextLang = i18n.language?.startsWith('fr') ? 'en' : 'fr';
@@ -92,10 +98,7 @@ export function MobileMenuSheet({
               >
                 <Command size={18} />
               </div>
-              <span
-                className="text-[15px] font-medium"
-                style={{ color: 'var(--text-primary)' }}
-              >
+              <span className="text-[15px] font-medium" style={{ color: 'var(--text-primary)' }}>
                 {t('menu.commands', 'Commands')}
               </span>
             </button>
@@ -120,10 +123,7 @@ export function MobileMenuSheet({
             >
               <ArrowUpDown size={18} />
             </div>
-            <span
-              className="text-[15px] font-medium"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <span className="text-[15px] font-medium" style={{ color: 'var(--text-primary)' }}>
               {t('backup.title', 'Backup & Import')}
             </span>
           </button>
@@ -131,8 +131,8 @@ export function MobileMenuSheet({
           {/* AI Assistant — enabled only where WebGPU can actually run it;
               elsewhere a disabled row explains WHY instead of silently
               vanishing (iter-9: silent absence read as a missing feature). */}
-          {onOpenAI && (
-            aiAvailable ? (
+          {onOpenAI &&
+            (aiAvailable ? (
               <button
                 type="button"
                 data-testid="mobile-menu-item-ai"
@@ -148,10 +148,7 @@ export function MobileMenuSheet({
                 >
                   <Sparkles size={18} />
                 </div>
-                <span
-                  className="text-[15px] font-medium"
-                  style={{ color: 'var(--text-primary)' }}
-                >
+                <span className="text-[15px] font-medium" style={{ color: 'var(--text-primary)' }}>
                   {t('commands.aiAssistant', 'AI Assistant')}
                 </span>
               </button>
@@ -182,8 +179,7 @@ export function MobileMenuSheet({
                   </span>
                 </div>
               </div>
-            )
-          )}
+            ))}
 
           {/* Settings */}
           {onOpenSettings && (
@@ -202,10 +198,7 @@ export function MobileMenuSheet({
               >
                 <Settings size={18} />
               </div>
-              <span
-                className="text-[15px] font-medium"
-                style={{ color: 'var(--text-primary)' }}
-              >
+              <span className="text-[15px] font-medium" style={{ color: 'var(--text-primary)' }}>
                 {t('menu.settings', 'Settings')}
               </span>
             </button>
@@ -230,16 +223,10 @@ export function MobileMenuSheet({
               <Languages size={18} />
             </div>
             <div className="flex flex-col">
-              <span
-                className="text-[15px] font-medium"
-                style={{ color: 'var(--text-primary)' }}
-              >
+              <span className="text-[15px] font-medium" style={{ color: 'var(--text-primary)' }}>
                 {t('menu.language', 'Language')}
               </span>
-              <span
-                className="text-xs"
-                style={{ color: 'var(--text-secondary)' }}
-              >
+              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                 {currentLanguageName}
               </span>
             </div>
@@ -264,10 +251,7 @@ export function MobileMenuSheet({
             >
               <ScrollText size={18} />
             </div>
-            <span
-              className="text-[15px] font-medium"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <span className="text-[15px] font-medium" style={{ color: 'var(--text-primary)' }}>
               {t('menu.releaseNotes', 'Release Notes')}
             </span>
           </button>
@@ -291,10 +275,7 @@ export function MobileMenuSheet({
             >
               <Info size={18} />
             </div>
-            <span
-              className="text-[15px] font-medium"
-              style={{ color: 'var(--text-primary)' }}
-            >
+            <span className="text-[15px] font-medium" style={{ color: 'var(--text-primary)' }}>
               {t('about.title', 'About MermaidStudio')}
             </span>
           </button>
@@ -318,7 +299,7 @@ export function MobileMenuSheet({
               style={{ background: 'var(--surface-container)' }}
             >
               <img
-                src={`/badges/google-play-badge-${i18n.language?.startsWith('fr') ? 'fr' : 'en'}.png`}
+                src={badgeSrc}
                 alt={badgeAlt}
                 className="h-8 w-auto block"
                 width={646}
@@ -326,10 +307,7 @@ export function MobileMenuSheet({
               />
             </div>
             <div className="flex flex-col">
-              <span
-                className="text-[15px] font-medium"
-                style={{ color: 'var(--text-primary)' }}
-              >
+              <span className="text-[15px] font-medium" style={{ color: 'var(--text-primary)' }}>
                 {t('menu.androidTitle', 'MermaidStudio for Android')}
               </span>
               <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>

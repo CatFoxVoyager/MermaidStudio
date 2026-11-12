@@ -1,6 +1,29 @@
 import React, { useState, useRef, useCallback, useEffect, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Save, Clock, Download, Sparkles, AlignLeft, Maximize, GitCompare, BookmarkPlus, FilePlus, LayoutTemplate, Terminal, Palette, SlidersHorizontal, Undo, Undo2, Redo2, Copy, Check, RotateCw, Wrench, Shapes, MoreHorizontal } from 'lucide-react';
+import {
+  Save,
+  Clock,
+  Download,
+  Sparkles,
+  AlignLeft,
+  Maximize,
+  GitCompare,
+  BookmarkPlus,
+  FilePlus,
+  LayoutTemplate,
+  Terminal,
+  Palette,
+  SlidersHorizontal,
+  Undo,
+  Undo2,
+  Redo2,
+  Copy,
+  Check,
+  RotateCw,
+  Wrench,
+  Shapes,
+  MoreHorizontal,
+} from 'lucide-react';
 import { undoInView, redoInView } from '@/lib/editor/historyActions';
 import type { CodeEditorRef } from './CodeEditor';
 import { StatusBar } from './StatusBar';
@@ -12,6 +35,9 @@ import { ChunkErrorFallback } from '@/components/shared/ChunkErrorFallback';
 import { idlePrefetch } from '@/utils/idlePrefetch';
 import type { Tab } from '@/types';
 import { APP_VERSION } from '@/constants/app';
+import { PLAY_STORE_URL, getPlayStoreBadge } from '@/constants/playStore';
+import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
+import { isNativeShell } from '@/utils/platform';
 
 // Lazy boundaries (29-03, PERF-01/02): CodeEditor, PreviewPanel and
 // VisualEditorCanvas carry the mermaid + CodeMirror runtime — named-export
@@ -20,8 +46,12 @@ import { APP_VERSION } from '@/constants/app';
 // so the ESM one-instance rule keeps core.ts singletons shared with the
 // chunks. `import type { CodeEditorRef }` stays: type-only, erased at build.
 const LazyCodeEditor = lazy(() => import('./CodeEditor').then(m => ({ default: m.CodeEditor })));
-const LazyPreviewPanel = lazy(() => import('@/preview/PreviewPanel').then(m => ({ default: m.PreviewPanel })));
-const LazyVisualEditorCanvas = lazy(() => import('@/visual/VisualEditorCanvas').then(m => ({ default: m.VisualEditorCanvas })));
+const LazyPreviewPanel = lazy(() =>
+  import('@/preview/PreviewPanel').then(m => ({ default: m.PreviewPanel }))
+);
+const LazyVisualEditorCanvas = lazy(() =>
+  import('@/visual/VisualEditorCanvas').then(m => ({ default: m.VisualEditorCanvas }))
+);
 
 interface Props {
   tabs: Tab[];
@@ -59,12 +89,36 @@ interface Props {
 }
 
 export function WorkspacePanel({
-  tabs, activeTabId, activeTab, theme,
-  onSelectTab, onCloseTab, onContentChange, onSave,
-  onShowHistory, onShowExport, onToggleAI, onFullscreen, onSaveTemplate,
-  onNewDiagram, onShowTemplates, onShowPalette, onShowDiagramColors, onShowAdvancedStyle,
-  onDiagramColorsClose, onAdvancedStyleClose, showDiagramColors, showAdvancedStyle,
-  showAI, renderTimeMs, onRenderTime, themeId, onOpenAIPanel, onPreviewError, previewError, onOpenAbout,
+  tabs,
+  activeTabId,
+  activeTab,
+  theme,
+  onSelectTab,
+  onCloseTab,
+  onContentChange,
+  onSave,
+  onShowHistory,
+  onShowExport,
+  onToggleAI,
+  onFullscreen,
+  onSaveTemplate,
+  onNewDiagram,
+  onShowTemplates,
+  onShowPalette,
+  onShowDiagramColors,
+  onShowAdvancedStyle,
+  onDiagramColorsClose,
+  onAdvancedStyleClose,
+  showDiagramColors,
+  showAdvancedStyle,
+  showAI,
+  renderTimeMs,
+  onRenderTime,
+  themeId,
+  onOpenAIPanel,
+  onPreviewError,
+  previewError,
+  onOpenAbout,
 }: Props) {
   const { t } = useTranslation();
   const [viewMode, setViewMode] = useState<'split' | 'visual'>('split');
@@ -95,17 +149,26 @@ export function WorkspacePanel({
   // Dismiss either toolbar popover on Escape or any click outside it —
   // sibling menus obey the same laws (critique iter-6 P4).
   useEffect(() => {
-    if (!showMoreMenu && !showAutoSaveMenu) {return;}
+    if (!showMoreMenu && !showAutoSaveMenu) {
+      return;
+    }
     function onPointerDown(e: MouseEvent) {
       if (showMoreMenu && moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
         setShowMoreMenu(false);
       }
-      if (showAutoSaveMenu && autoSaveMenuRef.current && !autoSaveMenuRef.current.contains(e.target as Node)) {
+      if (
+        showAutoSaveMenu &&
+        autoSaveMenuRef.current &&
+        !autoSaveMenuRef.current.contains(e.target as Node)
+      ) {
         setShowAutoSaveMenu(false);
       }
     }
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') {setShowMoreMenu(false); setShowAutoSaveMenu(false);}
+      if (e.key === 'Escape') {
+        setShowMoreMenu(false);
+        setShowAutoSaveMenu(false);
+      }
     }
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
@@ -131,25 +194,32 @@ export function WorkspacePanel({
     setTimeout(() => setCopiedCode(false), 2000);
   }
 
-  const handleNodeSelect = useCallback((nodeId: string) => {
-    if (!activeTab) return;
-    const lines = activeTab.content.split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      // Match node definition patterns: A[Label], A{Label}, A(Label), etc.
-      const nodeDefMatch = line.match(
-        new RegExp(`^(\\s*)${escapeRegExp(nodeId)}(\\s*)(\\[|\\{|\\(|\\[\\[|\\[\\(|\\(\\[|\\(\\(|\\{\\{|>|\\[\\/|\\[\\\\)`)
-      );
-      // Also match node in edge: A --> B or A[Label] --> B[Label]
-      const edgeMatch = line.match(
-        new RegExp(`^(\\s*)${escapeRegExp(nodeId)}(\\s*)(\\(|\\[|\\{|)?(?:[^\\n]*?)\\s*(-->|---|---\\||-->)`)
-      );
-      if (nodeDefMatch || edgeMatch) {
-        codeEditorRef.current?.highlightLine(i + 1); // 1-indexed
-        return;
+  const handleNodeSelect = useCallback(
+    (nodeId: string) => {
+      if (!activeTab) return;
+      const lines = activeTab.content.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        // Match node definition patterns: A[Label], A{Label}, A(Label), etc.
+        const nodeDefMatch = line.match(
+          new RegExp(
+            `^(\\s*)${escapeRegExp(nodeId)}(\\s*)(\\[|\\{|\\(|\\[\\[|\\[\\(|\\(\\[|\\(\\(|\\{\\{|>|\\[\\/|\\[\\\\)`
+          )
+        );
+        // Also match node in edge: A --> B or A[Label] --> B[Label]
+        const edgeMatch = line.match(
+          new RegExp(
+            `^(\\s*)${escapeRegExp(nodeId)}(\\s*)(\\(|\\[|\\{|)?(?:[^\\n]*?)\\s*(-->|---|---\\||-->)`
+          )
+        );
+        if (nodeDefMatch || edgeMatch) {
+          codeEditorRef.current?.highlightLine(i + 1); // 1-indexed
+          return;
+        }
       }
-    }
-  }, [activeTab]);
+    },
+    [activeTab]
+  );
 
   // Auto-save at the selected interval when enabled
   useEffect(() => {
@@ -176,12 +246,19 @@ export function WorkspacePanel({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showAutoSaveMenu]);
 
-  const onMouseDown = useCallback((e: React.MouseEvent) => { e.preventDefault(); setDragging(true); }, []);
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setDragging(true);
+  }, []);
 
   useEffect(() => {
-    if (!dragging) {return;}
+    if (!dragging) {
+      return;
+    }
     const onMove = (e: MouseEvent) => {
-      if (!containerRef.current) {return;}
+      if (!containerRef.current) {
+        return;
+      }
       const rect = containerRef.current.getBoundingClientRect();
       const pct = ((e.clientX - rect.left) / rect.width) * 100;
       setSplitPos(Math.min(75, Math.max(25, pct)));
@@ -189,7 +266,10 @@ export function WorkspacePanel({
     const onUp = () => setDragging(false);
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
   }, [dragging]);
 
   // Idle prefetch (29-03): warm the three lazy chunks post-first-paint —
@@ -203,7 +283,16 @@ export function WorkspacePanel({
     ]);
   }, []);
 
-  if (!activeTab) {return <EmptyState onNewDiagram={onNewDiagram} onShowTemplates={onShowTemplates} onShowPalette={onShowPalette} onOpenAbout={onOpenAbout} />;}
+  if (!activeTab) {
+    return (
+      <EmptyState
+        onNewDiagram={onNewDiagram}
+        onShowTemplates={onShowTemplates}
+        onShowPalette={onShowPalette}
+        onOpenAbout={onOpenAbout}
+      />
+    );
+  }
 
   // Real persist timestamp from the debounced auto-save — the status bar must
   // never fabricate a relative time (critique iter-2 P2).
@@ -213,66 +302,114 @@ export function WorkspacePanel({
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       <TabBar tabs={tabs} activeTabId={activeTabId} onSelect={onSelectTab} onClose={onCloseTab} />
 
-      <div className="flex items-center justify-between px-3 h-10 shrink-0 border-b"
-        style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}>
+      <div
+        className="flex items-center justify-between px-3 h-10 shrink-0 border-b"
+        style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}
+      >
         {/* No repeated title here: the active tab (24px above) already names
             the document — the toolbar keeps only the dirty state (iter-5). */}
         <div className="flex items-center gap-2 mr-4">
-          {activeTab.is_dirty && <div className="w-1.5 h-1.5 rounded-full bg-amber-400" title={t('status.editedAutosave')} />}
+          {activeTab.is_dirty && (
+            <div
+              className="w-1.5 h-1.5 rounded-full bg-amber-400"
+              title={t('status.editedAutosave')}
+            />
+          )}
         </div>
         <div className="flex items-center gap-0.5">
           {activeTab.is_dirty && (
-            <button onClick={() => onContentChange(activeTab.id, activeTab.saved_content)}
+            <button
+              onClick={() => onContentChange(activeTab.id, activeTab.saved_content)}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-all hover:bg-[var(--hover)]"
               style={{ color: 'var(--text-secondary)' }}
-              title={t('editor.revertToSaved')} aria-label={t('editor.revertToSaved')}>
+              title={t('editor.revertToSaved')}
+              aria-label={t('editor.revertToSaved')}
+            >
               <Undo size={11} /> {showLabels ? t('editor.revert') : ''}
             </button>
           )}
-          <button onClick={() => onSave(activeTab.id)} disabled={!activeTab.is_dirty}
+          <button
+            onClick={() => onSave(activeTab.id)}
+            disabled={!activeTab.is_dirty}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium text-white transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
-            style={{ background: 'var(--accent)' }} title={t('editor.saveShortcut')}>
+            style={{ background: 'var(--accent)' }}
+            title={t('editor.saveShortcut')}
+          >
             <Save size={11} /> {t('editor.save')}
           </button>
-          <button onClick={undoInView} title={t('shortcuts.undo', 'Undo')} aria-label={t('shortcuts.undo', 'Undo')}
+          <button
+            onClick={undoInView}
+            title={t('shortcuts.undo', 'Undo')}
+            aria-label={t('shortcuts.undo', 'Undo')}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-all hover:bg-[var(--hover)]"
-            style={{ color: 'var(--text-tertiary)' }}>
+            style={{ color: 'var(--text-tertiary)' }}
+          >
             <Undo2 size={11} />
           </button>
-          <button onClick={redoInView} title={t('shortcuts.redo', 'Redo')} aria-label={t('shortcuts.redo', 'Redo')}
+          <button
+            onClick={redoInView}
+            title={t('shortcuts.redo', 'Redo')}
+            aria-label={t('shortcuts.redo', 'Redo')}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-all hover:bg-[var(--hover)]"
-            style={{ color: 'var(--text-tertiary)' }}>
+            style={{ color: 'var(--text-tertiary)' }}
+          >
             <Redo2 size={11} />
           </button>
-          <button onClick={handleCopyCode} title={t('editor.copyCode')} aria-label={t('editor.copyCode')}
+          <button
+            onClick={handleCopyCode}
+            title={t('editor.copyCode')}
+            aria-label={t('editor.copyCode')}
             className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-all hover:bg-[var(--hover)]"
-            style={{ color: 'var(--text-tertiary)' }}>
+            style={{ color: 'var(--text-tertiary)' }}
+          >
             {copiedCode ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
           </button>
           <div className="relative" ref={autoSaveMenuRef}>
-            <button onClick={() => setShowAutoSaveMenu(v => !v)}
+            <button
+              onClick={() => setShowAutoSaveMenu(v => !v)}
               aria-label={t('editor.autoSnapshot')}
-              aria-haspopup="menu" aria-expanded={showAutoSaveMenu}
-              title={autoSaveInterval ? t('editor.autoSnapshotEvery', { interval: formatInterval(autoSaveInterval) }) : t('editor.autoSnapshotOff')}
+              aria-haspopup="menu"
+              aria-expanded={showAutoSaveMenu}
+              title={
+                autoSaveInterval
+                  ? t('editor.autoSnapshotEvery', { interval: formatInterval(autoSaveInterval) })
+                  : t('editor.autoSnapshotOff')
+              }
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-sm text-xs font-medium transition-all hover:bg-[var(--hover)]"
-              style={{ color: autoSaveInterval ? 'var(--accent)' : 'var(--text-tertiary)', background: autoSaveInterval ? 'var(--accent-dim)' : undefined }}>
+              style={{
+                color: autoSaveInterval ? 'var(--accent)' : 'var(--text-tertiary)',
+                background: autoSaveInterval ? 'var(--accent-dim)' : undefined,
+              }}
+            >
               {/* Static accent state, not a spinner: enabled ≠ in-flight (critique iter-1 minor) */}
               <RotateCw size={11} />
             </button>
             {showAutoSaveMenu && (
-              <div className="absolute top-full left-0 mt-1 z-50 rounded-md border py-1 min-w-[150px]"
-                style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}>
-                {([
-                  { value: null, label: t('editor.autoSnapshotMenuOff') },
-                  { value: 60000, label: '1 min' },
-                  { value: 120000, label: '2 min' },
-                  { value: 300000, label: '5 min' },
-                  { value: 600000, label: '10 min' },
-                ] as const).map(opt => (
-                  <button key={opt.label}
-                    onClick={() => { setAutoSaveInterval(opt.value); setShowAutoSaveMenu(false); }}
+              <div
+                className="absolute top-full left-0 mt-1 z-50 rounded-md border py-1 min-w-[150px]"
+                style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}
+              >
+                {(
+                  [
+                    { value: null, label: t('editor.autoSnapshotMenuOff') },
+                    { value: 60000, label: '1 min' },
+                    { value: 120000, label: '2 min' },
+                    { value: 300000, label: '5 min' },
+                    { value: 600000, label: '10 min' },
+                  ] as const
+                ).map(opt => (
+                  <button
+                    key={opt.label}
+                    onClick={() => {
+                      setAutoSaveInterval(opt.value);
+                      setShowAutoSaveMenu(false);
+                    }}
                     className="w-full text-left px-3 py-1.5 text-xs font-medium transition-colors hover:bg-[var(--hover)]"
-                    style={{ color: autoSaveInterval === opt.value ? 'var(--accent)' : 'var(--text-secondary)' }}>
+                    style={{
+                      color:
+                        autoSaveInterval === opt.value ? 'var(--accent)' : 'var(--text-secondary)',
+                    }}
+                  >
                     {opt.label}
                   </button>
                 ))}
@@ -280,48 +417,106 @@ export function WorkspacePanel({
             )}
           </div>
           <div className="w-px h-4 mx-1.5" style={{ background: 'var(--border-subtle)' }} />
-          <ToolbarButton icon={<GitCompare size={13} />} label="Diff" showLabel={showLabels}
-            onClick={() => setShowDiff(v => !v)} title={t('editor.compareWithSaved')} active={showDiff} />
-          <ToolbarButton icon={<Download size={13} />} label={t('editor.export')} showLabel={showLabels}
-            onClick={onShowExport} title={t('editor.export')} />
+          <ToolbarButton
+            icon={<GitCompare size={13} />}
+            label="Diff"
+            showLabel={showLabels}
+            onClick={() => setShowDiff(v => !v)}
+            title={t('editor.compareWithSaved')}
+            active={showDiff}
+          />
+          <ToolbarButton
+            icon={<Download size={13} />}
+            label={t('editor.export')}
+            showLabel={showLabels}
+            onClick={onShowExport}
+            title={t('editor.export')}
+          />
           <ToolbarButton
             data-testid="ai-button"
-            icon={<Sparkles size={13} />} label="AI" showLabel={showLabels}
-            onClick={onToggleAI} title={t('editor.aiAssistant')} active={showAI} />
+            icon={<Sparkles size={13} />}
+            label="AI"
+            showLabel={showLabels}
+            onClick={onToggleAI}
+            title={t('editor.aiAssistant')}
+            active={showAI}
+          />
           <ToolbarButton
             data-testid="fix-diagram-button"
-            icon={<><Wrench size={13} /><Sparkles size={9} className="ml-[-4px] mt-[2px]" /></>}
+            icon={
+              <>
+                <Wrench size={13} />
+                <Sparkles size={9} className="ml-[-4px] mt-[2px]" />
+              </>
+            }
             label="Fix"
             showLabel={showLabels}
             onClick={() => onOpenAIPanel?.({ mode: 'fix' })}
             disabled={!previewError}
-            title={previewError ? t('ai.fixDiagram') : t('ai.noErrors')} />
+            title={previewError ? t('ai.fixDiagram') : t('ai.noErrors')}
+          />
           {/* Secondary actions live in the More menu — ten icon-only buttons
               of equal weight failed the ≤4-choices chunk (critique iter-3). */}
           <div className="relative" ref={moreMenuRef}>
-            <button onClick={() => setShowMoreMenu(v => !v)} aria-label={t('editor.moreActions')} aria-haspopup="menu" aria-expanded={showMoreMenu}
+            <button
+              onClick={() => setShowMoreMenu(v => !v)}
+              aria-label={t('editor.moreActions')}
+              aria-haspopup="menu"
+              aria-expanded={showMoreMenu}
               title={t('editor.moreActions')}
               className="flex items-center px-2 py-1 rounded-sm text-xs transition-colors hover:bg-[var(--hover)]"
-              style={{ color: 'var(--text-tertiary)' }}>
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               <MoreHorizontal size={13} />
             </button>
             {showMoreMenu && (
               /* Plain button list, no role="menu" — that role promises arrow-key
                  navigation this popover does not implement (iter-6 P4). */
-              <div className="absolute top-full left-0 mt-1 z-50 rounded-md border py-1 min-w-[190px]"
-                style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}>
-                {([
-                  { icon: <BookmarkPlus size={13} />, label: t('editor.saveAsTemplate'), onClick: onSaveTemplate },
-                  { icon: <Clock size={13} />, label: t('editor.versionHistory'), onClick: onShowHistory },
-                  { icon: <Palette size={13} />, label: t('editor.diagramColors'), onClick: onShowDiagramColors },
-                  { icon: <SlidersHorizontal size={13} />, label: t('editor.advancedStyling'), onClick: onShowAdvancedStyle },
-                  { icon: <Maximize size={13} />, label: t('editor.fullscreenPreview'), onClick: onFullscreen },
-                  { icon: <AlignLeft size={13} />, label: t('editor.resetSplit'), onClick: () => setSplitPos(40) },
-                ]).map(item => (
-                  <button key={item.label}
-                    onClick={() => { item.onClick(); setShowMoreMenu(false); }}
+              <div
+                className="absolute top-full left-0 mt-1 z-50 rounded-md border py-1 min-w-[190px]"
+                style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}
+              >
+                {[
+                  {
+                    icon: <BookmarkPlus size={13} />,
+                    label: t('editor.saveAsTemplate'),
+                    onClick: onSaveTemplate,
+                  },
+                  {
+                    icon: <Clock size={13} />,
+                    label: t('editor.versionHistory'),
+                    onClick: onShowHistory,
+                  },
+                  {
+                    icon: <Palette size={13} />,
+                    label: t('editor.diagramColors'),
+                    onClick: onShowDiagramColors,
+                  },
+                  {
+                    icon: <SlidersHorizontal size={13} />,
+                    label: t('editor.advancedStyling'),
+                    onClick: onShowAdvancedStyle,
+                  },
+                  {
+                    icon: <Maximize size={13} />,
+                    label: t('editor.fullscreenPreview'),
+                    onClick: onFullscreen,
+                  },
+                  {
+                    icon: <AlignLeft size={13} />,
+                    label: t('editor.resetSplit'),
+                    onClick: () => setSplitPos(40),
+                  },
+                ].map(item => (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      item.onClick();
+                      setShowMoreMenu(false);
+                    }}
                     className="w-full flex items-center gap-2.5 px-3 py-1.5 text-xs text-left transition-colors hover:bg-[var(--hover)]"
-                    style={{ color: 'var(--text-secondary)' }}>
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
                     {item.icon} {item.label}
                   </button>
                 ))}
@@ -336,7 +531,8 @@ export function WorkspacePanel({
             showLabel={showLabels}
             onClick={() => setViewMode('split')}
             title={t('workspace.toggle.code')}
-            active={viewMode === 'split'} />
+            active={viewMode === 'split'}
+          />
           <ToolbarButton
             data-testid="workspace-view-visual"
             icon={<Shapes size={13} />}
@@ -344,21 +540,41 @@ export function WorkspacePanel({
             showLabel={showLabels}
             onClick={() => setViewMode('visual')}
             title={t('editor.toggleVisual')}
-            active={viewMode === 'visual'} />
+            active={viewMode === 'visual'}
+          />
           <div className="w-px h-4 mx-1.5" style={{ background: 'var(--border-subtle)' }} />
           <button
             onClick={() => setShowLabels(v => !v)}
             title={showLabels ? t('editor.hideLabels') : t('editor.showLabels')}
             aria-label={showLabels ? t('editor.hideLabels') : t('editor.showLabels')}
             className="flex items-center gap-1 px-2 py-1 rounded-sm text-xs transition-colors hover:bg-[var(--hover)]"
-            style={{ color: 'var(--text-tertiary)' }}>
+            style={{ color: 'var(--text-tertiary)' }}
+          >
             {showLabels ? (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 18l6-6-6-6"/>
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 18l6-6-6-6" />
               </svg>
             ) : (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 18l-6-6 6-6"/>
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M15 18l-6-6 6-6" />
               </svg>
             )}
             {showLabels && <span>{t('editor.collapse')}</span>}
@@ -380,22 +596,32 @@ export function WorkspacePanel({
           </ErrorBoundary>
         </div>
       ) : (
-        <div ref={containerRef} className="flex-1 flex overflow-hidden"
-          style={{ userSelect: dragging ? 'none' : undefined }}>
+        <div
+          ref={containerRef}
+          className="flex-1 flex overflow-hidden"
+          style={{ userSelect: dragging ? 'none' : undefined }}
+        >
           <div style={{ width: `${splitPos}%` }} className="flex flex-col overflow-hidden">
             {showDiff ? (
               <DiffView original={activeTab.saved_content} modified={activeTab.content} />
             ) : (
               <ErrorBoundary fallback={<ChunkErrorFallback />}>
                 <Suspense fallback={<LoadSkeleton />}>
-                  <LazyCodeEditor ref={codeEditorRef} value={activeTab.content}
+                  <LazyCodeEditor
+                    ref={codeEditorRef}
+                    value={activeTab.content}
                     onChange={v => onContentChange(activeTab.id, v)}
-                    onSave={() => onSave(activeTab.id)} theme={theme} />
+                    onSave={() => onSave(activeTab.id)}
+                    theme={theme}
+                  />
                 </Suspense>
               </ErrorBoundary>
             )}
           </div>
-          <div className={`resize-handle ${dragging ? 'dragging' : ''}`} onMouseDown={onMouseDown} />
+          <div
+            className={`resize-handle ${dragging ? 'dragging' : ''}`}
+            onMouseDown={onMouseDown}
+          />
           <div style={{ width: `${100 - splitPos}%` }} className="flex flex-col overflow-hidden">
             <ErrorBoundary fallback={<ChunkErrorFallback />}>
               <Suspense fallback={<LoadSkeleton />}>
@@ -408,7 +634,10 @@ export function WorkspacePanel({
                   onRenderTime={onRenderTime}
                   onFullscreen={onFullscreen}
                   onNodeSelect={handleNodeSelect}
-                  onSelectionOpen={() => { onDiagramColorsClose(); onAdvancedStyleClose(); }}
+                  onSelectionOpen={() => {
+                    onDiagramColorsClose();
+                    onAdvancedStyleClose();
+                  }}
                   externalPanelOpen={showDiagramColors || showAdvancedStyle}
                   onError={onPreviewError}
                 />
@@ -418,12 +647,26 @@ export function WorkspacePanel({
         </div>
       )}
 
-      <StatusBar content={activeTab.content} lastSaved={lastSaved} renderTimeMs={renderTimeMs} isDirty={activeTab.is_dirty} />
+      <StatusBar
+        content={activeTab.content}
+        lastSaved={lastSaved}
+        renderTimeMs={renderTimeMs}
+        isDirty={activeTab.is_dirty}
+      />
     </div>
   );
 }
 
-function ToolbarButton({ icon, label, showLabel, onClick, title, disabled, active, 'data-testid': dataTestId }: {
+function ToolbarButton({
+  icon,
+  label,
+  showLabel,
+  onClick,
+  title,
+  disabled,
+  active,
+  'data-testid': dataTestId,
+}: {
   icon: React.ReactNode;
   label: string;
   showLabel: boolean;
@@ -444,20 +687,34 @@ function ToolbarButton({ icon, label, showLabel, onClick, title, disabled, activ
       style={{
         color: active ? 'var(--accent)' : 'var(--text-tertiary)',
         background: active ? 'var(--accent-dim)' : undefined,
-      }}>
+      }}
+    >
       {icon}
-      {showLabel && <span className="font-medium" style={{ color: active ? 'var(--accent)' : 'var(--text-secondary)' }}>{label}</span>}
+      {showLabel && (
+        <span
+          className="font-medium"
+          style={{ color: active ? 'var(--accent)' : 'var(--text-secondary)' }}
+        >
+          {label}
+        </span>
+      )}
     </button>
   );
 }
 
-function EmptyState({ onNewDiagram, onShowTemplates, onShowPalette, onOpenAbout }: {
+function EmptyState({
+  onNewDiagram,
+  onShowTemplates,
+  onShowPalette,
+  onOpenAbout,
+}: {
   onNewDiagram: () => void;
   onShowTemplates: () => void;
   onShowPalette: () => void;
   onOpenAbout?: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { src: badgeSrc, alt: badgeAlt } = getPlayStoreBadge(i18n?.language);
   const actions = [
     {
       icon: <FilePlus size={16} />,
@@ -484,21 +741,34 @@ function EmptyState({ onNewDiagram, onShowTemplates, onShowPalette, onOpenAbout 
   ];
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center preview-grid h-full"
-      style={{ background: 'var(--surface-base)' }}>
+    <div
+      className="flex-1 flex flex-col items-center justify-center preview-grid h-full"
+      style={{ background: 'var(--surface-base)' }}
+    >
       <div className="flex flex-col items-center gap-6 text-center max-w-sm p-6">
         <div className="flex items-center gap-3">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-            style={{ background: 'var(--surface-floating)' }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2"
-              style={{ color: 'var(--text-tertiary)' }}>
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center"
+            style={{ background: 'var(--surface-floating)' }}
+          >
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               <rect x="3" y="3" width="7" height="7" rx="1.5" />
               <rect x="14" y="3" width="7" height="7" rx="1.5" />
               <rect x="14" y="14" width="7" height="7" rx="1.5" />
               <path d="M7 10v4M7 14h10M17 14v-4" strokeLinecap="round" />
             </svg>
           </div>
-          <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>MermaidStudio</span>
+          <span className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+            MermaidStudio
+          </span>
           {onOpenAbout ? (
             <button
               onClick={onOpenAbout}
@@ -509,7 +779,12 @@ function EmptyState({ onNewDiagram, onShowTemplates, onShowPalette, onOpenAbout 
               v{APP_VERSION}
             </button>
           ) : (
-            <span className="text-sm font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--surface-floating)', color: 'var(--text-secondary)' }}>v{APP_VERSION}</span>
+            <span
+              className="text-sm font-medium px-2 py-0.5 rounded-full"
+              style={{ background: 'var(--surface-floating)', color: 'var(--text-secondary)' }}
+            >
+              v{APP_VERSION}
+            </span>
           )}
         </div>
         <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
@@ -533,18 +808,68 @@ function EmptyState({ onNewDiagram, onShowTemplates, onShowPalette, onOpenAbout 
               onMouseLeave={e => {
                 (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)';
                 (e.currentTarget as HTMLElement).style.background = 'var(--surface-floating)';
-              }}>
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
-                style={{ background: 'var(--surface-raised)', color: 'var(--accent)' }}>
+              }}
+            >
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+                style={{ background: 'var(--surface-raised)', color: 'var(--accent)' }}
+              >
                 {icon}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium leading-tight" style={{ color: 'var(--text-primary)' }}>{label}</p>
-                <p className="text-xs mt-0.5 leading-snug" style={{ color: 'var(--text-tertiary)' }}>{description}</p>
+                <p
+                  className="text-sm font-medium leading-tight"
+                  style={{ color: 'var(--text-primary)' }}
+                >
+                  {label}
+                </p>
+                <p
+                  className="text-xs mt-0.5 leading-snug"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  {description}
+                </p>
               </div>
             </button>
           ))}
         </div>
+        {!isNativeShell() && (
+          <a
+            data-testid="empty-android-card"
+            href={PLAY_STORE_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${t('menu.androidTitle', 'MermaidStudio for Android')}: ${badgeAlt}`}
+            className={`w-full flex items-center gap-3 px-2 py-2 rounded-xl text-left transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] ${FOCUS_RING_CLASSES}`}
+          >
+            <div
+              className="w-fit rounded-xl p-2 shrink-0"
+              style={{ background: 'var(--surface-container)' }}
+            >
+              <img
+                src={badgeSrc}
+                alt={badgeAlt}
+                className="h-8 w-auto block"
+                width={646}
+                height={250}
+              />
+            </div>
+            <div className="flex flex-col">
+              <span
+                className="text-sm font-medium leading-tight"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                {t('menu.androidTitle', 'MermaidStudio for Android')}
+              </span>
+              <span
+                className="text-xs mt-0.5 leading-snug"
+                style={{ color: 'var(--text-secondary)' }}
+              >
+                {t('menu.androidOnPlay', 'Now available on Google Play')}
+              </span>
+            </div>
+          </a>
+        )}
       </div>
     </div>
   );

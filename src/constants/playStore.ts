@@ -8,5 +8,12 @@
  * `market://` is documented only for native Intents / Instant launch.
  * Plain https only — never `market://` from the web layer (locked decision).
  */
-export const PLAY_STORE_URL =
-  'https://play.google.com/store/apps/details?id=com.mermaidstudio.net';
+export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.mermaidstudio.net';
+
+export function getPlayStoreBadge(language?: string): { src: string; alt: string } {
+  const isFr = language?.startsWith('fr') ?? false;
+  return {
+    src: `/badges/google-play-badge-${isFr ? 'fr' : 'en'}.png`,
+    alt: isFr ? 'Obtenir MermaidStudio sur Google Play' : 'Get MermaidStudio on Google Play',
+  };
+}
