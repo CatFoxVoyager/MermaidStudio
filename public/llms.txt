@@ -6,8 +6,8 @@
 > The public website uses cookieless analytics: Vercel Analytics and Google Analytics 4 in consent-denied (cookieless) mode.
 
 - Canonical site: https://www.mermaidstudio.net/
-- Version: 2.3.0
-- License: MIT (https://opensource.org/licenses/MIT)
+- Version: 2.4.3
+- License: MIT (https://opensource.org/license/MIT)
 - Source & README: https://github.com/CatFoxVoyager/MermaidStudio
 - Docs: https://catfoxvoyager.github.io/MermaidStudio/
 - Privacy: https://www.mermaidstudio.net/privacy

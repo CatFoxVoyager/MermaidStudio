@@ -1,7 +1,7 @@
 # MermaidStudio ⚜️
 
 [![Version](https://img.shields.io/github/package-json/v/CatFoxVoyager/MermaidStudio?label=version&color=blue)](https://github.com/CatFoxVoyager/MermaidStudio/releases)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/license/MIT)
 [![TypeScript](https://img.shields.io/badge/typescript-6.0.3-blue.svg)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/vite-8.3.0-green.svg)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/tailwind-4.3.3-cyan.svg)](https://tailwindcss.com/)

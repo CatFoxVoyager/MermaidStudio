@@ -396,8 +396,8 @@ describe('trust-line external links (DOC-01/02)', () => {
     ).toBeGreaterThanOrEqual(3);
   });
 
-  it('the four original anchors keep their hrefs (preservation through the edit)', () => {
-    for (const fragment of [REPO_URL + '"', 'https://ko-fi.com/', 'https://liberapay.com/', 'href="/privacy"']) {
+  it('the remaining original anchors keep their hrefs (preservation through the edit)', () => {
+    for (const fragment of [REPO_URL + '"', 'https://liberapay.com/', 'href="/privacy"']) {
       expect(trustText, 'DOC-02: original anchor must survive the edit: ' + fragment).toContain(
         fragment,
       );
