@@ -73,39 +73,22 @@ jobs:
       run: pnpm exec playwright install --with-deps
 
     - name: Run Playwright tests
-      run: pnpm exec playwright test
+      id: playwright
+      run: pnpm exec playwright test --project=${{ matrix.browser }}
       # Advisory: the E2E suite has flaky multi-browser tests (the identical
-      # command passes in the Cross-Browser job). Reports/screenshots/videos are
-      # still uploaded below. Re-enable hard-fail once the flakiness is diagnosed.
+      # command passes in the Cross-Browser job). Reports are uploaded on
+      # failure below. Re-enable hard-fail once the flakiness is diagnosed.
       continue-on-error: true
       env:
         CI: true
 
     - name: Upload test results
       uses: actions/upload-artifact@v4
-      if: always()
+      if: always() && steps.playwright.outcome == 'failure'
       with:
         name: playwright-results-${{ matrix.browser }}
-        path: |
-          test-results/
-          playwright-report/
-        retention-days: 30
-
-    - name: Upload screenshots
-      uses: actions/upload-artifact@v4
-      if: failure()
-      with:
-        name: playwright-screenshots-${{ matrix.browser }}
-        path: test-results/**/*.png
-        retention-days: 30
-
-    - name: Upload videos
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: playwright-videos-${{ matrix.browser }}
-        path: test-results/**/*.webm
-        retention-days: 30
+        path: playwright-report/
+        retention-days: 7
 
   e2e-tests-performance:
     name: Performance Tests
