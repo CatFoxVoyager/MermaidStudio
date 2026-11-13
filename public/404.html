@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Page not found — MermaidStudio</title>
+    <!-- Fully self-contained static 404 (SEO audit follow-up, 2026-11-12):
+         zero script tags, zero external requests, palette literals from the
+         light shell (src/index.css :root — a static file cannot read the
+         runtime theme class, so light-only is deliberate). Vercel serves
+         this output-root file for unmatched routes. -->
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+          'Helvetica Neue', Arial, sans-serif;
+        background: #fafaf9;
+        color: #111827;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem 1.5rem;
+        text-align: center;
+      }
+      .card { max-width: 34rem; }
+      .code {
+        font-size: clamp(4rem, 18vw, 7rem);
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.04em;
+        color: #0d7377;
+      }
+      .divider {
+        width: 3.5rem;
+        height: 3px;
+        border-radius: 999px;
+        background: rgba(13, 115, 119, 0.1);
+        margin: 1.25rem auto 1.5rem;
+      }
+      h1 {
+        font-size: 1.35rem;
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+      }
+      p.lead {
+        line-height: 1.6;
+        margin-bottom: 0.5rem;
+      }
+      p.fr {
+        color: #67707a;
+        font-size: 0.95rem;
+        line-height: 1.6;
+        margin-bottom: 2rem;
+      }
+      .links {
+        display: flex;
+        gap: 0.75rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      a {
+        display: inline-block;
+        padding: 0.65rem 1.4rem;
+        border-radius: 0.75rem;
+        border: 1px solid rgba(0, 0, 0, 0.07);
+        background: rgba(13, 115, 119, 0.1);
+        color: #0d7377;
+        font-weight: 600;
+        font-size: 0.95rem;
+        text-decoration: none;
+        transition: opacity 0.15s ease;
+      }
+      a:hover { opacity: 0.8; }
+      a.privacy {
+        background: transparent;
+        color: #67707a;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="code" aria-hidden="true">404</div>
+      <div class="divider"></div>
+      <h1>Page not found</h1>
+      <p class="lead">
+        This page does not exist. Head back to the editor to keep diagramming —
+        everything runs in your browser.
+      </p>
+      <p class="fr">
+        Page introuvable — revenez à l'accueil pour ouvrir l'éditeur.
+      </p>
+      <div class="links">
+        <a href="/">Open the editor · Ouvrir l'éditeur</a>
+        <a href="/privacy" class="privacy">Privacy</a>
+      </div>
+    </main>
+  </body>
+</html>
