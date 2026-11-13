@@ -1,11 +1,10 @@
 import { useTranslation } from 'react-i18next';
-import { Coffee, Heart } from 'lucide-react';
+import { Heart } from 'lucide-react';
 
-export const KOFI_URL = 'https://ko-fi.com/jeremie93407';
 export const LIBERAPAY_URL = 'https://liberapay.com/Jeremie/';
 
 /**
- * Ko-Fi / Liberapay support links (audit M4: the donation path lived only in
+ * Liberapay support link (audit M4: the donation path lived only in
  * the README — a site visitor could not donate). Rendered next to the GitHub
  * card in the Welcome and About modals.
  */
@@ -23,19 +22,7 @@ export function SupportLinks() {
       >
         {t('support.caption')}
       </p>
-      <div className="grid grid-cols-2 gap-2.5">
-        <a
-          href={KOFI_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={linkClass}
-          style={{ borderColor: 'var(--border-subtle)', background: 'var(--accent-dim)' }}
-        >
-          <Coffee size={15} style={{ color: 'var(--accent)' }} aria-hidden="true" />
-          <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-            {t('support.koFi')}
-          </span>
-        </a>
+      <div className="grid">
         <a
           href={LIBERAPAY_URL}
           target="_blank"

@@ -23,8 +23,8 @@ interface Props {
  * First-run modal (SXO/audit M4 + Phase 4). Leads with a three-bullet value
  * proposition — what the app does for a first-time visitor — instead of
  * per-version release notes in contributor jargon; the changelog is demoted
- * to a link, and support links (Ko-Fi / Liberapay) sit next to the GitHub
- * card. Shown automatically when the installed app version differs from the
+ * to a link, and the Liberapay support link sits next to the GitHub card.
+ * Shown automatically when the installed app version differs from the
  * one the user has already seen (tracked via `seenReleaseNotesVersion` in
  * AppSettings). The X close button is provided natively by the shared
  * `Modal` component.

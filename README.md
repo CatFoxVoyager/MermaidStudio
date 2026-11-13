@@ -6,7 +6,6 @@
 [![Vite](https://img.shields.io/badge/vite-8.3.0-green.svg)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/tailwind-4.3.3-cyan.svg)](https://tailwindcss.com/)
 [![Node](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org/)
-[![Ko-Fi](https://img.shields.io/badge/Ko--Fi-Support%20Me-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/jeremie93407)
 [![Liberapay](https://img.shields.io/badge/Liberapay-Donate-F6C915?logo=liberapay&logoColor=white)](https://liberapay.com/Jeremie/)
 
 **🚀 Try the demo: [https://www.mermaidstudio.net/](https://www.mermaidstudio.net/)**
@@ -522,5 +521,4 @@ Created with ❤️ by [Jérémie Dufault](https://jeremiedufault.ca)
 
 📧 [Email](mailto:rlc9rl0ut@mozmail.com)
 🌐 [Website](https://jeremiedufault.ca)
-☕ [Support on Ko-Fi](https://ko-fi.com/jeremie93407)
 💜 [Donate on Liberapay](https://liberapay.com/Jeremie/)

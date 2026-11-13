@@ -3,7 +3,7 @@
  *
  * The modal leads with a 3-bullet value proposition (what the app does for
  * you), not with per-version release notes in contributor jargon: the
- * changelog is demoted to a link, and donation links (Ko-Fi / Liberapay) sit
+ * changelog is demoted to a link, and the Liberapay donation link sits
  * next to the GitHub card so a first-run visitor can support the project.
  * i18n is mocked with t(key) => key, so assertions target the keys.
  */
@@ -55,13 +55,10 @@ describe('WelcomeModal', () => {
     expect(changelogLink).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  it('shows the GitHub card plus Ko-Fi and Liberapay support links', () => {
+  it('shows the GitHub card plus the Liberapay support link', () => {
     render(<WelcomeModal onClose={onClose} />);
-    const koFi = screen.getByRole('link', { name: /support\.koFi/ });
-    expect(koFi).toHaveAttribute('href', 'https://ko-fi.com/jeremie93407');
     const links = screen.getAllByRole('link').map(a => a.getAttribute('href'));
     expect(links).toContain('https://github.com/CatFoxVoyager/MermaidStudio');
-    expect(links).toContain('https://ko-fi.com/jeremie93407');
     expect(links).toContain('https://liberapay.com/Jeremie/');
   });
 });

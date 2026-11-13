@@ -336,8 +336,8 @@ describe('machine-readable head surfaces - META-01/02/05', () => {
 // Trust-line external links (DOC-01/02, plan 30-02).
 //
 // Humans and crawlers follow the shell's trust line: it must link the docs
-// Pages property and the repo changelog alongside the existing GitHub,
-// Ko-Fi and Liberapay anchors. The docs URL is derived from public/llms.txt
+// Pages property and the repo changelog alongside the existing GitHub
+// and Liberapay anchors. The docs URL is derived from public/llms.txt
 // (a surface this block does not edit) so the generated surface and the
 // shell anchor must agree byte-for-byte; the changelog URL is derived from
 // the untouched noscript GitHub link. Rare-literal hygiene: the only

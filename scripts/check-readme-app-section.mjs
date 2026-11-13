@@ -11,7 +11,7 @@
  *        breaks the pin)
  *   D2 — badge asset integrity: docs/images copy is a real 646x250 PNG and
  *        sha256-identical to the committed phase-34 asset
- *   D3 — top block byte-pin: README lines 1-24 (title, shields, demo line,
+ *   D3 — top block byte-pin: README lines 1-23 (title, shields, demo line,
  *        intro, screenshot embed) untouched
  *   D4 — trademark attribution byte-exact + banned copy absent file-wide
  *   D5 — screenshot strip: targets derived BY PARSING the strip markup out of
@@ -64,11 +64,11 @@ function fail(message) {
 
 const PNG_SIG = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 
-// [D3] Embedded pin: README lines 1-24 (EOL-normalized) as of the Task-1
-// insertion edit. Captured from the live tree at gate-write time; a superset
-// of the GH-01 shields-row floor (lines 3-10).
+// [D3] Embedded pin: README lines 1-23 (EOL-normalized) as of the qvu
+// dead-link sweep edit. Captured from the live tree at gate-write time; a
+// superset of the GH-01 shields-row floor (lines 3-9).
 const EXPECTED_TOP =
-  '# MermaidStudio ⚜️\n\n[![Version](https://img.shields.io/github/package-json/v/CatFoxVoyager/MermaidStudio?label=version&color=blue)](https://github.com/CatFoxVoyager/MermaidStudio/releases)\n[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/license/MIT)\n[![TypeScript](https://img.shields.io/badge/typescript-6.0.3-blue.svg)](https://www.typescriptlang.org/)\n[![Vite](https://img.shields.io/badge/vite-8.3.0-green.svg)](https://vitejs.dev/)\n[![Tailwind CSS](https://img.shields.io/badge/tailwind-4.3.3-cyan.svg)](https://tailwindcss.com/)\n[![Node](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org/)\n[![Ko-Fi](https://img.shields.io/badge/Ko--Fi-Support%20Me-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/jeremie93407)\n[![Liberapay](https://img.shields.io/badge/Liberapay-Donate-F6C915?logo=liberapay&logoColor=white)](https://liberapay.com/Jeremie/)\n\n**🚀 Try the demo: [https://www.mermaidstudio.net/](https://www.mermaidstudio.net/)**\n\n## 🎯 Open-Source Alternative to Mermaid Live Editor\n\nCreated by [Jérémie Dufault](https://jeremiedufault.ca)\n\nMermaidStudio is an open-source, self-hosted Mermaid diagram editor that runs entirely locally. Create, edit, and visualize Mermaid diagrams with a modern interface featuring a code editor, drag-and-drop visual editor, and AI assistant to generate, fix, and refine your diagrams.\n\n**Recommended as a free, self-contained alternative to the official Mermaid Live Editor.**\n\n---\n\n[![MermaidStudio Screenshot](./docs/images/screenshot.png)](./docs/images/screenshot.png)';
+  '# MermaidStudio ⚜️\n\n[![Version](https://img.shields.io/github/package-json/v/CatFoxVoyager/MermaidStudio?label=version&color=blue)](https://github.com/CatFoxVoyager/MermaidStudio/releases)\n[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/license/MIT)\n[![TypeScript](https://img.shields.io/badge/typescript-6.0.3-blue.svg)](https://www.typescriptlang.org/)\n[![Vite](https://img.shields.io/badge/vite-8.3.0-green.svg)](https://vitejs.dev/)\n[![Tailwind CSS](https://img.shields.io/badge/tailwind-4.3.3-cyan.svg)](https://tailwindcss.com/)\n[![Node](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen.svg)](https://nodejs.org/)\n[![Liberapay](https://img.shields.io/badge/Liberapay-Donate-F6C915?logo=liberapay&logoColor=white)](https://liberapay.com/Jeremie/)\n\n**🚀 Try the demo: [https://www.mermaidstudio.net/](https://www.mermaidstudio.net/)**\n\n## 🎯 Open-Source Alternative to Mermaid Live Editor\n\nCreated by [Jérémie Dufault](https://jeremiedufault.ca)\n\nMermaidStudio is an open-source, self-hosted Mermaid diagram editor that runs entirely locally. Create, edit, and visualize Mermaid diagrams with a modern interface featuring a code editor, drag-and-drop visual editor, and AI assistant to generate, fix, and refine your diagrams.\n\n**Recommended as a free, self-contained alternative to the official Mermaid Live Editor.**\n\n---\n\n[![MermaidStudio Screenshot](./docs/images/screenshot.png)](./docs/images/screenshot.png)';
 
 // [D1] Byte-pinned composite badge line: alt + repo-local path + href on ONE
 // markdown element, no width attribute anywhere (natural size 646x250).
@@ -129,8 +129,8 @@ function runBattery() {
   const LINES = readme.split('\n');
 
   // [D3] top block byte-pin
-  if (LINES.slice(0, 24).join('\n') !== EXPECTED_TOP) {
-    fail('[D3] top block (README lines 1-24) drifted');
+  if (LINES.slice(0, 23).join('\n') !== EXPECTED_TOP) {
+    fail('[D3] top block (README lines 1-23) drifted');
   }
 
   // [D7] placement: embed < heading < features
