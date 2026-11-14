@@ -89,12 +89,20 @@
       .shell .valueprop-note{font-size:.875rem;opacity:.85;margin:.5rem 0 0}
       @media (prefers-color-scheme:light){.shell{background:#fafaf9;color:#1f2328}.shell a{color:#0969da}}
       @media (prefers-color-scheme:light){.shell .valueprop{border-left-color:#0d7377;background:rgba(13,115,119,.08)}}
+      .shell .cta{display:inline-block;background:#2dd4bf;color:#0d1117;font-weight:600;padding:.7rem 1.4rem;border-radius:.6rem;text-decoration:none;margin:.25rem 0 1.5rem}
+      .shell .cta:hover{filter:brightness(1.1)}
+      .shell .cta:focus-visible{outline:2px solid #58a6ff;outline-offset:2px}
+      .shell .shell-figure{margin:0 0 1.5rem}
+      .shell .shell-figure img{display:block;max-width:100%;height:auto;border-radius:8px;border:1px solid rgba(128,128,128,.35)}
+      @media (prefers-color-scheme:light){.shell .cta{background:#0d7377;color:#fafaf9}.shell .shell-figure img{border-color:rgba(13,115,119,.25)}}
     </style>
   </head>
   <body>
     <main class="shell">
       <h1>MermaidStudio — Éditeur de diagrammes Mermaid en ligne gratuit</h1>
       <p>Un éditeur de diagrammes Mermaid rapide et entièrement côté client. Vos diagrammes, paramètres et modèles d'IA restent dans votre navigateur — gratuit, open source, avec une analytique sans cookies uniquement.</p>
+      <a class="cta" href="/">Ouvrir l'application</a>
+      <figure class="shell-figure"><img src="/screenshot-wide.png" alt="Éditeur MermaidStudio : code Mermaid à gauche, aperçu du diagramme en direct à droite" width="1280" height="720"></figure>
       <h2>Un éditeur de diagrammes Mermaid en ligne gratuit — une alternative open source au Mermaid Live Editor</h2>
       <p>Contrairement aux éditeurs en nuage, MermaidStudio fonctionne entièrement sur votre machine : l'éditeur travaille <strong>en ligne</strong> dans n'importe quel navigateur moderne sans inscription, garde vos diagrammes privés par défaut et ajoute des points de contrôle locaux que vous pouvez comparer et restaurer.</p>
       <ul>
@@ -108,9 +116,9 @@
         <p class="valueprop-main"><strong>L'IA tourne en local sur votre GPU (WebGPU)</strong> — votre code ne quitte jamais votre machine.</p>
         <p class="valueprop-note">La première utilisation télécharge le modèle d'IA une seule fois (environ 400–700 Mo). Ensuite, il fonctionne entièrement hors ligne.</p>
       </div>
-      <h2 id="what-is-mermaidstudio">Qu'est-ce que MermaidStudio</h2>
+      <h2 id="what-is-mermaidstudio">Qu'est-ce que MermaidStudio ?</h2>
       <p>MermaidStudio est un éditeur de diagrammes Mermaid gratuit et open source qui fonctionne entièrement dans votre navigateur. Vous écrivez la syntaxe Mermaid ou déplacez des nœuds dans l'éditeur visuel, vous prévisualisez le diagramme rendu en direct, puis vous exportez en SVG ou PNG. Aucun compte, aucune installation — vos diagrammes restent sur votre appareil.</p>
-      <h2 id="how-it-works">Comment ça fonctionne</h2>
+      <h2 id="how-it-works">Comment ça fonctionne ?</h2>
       <p>Ouvrez l'éditeur et tapez du code Mermaid à gauche ; le diagramme se dessine à droite pendant que vous tapez. Tout fonctionne dans votre navigateur : diagrammes et réglages restent sur votre appareil (stockage local), et l'assistant IA tourne lui aussi en local via WebGPU. Gratuit, open source, avec une analytique sans cookies uniquement.</p>
       <h2 id="privacy">Confidentialité</h2>
       <p>Vos diagrammes et vos réglages sont stockés uniquement sur votre appareil — aucun compte, et l'IA fonctionne en local sur votre GPU via WebGPU. Le site mesure sa fréquentation avec l'analytique sans cookies de Vercel et Google Analytics 4 en consentement refusé (sans cookies ni publicité ; Google traite ces pings). Détails complets sur la <a href="/privacy">page Confidentialité</a>.</p>
