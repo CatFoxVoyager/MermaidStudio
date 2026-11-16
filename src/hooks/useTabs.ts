@@ -280,6 +280,17 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
     setTabs(tabsRef.current);
   }, []);
 
+  // A rename committed in the Sidebar mutates the diagram record directly.
+  // Open tabs hold a title snapshot, so without this propagation the tab
+  // label keeps the old name — and saveTab persists tab.title, meaning a
+  // later manual save would overwrite the rename in IndexedDB.
+  const renameDiagram = useCallback((diagramId: string, title: string) => {
+    tabsRef.current = tabsRef.current.map(t =>
+      t.diagram_id === diagramId ? { ...t, title } : t
+    );
+    setTabs(tabsRef.current);
+  }, []);
+
   const saveTab = useCallback(
     async (tabId: string) => {
       const tab = tabsRef.current.find(t => t.id === tabId);
@@ -331,6 +342,7 @@ export function useTabs({ onSaveError }: UseTabsOptions = {}) {
     closeTabsByDiagramIds,
     updateTabContent,
     updateTabTheme,
+    renameDiagram,
     saveTab,
   };
 }

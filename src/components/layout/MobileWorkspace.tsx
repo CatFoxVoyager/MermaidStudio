@@ -40,6 +40,8 @@ interface MobileWorkspaceProps {
   activeDiagramId?: string | null;
   onRefreshFiles?: () => void;
   onDiagramDeleted?: (ids: string[]) => void;
+  /** Sidebar rename → keep the active tab title (TopBar label) in sync. */
+  onDiagramRenamed?: (diagramId: string, title: string) => void;
   filesRefreshKey?: number;
   /** D-2 (36.1.1): the AI segment opens the existing right AI drawer
    *  (web-mobile only — the segment itself is gated on false). */
@@ -70,6 +72,7 @@ export function MobileWorkspace({
   activeDiagramId,
   onRefreshFiles,
   onDiagramDeleted,
+  onDiagramRenamed,
   filesRefreshKey,
   onOpenAIDrawer,
   onCloseDrawer,
@@ -283,6 +286,7 @@ export function MobileWorkspace({
           onOpenDiagram={(id) => { onOpenDiagram?.(id); setActivePane('code'); setActiveView('editor'); }}
           onRefresh={onRefreshFiles ?? (() => {})}
           onDiagramDeleted={onDiagramDeleted}
+          onDiagramRenamed={onDiagramRenamed}
           key={filesRefreshKey}
         />
       </div>

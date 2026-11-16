@@ -20,6 +20,8 @@ interface Props {
   activeDiagramId?: string | null;
   onRefresh: () => void;
   onDiagramDeleted?: (diagramIds: string[]) => void;
+  /** Propagate a committed rename to the open tab(s) holding this diagram. */
+  onDiagramRenamed?: (diagramId: string, title: string) => void;
   /** Render as the full-screen mobile Files destination. */
   mobileScreen?: boolean;
 }
@@ -29,7 +31,7 @@ interface CtxState { x: number; y: number; items: ContextMenuItem[] }
 const TAG_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#8b5cf6', '#f97316'];
 const ROOT_FOLDER_FILTER_ID = '__root__';
 
-export function Sidebar({ onOpenDiagram, activeDiagramId, onRefresh, onDiagramDeleted, mobileScreen = false }: Props) {
+export function Sidebar({ onOpenDiagram, activeDiagramId, onRefresh, onDiagramDeleted, onDiagramRenamed, mobileScreen = false }: Props) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
@@ -109,7 +111,11 @@ flowchart TD
   async function commitEdit(id: string, type: 'folder' | 'diagram') {
     if (!editValue.trim()) { setEditingId(null); return; }
     if (type === 'folder') {await updateFolder(id, editValue.trim());}
-    else {await updateDiagram(id, { title: editValue.trim() });}
+    else {
+      const title = editValue.trim();
+      await updateDiagram(id, { title });
+      onDiagramRenamed?.(id, title);
+    }
     setEditingId(null); refresh();
   }
 
