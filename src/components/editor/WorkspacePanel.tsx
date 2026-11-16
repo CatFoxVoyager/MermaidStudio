@@ -455,8 +455,18 @@ export function WorkspacePanel({
             disabled={!previewError}
             title={previewError ? t('ai.fixDiagram') : t('ai.noErrors')}
           />
+          <ToolbarButton
+            icon={<SlidersHorizontal size={13} />}
+            label={t('editor.advancedStyling')}
+            showLabel={showLabels}
+            onClick={onShowAdvancedStyle}
+            title={t('editor.advancedStyling')}
+            active={showAdvancedStyle}
+          />
           {/* Secondary actions live in the More menu — ten icon-only buttons
-              of equal weight failed the ≤4-choices chunk (critique iter-3). */}
+              of equal weight failed the ≤4-choices chunk (critique iter-3).
+              Advanced styling is promoted to a direct button above: a primary
+              styling panel must not require menu spelunking on desktop. */}
           <div className="relative" ref={moreMenuRef}>
             <button
               onClick={() => setShowMoreMenu(v => !v)}
@@ -491,11 +501,6 @@ export function WorkspacePanel({
                     icon: <Palette size={13} />,
                     label: t('editor.diagramColors'),
                     onClick: onShowDiagramColors,
-                  },
-                  {
-                    icon: <SlidersHorizontal size={13} />,
-                    label: t('editor.advancedStyling'),
-                    onClick: onShowAdvancedStyle,
                   },
                   {
                     icon: <Maximize size={13} />,
