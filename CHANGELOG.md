@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.5.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.4.3...mermaid-studio-v2.5.0) (2026-11-16)
+
+
+### Features
+
+* **editor:** add Google Play Android link on empty workspace ([19137e7](https://github.com/CatFoxVoyager/MermaidStudio/commit/19137e7c149794c94d49864f720f4d5cb03405e1))
+
+
+### Bug Fixes
+
+* **ci:** stop pnpm warnings from corrupting audit JSON parsing ([06b7cbf](https://github.com/CatFoxVoyager/MermaidStudio/commit/06b7cbf8fb13ce365c22b54ef4f57943d473d858))
+* **ci:** stop pnpm warnings from corrupting audit JSON parsing ([2dfaf3f](https://github.com/CatFoxVoyager/MermaidStudio/commit/2dfaf3f5d46671a60ec7e8b87bcf1ba8acc0e3b7))
+* **e2e:** cap self-hosted job runtime at 30 min ([a2d450b](https://github.com/CatFoxVoyager/MermaidStudio/commit/a2d450b4512c032896b79dec839c94c717f516cc))
+
 ## [2.4.3](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.4.2...mermaid-studio-v2.4.3) (2026-11-02)
 
 
