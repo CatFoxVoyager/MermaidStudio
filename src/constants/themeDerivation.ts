@@ -859,6 +859,24 @@ export function deriveThemeVariables(
 
 const THEME_COMMENT_RE = /%% @theme (\S+)\n?/m;
 
+// Variables applyThemeToFrontmatter derives from a theme's coreColors and
+// exempts from its clean-YAML strip (they exist so manual edits survive a
+// re-apply). That same exemption means a theme SWITCH must drop them
+// explicitly: otherwise the previous apply's values are seen as "existing
+// manual changes" and only recomputed "if missing" — the old theme's colors
+// leak into the new theme's render (nodes/arrows stayed on the old palette).
+const THEME_DERIVED_KEYS = new Set([
+  'arrowheadColor',
+  'signalColor',
+  'signalTextColor',
+  'labelBoxBkgColor',
+  'labelBoxBorderColor',
+  'nodeBkg',
+  'nodeBorder',
+  'clusterBkg',
+  'clusterBorder',
+]);
+
 export function extractThemeIdFromContent(content: string): string | null {
   const match = content.match(THEME_COMMENT_RE);
   return match ? match[1] : null;
@@ -964,6 +982,19 @@ export function applyThemeToFrontmatter(
       }
     } catch {
       // Silently ignore parsing errors
+    }
+  }
+
+  // Theme switch: drop the previous apply's derived overrides so they are
+  // recomputed from the NEW theme instead of surviving as if they were
+  // manual edits (a real user edit made after the last apply lives outside
+  // this key set and is still preserved by step 1).
+  const prevThemeId = content.match(THEME_COMMENT_RE)?.[1];
+  if (prevThemeId && prevThemeId !== theme.id) {
+    for (const key of Object.keys(existingThemeVars)) {
+      if (THEME_DERIVED_KEYS.has(key)) {
+        delete existingThemeVars[key];
+      }
     }
   }
 
