@@ -47,7 +47,9 @@ jobs:
         # non-zero when vulnerabilities are found, which would abort this step
         # before the if can capture the result. Disable errexit, capture, exit 0.
         set +e
-        pnpm audit --json > pnpm-audit.json 2>&1
+        # stdout only: pnpm writes " WARN ..." warnings to stderr; mixing them
+        # into the file breaks JSON.parse in the github-script steps below.
+        pnpm audit --json > pnpm-audit.json 2>/dev/null
         code=$?
         if [ $code -eq 0 ]; then
           echo "pnpm-audit-result=success" >> $GITHUB_OUTPUT
@@ -61,7 +63,7 @@ jobs:
       continue-on-error: true
       run: |
         set +e
-        pnpm outdated --json > pnpm-outdated.json 2>&1
+        pnpm outdated --json > pnpm-outdated.json 2>/dev/null
         code=$?
         if [ $code -eq 0 ]; then
           echo "pnpm-outdated-result=success" >> $GITHUB_OUTPUT
@@ -159,8 +161,18 @@ jobs:
           const fs = require('fs');
           const path = 'pnpm-audit.json';
 
+          // Tolerate stray non-JSON output (pnpm warnings, etc.): extract the
+          // JSON object substring and never crash the job on parse failure.
+          function parseJsonFile(p) {
+            const raw = fs.readFileSync(p, 'utf8');
+            const start = raw.indexOf('{');
+            const end = raw.lastIndexOf('}');
+            if (start === -1 || end <= start) return null;
+            try { return JSON.parse(raw.slice(start, end + 1)); } catch { return null; }
+          }
+
           if (fs.existsSync(path)) {
-            const audit = JSON.parse(fs.readFileSync(path, 'utf8'));
+            const audit = parseJsonFile(path) || {};
             const critical = audit.vulnerabilities?.critical || 0;
             const high = audit.vulnerabilities?.high || 0;
 
@@ -196,20 +208,30 @@ jobs:
         script: |
           const fs = require('fs');
 
+          // Tolerate stray non-JSON output (pnpm warnings, etc.): extract the
+          // JSON object substring and never crash the job on parse failure.
+          function parseJsonFile(p) {
+            const raw = fs.readFileSync(p, 'utf8');
+            const start = raw.indexOf('{');
+            const end = raw.lastIndexOf('}');
+            if (start === -1 || end <= start) return null;
+            try { return JSON.parse(raw.slice(start, end + 1)); } catch { return null; }
+          }
+
           let comment = '## Dependency Audit Results\n\n';
 
           comment += '### Security Audit\n';
           if (fs.existsSync('pnpm-audit.json')) {
-            const audit = JSON.parse(fs.readFileSync('pnpm-audit.json', 'utf8'));
-            const total = audit.vulnerabilities?.total || 0;
-            comment += total > 0 ? `Found ${total} vulnerabilities\n` : 'No vulnerabilities found\n';
+            const audit = parseJsonFile('pnpm-audit.json');
+            const total = audit?.vulnerabilities?.total ?? 0;
+            comment += total > 0 ? `Found ${total} vulnerabilities\n` : (audit ? 'No vulnerabilities found\n' : 'Audit output unparseable\n');
           }
 
           comment += '\n### Outdated Packages\n';
           if (fs.existsSync('pnpm-outdated.json')) {
-            const outdated = JSON.parse(fs.readFileSync('pnpm-outdated.json', 'utf8'));
-            const count = Object.keys(outdated).length;
-            comment += count > 0 ? `${count} packages outdated\n` : 'All packages up-to-date\n';
+            const outdated = parseJsonFile('pnpm-outdated.json');
+            const count = outdated ? Object.keys(outdated).length : 0;
+            comment += !outdated ? 'Outdated output unparseable\n' : (count > 0 ? `${count} packages outdated\n` : 'All packages up-to-date\n');
           }
 
           comment += '\n### License Compliance\nAll licenses compatible\n';
