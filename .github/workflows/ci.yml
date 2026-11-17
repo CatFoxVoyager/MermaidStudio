@@ -332,6 +332,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # Chaque push multi-arch crée des versions non-taggées sur ghcr (manifests
+      # enfants de l'index). Non purgées, elles saturent le quota de stockage du
+      # compte. delete-untagged seul : les composants non-taggés d'un index
+      # encore taggé sont préservés (préservation multi-arch native de l'action).
+      - name: Cleanup untagged GHCR versions
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          package: mermaidstudio
+          delete-untagged: true
+
   deploy-docs:
     name: Deploy Documentation
     runs-on: [self-hosted, Linux, X64]
