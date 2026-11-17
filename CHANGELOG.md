@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.5.1](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.5.0...mermaid-studio-v2.5.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **editor:** surface Advanced Styling as a direct desktop toolbar button ([4f4719b](https://github.com/CatFoxVoyager/MermaidStudio/commit/4f4719bb1a13f232f781e743435244bdbf1f795f))
+* **tabs:** propagate sidebar rename to the open tab title ([2b2d643](https://github.com/CatFoxVoyager/MermaidStudio/commit/2b2d643536b8f3ed81364e609c89c4675d66a20b))
+* **theme:** drop previous theme's derived colors on a theme switch ([1c4c860](https://github.com/CatFoxVoyager/MermaidStudio/commit/1c4c8606093ab9c48187837ea1e00509d2c5a597))
+* **ui:** tab rename propagation + desktop Advanced Styling toolbar button ([12d35ba](https://github.com/CatFoxVoyager/MermaidStudio/commit/12d35ba0e073191f8696cadbad76f15f0868f54f))
+
 ## [2.5.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.4.3...mermaid-studio-v2.5.0) (2026-11-16)
 
 
