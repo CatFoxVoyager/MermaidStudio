@@ -151,7 +151,7 @@ jobs:
           pnpm-outdated.json
           licenses.json
           dependency-audit-report.md
-        retention-days: 30
+        retention-days: 3
 
     - name: Create issue for critical vulnerabilities
       if: steps.pnpm-audit.outputs.pnpm-audit-result == 'failure'

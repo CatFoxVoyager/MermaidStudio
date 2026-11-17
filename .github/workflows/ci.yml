@@ -187,7 +187,7 @@ jobs:
         with:
           name: docs-files
           path: docs/
-          retention-days: 30
+          retention-days: 3
 
   build:
     name: Build
@@ -278,7 +278,7 @@ jobs:
         with:
           name: dist-files
           path: dist/
-          retention-days: 30
+          retention-days: 3
 
   docker-build:
     name: Build and Push Docker Image
