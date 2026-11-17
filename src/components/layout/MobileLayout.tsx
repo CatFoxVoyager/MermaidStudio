@@ -36,6 +36,8 @@ interface MobileLayoutProps {
   activeDiagramId?: string | null;
   onRefresh: () => void;
   onDiagramDeleted?: (diagramIds: string[]) => void;
+  /** Sidebar rename → keep the active tab title (TopBar label) in sync. */
+  onDiagramRenamed?: (diagramId: string, title: string) => void;
   refreshKey: number;
   // AI drawer props
   currentContent: string;
@@ -68,6 +70,7 @@ export function MobileLayout({
   activeDiagramId,
   onRefresh,
   onDiagramDeleted,
+  onDiagramRenamed,
   onOpenAbout,
   onOpenBackup,
   onOpenReleaseNotes,
@@ -138,6 +141,7 @@ export function MobileLayout({
           activeDiagramId={activeDiagramId}
           onRefreshFiles={onRefresh}
           onDiagramDeleted={onDiagramDeleted}
+          onDiagramRenamed={onDiagramRenamed}
           filesRefreshKey={refreshKey}
           onOpenAIDrawer={() => setActiveDrawer('ai')}
           onCloseDrawer={closeDrawer}

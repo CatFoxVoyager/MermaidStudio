@@ -108,6 +108,40 @@ describe('useTabs Hook', () => {
     });
   });
 
+  describe('Renaming Diagrams', () => {
+    it('should update the tab title of every tab holding the diagram', async () => {
+      const { result } = renderHook(() => useTabs());
+
+      await act(async () => {
+        await result.current.openDiagram('diagram-1');
+      });
+
+      act(() => {
+        result.current.renameDiagram('diagram-1', 'Renamed');
+      });
+
+      expect(result.current.tabs[0].title).toBe('Renamed');
+    });
+
+    it('should not touch tabs of other diagrams', async () => {
+      const { result } = renderHook(() => useTabs());
+
+      await act(async () => {
+        await result.current.openDiagram('diagram-1');
+        await result.current.openDiagram('diagram-2');
+      });
+
+      act(() => {
+        result.current.renameDiagram('diagram-1', 'Renamed');
+      });
+
+      const renamed = result.current.tabs.find(t => t.diagram_id === 'diagram-1');
+      const untouched = result.current.tabs.find(t => t.diagram_id === 'diagram-2');
+      expect(renamed?.title).toBe('Renamed');
+      expect(untouched?.title).toBe('diagram-2');
+    });
+  });
+
   describe('Opening Same Diagram Twice', () => {
     it('should not create duplicate tabs for same diagram', async () => {
       const { result } = renderHook(() => useTabs());

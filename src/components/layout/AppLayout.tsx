@@ -26,6 +26,8 @@ interface AppLayoutProps {
   onOpenDiagram: (id: string) => void;
   onRefreshSidebar: () => void;
   onDiagramDeleted: (diagramIds: string[]) => void;
+  /** Sidebar rename → keep the open tab's title (and MobileTopBar label) in sync. */
+  onDiagramRenamed?: (diagramId: string, title: string) => void;
   // Tabs
   tabs: Tab[];
   activeTabId: string | null;
@@ -89,6 +91,7 @@ export function AppLayout({
   onOpenDiagram,
   onRefreshSidebar,
   onDiagramDeleted,
+  onDiagramRenamed,
   tabs,
   activeTabId,
   activeTab,
@@ -152,6 +155,7 @@ export function AppLayout({
         activeDiagramId={activeTab?.diagram_id ?? null}
         onRefresh={onRefreshSidebar}
         onDiagramDeleted={onDiagramDeleted}
+        onDiagramRenamed={onDiagramRenamed}
         refreshKey={refreshKey}
         currentContent={activeTab?.content ?? ''}
         onApply={onAIApply}
@@ -206,6 +210,7 @@ export function AppLayout({
               activeDiagramId={activeTab?.diagram_id ?? null}
               onRefresh={onRefreshSidebar}
               onDiagramDeleted={onDiagramDeleted}
+              onDiagramRenamed={onDiagramRenamed}
               key={refreshKey}
             />
           )}

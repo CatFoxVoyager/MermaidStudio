@@ -193,6 +193,7 @@ export default function App() {
           onOpenDiagram={appState.openDiagram}
           onRefreshSidebar={appState.refresh}
           onDiagramDeleted={appState.closeTabsByDiagramIds}
+          onDiagramRenamed={appState.renameDiagram}
           tabs={appState.tabs}
           activeTabId={appState.activeTabId}
           activeTab={appState.activeTab}

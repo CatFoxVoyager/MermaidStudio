@@ -265,6 +265,57 @@ flowchart TD
       // assertions cannot distinguish a leaked old block from the new one.
       expect(result).not.toContain('theme: default');
     });
+
+    it('drops the previous theme\'s derived overrides on a theme switch', () => {
+      const forest = {
+        id: 'forest',
+        name: 'Forest',
+        description: 'Forest',
+        isBuiltin: true,
+        coreColors: { primaryColor: '#C6F2C6', background: '#DCFCE7' },
+      };
+      const sunset = {
+        id: 'sunset',
+        name: 'Sunset',
+        description: 'Sunset',
+        isBuiltin: true,
+        coreColors: { primaryColor: '#FED7AA', background: '#FEF3C7' },
+      };
+      // First apply writes derived overrides (nodeBkg, arrowheadColor…).
+      const withForest = applyThemeToFrontmatter('flowchart TD\n  A --> B', forest, false);
+      expect(withForest).toContain('%% @theme forest');
+      expect(withForest).toContain("nodeBkg: '#C6F2C6'");
+
+      // Switching to Sunset must NOT inherit Forest's derived values — they
+      // would otherwise pin the old palette onto the new theme's render
+      // (reproduced live: nodes stayed Forest-green after applying Sunset).
+      const withSunset = applyThemeToFrontmatter(withForest, sunset, false);
+      expect(withSunset).not.toContain("nodeBkg: '#C6F2C6'");
+      expect(withSunset).toContain("nodeBkg: '#FED7AA'");
+      expect(withSunset).toContain('%% @theme sunset');
+    });
+
+    it('still preserves genuinely manual themeVariable edits on re-apply', () => {
+      const themeA = {
+        id: 'a',
+        name: 'A',
+        description: 'A',
+        isBuiltin: true,
+        coreColors: { primaryColor: '#111111', background: '#ffffff' },
+      };
+      const themeB = {
+        id: 'b',
+        name: 'B',
+        description: 'B',
+        isBuiltin: true,
+        coreColors: { primaryColor: '#222222', background: '#ffffff' },
+      };
+      const first = applyThemeToFrontmatter('flowchart TD\n  A --> B', themeA, false);
+      // A user hand-edit AFTER the apply: not a derived key, must survive.
+      const handEdited = first.replace('flowchart TD', 'flowchart TB');
+      const switched = applyThemeToFrontmatter(handEdited, themeB, false);
+      expect(switched).toContain('flowchart TB');
+    });
   });
 
   describe('applyC4FromTheme', () => {
