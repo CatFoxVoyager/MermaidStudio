@@ -157,7 +157,7 @@ jobs:
         with:
           name: docs-report
           path: docs/reports/
-          retention-days: 90
+          retention-days: 7
 
   # Create issue for stale documentation
   create-stale-issue:
