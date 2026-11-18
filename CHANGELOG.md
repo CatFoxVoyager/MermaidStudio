@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.6.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.5.0...mermaid-studio-v2.6.0) (2026-11-18)
+
+
+### Features
+
+* **seo:** above-the-fold CTA, screenshot img, question-form H2s ([02f1716](https://github.com/CatFoxVoyager/MermaidStudio/commit/02f17161416ff8854d024c271133f08c2721a97c))
+* **seo:** add branded 404 page and JSON-LD alternateName ([dc34fa1](https://github.com/CatFoxVoyager/MermaidStudio/commit/dc34fa1bfa443b9ca3d1c198d24764dbb3ac2728))
+
+
+### Bug Fixes
+
+* **editor:** surface Advanced Styling as a direct desktop toolbar button ([4f4719b](https://github.com/CatFoxVoyager/MermaidStudio/commit/4f4719bb1a13f232f781e743435244bdbf1f795f))
+* **seo:** drop dead Ko-Fi link, canonicalize MIT URL, harden headers ([a994325](https://github.com/CatFoxVoyager/MermaidStudio/commit/a9943254ad14556d6379fd3cf6e63ea9c1d026e8))
+* **seo:** remove dead Ko-Fi link from app UI, tests and README ([40ce8c2](https://github.com/CatFoxVoyager/MermaidStudio/commit/40ce8c24bb3d223b97c95bb2584076353b455b4d))
+* **tabs:** propagate sidebar rename to the open tab title ([2b2d643](https://github.com/CatFoxVoyager/MermaidStudio/commit/2b2d643536b8f3ed81364e609c89c4675d66a20b))
+* **theme:** drop previous theme's derived colors on a theme switch ([1c4c860](https://github.com/CatFoxVoyager/MermaidStudio/commit/1c4c8606093ab9c48187837ea1e00509d2c5a597))
+* **ui:** tab rename propagation + desktop Advanced Styling toolbar button ([12d35ba](https://github.com/CatFoxVoyager/MermaidStudio/commit/12d35ba0e073191f8696cadbad76f15f0868f54f))
+
 ## [2.5.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.4.3...mermaid-studio-v2.5.0) (2026-11-16)
 
 
