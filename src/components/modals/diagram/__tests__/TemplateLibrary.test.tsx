@@ -150,7 +150,9 @@ describe('TemplateCard — viewport-gated preview rendering', () => {
   beforeEach(() => {
     observed = [];
     callbacks = [];
-    vi.mocked(renderDiagram).mockClear();
+    // mockReset restores the factory default (a never-settling promise), so
+    // the content-routed implementations below never leak into other tests.
+    vi.mocked(renderDiagram).mockReset();
     loadOfficialExamples.mockResolvedValue(OFFICIAL);
     class IOStub {
       constructor(cb: IntersectionObserverCallback) {
@@ -198,19 +200,23 @@ describe('TemplateCard — viewport-gated preview rendering', () => {
   it('shows an error state instead of an endless spinner when the preview render fails', async () => {
     // Regression guard: the WebKit eventmodeling example renders with an
     // error ("svg element not in render tree", upstream limitation) — the
-    // card used to spin forever because the error was swallowed.
-    vi.mocked(renderDiagram).mockResolvedValueOnce({ svg: '', error: 'svg element not in render tree' });
+    // card used to spin forever because the error was swallowed. IO is
+    // stubbed out so the component takes its immediate-render fallback: the
+    // test must not depend on observer plumbing (an under-load CI worker
+    // once resolved findByText before the observers ran). The mock routes
+    // by content: immediate fallback renders EVERY card, so a Once-mock
+    // would be consumed by a built-in card instead of the target one.
+    vi.stubGlobal('IntersectionObserver', undefined);
+    vi.mocked(renderDiagram).mockImplementation(async (content: string) =>
+      content === OFFICIAL[1].content
+        ? { svg: '', error: 'svg element not in render tree' }
+        : { svg: '', error: null }
+    );
     render(<TemplateLibrary onSelect={vi.fn()} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: OFFICIAL_CHIP }));
-    await screen.findByText('Support Request');
-    const card = screen.getByText('Support Request').closest('[data-testid=template-item]')!;
-    const index = observed.indexOf(card);
-    act(() => {
-      callbacks[index](
-        [{ isIntersecting: true, target: card } as unknown as IntersectionObserverEntry],
-        {} as IntersectionObserver
-      );
-    });
+    const card = await screen
+      .findByText('Support Request')
+      .then(el => el.closest('[data-testid=template-item]')!);
     await waitFor(() =>
       expect(card.querySelector('[data-testid=template-preview-error]')).not.toBeNull()
     );
@@ -219,18 +225,17 @@ describe('TemplateCard — viewport-gated preview rendering', () => {
   });
 
   it('renders the sanitized preview when the render succeeds', async () => {
-    vi.mocked(renderDiagram).mockResolvedValueOnce({ svg: '<svg><rect x="0" y="0" width="4" height="4"/></svg>', error: null });
+    vi.stubGlobal('IntersectionObserver', undefined);
+    vi.mocked(renderDiagram).mockImplementation(async (content: string) =>
+      content === OFFICIAL[1].content
+        ? { svg: '<svg><rect x="0" y="0" width="4" height="4"/></svg>', error: null }
+        : { svg: '', error: null }
+    );
     render(<TemplateLibrary onSelect={vi.fn()} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: OFFICIAL_CHIP }));
-    await screen.findByText('Support Request');
-    const card = screen.getByText('Support Request').closest('[data-testid=template-item]')!;
-    const index = observed.indexOf(card);
-    act(() => {
-      callbacks[index](
-        [{ isIntersecting: true, target: card } as unknown as IntersectionObserverEntry],
-        {} as IntersectionObserver
-      );
-    });
+    const card = await screen
+      .findByText('Support Request')
+      .then(el => el.closest('[data-testid=template-item]')!);
     await waitFor(() => expect(card.querySelector('.mermaid-container svg')).not.toBeNull());
     expect(card.querySelector('[data-testid=template-preview-error]')).toBeNull();
   });

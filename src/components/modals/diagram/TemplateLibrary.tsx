@@ -36,7 +36,10 @@ function TemplateCard({ template, onSelect, onDelete }: { template: Template | U
 
   useEffect(() => {
     const el = cardRef.current;
-    if (isNearViewport || !el) {return;}
+    // The typeof guard pairs with the lazy state initializer: if the global
+    // disappears between render and effect (test stubs), this effect must
+    // not touch the bare reference at all.
+    if (isNearViewport || !el || typeof IntersectionObserver === 'undefined') {return;}
     const observer = new IntersectionObserver(entries => {
       if (entries.some(entry => entry.isIntersecting)) {
         setIsNearViewport(true);
