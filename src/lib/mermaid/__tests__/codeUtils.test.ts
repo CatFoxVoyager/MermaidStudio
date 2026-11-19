@@ -403,6 +403,40 @@ describe('Mermaid Code Utilities', () => {
     it('returns false for a bare unquoted shape token (still editable)', () => {
       expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: person }')).toBe(false);
     });
+
+    // ===== 12.3 bare edge ids (`A e1@--> B`): the visual model cannot
+    // round-trip them — observed data loss on a label edit: a chained line
+    // `A e1@--> B e2@--> C` was rewritten as `A e1@--> B[Bee]`, silently
+    // dropping the second edge. Fence the form (superset-safe per D6: an
+    // identifier whose @ is directly followed by an arrow character is
+    // either this syntax or junk the renderer rejects). =====
+    it('fences a chained bare edge-id line (observed visual-edit data loss)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@--> B e2@--> C')).toBe(true);
+    });
+
+    it('fences a single bare edge id', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@--> B')).toBe(true);
+    });
+
+    it('fences the bare form carrying an edge label', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@-->|yes| B')).toBe(true);
+    });
+
+    it('fences the dotted bare form', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@-.-> B')).toBe(true);
+    });
+
+    it('does not fence plain edges', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A --> B\n  B --> C')).toBe(false);
+    });
+
+    it('does not fence @ followed by a letter (emails, mentions in labels)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A[contact user@site.com] --> B')).toBe(false);
+    });
+
+    it('still lets a consumed metadata edge span through', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@{ shape: "person" } --> B')).toBe(false);
+    });
   });
 
   // Phase 27 review WR-02: the fence and the parser share one arrow-line

@@ -1589,10 +1589,22 @@ export function parseFrontmatter(content: string): { frontmatter: FrontmatterCon
  * app's own parseFrontmatter split, so frontmatter-embedded metadata
  * (legitimate mermaid config) and legacy `%%{init:...}%%` directives never
  * trigger the gate — consistent with detectDiagramType's stripping semantics.
+ * Extended for mermaid 12.3: bare edge ids (`A e1@--> B`) are fenced too —
+ * the visual model silently drops their trailing edges on write-back.
  */
+// 12.3 bare edge ids (`A e1@--> B`): the visual model cannot round-trip them
+// — observed data loss on a label edit: the chained line
+// `A e1@--> B e2@--> C` was rewritten as `A e1@--> B[Bee]`, silently dropping
+// the second edge. Fence any line where an identifier's @ attaches directly
+// to arrow characters (superset-safe per D6: `ident@` followed by an arrow
+// char is either this syntax or junk the renderer rejects; `@` followed by a
+// letter — emails, mentions in labels — is unaffected).
+const BARE_EDGE_ID_LINE_RE = /[A-Za-z_][A-Za-z0-9_-]*@(?=[-=.>])/;
+
 export function bodyHasUnparsedAtDirective(content: string): boolean {
   const body = parseFrontmatter(content).body;
   for (const line of body.split('\n')) {
+    if (BARE_EDGE_ID_LINE_RE.test(line)) {return true;}
     if (!line.includes('@{')) {continue;}
     if (!directiveLineFullyConsumed(line.trim())) {return true;}
   }
