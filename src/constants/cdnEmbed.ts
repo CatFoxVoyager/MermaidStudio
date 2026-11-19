@@ -16,12 +16,12 @@
  * The test will fail until every copy agrees — browsers hard-block
  * SRI-mismatched scripts, so a stale hash silently breaks pasted embeds.
  */
-export const MERMAID_CDN_VERSION = '12.2.0';
+export const MERMAID_CDN_VERSION = '12.3.0';
 
 export const MERMAID_CDN_URL = `https://cdn.jsdelivr.net/npm/mermaid@${MERMAID_CDN_VERSION}/dist/mermaid.min.js`;
 
 export const MERMAID_CDN_SRI =
-  'sha384-8xUhuLNMjW/cI2Dacg3DR4WliYznvIg0LVG1stctThKD/YVrJFI9TNCFxft5NYgp';
+  'sha384-HHW54r639fK42Ip0coGF3mz8oSiGn0eEoWNTLs75X7H63pLSDBa0Tqs0RwGmLlXE';
 
 const MERMAID_CDN_BUMP_NOTE =
   '<!-- version tag and integrity hash must be bumped together manually — exact pin, hash valid only for this exact version -->';

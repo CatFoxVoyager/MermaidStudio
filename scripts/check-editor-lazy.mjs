@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * Post-build guard (29-02, PERF-01/02): the editor/runtime chunks
- * (mermaid-core, mermaid-parser, mermaid-elk, codemirror-core,
- * codemirror-features) must stay lazily-imported — only reachable through
+ * (mermaid-core, mermaid-parser, mermaid-elk, mermaid-examples,
+ * codemirror-core, codemirror-features) must stay lazily-imported — only reachable through
  * the dynamic-import boundaries (ModalProvider modals; the WorkspacePanel /
  * MobileWorkspace editor+preview cells, plan 29-03).
  *
@@ -16,9 +16,10 @@
  * in plan 29-03 once the boundary work completes and this guard goes green).
  *
  * Checks:
- *  (a) dist/assets/mermaid-core-*.js exists (guards against the runtime
- *      being re-inlined into an eager chunk, which would make the BFS pass
- *      vacuously),
+ *  (a) dist/assets/mermaid-core-*.js and mermaid-examples-*.js exist
+ *      (guards against either being re-inlined into an eager chunk, which
+ *      would make the BFS pass vacuously; mermaid-examples is the official
+ *      examples package, reached only from the lazy TemplateLibrary),
  *  (b) dist/index.html contains no script/modulepreload reference to a
  *      matching chunk,
  *  (c) no matching chunk is reachable from the entry chunk by following
@@ -29,7 +30,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const EDITOR_CHUNK_RE =
-  /^(mermaid-core|mermaid-parser|mermaid-elk|codemirror-core|codemirror-features)-.+\.js$/;
+  /^(mermaid-core|mermaid-parser|mermaid-elk|mermaid-examples|codemirror-core|codemirror-features)-.+\.js$/;
 
 const distDir = path.resolve(process.cwd(), 'dist');
 const assetsDir = path.join(distDir, 'assets');
@@ -54,13 +55,18 @@ if (!editorChunks.some((name) => /^mermaid-core-/.test(name))) {
     'no mermaid-core-*.js chunk in dist/assets — the mermaid runtime was re-inlined into an eager chunk',
   );
 }
+if (!editorChunks.some((name) => /^mermaid-examples-/.test(name))) {
+  fail(
+    'no mermaid-examples-*.js chunk in dist/assets — @mermaid-js/examples was folded into another chunk (see its advancedChunks group in vite.config.ts)',
+  );
+}
 
 const indexHtmlPath = path.join(distDir, 'index.html');
 const indexHtml = fs.readFileSync(indexHtmlPath, 'utf8');
 
 // (b) no eager reference from the HTML, regardless of attribute order
 const eagerReference = indexHtml.match(
-  /<(?:script|link)\b[^>]*\b(?:src|href)="[^"]*(?:mermaid-core|mermaid-parser|mermaid-elk|codemirror-core|codemirror-features)-[^"]*"/i,
+  /<(?:script|link)\b[^>]*\b(?:src|href)="[^"]*(?:mermaid-core|mermaid-parser|mermaid-elk|mermaid-examples|codemirror-core|codemirror-features)-[^"]*"/i,
 );
 if (eagerReference) {
   fail(`dist/index.html eagerly references an editor chunk: ${eagerReference[0]}`);

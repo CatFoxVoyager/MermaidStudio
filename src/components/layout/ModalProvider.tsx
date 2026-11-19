@@ -174,7 +174,10 @@ export function ModalProvider({
           onClose={onClosePalette}
           onNewDiagram={newDiagram}
           onNewFolder={isMobile ? undefined : handleNewFolder}
-          onOpenTemplates={isMobile ? undefined : () => { onClosePalette(); onOpenTemplates(); }}
+          // The template library is mobile-aware (restricted types hidden,
+          // upsell banner) — the mobile palette keeps the command instead of
+          // leaving the library reachable only through Ctrl+T.
+          onOpenTemplates={() => { onClosePalette(); onOpenTemplates(); }}
           onToggleHistory={() => {
             onClosePalette();
             onCloseHistory();

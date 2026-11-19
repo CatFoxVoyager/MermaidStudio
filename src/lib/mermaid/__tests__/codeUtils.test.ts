@@ -403,6 +403,117 @@ describe('Mermaid Code Utilities', () => {
     it('returns false for a bare unquoted shape token (still editable)', () => {
       expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: person }')).toBe(false);
     });
+
+    // ===== 12.3 bare edge ids (`A e1@--> B`): the visual model cannot
+    // round-trip them — observed data loss on a label edit: a chained line
+    // `A e1@--> B e2@--> C` was rewritten as `A e1@--> B[Bee]`, silently
+    // dropping the second edge. Fence the form (superset-safe per D6: an
+    // identifier whose @ is directly followed by an arrow character is
+    // either this syntax or junk the renderer rejects). =====
+    it('fences a chained bare edge-id line (observed visual-edit data loss)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@--> B e2@--> C')).toBe(true);
+    });
+
+    it('fences a single bare edge id', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@--> B')).toBe(true);
+    });
+
+    it('fences the bare form carrying an edge label', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@-->|yes| B')).toBe(true);
+    });
+
+    it('fences the dotted bare form', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@-.-> B')).toBe(true);
+    });
+
+    it('does not fence plain edges', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A --> B\n  B --> C')).toBe(false);
+    });
+
+    it('does not fence @ followed by a letter (emails, mentions in labels)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A[contact user@site.com] --> B')).toBe(false);
+    });
+
+    it('still lets a consumed metadata edge span through', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@{ shape: "person" } --> B')).toBe(false);
+    });
+
+    // ===== Chained hops (`A --> B --> C`): the model parses every hop now,
+    // but the line-surgical mutation writers cannot re-emit a chain
+    // faithfully (a target rename used to drop the whole remainder), so
+    // multi-hop lines are fenced from mutation while the canvas shows the
+    // full graph. =====
+    it('fences multi-hop chain lines from mutation', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A --> B --> C')).toBe(true);
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A --> B{q} --> C')).toBe(true);
+    });
+
+    it('does not fence single-hop lines', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A --> B')).toBe(false);
+    });
+
+    it('does not fence an arrow inside an edge label (not a hop)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A -->|x --> y| B')).toBe(false);
+    });
+
+    it('does not fence an arrow inside a target shape span (not a hop)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A --> B{text --> more}')).toBe(false);
+    });
+  });
+
+  describe('parseDiagram — chained edge lines (multi-hop)', () => {
+    it('keeps every hop node and edge', () => {
+      const result = parseDiagram('flowchart LR\n  A --> B --> C');
+      expect(result.nodes.map(n => n.id)).toEqual(['A', 'B', 'C']);
+      expect(result.edges.map(e => [e.source, e.target])).toEqual([
+        ['A', 'B'],
+        ['B', 'C'],
+      ]);
+    });
+
+    it('keeps four hops in one line', () => {
+      const result = parseDiagram('flowchart LR\n  A --> B --> C --> D');
+      expect(result.nodes.map(n => n.id)).toEqual(['A', 'B', 'C', 'D']);
+      expect(result.edges).toHaveLength(3);
+    });
+
+    it('keeps per-hop labels and arrow types', () => {
+      const result = parseDiagram('flowchart LR\n  A -->|yes| B -.-> C');
+      expect(result.edges.map(e => [e.source, e.target, e.label, e.arrowType])).toEqual([
+        ['A', 'B', 'yes', '-->'],
+        ['B', 'C', '', '-.->'],
+      ]);
+    });
+
+    it('slices hop shape spans at the next arrow', () => {
+      const result = parseDiagram('flowchart LR\n  A --> B{q?} --> C(round)');
+      const b = result.nodes.find(n => n.id === 'B');
+      const c = result.nodes.find(n => n.id === 'C');
+      expect(b?.label).toBe('q?');
+      expect(b?.raw).toBe('{q?}');
+      expect(c?.label).toBe('round');
+      expect(c?.raw).toBe('(round)');
+    });
+
+    it('does not split an arrow inside a shape label', () => {
+      const result = parseDiagram('flowchart LR\n  A --> B{text --> more}');
+      expect(result.nodes.map(n => n.id)).toEqual(['A', 'B']);
+      expect(result.edges).toHaveLength(1);
+      expect(result.nodes.find(n => n.id === 'B')?.label).toBe('text --> more');
+    });
+
+    it('does not split an arrow inside a quoted label', () => {
+      const result = parseDiagram('flowchart LR\n  A --> B["-->"] --> C');
+      expect(result.nodes.map(n => n.id)).toEqual(['A', 'B', 'C']);
+      expect(result.edges.map(e => e.target)).toEqual(['B', 'C']);
+    });
+
+    it('does not treat an arrow inside an edge label as a hop', () => {
+      const result = parseDiagram('flowchart LR\n  A -->|x --> y| B');
+      expect(result.nodes.map(n => n.id)).toEqual(['A', 'B']);
+      expect(result.edges).toHaveLength(1);
+      expect(result.edges[0].label).toBe('x --> y');
+    });
   });
 
   // Phase 27 review WR-02: the fence and the parser share one arrow-line
