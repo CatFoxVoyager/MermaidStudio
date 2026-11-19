@@ -19,7 +19,8 @@ vi.mock('@/services/storage/database', () => ({
 vi.mock('@/lib/mermaid/core', () => ({
   renderDiagram: vi.fn(() => new Promise(() => {})),
 }));
-vi.mock('@/hooks/useMediaQuery', () => ({ useMediaQuery: () => false }));
+const { mediaState } = vi.hoisted(() => ({ mediaState: { mobile: false } }));
+vi.mock('@/hooks/useMediaQuery', () => ({ useMediaQuery: () => mediaState.mobile }));
 
 import { TemplateLibrary } from '../TemplateLibrary';
 import { renderDiagram } from '@/lib/mermaid/core';
@@ -232,5 +233,36 @@ describe('TemplateCard — viewport-gated preview rendering', () => {
     });
     await waitFor(() => expect(card.querySelector('.mermaid-container svg')).not.toBeNull());
     expect(card.querySelector('[data-testid=template-preview-error]')).toBeNull();
+  });
+});
+
+describe('TemplateLibrary — mobile restricted types', () => {
+  beforeEach(() => {
+    loadOfficialExamples.mockReset();
+    mediaState.mobile = true;
+  });
+
+  afterEach(() => {
+    mediaState.mobile = false;
+  });
+
+  // RESTRICTED_TYPES regression guard: 'architecture' (the stale label) never
+  // matched the detector's 'architectureDiagram' output, so architecture
+  // examples shipped to mobile despite the restriction.
+  it('hides c4, gantt and architecture official examples on mobile', async () => {
+    loadOfficialExamples.mockResolvedValue([
+      OFFICIAL[1], // swimlane (unknown type) — stays visible
+      { id: 'official-architecture-0', title: 'Basic System Architecture', description: 'd', category: 'Architecture Diagram', complexity: 'moderate', type: 'architectureDiagram', content: 'architecture-beta\n' },
+      { id: 'official-c4-0', title: 'Internet Banking System Context', description: 'd', category: 'C4 Diagram', complexity: 'moderate', type: 'c4', content: 'C4Context\n' },
+      { id: 'official-gantt-0', title: 'Product Launch Plan', description: 'd', category: 'Gantt', complexity: 'moderate', type: 'gantt', content: 'gantt\n' },
+    ]);
+    render(<TemplateLibrary onSelect={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: OFFICIAL_CHIP }));
+    await screen.findByText('Support Request');
+
+    expect(screen.queryByText('Basic System Architecture')).toBeNull();
+    expect(screen.queryByText('Internet Banking System Context')).toBeNull();
+    expect(screen.queryByText('Product Launch Plan')).toBeNull();
+    expect(screen.getByText('Support Request')).toBeTruthy();
   });
 });

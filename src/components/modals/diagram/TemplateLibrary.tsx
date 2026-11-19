@@ -6,7 +6,7 @@ import { loadOfficialExamples } from '@/constants/officialExamples';
 import { getUserTemplates, deleteUserTemplate } from '@/services/storage/database';
 import { renderDiagram } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
-import type { Template, UserTemplate } from '@/types';
+import type { Template, UserTemplate, DiagramType } from '@/types';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { MobileUpsellBanner } from '@/components/shared/MobileUpsellBanner';
 
@@ -140,7 +140,9 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
   }
 
   const isMobile = useMediaQuery('(max-width: 768px)');
-  const RESTRICTED_TYPES = ['c4', 'gantt', 'architecture'];
+  // Typed so a stale label ('architecture' vs the 'architectureDiagram' the
+  // detector emits) fails the build instead of silently never matching.
+  const RESTRICTED_TYPES: DiagramType[] = ['c4', 'gantt', 'architectureDiagram'];
 
   // Official examples (~80) stay out of the unfiltered 'All' grid so opening
   // the library does not render every preview at once; they join 'All' only
