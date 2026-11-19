@@ -190,6 +190,25 @@ describe('MobileMenuSheet', () => {
     expect(defaultProps.onOpenBackup).toHaveBeenCalled();
   });
 
+  // The library is mobile-aware (restricted types + upsell banner): a direct
+  // touch row replaces the old palette-only reach. The row stays absent when
+  // the parent cannot open it (same pattern as onOpenCommands).
+  it('shows the Template Library row only when onOpenTemplates is provided, and opens it', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<MobileMenuSheet {...defaultProps} />);
+    expect(screen.queryByTestId('mobile-menu-item-templates')).not.toBeInTheDocument();
+
+    const onOpenTemplates = vi.fn();
+    rerender(<MobileMenuSheet {...defaultProps} onOpenTemplates={onOpenTemplates} />);
+    // The label resolves against the real en.json catalog.
+    await user.click(screen.getByTestId('mobile-menu-item-templates'));
+    expect(defaultProps.onClose).toHaveBeenCalled();
+    expect(onOpenTemplates).toHaveBeenCalled();
+    expect(screen.getByTestId('mobile-menu-item-templates').textContent).toBe(
+      en.header.templates
+    );
+  });
+
   it('calls onOpenReleaseNotes when Release Notes is clicked', async () => {
     const user = userEvent.setup();
     render(<MobileMenuSheet {...defaultProps} />);
