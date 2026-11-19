@@ -21,6 +21,14 @@ jobs:
   audit:
     name: Security & Dependency Audit
     runs-on: [self-hosted, Linux, X64]
+    # The "Comment on PR" step posts the audit report via issues.createComment:
+    # the default PR token is read-only on this repo, so the job needs the
+    # explicit write scopes or the step 403s ("Resource not accessible by
+    # integration") and the whole audit goes red.
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
 
     steps:
     - name: Checkout code
