@@ -154,6 +154,15 @@ export default defineConfig({
               name: 'dompurify',
               test: (id: string) => id.includes('node_modules') && id.includes('dompurify'),
             },
+            // Official Mermaid examples (LAZY: only reached through the
+            // dynamic import in src/constants/officialExamples.ts). The
+            // mermaid-core path-segment test below does not match
+            // `@mermaid-js/examples`, so without this group the eager
+            // `vendor` catch-all would inline it into first paint.
+            {
+              name: 'mermaid-examples',
+              test: (id: string) => id.includes('node_modules') && id.includes('@mermaid-js/examples'),
+            },
             // Mermaid core. Deliberately NOT matching mermaid's internal ELK
             // async chunk (dist/chunks/*/elk-*.mjs) nor elkjs: they must fall
             // through to automatic chunking so mermaid's own dynamic-import

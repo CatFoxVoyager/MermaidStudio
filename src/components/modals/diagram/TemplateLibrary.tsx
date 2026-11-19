@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Trash2, X, LayoutTemplate, Search } from 'lucide-react';
 import { TEMPLATES, CATEGORIES } from '@/constants/templates';
+import { loadOfficialExamples } from '@/constants/officialExamples';
 import { getUserTemplates, deleteUserTemplate } from '@/services/storage/database';
 import { renderDiagram } from '@/lib/mermaid/core';
 import { sanitizeSVG } from '@/utils/sanitization';
@@ -24,14 +25,37 @@ interface Props {
 function TemplateCard({ template, onSelect, onDelete }: { template: Template | UserTemplate; onSelect: () => void; onDelete?: () => void }) {
   const { t } = useTranslation();
   const [svg, setSvg] = useState('');
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Render the preview only once the card nears the viewport: the official
+  // examples chip lists ~80 cards, and rendering them all on click stalls the
+  // main thread. Without IntersectionObserver (jsdom, old engines) render
+  // immediately, as before.
+  const [isNearViewport, setIsNearViewport] = useState(() => typeof IntersectionObserver === 'undefined');
   const c = COMPLEXITY_COLORS[template.complexity];
 
   useEffect(() => {
-    renderDiagram(template.content, `tmpl_${template.id}_${Date.now()}`).then(({ svg }) => { if (svg) {setSvg(svg);} });
-  }, [template]);
+    const el = cardRef.current;
+    if (isNearViewport || !el) {return;}
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        setIsNearViewport(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '200px' });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isNearViewport]);
+
+  useEffect(() => {
+    if (!isNearViewport) {return;}
+    let cancelled = false;
+    renderDiagram(template.content, `tmpl_${template.id}_${Date.now()}`).then(({ svg }) => { if (svg && !cancelled) {setSvg(svg);} });
+    return () => { cancelled = true; };
+  }, [template, isNearViewport]);
 
   return (
     <div
+      ref={cardRef}
       data-testid="template-item"
       onClick={onSelect}
       className="group cursor-pointer rounded-xl overflow-hidden border border-[var(--border-subtle)] hover:border-[var(--accent)] transition-all duration-200 hover:scale-[1.02] relative"
@@ -65,18 +89,42 @@ function TemplateCard({ template, onSelect, onDelete }: { template: Template | U
   );
 }
 
+// Stable keys for the synthetic chips: the selected chip is stored as a key,
+// never as its translated label, so a language switch cannot strand the
+// selection and a built-in category can never collide with a chip label.
+const CAT_ALL = '__all__';
+const CAT_MINE = '__mine__';
+const CAT_OFFICIAL = '__official__';
+
 export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
   const { t } = useTranslation();
-  const [cat, setCat] = useState('All');
+  const [cat, setCat] = useState(CAT_ALL);
   const [searchQuery, setSearchQuery] = useState('');
   const [userTemplates, setUserTemplates] = useState<UserTemplate[]>([]);
+  const [officialExamples, setOfficialExamples] = useState<Template[]>([]);
+  const [officialStatus, setOfficialStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   useEffect(() => {
     getUserTemplates().then(setUserTemplates);
   }, []);
 
-  const allCategories = [...new Set([t('templates.myTemplates'), ...CATEGORIES])];
-  const totalCount = TEMPLATES.length + userTemplates.length;
+  useEffect(() => {
+    let cancelled = false;
+    loadOfficialExamples().then(
+      examples => { if (!cancelled) { setOfficialExamples(examples); setOfficialStatus('ready'); } },
+      () => { if (!cancelled) { setOfficialStatus('error'); } }
+    );
+    return () => { cancelled = true; };
+  }, []);
+
+  const categoryChips: { key: string; label: string }[] = [
+    { key: CAT_ALL, label: 'All' },
+    { key: CAT_MINE, label: t('templates.myTemplates') },
+    { key: CAT_OFFICIAL, label: t('templates.officialExamples') },
+    ...[...new Set(CATEGORIES)].map(c => ({ key: c, label: c })),
+  ];
+  const query = searchQuery.trim().toLowerCase();
+  const totalCount = TEMPLATES.length + userTemplates.length + officialExamples.length;
 
   async function handleDeleteUserTemplate(id: string) {
     await deleteUserTemplate(id);
@@ -86,11 +134,16 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
   const isMobile = useMediaQuery('(max-width: 768px)');
   const RESTRICTED_TYPES = ['c4', 'gantt', 'architecture'];
 
-  const rawDisplayTemplates: (Template | UserTemplate)[] = cat === 'All'
-    ? [...userTemplates, ...TEMPLATES]
-    : cat === t('templates.myTemplates')
+  // Official examples (~80) stay out of the unfiltered 'All' grid so opening
+  // the library does not render every preview at once; they join 'All' only
+  // while a search narrows the list.
+  const rawDisplayTemplates: (Template | UserTemplate)[] = cat === CAT_ALL
+    ? [...userTemplates, ...TEMPLATES, ...(query ? officialExamples : [])]
+    : cat === CAT_MINE
       ? userTemplates
-      : [
+      : cat === CAT_OFFICIAL
+        ? officialExamples
+        : [
           ...userTemplates.filter(t => t.category === cat),
           ...TEMPLATES.filter(t => t.category === cat),
         ];
@@ -101,8 +154,7 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
 
   // Filter by search query
   const filteredTemplates = displayTemplates.filter(t => {
-    if (!searchQuery) {return true;}
-    const query = searchQuery.toLowerCase();
+    if (!query) {return true;}
     return (
       t.title.toLowerCase().includes(query) ||
       t.description.toLowerCase().includes(query) ||
@@ -163,20 +215,26 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
 
       <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0 overflow-x-auto"
         style={{ borderColor: 'var(--border-subtle)' }}>
-        {['All', ...allCategories].map(c => (
-          <button key={c} onClick={() => setCat(c)}
+        {categoryChips.map(({ key, label }) => (
+          <button key={key} onClick={() => setCat(key)}
             className="px-2 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition-all duration-150 border"
-            style={cat === c
+            style={cat === key
               ? { background: 'var(--accent)', color: '#fff', borderColor: 'transparent' }
               : { background: 'var(--surface-floating)', color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}>
-            {c}{c === t('templates.myTemplates') && userTemplates.length > 0 ? ` (${userTemplates.length})` : ''}
+            {label}{key === CAT_MINE && userTemplates.length > 0 ? ` (${userTemplates.length})` : ''}
           </button>
         ))}
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">
         {isMobile && <MobileUpsellBanner featureName={t('upsell.advancedTypes')} />}
-        {filteredTemplates.length === 0 ? (
+        {cat === CAT_OFFICIAL && officialStatus !== 'ready' ? (
+          <div data-testid="official-examples-status" className="flex flex-col items-center justify-center py-12">
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+              {officialStatus === 'loading' ? t('templates.officialLoading') : t('templates.officialError')}
+            </p>
+          </div>
+        ) : filteredTemplates.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No templates found</p>
             <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>Try a different search term or category</p>

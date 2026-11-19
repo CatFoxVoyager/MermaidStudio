@@ -67,6 +67,29 @@ describe('Validation Utilities', () => {
       expect(result.error).toContain('potentially malicious');
     });
 
+    it.each([
+      ['slash-separated attribute', 'graph TD\n  A[<img/onerror=alert(1)>]'],
+      ['quote-adjacent attribute', 'graph TD\n  A[<img src="x"onerror=alert(1)>]'],
+      ['spaced assignment', 'graph TD\n  A[<svg onload = alert(1)>]'],
+      ['uppercase handler', 'graph TD\n  A[<img ONERROR=alert(1)>]'],
+    ])('should reject event handlers in every HTML attribute position (%s)', (_label, content) => {
+      const result = validateDiagramContent(content);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('potentially malicious');
+    });
+
+    // `on` inside a longer word is never an HTML event-handler attribute
+    // name: HTML requires whitespace, `/` or a quote before an attribute.
+    // These are legitimate grammar/assignment lines (the official
+    // railroad-abnf "Phone Number" example ships `phone = ...`).
+    it.each([
+      ['railroad ABNF rule', 'railroad-abnf-beta\n    phone = [ "+" country-code ] subscriber ;'],
+      ['EBNF rule', 'railroad-ebnf-beta\n    button = "x" ;'],
+      ['assignment-like label', 'graph TD\n  A[json = 1]'],
+    ])('should accept "on" inside a longer word before "=" (%s)', (_label, content) => {
+      expect(validateDiagramContent(content)).toEqual({ valid: true });
+    });
+
     it('should reject content with iframe tags', () => {
       const iframeContent = 'graph TD\n  A[<iframe src="evil.com"></iframe>]';
       const result = validateDiagramContent(iframeContent);

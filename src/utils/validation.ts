@@ -38,7 +38,10 @@ export interface ValidationResult {
 const SUSPICIOUS_PATTERNS = [
   /<script/i, // Script tags
   /javascript:/i, // JavaScript protocol
-  /on\w+\s*=/i, // Event handlers (onclick, onerror, etc.)
+  // Event handlers (onclick, onerror, etc.). The leading \b keeps `on` inside
+  // a longer word (`phone =`, `iconon=`) from matching: an HTML attribute
+  // name is always preceded by whitespace, `/` or a quote, all non-word chars.
+  /\bon\w+\s*=/i,
   /<iframe/i, // Iframe tags
   /<object/i, // Object tags
   /<embed/i, // Embed tags
