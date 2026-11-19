@@ -177,7 +177,18 @@ describe('TemplateCard — viewport-gated preview rendering', () => {
   it('renders a card preview only once its card intersects the viewport', async () => {
     render(<TemplateLibrary onSelect={vi.fn()} onClose={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: OFFICIAL_CHIP }));
-    await screen.findByText('Support Request');
+    const second = await screen
+      .findByText('Support Request')
+      .then(el => el.closest('[data-testid=template-item]')!);
+
+    // Passive effects flush asynchronously: under parallel-worker load,
+    // findByText can resolve before the observers run — poll instead of
+    // asserting immediately.
+    const index = await waitFor(() => {
+      const i = observed.indexOf(second);
+      if (i === -1) {throw new Error('official card not observed yet');}
+      return i;
+    });
 
     // Every card is observed, none rendered yet.
     // (cards from the initial 'All' grid were observed too, then unmounted)
@@ -185,8 +196,6 @@ describe('TemplateCard — viewport-gated preview rendering', () => {
     expect(renderDiagram).not.toHaveBeenCalled();
 
     // Intersect only the second official card.
-    const second = screen.getByText('Support Request').closest('[data-testid=template-item]')!;
-    const index = observed.indexOf(second);
     act(() => {
       callbacks[index](
         [{ isIntersecting: true, target: second } as unknown as IntersectionObserverEntry],
