@@ -10,6 +10,8 @@ const loadOfficialExamples = vi.fn<() => Promise<Template[]>>();
 
 vi.mock('@/constants/officialExamples', () => ({
   loadOfficialExamples: () => loadOfficialExamples(),
+  // The component maps titles per locale through this pass-through.
+  localizeOfficialExamples: (templates: Template[]) => templates,
 }));
 vi.mock('@/services/storage/database', () => ({
   getUserTemplates: vi.fn(() => Promise.resolve([])),
@@ -108,10 +110,16 @@ describe('TemplateLibrary — official Mermaid examples', () => {
 
     reject(new Error('chunk load failed'));
     await waitFor(() =>
-      expect(screen.getByTestId('official-examples-status').textContent).toBe(
+      expect(screen.getByTestId('official-examples-status').textContent).toContain(
         'templates.officialError'
       )
     );
+    // The retry button re-runs the (cache-cleared) load and recovers.
+    loadOfficialExamples.mockResolvedValue(OFFICIAL);
+    fireEvent.click(screen.getByTestId('official-examples-retry'));
+    fireEvent.click(screen.getByRole('button', { name: OFFICIAL_CHIP }));
+    await screen.findByText('Tea Shop Value Chain');
+    expect(screen.queryByTestId('official-examples-retry')).toBeNull();
     // Built-in templates are unaffected by the failure.
     fireEvent.click(screen.getByRole('button', { name: 'All' }));
     expect(names()).toHaveLength(TEMPLATES.length);
@@ -278,5 +286,16 @@ describe('TemplateLibrary — mobile restricted types', () => {
     expect(screen.queryByText('Internet Banking System Context')).toBeNull();
     expect(screen.queryByText('Product Launch Plan')).toBeNull();
     expect(screen.getByText('Support Request')).toBeTruthy();
+  });
+
+  it('header count mirrors the mobile-visible templates', async () => {
+    loadOfficialExamples.mockResolvedValue(OFFICIAL);
+    render(<TemplateLibrary onSelect={vi.fn()} onClose={vi.fn()} />);
+    // TEMPLATES includes one c4 and one gantt (restricted on mobile); the two
+    // OFFICIAL fixtures are unrestricted (type 'unknown').
+    const visible = [...TEMPLATES, ...OFFICIAL].filter(
+      t => !['c4', 'gantt', 'architectureDiagram'].includes(t.type)
+    ).length;
+    await screen.findByText(`${visible} templates.templates`);
   });
 });

@@ -150,6 +150,7 @@ export function AppLayout({
         onToggleTheme={toggleTheme}
         onOpenAbout={onOpenAbout}
         onOpenBackup={onOpenBackup}
+        onOpenTemplates={onShowTemplates}
         onOpenReleaseNotes={onOpenReleaseNotes}
         onOpenDiagram={onOpenDiagram}
         activeDiagramId={activeTab?.diagram_id ?? null}

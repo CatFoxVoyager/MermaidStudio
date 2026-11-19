@@ -11,6 +11,10 @@
 // syntax of the matching mermaid release (examples 2.1.0 ↔ mermaid 12.3.0).
 import type { Template } from '@/types';
 import { detectDiagramType } from '@/lib/mermaid/diagramType';
+import {
+  OFFICIAL_DIAGRAM_FR_DESCRIPTIONS,
+  OFFICIAL_EXAMPLE_FR_TITLES,
+} from './officialExamples.fr';
 
 type ExamplesModule = typeof import('@mermaid-js/examples');
 export type OfficialDiagramMetadata = ExamplesModule['diagramData'][number];
@@ -48,4 +52,31 @@ export function loadOfficialExamples(): Promise<Template[]> {
       throw error;
     });
   return pending;
+}
+
+/**
+ * French titles/descriptions for the official examples (the package ships
+ * English-only metadata; the app's UI has a full FR locale). Unknown ids —
+ * e.g. a package bump adding examples — fall back to the English strings,
+ * and the test suite asserts every package id has a French entry so the
+ * dictionary cannot silently rot. Categories stay English on purpose (the
+ * built-in template categories are English in both locales).
+ */
+export function localizeOfficialExamples(templates: Template[], lang: string): Template[] {
+  if (!lang.startsWith('fr')) {
+    return templates;
+  }
+  return templates.map(template => {
+    const diagramId = template.id.slice(OFFICIAL_EXAMPLE_ID_PREFIX.length).replace(/-\d+$/, '');
+    const title = OFFICIAL_EXAMPLE_FR_TITLES[template.id];
+    const description = OFFICIAL_DIAGRAM_FR_DESCRIPTIONS[diagramId];
+    if (!title && !description) {
+      return template;
+    }
+    return {
+      ...template,
+      title: title ?? template.title,
+      description: description ?? template.description,
+    };
+  });
 }

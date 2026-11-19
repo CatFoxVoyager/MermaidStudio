@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   ArrowUpDown,
   Languages,
+  Layout,
   ScrollText,
   Settings,
   Sparkles,
@@ -20,6 +21,9 @@ export interface MobileMenuSheetProps {
    *  WHAT you are editing (iter-11 wayfinding finding). */
   activeTitle?: string;
   onOpenBackup: () => void;
+  /** Optional: the template library is mobile-aware, so the menu row shows
+   * only when the parent can open it (same pattern as onOpenCommands). */
+  onOpenTemplates?: () => void;
   onOpenReleaseNotes: () => void;
   onOpenAbout: () => void;
   /** Opens the Command Palette (iter-20 P1: plumbed into the top bar but
@@ -43,6 +47,7 @@ export function MobileMenuSheet({
   onClose,
   activeTitle,
   onOpenBackup,
+  onOpenTemplates,
   onOpenReleaseNotes,
   onOpenAbout,
   onOpenSettings,
@@ -100,6 +105,34 @@ export function MobileMenuSheet({
               </div>
               <span className="text-[15px] font-medium" style={{ color: 'var(--text-primary)' }}>
                 {t('menu.commands', 'Commands')}
+              </span>
+            </button>
+          )}
+
+          {/* Template Library — the library is mobile-aware (restricted
+              types hidden, upsell banner), so touch users get a direct row
+              instead of hunting for it inside the command palette. */}
+          {onOpenTemplates && (
+            <button
+              type="button"
+              data-testid="mobile-menu-item-templates"
+              onClick={() => {
+                onClose();
+                onOpenTemplates();
+              }}
+              className="menu-row w-full flex items-center gap-3.5 py-3.5 text-left transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] rounded-xl px-2 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            >
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                style={{
+                  background: 'var(--surface-container)',
+                  color: 'var(--accent)',
+                }}
+              >
+                <Layout size={18} />
+              </div>
+              <span className="text-[15px] font-medium" style={{ color: 'var(--text-primary)' }}>
+                {t('header.templates', 'Templates')}
               </span>
             </button>
           )}

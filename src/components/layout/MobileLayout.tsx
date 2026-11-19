@@ -23,6 +23,7 @@ interface MobileLayoutProps {
   onToggleTheme?: () => void;
   onOpenAbout?: () => void;  // optional — surfaced as the MobileTopBar theme toggle (G-26-3)
   onOpenBackup?: () => void;
+  onOpenTemplates?: () => void;
   onOpenReleaseNotes?: () => void;
   /** Active tab dirty state, surfaced by the TopBar Save button. */
   isDirty?: boolean;
@@ -73,6 +74,7 @@ export function MobileLayout({
   onDiagramRenamed,
   onOpenAbout,
   onOpenBackup,
+  onOpenTemplates,
   onOpenReleaseNotes,
   isDirty,
   lastSavedAt,
@@ -246,6 +248,10 @@ export function MobileLayout({
         onOpenBackup={() => {
           setMenuOpen(false);
           onOpenBackup?.();
+        }}
+        onOpenTemplates={() => {
+          setMenuOpen(false);
+          onOpenTemplates?.();
         }}
         onOpenReleaseNotes={() => {
           setMenuOpen(false);

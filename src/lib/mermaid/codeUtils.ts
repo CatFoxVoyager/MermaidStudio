@@ -42,6 +42,8 @@ export interface ParsedEdge {
   arrowType: string;
   label: string;
   raw: string;
+  /** Bare 12.3 edge id attached before this hop's arrow (`e1@-->`), when present. */
+  edgeId?: string;
 }
 
 export interface NodeStyle {
@@ -237,11 +239,14 @@ function hasUnquotedCloseBrace(body: string): boolean {
  * them byte-identically. Single greedy-to-line-end span match plus a linear
  * quote-state scan: no nested quantifiers, no backtracking amplifier.
  */
-export function parseAtDirective(raw: string): ParsedAtDirective | null {
-  const spanMatch = raw.match(/^@\{(.*)\}\s*$/);
-  if (!spanMatch) {return null;}
-  const body = spanMatch[1].trim();
-  if (!body) {return null;}
+/**
+ * Shared directive-body parser. Strict path (parseAtDirective) additionally
+ * requires a `shape` key — the NODE directive form. The LOOSE path accepts
+ * shape-less bodies so 12.3 EDGE directives (`e1@{ step: 1 }`) count as
+ * consumed by the fence: their params parse cleanly and nothing writes back
+ * to them.
+ */
+function parseDirectiveBody(body: string): { shape: string | null; label: string | null; unknownParams: string[] } | null {
   // WR-03: the greedy capture runs to the LAST `}` — an unquoted `}` before
   // it means the real span closed earlier and the rest is residual line
   // text (e.g. `A@{ shape: person } @{ shape: doc }`). Such a body is never
@@ -269,8 +274,26 @@ export function parseAtDirective(raw: string): ParsedAtDirective | null {
     else if (key === 'label') { label = value; }
     else { unknownParams.push(trimmedPair); }
   }
-  if (!shape) {return null;}
   return { shape, label, unknownParams };
+}
+
+/** LOOSE parse: shape-less (edge) directive spans stay parseable. */
+function parseAtDirectiveLoose(raw: string): { shape: string | null; label: string | null; unknownParams: string[] } | null {
+  const spanMatch = raw.match(/^@\{(.*)\}\s*$/);
+  if (!spanMatch) {return null;}
+  const body = spanMatch[1].trim();
+  if (!body) {return null;}
+  return parseDirectiveBody(body);
+}
+
+export function parseAtDirective(raw: string): ParsedAtDirective | null {
+  const spanMatch = raw.match(/^@\{(.*)\}\s*$/);
+  if (!spanMatch) {return null;}
+  const body = spanMatch[1].trim();
+  if (!body) {return null;}
+  const parsed = parseDirectiveBody(body);
+  if (!parsed || !parsed.shape) {return null;}
+  return { shape: parsed.shape, label: parsed.label, unknownParams: parsed.unknownParams };
 }
 
 /**
@@ -556,6 +579,43 @@ function matchEdgeTail(s: string, from: number): [string | undefined, string, st
 }
 
 /**
+ * Strip a trailing bare 12.3 edge id (` e1@`) from a source/target span.
+ * The id must be a standalone word ending the span; shape spans whose label
+ * merely ends in `@` (inside quotes/braces) never match because the closer
+ * trails the id. Returns the span without the id and the id itself (''
+ * when the span carries none).
+ */
+function extractTrailingBareEdgeId(raw: string): { span: string; edgeId: string } {
+  const trim = raw.trim();
+  const m = trim.match(/(?:^|\s)([A-Za-z_][A-Za-z0-9_-]*)@$/);
+  if (!m || m.index === undefined) {return { span: raw, edgeId: '' };}
+  return { span: trim.slice(0, m.index).trimEnd(), edgeId: m[1] };
+}
+
+/**
+ * Split the text following a hop's target id into what the target node owns
+ * and what belongs to the NEXT hop. The tail starts at the next top-level
+ * hop arrow (depth/quote aware via findNextHopArrow); a bare `ident@`
+ * immediately before that arrow is the next hop's edge id (mermaid 12.3
+ * `A --> B e2@--> C`), not the target's shape. `hopPrefix` re-emits that id
+ * verbatim before the tail.
+ */
+function splitHopTail(rest: string): { targetSpan: string; hopPrefix: string; tail: string } {
+  const next = findNextHopArrow(rest);
+  if (!next) {return { targetSpan: rest, hopPrefix: '', tail: '' }; }
+  const span = rest.slice(0, next.index);
+  const { span: cleanSpan, edgeId } = extractTrailingBareEdgeId(span);
+  if (edgeId) {
+    return {
+      targetSpan: cleanSpan,
+      hopPrefix: `${span.slice(0, span.length - span.trimEnd().length).trimEnd()} ${edgeId}@`,
+      tail: rest.slice(next.index),
+    };
+  }
+  return { targetSpan: span, hopPrefix: '', tail: rest.slice(next.index) };
+}
+
+/**
  * Depth- and quote-aware scan for the NEXT edge arrow inside a hop remainder
  * (the text following a hop's target id). Mermaid chains hops on one line
  * (`A --> B --> C`), and a hop's target may carry a shape span whose label
@@ -614,15 +674,20 @@ function findNextHopArrow(
  */
 interface EdgeHop {
   arrowType: string;
+  /** Bare 12.3 edge id attached directly before this hop's arrow (`e1@-->`). */
+  edgeId: string;
   label: string;
   targetId: string;
-  /** UNTRIMMED slice between the target id and the next hop arrow (or EOL). */
+  /** UNTRIMMED slice the target node owns (bare next-hop id stripped). */
   targetShapeRaw: string;
 }
 
 interface EdgeChain {
   sourceId: string;
+  /** UNTRIMMED slice between the source id and the first arrow. */
   sourceShapeRaw: string;
+  /** Bare edge id attached before the first hop's arrow, '' when none. */
+  sourceEdgeId: string;
   hops: EdgeHop[];
 }
 
@@ -630,28 +695,58 @@ function matchEdgeChain(trimmed: string): EdgeChain | null {
   const first = matchArrowLine(trimmed);
   if (!first) {return null;}
   const sourceId = first[1];
-  const sourceShapeRaw = first[2] ?? '';
+  const sourceRawAll = first[2] ?? '';
+  const { span: sourceSpan, edgeId: sourceEdgeId } = extractTrailingBareEdgeId(sourceRawAll);
+  const sourceShapeRaw = sourceEdgeId ? sourceSpan : sourceRawAll;
   const hops: EdgeHop[] = [];
   let arrowType = first[3];
+  let edgeId = '';
   let label = first[4]?.trim() ?? '';
   let rest = first[6] ?? ''; // text after the current hop's target id
   let targetId = first[5];
   for (;;) {
-    const next = findNextHopArrow(rest);
-    hops.push({
-      arrowType,
-      label,
-      targetId,
-      targetShapeRaw: next ? rest.slice(0, next.index) : rest,
-    });
-    if (!next) {break;}
-    const [nextLabel, nextId, nextRaw] = next.tail;
-    arrowType = next.alt;
+    const split = splitHopTail(rest);
+    hops.push({ arrowType, edgeId, label, targetId, targetShapeRaw: split.targetSpan });
+    if (!split.tail) {break;}
+    const nextArrow = findNextHopArrow(split.tail);
+    if (!nextArrow) {break;}
+    const [nextLabel, nextId, nextRaw] = nextArrow.tail;
+    arrowType = nextArrow.alt;
+    edgeId = split.hopPrefix.trim().replace(/@$/, '');
     label = nextLabel?.trim() ?? '';
     targetId = nextId;
     rest = nextRaw;
   }
-  return { sourceId, sourceShapeRaw, hops };
+  // Unify: the id before hop0's arrow is hop0's edge id (`A e1@--> B`).
+  if (hops.length > 0) {hops[0].edgeId = sourceEdgeId;}
+  return { sourceId, sourceShapeRaw, sourceEdgeId, hops };
+}
+
+/**
+ * Re-emit one hop in normalized single-space form, preserving its bare
+ * edge-id prefix, arrow, label, target and shape span.
+ */
+function emitHop(hop: EdgeHop): string {
+  return ` ${hop.edgeId ? `${hop.edgeId}@` : ''}${hop.arrowType}${hop.label ? `|${hop.label}|` : ''} ${hop.targetId}${hop.targetShapeRaw}`;
+}
+
+/**
+ * Rebuild a chain line after dropping hop `skip` (0-based). The lead node of
+ * the surviving chain is the skipped hop's target (with its shape span), or
+ * the original source when a later hop was removed. Null when no hop
+ * remains (the caller deletes the line). Used by the chain-aware mutation
+ * writers (removeEdge, removeNode).
+ */
+function rebuildChainWithoutHop(chain: EdgeChain, skip: number, indent: string): string | null {
+  const kept = chain.hops.filter((_, i) => i !== skip);
+  if (kept.length === 0) {return null;}
+  if (skip === 0) {
+    // The skipped hop's target becomes the surviving chain's lead node —
+    // every kept hop (starting with the first one) then re-emits fully.
+    const lead = chain.hops[0];
+    return `${indent}${lead.targetId}${lead.targetShapeRaw.trim()}${kept.map(emitHop).join('')}`;
+  }
+  return `${indent}${chain.sourceId}${chain.sourceShapeRaw.trim()}${kept.map(emitHop).join('')}`;
 }
 
 /**
@@ -813,21 +908,29 @@ export function removeLinkStyles(source: string, indices: number[]): string {
 export function removeEdge(source: string, srcId: string, tgtId: string): string {
   const lines = source.split('\n');
   const tgtRe = new RegExp(`\\b${escapeRegex(tgtId)}\\b`);
-  const edgeIdx = lines.findIndex(line => {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith(srcId)) {return false;}
-    const parts = splitEdgeLine(trimmed);
-    if (!parts) {return false;}
-    // WR-01: the before-arrow segment may carry a directive span
-    // (`A@{ shape: "person" } --> B`) or a legacy shape wrap; compare the
-    // LEADING id token rather than the whole segment, which never matched a
-    // directive source and made delete a silent no-op. Greedy id characters
-    // keep the exact-token rule: "AB --> C" still never satisfies
-    // removeEdge(.., 'A', 'C').
-    const leadMatch = parts[0].trim().match(/^([A-Za-z_][A-Za-z0-9_-]*)/);
-    return leadMatch?.[1] === srcId && tgtRe.test(parts[3]);
-  });
-  if (edgeIdx === -1) {return source;}
+  // Backlog C: prefer the chain-aware match — on a chained line
+  // (`A --> B --> C`) only the targeted hop is dropped (the line is rebuilt,
+  // edge-line count unchanged so linkStyle indices stay valid); a single-hop
+  // line keeps the legacy whole-line delete + linkStyle renumber.
+  const edgeInfo = (() => {
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      if (!trimmed.startsWith(srcId) && !ARROW_RE.test(trimmed)) {continue;}
+      const chain = matchEdgeChain(trimmed);
+      if (!chain) {continue;}
+      const prevOf = (h: number): string => (h === 0 ? chain.sourceId : chain.hops[h - 1].targetId);
+      const hopIdx = chain.hops.findIndex((h, idx) => prevOf(idx) === srcId && h.targetId === tgtId);
+      if (hopIdx !== -1) {return { index: i, chain, hopIdx }; }
+    }
+    return null;
+  })();
+  if (!edgeInfo) {return source;}
+  const { index: edgeIdx, chain, hopIdx } = edgeInfo;
+
+  if (chain.hops.length > 1) {
+    lines[edgeIdx] = rebuildChainWithoutHop(chain, hopIdx, lines[edgeIdx].match(/^\s*/)?.[0] ?? '') ?? '';
+    return lines.join('\n');
+  }
 
   // linkStyle indices count edge lines in code order — same numbering mermaid uses
   const isEdgeLine = (line: string): boolean => {
@@ -1114,7 +1217,9 @@ export function parseDiagram(source: string): ParsedDiagram {
         }
         // Per-hop target creation (chained lines contribute every hop, not
         // just the first — the model used to silently drop trailing nodes,
-        // and a visual edit then rewrote the line without them).
+        // and a visual edit then rewrote the line without them). Bare hop
+        // edge ids (`e2@`) are stripped from the shape slices so the target
+        // keeps no ghost label.
         let prevId = sourceId;
         for (const hop of chain.hops) {
           const targetId = hop.targetId;
@@ -1150,7 +1255,14 @@ export function parseDiagram(source: string): ParsedDiagram {
               }
             }
           }
-          edges.push({ source: prevId, target: targetId, arrowType: hop.arrowType, label: hop.label, raw: trimmed });
+          edges.push({
+            source: prevId,
+            target: targetId,
+            arrowType: hop.arrowType,
+            label: hop.label,
+            raw: trimmed,
+            ...(hop.edgeId ? { edgeId: hop.edgeId } : {}),
+          });
           prevId = targetId;
         }
       }
@@ -1177,6 +1289,14 @@ export function parseDiagram(source: string): ParsedDiagram {
       if (!seenIds.has(id) && !isSubgraphId(id, subgraphs)) {
         seenIds.add(id);
         nodes.push({ id, label: id, shape: 'rect', raw: id, parentSubgraphId: parentId });
+      } else if (parentId) {
+        // Mermaid semantics: a later standalone reference inside a subgraph
+        // places the node into it (moveNodeToSubgraph relies on this for
+        // nodes first defined on an edge line).
+        const existing = nodes.find(n => n.id === id);
+        if (existing && existing.parentSubgraphId !== parentId) {
+          existing.parentSubgraphId = parentId;
+        }
       }
     }
   }
@@ -1261,23 +1381,29 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
     if (ARROW_RE.test(line)) {
       const arrowMatch = line.match(/^\s*([A-Za-z_][A-Za-z0-9_-]*)([^\n]*?)\s*(-->|---|-.->|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|--\|>|\|>|~~~)\s*(?:\|([^|]*)\|)?\s*([A-Za-z_][A-Za-z0-9_-]*)([^\n]*)$/);
       if (arrowMatch) {
+        // Backlog C: a bare 12.3 edge id (`A e1@--> B`) sits in the source
+        // span, and a chained tail (`--> C`) trails the target span — both
+        // must be re-emitted verbatim around the renamed node.
+        const srcParts = extractTrailingBareEdgeId(arrowMatch[2] ?? '');
+        const srcEdgePrefix = srcParts.edgeId ? ` ${srcParts.edgeId}@` : '';
+        const srcRaw = srcParts.edgeId ? '' : srcParts.span;
+        const tailParts = splitHopTail(arrowMatch[6] ?? '');
         // Check source (with or without explicit shape)
         if (arrowMatch[1] === nodeId) {
-          if (arrowMatch[2]?.trim()) {
-            const srcRaw = arrowMatch[2].trim();
+          if (srcRaw) {
             // Phase 27: directive source — rebuild through the directive
             // writer so the shape key and unknown params survive (P4).
             const srcDirective = srcRaw.startsWith('@{') ? parseAtDirective(srcRaw) : null;
             if (srcDirective) {
-              lines[i] = `${nodeId}${directiveWrap(srcDirective.shape, newLabel, srcDirective.unknownParams)}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${arrowMatch[6] ?? ''}`;
+              lines[i] = `${nodeId}${directiveWrap(srcDirective.shape, newLabel, srcDirective.unknownParams)}${srcEdgePrefix}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${tailParts.hopPrefix}${tailParts.tail}`;
               return lines.join('\n');
             }
             // Node has explicit shape
             const { shape } = parseNodeLabel(srcRaw);
-            lines[i] = `${nodeId}${shapeWrap(newLabel, shape, false)}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${arrowMatch[6] ?? ''}`;
+            lines[i] = `${nodeId}${shapeWrap(newLabel, shape, false)}${srcEdgePrefix}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${tailParts.hopPrefix}${tailParts.tail}`;
           } else {
             // Node has no explicit shape, add one with the new label
-            lines[i] = `${nodeId}${shapeWrap(newLabel, 'rect', false)}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${arrowMatch[6] ?? ''}`;
+            lines[i] = `${nodeId}${shapeWrap(newLabel, 'rect', false)}${srcEdgePrefix}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${tailParts.hopPrefix}${tailParts.tail}`;
           }
           return lines.join('\n');
         }
@@ -1300,20 +1426,20 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
           const targetInMatch = arrowMatch[0].indexOf(arrowMatch[5], searchFrom);
           const beforeTarget = line.substring(0, (arrowMatch.index ?? 0) + targetInMatch);
 
-          if (arrowMatch[6]?.trim()) {
-            const tgtRaw = arrowMatch[6].trim();
+          if (tailParts.targetSpan.trim()) {
+            const tgtRaw = tailParts.targetSpan.trim();
             // Phase 27: directive target — same directive-writer rebuild.
             const tgtDirective = tgtRaw.startsWith('@{') ? parseAtDirective(tgtRaw) : null;
             if (tgtDirective) {
-              lines[i] = `${beforeTarget}${nodeId}${directiveWrap(tgtDirective.shape, newLabel, tgtDirective.unknownParams)}`;
+              lines[i] = `${beforeTarget}${nodeId}${directiveWrap(tgtDirective.shape, newLabel, tgtDirective.unknownParams)}${tailParts.hopPrefix}${tailParts.tail}`;
               return lines.join('\n');
             }
             // Node has explicit shape
             const { shape } = parseNodeLabel(tgtRaw);
-            lines[i] = `${beforeTarget}${nodeId}${shapeWrap(newLabel, shape, false)}`;
+            lines[i] = `${beforeTarget}${nodeId}${shapeWrap(newLabel, shape, false)}${tailParts.hopPrefix}${tailParts.tail}`;
           } else {
             // Node has no explicit shape, add one with the new label
-            lines[i] = `${beforeTarget}${nodeId}${shapeWrap(newLabel, 'rect', false)}`;
+            lines[i] = `${beforeTarget}${nodeId}${shapeWrap(newLabel, 'rect', false)}${tailParts.hopPrefix}${tailParts.tail}`;
           }
           return lines.join('\n');
         }
@@ -1363,23 +1489,51 @@ export function addNode(source: string, id: string, label: string, shape: NodeSh
 }
 
 export function removeNode(source: string, nodeId: string): string {
-  const lines = source.split('\n').filter(line => {
+  const lines: string[] = [];
+  for (const line of source.split('\n')) {
     const trimmed = line.trim();
-    if (trimmed.startsWith(`style ${nodeId} `)) {return false;}
-    if (trimmed.startsWith(`style ${nodeId}\t`)) {return false;}
-    if (trimmed.startsWith(`class ${nodeId} `)) {return false;}
-
-    // Use word boundaries to avoid matching node1 when deleting node10
-    // and correctly handle subgraph-to-node or subgraph-to-subgraph edges
-    const edgeRe = new RegExp(`(^|\\s)${nodeId}\\b(\\s*)(-->|---|-.->|-\\.->|==>|x--x|\\.->|<-->|o--o|--|~~~)`);
-    const edgeRe2 = new RegExp(`(-->|---|-.->|-\\.->|==>|x--x|\\.->|<-->|o--o|--|~~~)[^\\n]*\\s${nodeId}\\b\\s*$`);
-    if (edgeRe.test(trimmed) || edgeRe2.test(trimmed)) {return false;}
+    if (trimmed.startsWith(`style ${nodeId} `)) {continue;}
+    if (trimmed.startsWith(`style ${nodeId}\t`)) {continue;}
+    if (trimmed.startsWith(`class ${nodeId} `)) {continue;}
 
     const nodeMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[|@\{)[^\n]+)/);
-    if (nodeMatch && nodeMatch[2] === nodeId) {return false;}
+    if (nodeMatch && nodeMatch[2] === nodeId) {continue;}
 
-    return true;
-  });
+    // Backlog C: chained lines are rebuilt hop-aware — removing a node drops
+    // only the hops touching it. The entering hop (target === nodeId) and the
+    // exiting hop (source === nodeId) die with the node; hops before keep the
+    // original source as lead, hops after restart from the exiting hop's
+    // target. Untouched endpoints that were only declared on this line keep a
+    // standalone definition so they do not vanish from the graph.
+    const chain = ARROW_RE.test(trimmed) ? matchEdgeChain(trimmed) : null;
+    if (chain) {
+      const entryIdx = chain.hops.findIndex(h => h.targetId === nodeId);
+      const isChainSource = chain.sourceId === nodeId;
+      const exitIdx = isChainSource
+        ? 0
+        : chain.hops.findIndex((h, i) => i > 0 && chain.hops[i - 1].targetId === nodeId);
+      if (entryIdx === -1 && exitIdx === -1) {lines.push(line); continue;}
+
+      const indent = line.match(/^\s*/)?.[0] ?? '';
+      const out: string[] = [];
+      // Pre-segment: hops leading INTO the node, original source as lead.
+      if (entryIdx > 0) {
+        out.push(`${indent}${chain.sourceId}${chain.sourceShapeRaw.trim()}${chain.hops.slice(0, entryIdx).map(emitHop).join('')}`);
+      } else if (entryIdx === 0 && !isChainSource) {
+        // The untouched source keeps a standalone declaration (its only one).
+        out.push(`${indent}${chain.sourceId}${chain.sourceShapeRaw.trim()}`);
+      }
+      // Post-segment: the exiting hop's target leads the remaining hops.
+      if (exitIdx !== -1 && exitIdx + 1 <= chain.hops.length) {
+        const lead = chain.hops[exitIdx];
+        out.push(`${indent}${lead.targetId}${lead.targetShapeRaw.trim()}${chain.hops.slice(exitIdx + 1).map(emitHop).join('')}`);
+      }
+      lines.push(...out);
+      continue;
+    }
+
+    lines.push(line);
+  }
   return lines.join('\n');
 }
 
@@ -1698,32 +1852,19 @@ export function parseFrontmatter(content: string): { frontmatter: FrontmatterCon
  * app's own parseFrontmatter split, so frontmatter-embedded metadata
  * (legitimate mermaid config) and legacy `%%{init:...}%%` directives never
  * trigger the gate — consistent with detectDiagramType's stripping semantics.
- * Extended for mermaid 12.3: bare edge ids (`A e1@--> B`) are fenced too —
- * the visual model silently drops their trailing edges on write-back.
- * Extended again for chained hops (`A --> B --> C`): the model now parses
- * every hop, but the mutation writers cannot re-emit a chain faithfully, so
- * the line is fenced from mutation while the canvas shows the full graph.
+ * Formerly also fenced: chained hops (`A --> B --> C`) and bare 12.3 edge
+ * ids (`A e1@--> B`) — the mutation writers now survive both (their
+ * chain/edge-id survival is gated by chain-survival.test.ts), so both forms
+ * are editable.
  */
-// 12.3 bare edge ids (`A e1@--> B`): the visual model cannot round-trip them
-// — observed data loss on a label edit: the chained line
-// `A e1@--> B e2@--> C` was rewritten as `A e1@--> B[Bee]`, silently dropping
-// the second edge. Fence any line where an identifier's @ attaches directly
-// to arrow characters (superset-safe per D6: `ident@` followed by an arrow
-// char is either this syntax or junk the renderer rejects; `@` followed by a
-// letter — emails, mentions in labels — is unaffected).
-const BARE_EDGE_ID_LINE_RE = /[A-Za-z_][A-Za-z0-9_-]*@(?=[-=.>])/;
 
 export function bodyHasUnparsedAtDirective(content: string): boolean {
   const body = parseFrontmatter(content).body;
   for (const line of body.split('\n')) {
-    // Multi-hop chain (`A --> B --> C`): the model parses every hop, but the
-    // line-surgical mutation writers cannot re-emit a chain faithfully yet —
-    // a target rename used to drop the whole remainder. Fence from mutation;
-    // the canvas still shows the full graph. (matchArrowLine anchors at the
-    // string start — pass the trimmed line.)
-    const chain = matchEdgeChain(line.trim());
-    if (chain && chain.hops.length > 1) {return true;}
-    if (BARE_EDGE_ID_LINE_RE.test(line)) {return true;}
+    // Backlog C: chained hops and bare 12.3 edge ids are EDITABLE now — the
+    // mutation writers survive both (chain-survival.test.ts gates that), so
+    // no fence here anymore. The remaining fences are the at-brace forms the
+    // directive rules cannot fully consume.
     if (!line.includes('@{')) {continue;}
     if (!directiveLineFullyConsumed(line.trim())) {return true;}
   }
@@ -1732,7 +1873,9 @@ export function bodyHasUnparsedAtDirective(content: string): boolean {
 
 /** A span is editable when it parses AND carries no icon param (no icon write-back exists). */
 function directiveSpanEditable(span: string): boolean {
-  const parsed = parseAtDirective(span);
+  // LOOSE parse: 12.3 edge directives (`e1@{ step: 1 }`) carry no shape but
+  // parse cleanly — they count as consumed (editable) like node spans.
+  const parsed = parseAtDirectiveLoose(span);
   if (!parsed) {return false;}
   return !parsed.unknownParams.some(p => /^icon\s*:/.test(p));
 }
