@@ -10,6 +10,8 @@ const loadOfficialExamples = vi.fn<() => Promise<Template[]>>();
 
 vi.mock('@/constants/officialExamples', () => ({
   loadOfficialExamples: () => loadOfficialExamples(),
+  // The component maps titles per locale through this pass-through.
+  localizeOfficialExamples: (templates: Template[]) => templates,
 }));
 vi.mock('@/services/storage/database', () => ({
   getUserTemplates: vi.fn(() => Promise.resolve([])),
