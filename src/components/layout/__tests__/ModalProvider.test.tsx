@@ -40,7 +40,10 @@ vi.mock('@/components/modals/tools/CommandPalette', () => ({
   CommandPalette: ({ onClose, onNewDiagram, onOpenTemplates }: any) => (
     <div data-testid="command-palette">
       <button onClick={onNewDiagram}>New Diagram</button>
-      <button onClick={onOpenTemplates}>Open Templates</button>
+      {/* Wired flag: the palette only lists the command when the handler is defined. */}
+      <button onClick={onOpenTemplates} data-templates-wired={onOpenTemplates ? '1' : '0'}>
+        Open Templates
+      </button>
       <button onClick={onClose}>Close</button>
     </div>
   ),
@@ -108,6 +111,9 @@ vi.mock('@/components/shared/Toast', () => ({
     </div>
   ),
 }));
+
+const { mediaState } = vi.hoisted(() => ({ mediaState: { mobile: false } }));
+vi.mock('@/hooks/useMediaQuery', () => ({ useMediaQuery: () => mediaState.mobile }));
 
 describe('ModalProvider Component', () => {
   const mockProps = {
@@ -268,6 +274,16 @@ describe('ModalProvider Component', () => {
     it('should render CommandPalette when showPalette is true', () => {
       renderModalProvider({ ...mockProps, showPalette: true });
       expect(screen.getByTestId('command-palette')).toBeInTheDocument();
+    });
+
+    // Regression guard: the template library is mobile-aware (restricted
+    // types + upsell banner), so the mobile palette keeps the command —
+    // the isMobile gate used to leave Ctrl+T as the only way in.
+    it('should offer the Template Library command on mobile too', () => {
+      mediaState.mobile = true;
+      renderModalProvider({ ...mockProps, showPalette: true });
+      expect(screen.getByText('Open Templates')).toHaveAttribute('data-templates-wired', '1');
+      mediaState.mobile = false;
     });
 
     it('should call onClosePalette when close button clicked', async () => {
