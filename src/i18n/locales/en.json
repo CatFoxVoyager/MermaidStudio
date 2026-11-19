@@ -213,6 +213,7 @@
     "browse": "Browse Templates",
     "create": "Create Template",
     "myTemplates": "My Templates",
+    "previewError": "Preview unavailable",
     "officialExamples": "Mermaid examples",
     "officialLoading": "Loading official Mermaid examples…",
     "officialError": "Official Mermaid examples could not be loaded",

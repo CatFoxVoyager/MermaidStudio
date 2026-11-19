@@ -193,4 +193,44 @@ describe('TemplateCard — viewport-gated preview rendering', () => {
     expect(renderDiagram).toHaveBeenCalledTimes(1);
     expect(vi.mocked(renderDiagram).mock.calls[0][0]).toBe(OFFICIAL[1].content);
   });
+
+  it('shows an error state instead of an endless spinner when the preview render fails', async () => {
+    // Regression guard: the WebKit eventmodeling example renders with an
+    // error ("svg element not in render tree", upstream limitation) — the
+    // card used to spin forever because the error was swallowed.
+    vi.mocked(renderDiagram).mockResolvedValueOnce({ svg: '', error: 'svg element not in render tree' });
+    render(<TemplateLibrary onSelect={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: OFFICIAL_CHIP }));
+    await screen.findByText('Support Request');
+    const card = screen.getByText('Support Request').closest('[data-testid=template-item]')!;
+    const index = observed.indexOf(card);
+    act(() => {
+      callbacks[index](
+        [{ isIntersecting: true, target: card } as unknown as IntersectionObserverEntry],
+        {} as IntersectionObserver
+      );
+    });
+    await waitFor(() =>
+      expect(card.querySelector('[data-testid=template-preview-error]')).not.toBeNull()
+    );
+    expect(card.querySelector('.animate-spin')).toBeNull();
+    expect(card.querySelector('.mermaid-container')).toBeNull();
+  });
+
+  it('renders the sanitized preview when the render succeeds', async () => {
+    vi.mocked(renderDiagram).mockResolvedValueOnce({ svg: '<svg><rect x="0" y="0" width="4" height="4"/></svg>', error: null });
+    render(<TemplateLibrary onSelect={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: OFFICIAL_CHIP }));
+    await screen.findByText('Support Request');
+    const card = screen.getByText('Support Request').closest('[data-testid=template-item]')!;
+    const index = observed.indexOf(card);
+    act(() => {
+      callbacks[index](
+        [{ isIntersecting: true, target: card } as unknown as IntersectionObserverEntry],
+        {} as IntersectionObserver
+      );
+    });
+    await waitFor(() => expect(card.querySelector('.mermaid-container svg')).not.toBeNull());
+    expect(card.querySelector('[data-testid=template-preview-error]')).toBeNull();
+  });
 });

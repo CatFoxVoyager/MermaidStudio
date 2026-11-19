@@ -213,6 +213,7 @@
     "browse": "Parcourir les modèles",
     "create": "Créer un modèle",
     "myTemplates": "Mes modèles",
+    "previewError": "Aperçu indisponible",
     "officialExamples": "Exemples Mermaid",
     "officialLoading": "Chargement des exemples Mermaid officiels…",
     "officialError": "Impossible de charger les exemples Mermaid officiels",

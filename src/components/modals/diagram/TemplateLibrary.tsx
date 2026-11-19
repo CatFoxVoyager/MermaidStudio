@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Trash2, X, LayoutTemplate, Search } from 'lucide-react';
+import { Trash2, X, LayoutTemplate, Search, TriangleAlert } from 'lucide-react';
 import { TEMPLATES, CATEGORIES } from '@/constants/templates';
 import { loadOfficialExamples } from '@/constants/officialExamples';
 import { getUserTemplates, deleteUserTemplate } from '@/services/storage/database';
@@ -25,6 +25,7 @@ interface Props {
 function TemplateCard({ template, onSelect, onDelete }: { template: Template | UserTemplate; onSelect: () => void; onDelete?: () => void }) {
   const { t } = useTranslation();
   const [svg, setSvg] = useState('');
+  const [failed, setFailed] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   // Render the preview only once the card nears the viewport: the official
   // examples chip lists ~80 cards, and rendering them all on click stalls the
@@ -49,7 +50,10 @@ function TemplateCard({ template, onSelect, onDelete }: { template: Template | U
   useEffect(() => {
     if (!isNearViewport) {return;}
     let cancelled = false;
-    renderDiagram(template.content, `tmpl_${template.id}_${Date.now()}`).then(({ svg }) => { if (svg && !cancelled) {setSvg(svg);} });
+    renderDiagram(template.content, `tmpl_${template.id}_${Date.now()}`).then(({ svg, error }) => {
+      if (cancelled) {return;}
+      if (svg) {setSvg(svg);} else if (error) {setFailed(true);}
+    });
     return () => { cancelled = true; };
   }, [template, isNearViewport]);
 
@@ -67,6 +71,10 @@ function TemplateCard({ template, onSelect, onDelete }: { template: Template | U
           <div className="mermaid-container pointer-events-none"
             style={{ transform: 'scale(0.35)', transformOrigin: 'center center', maxWidth: '280%' }}
             dangerouslySetInnerHTML={{ __html: sanitizeSVG(svg) }} />
+        ) : failed ? (
+          <TriangleAlert size={18} data-testid="template-preview-error"
+            aria-label={t('templates.previewError')}
+            style={{ color: 'var(--text-tertiary)' }} />
         ) : (
           <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
             style={{ borderColor: 'var(--border-strong)', borderTopColor: 'transparent' }} />
