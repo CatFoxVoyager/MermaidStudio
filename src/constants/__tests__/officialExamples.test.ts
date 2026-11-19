@@ -16,9 +16,14 @@ import type { DiagramType } from '@/types';
 import { diagramData } from '@mermaid-js/examples';
 import {
   loadOfficialExamples,
+  localizeOfficialExamples,
   toOfficialTemplates,
   OFFICIAL_EXAMPLE_ID_PREFIX,
 } from '../officialExamples';
+import {
+  OFFICIAL_DIAGRAM_FR_DESCRIPTIONS,
+  OFFICIAL_EXAMPLE_FR_TITLES,
+} from '../officialExamples.fr';
 import { TEMPLATES } from '../templates';
 import { renderDiagram, initMermaid } from '@/lib/mermaid/core';
 import { validateDiagramContent } from '@/utils/validation';
@@ -129,6 +134,46 @@ describe('official examples', () => {
       readFileSync(resolve(root, 'node_modules/mermaid/package.json'), 'utf8')
     );
     expect(examplesPkg.devDependencies?.mermaid).toBe(mermaidPkg.version);
+  });
+
+  // ===== French localization =====
+  // The FR dictionary (officialExamples.fr.ts) must cover every package id:
+  // a bump adding examples fails here until the translations are completed.
+  // Unknown ids fall back to the English strings at runtime.
+  it('has a French entry for every package example id and diagram description', () => {
+    const missingTitles = templates
+      .filter(t => !(t.id in OFFICIAL_EXAMPLE_FR_TITLES))
+      .map(t => t.id);
+    const missingDescriptions = diagramData
+      .map(d => d.id)
+      .filter(id => !(id in OFFICIAL_DIAGRAM_FR_DESCRIPTIONS));
+    expect(missingTitles, `untranslated titles: ${missingTitles.join(', ')}`).toEqual([]);
+    expect(
+      missingDescriptions,
+      `untranslated descriptions: ${missingDescriptions.join(', ')}`
+    ).toEqual([]);
+    // No dead keys: every dictionary key must resolve to a real id/diagram.
+    const templateIds = new Set(templates.map(t => t.id));
+    const deadTitleKeys = Object.keys(OFFICIAL_EXAMPLE_FR_TITLES).filter(
+      id => !templateIds.has(id)
+    );
+    expect(deadTitleKeys, `dead FR title keys: ${deadTitleKeys.join(', ')}`).toEqual([]);
+  });
+
+  it('localizes titles and descriptions for French, falls back to English otherwise', () => {
+    const fr = localizeOfficialExamples(templates, 'fr');
+    const base = templates.find(t => t.id === 'official-flowchart-v2-0')!;
+    const localized = fr.find(t => t.id === 'official-flowchart-v2-0')!;
+    expect(localized.title).not.toBe(base.title);
+    expect(localized.title.length).toBeGreaterThan(2);
+    expect(localized.description).not.toBe(base.description);
+    // Other fields pass through untouched (content, type, category…).
+    expect(localized.content).toBe(base.content);
+    expect(localized.type).toBe(base.type);
+    expect(localized.category).toBe(base.category);
+    // Non-French languages return the input array untouched.
+    expect(localizeOfficialExamples(templates, 'en')).toBe(templates);
+    expect(localizeOfficialExamples(templates, 'de')).toBe(templates);
   });
 
   it('loads lazily through loadOfficialExamples and memoizes the result', async () => {
