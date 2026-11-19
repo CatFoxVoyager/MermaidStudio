@@ -556,6 +556,105 @@ function matchEdgeTail(s: string, from: number): [string | undefined, string, st
 }
 
 /**
+ * Depth- and quote-aware scan for the NEXT edge arrow inside a hop remainder
+ * (the text following a hop's target id). Mermaid chains hops on one line
+ * (`A --> B --> C`), and a hop's target may carry a shape span whose label
+ * contains arrow-like text (`B{text --> more}`, `B["-->"]`) — an arrow only
+ * opens a new hop when it sits outside those spans AND a valid edge tail
+ * (optional `|label|`, then a target id) continues it. Returns the arrow
+ * alternative, its index in `s`, and the matched tail; null when the
+ * remainder holds no further hop.
+ */
+function findNextHopArrow(
+  s: string,
+): { alt: string; index: number; tail: [string | undefined, string, string] } | null {
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (quote) {
+      if (ch === quote) {quote = null;}
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      continue;
+    }
+    if (ch === '(' || ch === '[' || ch === '{') {
+      depth++;
+      continue;
+    }
+    if (ch === ')' || ch === ']' || ch === '}') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (depth !== 0) {continue;}
+    for (const alt of ARROW_ALT_STRINGS) {
+      if (!s.startsWith(alt, i)) {continue;}
+      const tail = matchEdgeTail(s, i + alt.length);
+      if (tail) {
+        return { alt, index: i, tail };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * All edge hops on one arrow line. Mermaid chains hops (`A --> B --> C`,
+ * optionally with per-hop labels/arrows and shape spans on intermediate
+ * targets); matchArrowLine only ever reports the FIRST hop and silently
+ * discarded the rest — the visual model then lost every trailing node, and
+ * a visual edit rewrote the line without them. The first hop is matched by
+ * matchArrowLine (same winner the old engine picked); later hops are found
+ * by findNextHopArrow in the previous hop's remainder, with each hop's
+ * target shape raw sliced to the text before the next arrow. Hops.length>1
+ * lines are fenced from mutation (see bodyHasUnparsedAtDirective): the
+ * line-surgical mutation writers cannot re-emit a chain faithfully yet.
+ */
+interface EdgeHop {
+  arrowType: string;
+  label: string;
+  targetId: string;
+  /** UNTRIMMED slice between the target id and the next hop arrow (or EOL). */
+  targetShapeRaw: string;
+}
+
+interface EdgeChain {
+  sourceId: string;
+  sourceShapeRaw: string;
+  hops: EdgeHop[];
+}
+
+function matchEdgeChain(trimmed: string): EdgeChain | null {
+  const first = matchArrowLine(trimmed);
+  if (!first) {return null;}
+  const sourceId = first[1];
+  const sourceShapeRaw = first[2] ?? '';
+  const hops: EdgeHop[] = [];
+  let arrowType = first[3];
+  let label = first[4]?.trim() ?? '';
+  let rest = first[6] ?? ''; // text after the current hop's target id
+  let targetId = first[5];
+  for (;;) {
+    const next = findNextHopArrow(rest);
+    hops.push({
+      arrowType,
+      label,
+      targetId,
+      targetShapeRaw: next ? rest.slice(0, next.index) : rest,
+    });
+    if (!next) {break;}
+    const [nextLabel, nextId, nextRaw] = next.tail;
+    arrowType = next.alt;
+    label = nextLabel?.trim() ?? '';
+    targetId = nextId;
+    rest = nextRaw;
+  }
+  return { sourceId, sourceShapeRaw, hops };
+}
+
+/**
  * Check if an ID refers to a subgraph.
  */
 function isSubgraphId(id: string, subgraphs: ParsedSubgraph[]): boolean {
@@ -987,18 +1086,18 @@ export function parseDiagram(source: string): ParsedDiagram {
     }
 
     if (ARROW_RE.test(trimmed)) {
-      const arrowMatch = matchArrowLine(trimmed);
-      if (arrowMatch) {
-        const sourceId = arrowMatch[1];
-        const sourceShapeRaw = arrowMatch[2]?.trim();
-        const targetId = arrowMatch[5];
-        const targetShapeRaw = arrowMatch[6]?.trim();
+      const chain = matchEdgeChain(trimmed);
+      if (chain) {
+        const sourceId = chain.sourceId;
+        const sourceShapeRaw = chain.sourceShapeRaw.trim();
 
         // Ensure source node exists (unless it's a subgraph)
         if (!seenIds.has(sourceId) && !isSubgraphId(sourceId, subgraphs)) {
           seenIds.add(sourceId);
           if (sourceShapeRaw) {
-            const parsed = parseNodeRawDirective(arrowMatch[2] ?? '', sourceId);
+            // parseNodeRawDirective receives the UNTRIMMED slice: its WR-04
+            // check keys on a leading space (` id @{...}` stays declined).
+            const parsed = parseNodeRawDirective(chain.sourceShapeRaw, sourceId);
             nodes.push({
               id: sourceId,
               label: parsed.label,
@@ -1013,37 +1112,47 @@ export function parseDiagram(source: string): ParsedDiagram {
             nodes.push({ id: sourceId, label: sourceId, shape: 'rect', raw: sourceId, parentSubgraphId: parentId });
           }
         }
-        // Parse target label from shape (e.g. B{Is it working?})
-        if (!seenIds.has(targetId) && !isSubgraphId(targetId, subgraphs)) {
-          seenIds.add(targetId);
-          if (targetShapeRaw) {
-            const parsed = parseNodeRawDirective(arrowMatch[6] ?? '', targetId);
-            nodes.push({
-              id: targetId,
-              label: parsed.label,
-              shape: parsed.shape,
-              raw: targetShapeRaw,
-              parentSubgraphId: parentId,
-              ...(parsed.directiveRaw
-                ? { directiveRaw: parsed.directiveRaw, unknownParams: parsed.unknownParams }
-                : {}),
-            });
-          } else {
-            nodes.push({ id: targetId, label: targetId, shape: 'rect', raw: targetId, parentSubgraphId: parentId });
-          }
-        } else if (targetShapeRaw && !isSubgraphId(targetId, subgraphs)) {
-          const existing = nodes.find(n => n.id === targetId);
-          if (existing && existing.label === existing.id) {
-            const parsed = parseNodeRawDirective(arrowMatch[6] ?? '', targetId);
-            existing.label = parsed.label;
-            existing.shape = parsed.shape;
-            if (parsed.directiveRaw) {
-              existing.directiveRaw = parsed.directiveRaw;
-              existing.unknownParams = parsed.unknownParams;
+        // Per-hop target creation (chained lines contribute every hop, not
+        // just the first — the model used to silently drop trailing nodes,
+        // and a visual edit then rewrote the line without them).
+        let prevId = sourceId;
+        for (const hop of chain.hops) {
+          const targetId = hop.targetId;
+          const targetShapeRaw = hop.targetShapeRaw.trim();
+          // Parse target label from shape (e.g. B{Is it working?}) — the
+          // parse call keeps the untrimmed slice for the WR-04 space check.
+          if (!seenIds.has(targetId) && !isSubgraphId(targetId, subgraphs)) {
+            seenIds.add(targetId);
+            if (targetShapeRaw) {
+              const parsed = parseNodeRawDirective(hop.targetShapeRaw, targetId);
+              nodes.push({
+                id: targetId,
+                label: parsed.label,
+                shape: parsed.shape,
+                raw: targetShapeRaw,
+                parentSubgraphId: parentId,
+                ...(parsed.directiveRaw
+                  ? { directiveRaw: parsed.directiveRaw, unknownParams: parsed.unknownParams }
+                  : {}),
+              });
+            } else {
+              nodes.push({ id: targetId, label: targetId, shape: 'rect', raw: targetId, parentSubgraphId: parentId });
+            }
+          } else if (targetShapeRaw && !isSubgraphId(targetId, subgraphs)) {
+            const existing = nodes.find(n => n.id === targetId);
+            if (existing && existing.label === existing.id) {
+              const parsed = parseNodeRawDirective(hop.targetShapeRaw, targetId);
+              existing.label = parsed.label;
+              existing.shape = parsed.shape;
+              if (parsed.directiveRaw) {
+                existing.directiveRaw = parsed.directiveRaw;
+                existing.unknownParams = parsed.unknownParams;
+              }
             }
           }
+          edges.push({ source: prevId, target: targetId, arrowType: hop.arrowType, label: hop.label, raw: trimmed });
+          prevId = targetId;
         }
-        edges.push({ source: sourceId, target: targetId, arrowType: arrowMatch[3], label: arrowMatch[4]?.trim() ?? '', raw: trimmed });
       }
       continue;
     }
@@ -1591,6 +1700,9 @@ export function parseFrontmatter(content: string): { frontmatter: FrontmatterCon
  * trigger the gate — consistent with detectDiagramType's stripping semantics.
  * Extended for mermaid 12.3: bare edge ids (`A e1@--> B`) are fenced too —
  * the visual model silently drops their trailing edges on write-back.
+ * Extended again for chained hops (`A --> B --> C`): the model now parses
+ * every hop, but the mutation writers cannot re-emit a chain faithfully, so
+ * the line is fenced from mutation while the canvas shows the full graph.
  */
 // 12.3 bare edge ids (`A e1@--> B`): the visual model cannot round-trip them
 // — observed data loss on a label edit: the chained line
@@ -1604,6 +1716,13 @@ const BARE_EDGE_ID_LINE_RE = /[A-Za-z_][A-Za-z0-9_-]*@(?=[-=.>])/;
 export function bodyHasUnparsedAtDirective(content: string): boolean {
   const body = parseFrontmatter(content).body;
   for (const line of body.split('\n')) {
+    // Multi-hop chain (`A --> B --> C`): the model parses every hop, but the
+    // line-surgical mutation writers cannot re-emit a chain faithfully yet —
+    // a target rename used to drop the whole remainder. Fence from mutation;
+    // the canvas still shows the full graph. (matchArrowLine anchors at the
+    // string start — pass the trimmed line.)
+    const chain = matchEdgeChain(line.trim());
+    if (chain && chain.hops.length > 1) {return true;}
     if (BARE_EDGE_ID_LINE_RE.test(line)) {return true;}
     if (!line.includes('@{')) {continue;}
     if (!directiveLineFullyConsumed(line.trim())) {return true;}
