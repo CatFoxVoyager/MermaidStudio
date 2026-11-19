@@ -203,7 +203,7 @@ describe('D6 menu-sheet spacing rhythm (PROM-04)', () => {
       counts,
       `PROM-04: the menu-sheet wrapper must separate rows by spacing rhythm only — ` +
         `divide-y=0 AND border-subtle=0 (both mechanisms go, never the class alone), ` +
-        `className="space-y-1"=1 on the items wrapper, py-3.5=9 (8 rows + the promo anchor).`,
-    ).toEqual({ divideY: 0, borderSubtle: 0, spaceY1Wrapper: 1, py35Rows: 9 });
+        `className="space-y-1"=1 on the items wrapper, py-3.5=10 (9 rows + the promo anchor).`,
+    ).toEqual({ divideY: 0, borderSubtle: 0, spaceY1Wrapper: 1, py35Rows: 10 });
   });
 });

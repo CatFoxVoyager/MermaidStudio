@@ -404,26 +404,21 @@ describe('Mermaid Code Utilities', () => {
       expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: person }')).toBe(false);
     });
 
-    // ===== 12.3 bare edge ids (`A e1@--> B`): the visual model cannot
-    // round-trip them — observed data loss on a label edit: a chained line
-    // `A e1@--> B e2@--> C` was rewritten as `A e1@--> B[Bee]`, silently
-    // dropping the second edge. Fence the form (superset-safe per D6: an
-    // identifier whose @ is directly followed by an arrow character is
-    // either this syntax or junk the renderer rejects). =====
-    it('fences a chained bare edge-id line (observed visual-edit data loss)', () => {
-      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@--> B e2@--> C')).toBe(true);
+    // ===== Backlog C: bare 12.3 edge ids (`A e1@--> B`) and chained hops
+    // (`A --> B --> C`) were fenced while the mutation writers dropped their
+    // trailing content; the writers are chain/edge-id safe now (gated by
+    // chain-survival.test.ts), so both forms are EDITABLE. These pins keep
+    // the fence from creeping back onto them. =====
+    it('does not fence bare edge-id lines (writers are chain-safe)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@--> B e2@--> C')).toBe(false);
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@--> B')).toBe(false);
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@-->|yes| B')).toBe(false);
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@-.-> B')).toBe(false);
     });
 
-    it('fences a single bare edge id', () => {
-      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@--> B')).toBe(true);
-    });
-
-    it('fences the bare form carrying an edge label', () => {
-      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@-->|yes| B')).toBe(true);
-    });
-
-    it('fences the dotted bare form', () => {
-      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@-.-> B')).toBe(true);
+    it('does not fence multi-hop chain lines (writers are chain-safe)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A --> B --> C')).toBe(false);
+      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A --> B{q} --> C')).toBe(false);
     });
 
     it('does not fence plain edges', () => {
@@ -438,16 +433,6 @@ describe('Mermaid Code Utilities', () => {
       expect(bodyHasUnparsedAtDirective('flowchart LR\n  A e1@{ shape: "person" } --> B')).toBe(false);
     });
 
-    // ===== Chained hops (`A --> B --> C`): the model parses every hop now,
-    // but the line-surgical mutation writers cannot re-emit a chain
-    // faithfully (a target rename used to drop the whole remainder), so
-    // multi-hop lines are fenced from mutation while the canvas shows the
-    // full graph. =====
-    it('fences multi-hop chain lines from mutation', () => {
-      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A --> B --> C')).toBe(true);
-      expect(bodyHasUnparsedAtDirective('flowchart LR\n  A --> B{q} --> C')).toBe(true);
-    });
-
     it('does not fence single-hop lines', () => {
       expect(bodyHasUnparsedAtDirective('flowchart LR\n  A --> B')).toBe(false);
     });
@@ -458,6 +443,16 @@ describe('Mermaid Code Utilities', () => {
 
     it('does not fence an arrow inside a target shape span (not a hop)', () => {
       expect(bodyHasUnparsedAtDirective('flowchart LR\n  A --> B{text --> more}')).toBe(false);
+    });
+
+    // 12.3 step animation: standalone `@{ step: n }` spans ride unknown
+    // (non-icon) params, which the directive rules already consume — the
+    // whole step flowchart stays editable now that its bare-id edge lines
+    // are unfenced too.
+    it('does not fence step-metadata flowcharts', () => {
+      expect(
+        bodyHasUnparsedAtDirective('flowchart LR\n  A e1@--> B e2@--> C\n  e1@{ step: 1 }\n  e2@{ step: 2 }')
+      ).toBe(false);
     });
   });
 
