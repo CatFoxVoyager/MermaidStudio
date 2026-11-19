@@ -114,6 +114,9 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
   const [userTemplates, setUserTemplates] = useState<UserTemplate[]>([]);
   const [officialExamples, setOfficialExamples] = useState<Template[]>([]);
   const [officialStatus, setOfficialStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  // Bumped by the retry button to re-run the load effect (loadOfficialExamples
+  // clears its cache on failure, so a retry really re-imports the chunk).
+  const [officialAttempt, setOfficialAttempt] = useState(0);
 
   useEffect(() => {
     getUserTemplates().then(setUserTemplates);
@@ -121,12 +124,13 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    setOfficialStatus('loading');
     loadOfficialExamples().then(
       examples => { if (!cancelled) { setOfficialExamples(examples); setOfficialStatus('ready'); } },
       () => { if (!cancelled) { setOfficialStatus('error'); } }
     );
     return () => { cancelled = true; };
-  }, []);
+  }, [officialAttempt]);
 
   const categoryChips: { key: string; label: string }[] = [
     { key: CAT_ALL, label: 'All' },
@@ -135,7 +139,6 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
     ...[...new Set(CATEGORIES)].map(c => ({ key: c, label: c })),
   ];
   const query = searchQuery.trim().toLowerCase();
-  const totalCount = TEMPLATES.length + userTemplates.length + officialExamples.length;
 
   async function handleDeleteUserTemplate(id: string) {
     await deleteUserTemplate(id);
@@ -164,6 +167,14 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
   const displayTemplates = isMobile
     ? rawDisplayTemplates.filter(t => !RESTRICTED_TYPES.includes((t as any).type || ''))
     : rawDisplayTemplates;
+
+  // The header count mirrors what the grid can actually show: on mobile the
+  // restricted types are filtered out, so counting them would overstate.
+  const totalCount = isMobile
+    ? [...userTemplates, ...TEMPLATES, ...officialExamples].filter(
+      t => !RESTRICTED_TYPES.includes((t as any).type || '')
+    ).length
+    : TEMPLATES.length + userTemplates.length + officialExamples.length;
 
   // Filter by search query
   const filteredTemplates = displayTemplates.filter(t => {
@@ -246,6 +257,17 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               {officialStatus === 'loading' ? t('templates.officialLoading') : t('templates.officialError')}
             </p>
+            {officialStatus === 'error' && (
+              <button
+                type="button"
+                data-testid="official-examples-retry"
+                onClick={() => setOfficialAttempt(n => n + 1)}
+                className="mt-3 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors hover:bg-[var(--hover)]"
+                style={{ borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+              >
+                {t('templates.officialRetry')}
+              </button>
+            )}
           </div>
         ) : filteredTemplates.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12">

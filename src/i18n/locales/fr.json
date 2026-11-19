@@ -217,6 +217,7 @@
     "officialExamples": "Exemples Mermaid",
     "officialLoading": "Chargement des exemples Mermaid officiels…",
     "officialError": "Impossible de charger les exemples Mermaid officiels",
+    "officialRetry": "Réessayer",
     "noTemplates": "Aucun modèle dans cette catégorie",
     "noTemplatesHint": "Enregistrez un diagramme comme modèle depuis la barre d'outils",
     "templates": "modèles",
