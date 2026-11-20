@@ -75,6 +75,7 @@
       "trapezoidAlt": "Trapezoid (mirrored)",
       "subroutine": "Subroutine",
       "flag": "Flag",
+      "odd": "Asymmetric",
       "dblCirc": "Double Circle",
       "person": "Person",
       "delay": "Delay",

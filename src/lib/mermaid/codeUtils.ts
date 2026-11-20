@@ -7,7 +7,16 @@ export type NodeShape =
   // Phase 27: high-value directive shapes — mermaid 12 shape-registry keys
   // with no legacy delimiter form; the at-brace span is their only syntax.
   | 'person' | 'delay' | 'sl-rect' | 'div-rect' | 'folder' | 'datastore'
-  | 'cloud' | 'browser' | 'bolt' | 'tri' | 'hourglass';
+  | 'cloud' | 'browser' | 'bolt' | 'tri' | 'hourglass'
+  // 38-01: canonical migration window OPENS — canonical shortNames join the
+  // union progressively (plans 02/06) and legacy-only members shed in plan
+  // 06. 'odd' is the first: the asymmetric collision shape, resolved through
+  // the shapes.ts SSOT (toDirectiveShapeName) instead of a hand list.
+  | 'odd';
+
+// 38-01: codeUtils' first import. shapes.ts is core-free (PERF-01, locked in
+// bundlePerf PARSER_ONLY_FILES), so this stays parser-only.
+import { toDirectiveShapeName } from './shapes';
 
 export interface ParsedSubgraph {
   id: string;
@@ -138,9 +147,24 @@ const ALL_NODE_SHAPES: NodeShape[] = [
   'cloud', 'browser', 'bolt', 'tri', 'hourglass',
 ];
 
-/** Map a directive shape token to the union; unknown keys parse as rect. */
+/**
+ * Map a directive shape token to the union. The shapes.ts SSOT resolution
+ * runs FIRST for the one canonical member this task wires ('odd': the SSOT
+ * maps the crashing legacy key `asymmetric` — still a union member, so it
+ * would otherwise short-circuit the passthrough into a mermaid-12 parse
+ * crash — to `odd`); legacy union members then pass through unchanged;
+ * every OTHER unresolved token keeps the historical rect fallback for THIS
+ * task only — plan 02 replaces the fallback with authoredShape
+ * preservation; do not widen the canonicalization here.
+ */
 function directiveShapeKey(token: string): NodeShape {
-  return ALL_NODE_SHAPES.includes(token as NodeShape) ? (token as NodeShape) : 'rect';
+  if (toDirectiveShapeName(token) === 'odd') {
+    return 'odd';
+  }
+  if (ALL_NODE_SHAPES.includes(token as NodeShape)) {
+    return token as NodeShape;
+  }
+  return 'rect';
 }
 
 /** Shapes whose writer emission is the directive wrap (dbl-circ is legacy now). */
@@ -148,7 +172,7 @@ const DIRECTIVE_EMISSION_SHAPES: NodeShape[] = [
   'doc', 'docs', 'cross-circ', 'bow-rect', 'flip-tri', 'curv-trap',
   'manual-file', 'manual-input', 'procs', 'paper-tape',
   'person', 'delay', 'sl-rect', 'div-rect', 'folder', 'datastore',
-  'cloud', 'browser', 'bolt', 'tri', 'hourglass',
+  'cloud', 'browser', 'bolt', 'tri', 'hourglass', 'odd',
 ];
 
 export interface ParsedAtDirective {
@@ -487,6 +511,10 @@ function shapeWrap(label: string, shape: NodeShape, quoted = false, unknownParam
     case 'bolt':            return directiveWrap('bolt', label, unknownParams);
     case 'tri':             return directiveWrap('tri', label, unknownParams);
     case 'hourglass':       return directiveWrap('hourglass', label, unknownParams);
+    // 38-01: canonical `odd` (the asymmetric banner) joins the directive
+    // emitters — the crashing legacy key `asymmetric` must never enter an
+    // emitted span (directiveShapeKey resolves it to 'odd' upstream).
+    case 'odd':             return directiveWrap('odd', label, unknownParams);
     default:                return `[${l}]`;
   }
 }

@@ -1735,3 +1735,60 @@ A-->B`;
     });
   });
 });
+
+// ===== 38-01 Task 2 (tracer pins): the `odd` vertical slice — the crashing
+// legacy key `asymmetric` parses to canonical `odd` through the shapes.ts
+// SSOT (toDirectiveShapeName), re-emits canonically, and round-trips. The
+// emitted span must never carry `asymmetric` inside shape: "..." — mermaid
+// 12 throws `No such shape: asymmetric.` on it. =====
+describe('odd canonical shape (38-01 tracer)', () => {
+  const EDGE_SOURCE = 'flowchart LR\n  A@{ shape: "asymmetric", label: "Gate" } --> B';
+  const STANDALONE_SOURCE = 'flowchart LR\n  A@{ shape: "asymmetric", label: "Gate" }';
+
+  it('parses a legacy asymmetric directive on an edge line to shape odd (SSOT choke point consumed)', () => {
+    const result = parseDiagram(EDGE_SOURCE);
+
+    const node = result.nodes.find(n => n.id === 'A');
+    expect(node).toBeDefined();
+    expect(node?.shape).toBe('odd');
+    expect(node?.label).toBe('Gate');
+    expect(result.edges).toHaveLength(1);
+  });
+
+  it('parses a standalone legacy asymmetric directive to shape odd', () => {
+    const result = parseDiagram(STANDALONE_SOURCE);
+
+    const node = result.nodes.find(n => n.id === 'A');
+    expect(node?.shape).toBe('odd');
+    expect(node?.directiveRaw).toBe('@{ shape: "asymmetric", label: "Gate" }');
+  });
+
+  it('re-emits canonically on shape change — asymmetric never enters the emitted span', () => {
+    const result = updateNodeShape(STANDALONE_SOURCE, 'A', 'odd');
+
+    expect(result).toContain('@{ shape: "odd", label: "Gate" }');
+    expect(result).not.toContain('asymmetric');
+  });
+
+  it('round-trips: re-parsing the emitted source yields shape odd again', () => {
+    const emitted = updateNodeShape(STANDALONE_SOURCE, 'A', 'odd');
+    const result = parseDiagram(emitted);
+
+    const node = result.nodes.find(n => n.id === 'A');
+    expect(node?.shape).toBe('odd');
+    expect(node?.label).toBe('Gate');
+    expect(node?.directiveRaw).toBe('@{ shape: "odd", label: "Gate" }');
+  });
+
+  it('keeps the rect fallback for tokens outside the odd tracer scope (no plan-02 overreach)', () => {
+    // Null-resolving token (unknown key) — historical fallback unchanged.
+    const unknown = parseDiagram('flowchart TD\nA@{ shape: "future-shape", label: "X" }');
+    expect(unknown.nodes.find(n => n.id === 'A')?.shape).toBe('rect');
+
+    // SSOT-resolvable-but-not-odd token ('card' → notch-rect): the tracer
+    // contract narrows to 'odd' ONLY — everything else stays rect until
+    // plan 02 replaces the fallback with authoredShape preservation.
+    const alias = parseDiagram('flowchart TD\nA@{ shape: "card", label: "X" }');
+    expect(alias.nodes.find(n => n.id === 'A')?.shape).toBe('rect');
+  });
+});
