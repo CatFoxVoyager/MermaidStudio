@@ -2,58 +2,29 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { MousePointer2, Link, Trash2, LayoutGrid, ChevronUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { NodeShape, ToolMode } from './types';
+import { CANONICAL_SHAPES, SHAPE_CATEGORIES } from '@/lib/mermaid/shapes';
+import type { CategoryKey } from '@/lib/mermaid/shapes';
+import { ShapePreview } from '@/components/shared/ShapePreview';
+import { ShapePicker } from '@/components/shared/ShapePicker';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
 
 interface ShapeButtonProps {
   shape: NodeShape;
   label: string;
   onPick: (shape: NodeShape) => void;
+  /** 38-05: drag-placement gesture — dragstart hands the shape to the host
+   *  (canvases setDragShape → drop adds at the canvas). Before 38-05 the
+   *  toolbar never invoked its onDragStart prop and dragstart conflated into
+   *  onPick, so drop-placement was dead wiring. */
+  onDragStart?: (shape: NodeShape) => void;
 }
 
-function ShapePreview({ shape }: { shape: NodeShape }) {
-  const props = { stroke: 'currentColor', strokeWidth: 1.5, fill: 'none' };
-  switch (shape) {
-    case 'rect':          return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="2" {...props} /></svg>;
-    case 'round':         return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="7" {...props} /></svg>;
-    case 'stadium':       return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="7" {...props} /><line x1="9" y1="3" x2="9" y2="17" {...props} /><line x1="19" y1="3" x2="19" y2="17" {...props} /></svg>;
-    case 'subroutine':    return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="2" {...props} /><line x1="6" y1="3" x2="6" y2="17" {...props} /><line x1="22" y1="3" x2="22" y2="17" {...props} /></svg>;
-    case 'cylinder':      return <svg width="28" height="20" viewBox="0 0 28 20"><ellipse cx="14" cy="6" rx="10" ry="3" {...props} /><ellipse cx="14" cy="14" rx="10" ry="3" {...props} /><line x1="4" y1="6" x2="4" y2="14" {...props} /><line x1="24" y1="6" x2="24" y2="14" {...props} /></svg>;
-    case 'circle':        return <svg width="28" height="20" viewBox="0 0 28 20"><circle cx="14" cy="10" r="8" {...props} /></svg>;
-    case 'dbl-circ':      return <svg width="28" height="20" viewBox="0 0 28 20"><circle cx="14" cy="10" r="8" {...props} /><circle cx="14" cy="10" r="4.5" {...props} /></svg>;
-    case 'rhombus':       return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="14,2 26,10 14,18 2,10" {...props} /></svg>;
-    case 'hexagon':       return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="8,3 20,3 26,10 20,17 8,17 2,10" {...props} /></svg>;
-    case 'asymmetric':    return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="2,3 22,3 26,10 22,17 2,17" {...props} /></svg>;
-    case 'parallelogram': return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="6,3 26,3 22,17 2,17" {...props} /></svg>;
-    case 'parallelogram-alt': return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="2,3 22,3 26,17 6,17" {...props} /></svg>;
-    case 'trapezoid':     return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="6,3 22,3 26,17 2,17" {...props} /></svg>;
-    case 'trapezoid-alt': return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="2,3 26,3 22,17 6,17" {...props} /></svg>;
-    case 'person':        return <svg width="28" height="20" viewBox="0 0 28 20"><circle cx="14" cy="5.5" r="3" {...props} /><path d="M5 17 C5 11.5 9 9.5 14 9.5 C19 9.5 23 11.5 23 17" {...props} /></svg>;
-    case 'delay':         return <svg width="28" height="20" viewBox="0 0 28 20"><path d="M4 3 H14 A10 7 0 0 1 14 17 H4 Z" {...props} /></svg>;
-    case 'sl-rect':       return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="5,5 23,2 23,16 5,19" {...props} /></svg>;
-    case 'div-rect':      return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="2" {...props} /><line x1="2" y1="10" x2="26" y2="10" {...props} /></svg>;
-    case 'folder':        return <svg width="28" height="20" viewBox="0 0 28 20"><path d="M2 16 V4 H10 L12 6.5 H26 V16 Z" {...props} /></svg>;
-    case 'datastore':     return <svg width="28" height="20" viewBox="0 0 28 20"><ellipse cx="14" cy="6" rx="10" ry="3" {...props} /><path d="M4 6 V14 A10 3 0 0 0 24 14 V6" {...props} /></svg>;
-    case 'cloud':         return <svg width="28" height="20" viewBox="0 0 28 20"><path d="M7 16 H21 A3.5 3.5 0 0 0 21 9 A5.2 5.2 0 0 0 11.5 7 A5.5 5.5 0 0 0 7 16 Z" {...props} /></svg>;
-    case 'browser':       return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="2" {...props} /><line x1="2" y1="8" x2="26" y2="8" {...props} /><circle cx="6" cy="5.5" r="1" {...props} /></svg>;
-    case 'bolt':          return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="15,2 5,11 11,11 9,18 23,7 15,7" {...props} /></svg>;
-    case 'tri':           return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="14,3 25,17 3,17" {...props} /></svg>;
-    case 'hourglass':     return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="4,3 24,3 14,10" {...props} /><polygon points="4,17 24,17 14,10" {...props} /></svg>;
-    // 38-01: canonical odd (the asymmetric banner) — mermaid's
-    // rect_left_inv_arrow: a right-angle rectangle whose LEFT edge carries a
-    // concave triangular notch (corners protrude, mid indents inward).
-    // Pairwise-distinct from every other case (uniqueness sweep enforces).
-    case 'odd':           return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="5.5,3 2,10 5.5,17 26,17 26,3" {...props} /></svg>;
-    case 'doc':           return <svg width="28" height="20" viewBox="0 0 28 20"><path d="M4 3 H24 V14 C22 16 20 12 17.5 13.5 C15 15 13 12 10.5 13.5 C8 15 6 13 4 14.5 Z" {...props} /></svg>;
-    default:              return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="2" {...props} /></svg>;
-  }
-}
-
-function ShapeButton({ shape, label, onPick }: ShapeButtonProps) {
+function ShapeButton({ shape, label, onPick, onDragStart }: ShapeButtonProps) {
   const { t } = useTranslation();
   return (
     <button
-      draggable
-      onDragStart={() => onPick(shape)}
+      draggable={onDragStart ? true : undefined}
+      onDragStart={onDragStart ? (e) => { e.dataTransfer?.setData('text/plain', shape); onDragStart(shape); } : undefined}
       onClick={() => onPick(shape)}
       title={t('visual.shapeAddHint', { shape: label })}
       aria-label={t('visual.shapeAddHint', { shape: label })}
@@ -65,39 +36,19 @@ function ShapeButton({ shape, label, onPick }: ShapeButtonProps) {
   );
 }
 
-// Labels live in i18n (visual.shapes.*) — the toolbar previously hardcoded
-// English names and English titles (critique iter-9 P2).
-const SHAPES: { shape: NodeShape; labelKey: string }[] = [
-  { shape: 'rect',          labelKey: 'visual.shapes.box' },
-  { shape: 'round',         labelKey: 'visual.shapes.round' },
-  { shape: 'stadium',       labelKey: 'visual.shapes.stadium' },
-  { shape: 'rhombus',       labelKey: 'visual.shapes.rhombus' },
-  { shape: 'circle',        labelKey: 'visual.shapes.circle' },
-  { shape: 'hexagon',       labelKey: 'visual.shapes.hexagon' },
-  { shape: 'cylinder',      labelKey: 'visual.shapes.cylinder' },
-  { shape: 'parallelogram', labelKey: 'visual.shapes.slant' },
-  { shape: 'parallelogram-alt', labelKey: 'visual.shapes.slantAlt' },
-  { shape: 'trapezoid',     labelKey: 'visual.shapes.trapezoid' },
-  { shape: 'trapezoid-alt', labelKey: 'visual.shapes.trapezoidAlt' },
-  { shape: 'subroutine',    labelKey: 'visual.shapes.subroutine' },
-  // 38-01: the collision entry re-keyed — the asymmetric banner is canonical
-  // `odd` with its own label (visual.shapes.odd); the true flag shape keeps
-  // visual.shapes.flag (full 53-key re-key lands in plan 04/05).
-  { shape: 'odd',           labelKey: 'visual.shapes.odd' },
-  { shape: 'dbl-circ',      labelKey: 'visual.shapes.dblCirc' },
-  { shape: 'person',        labelKey: 'visual.shapes.person' },
-  { shape: 'delay',         labelKey: 'visual.shapes.delay' },
-  { shape: 'sl-rect',       labelKey: 'visual.shapes.slRect' },
-  { shape: 'div-rect',      labelKey: 'visual.shapes.divRect' },
-  { shape: 'folder',        labelKey: 'visual.shapes.folder' },
-  { shape: 'datastore',     labelKey: 'visual.shapes.datastore' },
-  { shape: 'cloud',         labelKey: 'visual.shapes.cloud' },
-  { shape: 'browser',       labelKey: 'visual.shapes.browser' },
-  { shape: 'bolt',          labelKey: 'visual.shapes.bolt' },
-  { shape: 'tri',           labelKey: 'visual.shapes.tri' },
-  { shape: 'hourglass',     labelKey: 'visual.shapes.hourglass' },
-  { shape: 'doc',           labelKey: 'visual.shapes.doc' },
-];
+// 38-05 (SHP-03): the toolbar is a DERIVED VIEW of the shapes.ts SSOT —
+// flatten SHAPE_CATEGORIES picker order, keeping CANONICAL_SHAPES dist order
+// within each category (the picker-order truth). Labels resolve through
+// visual.shapes.<canonicalSlug>; ellipse is structurally absent (not in the
+// registry — UI-SPEC Grey Area #1). No hand-maintained shape list remains
+// here: a shape added to the registry renders without a toolbar edit, and
+// the CI uniqueness lock moves with the registry, not with this file.
+const SHAPES: { shape: NodeShape; labelKey: string; category: CategoryKey }[] =
+  SHAPE_CATEGORIES.flatMap((category) =>
+    CANONICAL_SHAPES
+      .filter((s) => s.category === category)
+      .map((s) => ({ shape: s.shortName, labelKey: `visual.shapes.${s.shortName}`, category })),
+  );
 
 // Mobile-first split (critique iter-10→13): the pinned More chip occupies
 // the scroller's reserved right lane, and a third primary spawned INSIDE
@@ -234,12 +185,16 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
 
   // Outside-tap + Escape dismissal (iter-14 P2/P3: the popover previously
   // ignored both — a floating surface with no visible close is a dead end).
+  // The guard keys on the ShapePicker's data-shape-picker marker (38-05:
+  // the picker replaced the old inline data-more-popover grid), so taps
+  // inside the picker — its search input included — never count as outside
+  // taps. ShapePicker runs its own guard too; both close idempotently.
   useEffect(() => {
     if (!moreOpen) {return;}
     const down = (e: PointerEvent) => {
       const t = e.target as Element;
       if (moreBtnRef.current?.contains(t)) {return;}
-      if (t.closest('[data-more-popover]')) {return;}
+      if (t.closest('[data-shape-picker]')) {return;}
       setMoreOpen(false);
     };
     const key = (e: KeyboardEvent) => {
@@ -264,7 +219,7 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
           whole subtree — including position:fixed descendants — in the
           mask's coordinate space, which buried the More popover at alpha 0
           (iter-13 P0, triangulated live). The fade mask lives on the
-          scroller child; the popover is the scroller's SIBLING. */}
+          scroller child; the ShapePicker popover is the scroller's SIBLING. */}
       {/* max-md:overflow-x-hidden (user walk 2026-10-07): the mobile row is
           FIXED — the mobile-first split (2 primaries + pinned More popover)
           already owns every width past the pills, so the residual ~10px of
@@ -315,7 +270,7 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
 
       <div ref={primaryGroupRef} className={`flex items-center gap-1 shrink-0 ${secondary.length ? 'pr-16' : 'pr-1'}`}>
         {primary.map(({ shape, labelKey }) => (
-          <ShapeButton key={shape} shape={shape} label={t(labelKey)} onPick={onAddShape} />
+          <ShapeButton key={shape} shape={shape} label={t(labelKey)} onPick={onAddShape} onDragStart={onDragStart} />
         ))}
       </div>
 
@@ -358,20 +313,20 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
         </button>
       )}
 
-      {/* Secondary shapes grid — position:fixed from the button's viewport
-          rect, and a SIBLING of the masked scroller: a mask-image on an
-          ancestor paints fixed descendants in the mask's coordinate space
-          (iter-13→14, proven live). Sibling placement escapes it. */}
+      {/* The More popover IS the shared ShapePicker (38-05): search row above
+          the internally-scrolling categorized grid over all 53 registry
+          shapes. position:fixed from the trigger's viewport rect, and a
+          SIBLING of the masked scroller: a mask-image on an ancestor paints
+          fixed descendants in the mask's coordinate space (iter-13→14,
+          proven live). Sibling placement escapes it. */}
       {moreOpen && moreAnchor && (
-        <div
-          data-more-popover
-          className="fixed z-20 grid grid-cols-3 gap-1.5 p-2.5 rounded-xl border shadow-xl animate-fade-in overflow-y-auto"
-          style={{ right: moreAnchor.right, top: moreAnchor.top, maxHeight: moreAnchor.maxHeight, background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}
-        >
-          {secondary.map(({ shape, labelKey }) => (
-            <ShapeButton key={shape} shape={shape} label={t(labelKey)} onPick={pickSecondary} />
-          ))}
-        </div>
+        <ShapePicker
+          anchor={moreAnchor}
+          onClose={() => setMoreOpen(false)}
+          onPick={pickSecondary}
+          onDragStart={onDragStart}
+          triggerRef={moreBtnRef}
+        />
       )}
 
       {/* Hidden measurer: every shape at identical styles, off the paint and
@@ -379,7 +334,7 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
           — an absolute shrink-to-fit container clamps to the parent and
           squeezes the buttons (52px minimums), over-counting what fits.
           left:-10000px is ALSO load-bearing (device walk 2026-10-07): at
-          left:0 the full-width strip (26 buttons ≈ 1900px) spilled into the
+          left:0 the full-width strip (53 buttons ≈ 3900px) spilled into the
           scrollable overflow of every non-clipping ancestor — the preview
           pane's overflow-auto became horizontally pannable, so a touch drag
           past the toolbar's scroll edge chained up and dragged the whole
