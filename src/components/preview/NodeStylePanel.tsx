@@ -1,8 +1,15 @@
-import { useState, useCallback, useEffect, type CSSProperties } from 'react';
+import { useState, useCallback, useEffect, useRef, type CSSProperties } from 'react';
 import { X, RotateCcw, ChevronDown, Settings2, Zap, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
-import type { NodeStyle, PresetType } from '@/lib/mermaid/codeUtils';
+// 38-06 (SHP-04): shape-change parity with the visual editor's PropertiesPanel
+// — the same unified ShapePicker, mounted as a fixed-position popover so the
+// panel's own overflow clipping cannot eat it.
+import { ShapePicker } from '@/components/shared/ShapePicker';
+import type { ShapePickerAnchor } from '@/components/shared/ShapePicker';
+import { ShapePreview } from '@/components/shared/ShapePreview';
+import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
+import type { NodeStyle, NodeShape, PresetType } from '@/lib/mermaid/codeUtils';
 
 interface NodeStylePreset {
   label: string;
@@ -14,9 +21,13 @@ interface NodeStylePanelProps {
   selectedNodeIds: string[];
   /** Array of styles for each selected node, same order as selectedNodeIds */
   nodeStyles: NodeStyle[];
+  /** 38-06: Array of shapes for each selected node, same order as selectedNodeIds (required with onShapeChange) */
+  nodeShapes?: NodeShape[];
   nodeLabels: Map<string, string>;
   onClose: () => void;
   onStyleChange: (nodeIds: string[], style: Partial<NodeStyle>) => void;
+  /** 38-06 (SHP-04): shape change for the selection — mirrors the onStyleChange multi-node signature */
+  onShapeChange?: (nodeIds: string[], shape: NodeShape) => void;
   onReset: (nodeIds: string[]) => void;
   /** If true, hide rx/ry properties (for circle/diamond shapes where border radius has no visual effect) */
   hideBorderRadius?: boolean;
@@ -47,9 +58,11 @@ function getSharedValue(styles: NodeStyle[], field: keyof NodeStyle): string | '
 export function NodeStylePanel({
   selectedNodeIds,
   nodeStyles,
+  nodeShapes,
   nodeLabels,
   onClose,
   onStyleChange,
+  onShapeChange,
   onReset,
   hideBorderRadius = false,
   nodeSubgraphIds,
@@ -62,6 +75,10 @@ export function NodeStylePanel({
 }: NodeStylePanelProps) {
   const { t } = useTranslation();
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  // 38-06 (SHP-04): the Shape row's trigger + fixed-position picker state.
+  const [shapeOpen, setShapeOpen] = useState(false);
+  const [shapeAnchor, setShapeAnchor] = useState<ShapePickerAnchor | null>(null);
+  const shapeBtnRef = useRef<HTMLButtonElement>(null);
 
   const BORDER_STYLE_OPTIONS = [
     { value: '', label: t('nodeStyle.solid'), dasharray: '' },
@@ -118,6 +135,39 @@ export function NodeStylePanel({
   const rx = getSharedValue(nodeStyles, 'rx');
   const ry = getSharedValue(nodeStyles, 'ry');
 
+  // 38-06 (SHP-04): shared shape across the selection — 'mixed' when the
+  // selected nodes disagree (the PropertiesPanel sharedShape idiom).
+  const sharedShape: NodeShape | 'mixed' | undefined =
+    !nodeShapes || nodeShapes.length === 0
+      ? undefined
+      : nodeShapes.every(s => s === nodeShapes[0])
+        ? nodeShapes[0]
+        : 'mixed';
+  const shapeLabel = sharedShape === 'mixed'
+    ? t('nodeStyle.mixed')
+    : sharedShape
+      ? t(`visual.shapes.${sharedShape}`)
+      : '';
+
+  // Fixed-position anchor recipe (Surface 1, ShapeToolbar): the popover is
+  // position:fixed, so no panel ancestor's overflow clipping can bury it.
+  const toggleShapePicker = () => {
+    if (!shapeOpen && shapeBtnRef.current) {
+      const r = shapeBtnRef.current.getBoundingClientRect();
+      setShapeAnchor({
+        right: window.innerWidth - r.right,
+        top: r.bottom + 8,
+        maxHeight: window.innerHeight - r.bottom - 24,
+      });
+    }
+    setShapeOpen(v => !v);
+  };
+
+  const closeShapePicker = () => {
+    setShapeOpen(false);
+    setShapeAnchor(null);
+  };
+
   // Helper to format color values for ColorPicker (mixed -> '' with mixed label)
   const colorValue = (v: string | 'mixed' | undefined): string =>
     v === 'mixed' || v === undefined ? '' : v;
@@ -137,11 +187,15 @@ export function NodeStylePanel({
   // propagation, so only the topmost layer closes.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // 38-06: the shape picker owns Escape while it is open (topmost layer
+      // closes first — ShapePicker's own handler does not stop propagation,
+      // so this guard is what keeps one Escape from closing panel + picker).
+      if (shapeOpen) {return;}
       if (e.key === 'Escape') {onClose();}
     };
     document.addEventListener('keydown', onKey);
     return () => {document.removeEventListener('keydown', onKey);};
-  }, [onClose]);
+  }, [onClose, shapeOpen]);
 
   return (
     <>
@@ -213,6 +267,61 @@ export function NodeStylePanel({
                 outline: 'none',
               }}
             />
+          </div>
+        )}
+
+        {/* 38-06 (SHP-04): Shape row, grouped with the label row — the same
+            unified ShapePicker the visual editor's PropertiesPanel mounts.
+            Renders only when the host wires shape-change support
+            (onShapeChange + nodeShapes); absent props keep the panel
+            byte-compatible for every existing caller. */}
+        {onShapeChange && nodeShapes && sharedShape !== undefined && (
+          <div className="flex flex-col gap-1">
+            <span
+              className="text-xs font-medium uppercase tracking-wider"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              {t('nodeStyle.shape')}
+            </span>
+            <button
+              ref={shapeBtnRef}
+              type="button"
+              data-shape-trigger
+              onClick={toggleShapePicker}
+              title={t('visual.shapeChangeHint', { shape: shapeLabel })}
+              aria-label={t('visual.shapeChangeHint', { shape: shapeLabel })}
+              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs ${FOCUS_RING_CLASSES}`}
+              style={{
+                background: 'var(--surface-base)',
+                borderColor: 'var(--border-subtle)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+              }}
+            >
+              <span className="shrink-0 flex items-center">
+                {/* Mixed selection carries the neutral rect preview (the
+                    PropertiesPanel trigger precedent). */}
+                <ShapePreview shape={sharedShape === 'mixed' ? 'rect' : sharedShape} />
+              </span>
+              <span className="truncate">{shapeLabel}</span>
+              <ChevronDown
+                size={11}
+                className="ml-auto shrink-0 pointer-events-none"
+                style={{ color: 'var(--text-tertiary)' }}
+              />
+            </button>
+            {shapeOpen && shapeAnchor && (
+              <ShapePicker
+                anchor={shapeAnchor}
+                onClose={closeShapePicker}
+                onPick={(shape) => {
+                  onShapeChange?.(selectedNodeIds, shape);
+                  closeShapePicker();
+                }}
+                selected={sharedShape === 'mixed' ? null : sharedShape}
+                triggerRef={shapeBtnRef}
+              />
+            )}
           </div>
         )}
 

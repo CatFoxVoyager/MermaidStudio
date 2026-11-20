@@ -9,7 +9,7 @@ import { getThemeById } from '@/constants/themes';
 import { sanitizeCssValue } from '@/utils/sanitization';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import { buildSvgToParsedEdgeMap } from '@/utils/svgEdgeMatching';
-import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective } from '@/lib/mermaid/codeUtils';
+import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, updateNodeShape, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape, PresetType, PresetColors } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
 import { EdgeStylePanel } from './EdgeStylePanel';
@@ -1118,6 +1118,20 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     onChange(result);
   }, [onChange, content, bodyHasMetadata]);
 
+  // 38-06 (SHP-04): node shape change handler — the NodeStylePanel Shape
+  // row's delegate, gated like its sibling mutators and threaded per the
+  // existing codeUtils pattern (one updateNodeShape call per selected id,
+  // chaining the intermediate results).
+  const handleNodeShapeChange = useCallback((nodeIds: string[], shape: NodeShape) => {
+    if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
+    let result = content;
+    for (const id of nodeIds) {
+      result = updateNodeShape(result, id, shape);
+    }
+    onChange(result);
+  }, [onChange, content, bodyHasMetadata]);
+
   // Edge label change handler
   const handleEdgeLabelChange = useCallback((source: string, target: string, label: string) => {
     if (!onChange) return;
@@ -1709,9 +1723,11 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         <NodeStylePanel
           selectedNodeIds={Array.from(selectedNodeIds)}
           nodeStyles={Array.from(selectedNodeIds).map(id => panelStyles.get(id) ?? {})}
+          nodeShapes={Array.from(selectedNodeIds).map(id => parsedDiagram.nodes.find(n => n.id === id)?.shape ?? 'rect')}
           nodeLabels={panelLabels}
           onClose={() => setSelectedNodeIds(new Set())}
           onStyleChange={handleStyleChange}
+          onShapeChange={handleNodeShapeChange}
           onLabelChange={handleNodeLabelChange}
           onReset={handleResetStyles}
           nodeSubgraphIds={nodeSubgraphIds}

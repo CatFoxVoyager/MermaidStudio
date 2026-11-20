@@ -481,6 +481,7 @@
   "nodeStyle": {
     "nodes": "{{count}} Nodes",
     "label": "Label",
+    "shape": "Shape",
     "labelPlaceholder": "Node label...",
     "presets": "Presets",
     "fillColor": "Fill Color",

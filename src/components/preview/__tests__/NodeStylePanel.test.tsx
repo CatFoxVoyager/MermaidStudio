@@ -5,53 +5,74 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { NodeStylePanel } from '../NodeStylePanel';
-import type { NodeStyle } from '@/lib/mermaid/codeUtils';
+import type { NodeStyle, NodeShape } from '@/lib/mermaid/codeUtils';
 
-// Mock i18n
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, opts?: Record<string, string | number>) => {
-      const map: Record<string, string> = {
-        'nodeStyle.nodes': '{{count}} Nodes',
-        'nodeStyle.label': 'Label',
-        'nodeStyle.labelPlaceholder': 'Node label...',
-        'nodeStyle.confirmDelete': 'Tap again to delete',
-        'nodeStyle.presets': 'Presets',
-        'nodeStyle.fillColor': 'Fill Color',
-        'nodeStyle.borderColor': 'Border Color',
-        'nodeStyle.borderWidth': 'Border Width',
-        'nodeStyle.borderStyle': 'Border Style',
-        'nodeStyle.textColor': 'Text Color',
-        'nodeStyle.subgraph': 'Subgraph',
-        'nodeStyle.noneRoot': 'None (Root)',
-        'nodeStyle.advanced': 'Advanced',
-        'nodeStyle.fontWeight': 'Font Weight',
-        'nodeStyle.fontSize': 'Font Size',
-        'nodeStyle.borderRadiusX': 'Border Radius X',
-        'nodeStyle.borderRadiusY': 'Border Radius Y',
-        'nodeStyle.resetStyles': 'Reset Styles',
-        'nodeStyle.delete': 'Delete',
-        'nodeStyle.mixed': 'Mixed',
-        'nodeStyle.mix': 'Mix',
-        'nodeStyle.solid': 'Solid',
-        'nodeStyle.dashed': 'Dashed',
-        'nodeStyle.dotted': 'Dotted',
-        'nodeStyle.fontDefault': 'Default',
-        'nodeStyle.fontNormal': 'Normal',
-        'nodeStyle.fontBold': 'Bold',
-        'nodeStyle.fontLighter': 'Lighter',
-        'nodeStyle.fontBolder': 'Bolder',
-      };
-      let result = map[key] ?? key;
-      if (opts) {
-        Object.entries(opts).forEach(([k, v]) => {
-          result = result.replace(`{{${k}}}`, String(v));
-        });
-      }
-      return result;
-    },
-  }),
-}));
+// Mock i18n — 38-06: the shape-label surface derives from CANONICAL_SHAPES +
+// the REAL en.json copy (the 38-05 registry-derived mock pattern), since the
+// panel's Shape row resolves visual.shapes.<slug> through the same keys the
+// production toolbar/picker use.
+vi.mock('react-i18next', async () => {
+  const { CANONICAL_SHAPES } = await import('@/lib/mermaid/shapes');
+  const enMod = await import('../../../i18n/locales/en.json');
+  const en = (enMod.default ?? enMod) as {
+    visual: { shapes: Record<string, string>; shapeChangeHint: string };
+    nodeStyle: Record<string, string>;
+  };
+  const shapeLabels: Record<string, string> = Object.fromEntries(
+    CANONICAL_SHAPES.map((s) => [`visual.shapes.${s.shortName}`, en.visual.shapes[s.shortName] ?? s.shortName]),
+  );
+  return {
+    useTranslation: () => ({
+      t: (key: string, opts?: Record<string, string | number>) => {
+        const map: Record<string, string> = {
+          'nodeStyle.nodes': '{{count}} Nodes',
+          'nodeStyle.label': 'Label',
+          'nodeStyle.shape': 'Shape',
+          'nodeStyle.labelPlaceholder': 'Node label...',
+          'nodeStyle.confirmDelete': 'Tap again to delete',
+          'nodeStyle.presets': 'Presets',
+          'nodeStyle.fillColor': 'Fill Color',
+          'nodeStyle.borderColor': 'Border Color',
+          'nodeStyle.borderWidth': 'Border Width',
+          'nodeStyle.borderStyle': 'Border Style',
+          'nodeStyle.textColor': 'Text Color',
+          'nodeStyle.subgraph': 'Subgraph',
+          'nodeStyle.noneRoot': 'None (Root)',
+          'nodeStyle.advanced': 'Advanced',
+          'nodeStyle.fontWeight': 'Font Weight',
+          'nodeStyle.fontSize': 'Font Size',
+          'nodeStyle.borderRadiusX': 'Border Radius X',
+          'nodeStyle.borderRadiusY': 'Border Radius Y',
+          'nodeStyle.resetStyles': 'Reset Styles',
+          'nodeStyle.delete': 'Delete',
+          'nodeStyle.mixed': 'Mixed',
+          'nodeStyle.mix': 'Mix',
+          'nodeStyle.solid': 'Solid',
+          'nodeStyle.dashed': 'Dashed',
+          'nodeStyle.dotted': 'Dotted',
+          'nodeStyle.fontDefault': 'Default',
+          'nodeStyle.fontNormal': 'Normal',
+          'nodeStyle.fontBold': 'Bold',
+          'nodeStyle.fontLighter': 'Lighter',
+          'nodeStyle.fontBolder': 'Bolder',
+          'visual.shapeChangeHint': en.visual.shapeChangeHint,
+          'visual.shapeSearch': 'Search shapes…',
+          'visual.shapeSearchClear': 'Clear search',
+          'visual.shapeSearchEmpty': 'No matching shape',
+          'visual.shapeSearchEmptyHint': 'No shape matches “{{query}}”.',
+          ...shapeLabels,
+        };
+        let result = map[key] ?? key;
+        if (opts) {
+          Object.entries(opts).forEach(([k, v]) => {
+            result = result.replace(`{{${k}}}`, String(v));
+          });
+        }
+        return result;
+      },
+    }),
+  };
+});
 
 // Mock ColorPicker to avoid complex picker interactions
 vi.mock('@/components/visual/ColorPicker', () => ({
@@ -488,6 +509,102 @@ describe('NodeStylePanel Component', () => {
           expect.objectContaining({ fill: '#ff0000' })
         );
       });
+    });
+  });
+
+  // 38-06 (SHP-04): the Shape row — the unified ShapePicker mounted with
+  // shape-change parity with the visual editor's PropertiesPanel.
+  describe('Shape row (38-06 SHP-04)', () => {
+    const shapeProps = {
+      nodeShapes: ['rect', 'circle'] as NodeShape[],
+      onShapeChange: vi.fn(),
+    };
+
+    it('opens the picker and a pick fires onShapeChange once with (nodeIds, chosenShape), closing the picker', () => {
+      const onShapeChange = vi.fn();
+      const { container } = render(
+        <NodeStylePanel
+          {...defaultProps}
+          nodeShapes={['rect'] as NodeShape[]}
+          onShapeChange={onShapeChange}
+        />,
+      );
+
+      const trig = container.querySelector('button[data-shape-trigger]') as HTMLElement;
+      expect(trig).not.toBeNull();
+      expect(trig.textContent).toContain('Rectangle');
+      expect(trig.title).toBe('Set shape: Rectangle');
+
+      fireEvent.click(trig);
+      const root = container.querySelector('[data-shape-picker]') as HTMLElement;
+      expect(root).not.toBeNull();
+      expect(root.className).toContain('fixed');
+
+      fireEvent.click(root.querySelector('button[data-shape-cell="diam"]') as HTMLElement);
+      expect(onShapeChange).toHaveBeenCalledTimes(1);
+      expect(onShapeChange).toHaveBeenCalledWith(['A'], 'diam');
+      expect(container.querySelector('[data-shape-picker]')).toBeNull();
+    });
+
+    it('renders no Shape row when onShapeChange/nodeShapes are absent (backward compatible)', () => {
+      const { container } = render(<NodeStylePanel {...defaultProps} />);
+      expect(container.querySelector('button[data-shape-trigger]')).toBeNull();
+      expect(container.querySelector('[data-shape-picker]')).toBeNull();
+    });
+
+    it('mixed selection shows the Mixed label and a pick applies to the whole selection', () => {
+      const onShapeChange = vi.fn();
+      render(
+        <NodeStylePanel
+          {...defaultProps}
+          selectedNodeIds={['A', 'B']}
+          nodeStyles={[{ fill: '#fff' } as NodeStyle, { fill: '#000' } as NodeStyle]}
+          nodeShapes={['rect', 'circle'] as NodeShape[]}
+          onShapeChange={onShapeChange}
+        />,
+      );
+      const trig = screen.getByRole('button', { name: 'Set shape: Mixed' });
+      expect(trig.textContent).toContain('Mixed');
+      fireEvent.click(trig);
+      const root = document.querySelector('[data-shape-picker]') as HTMLElement;
+      expect(root.querySelector('button[data-shape-cell][data-selected="true"]')).toBeNull();
+      fireEvent.click(root.querySelector('button[data-shape-cell="diam"]') as HTMLElement);
+      expect(onShapeChange).toHaveBeenCalledTimes(1);
+      expect(onShapeChange).toHaveBeenCalledWith(['A', 'B'], 'diam');
+    });
+
+    it('label parity: the label row still fires onLabelChange', () => {
+      const onLabelChange = vi.fn();
+      render(
+        <NodeStylePanel
+          {...defaultProps}
+          onLabelChange={onLabelChange}
+        />,
+      );
+      const input = screen.getByPlaceholderText('Node label...');
+      fireEvent.change(input, { target: { value: 'Renamed' } });
+      expect(onLabelChange).toHaveBeenCalledWith('A', 'Renamed');
+    });
+
+    it('Escape closes the picker first and the panel only on a second press', () => {
+      const onClose = vi.fn();
+      const { container } = render(
+        <NodeStylePanel
+          {...defaultProps}
+          nodeShapes={['rect'] as NodeShape[]}
+          onShapeChange={vi.fn()}
+          onClose={onClose}
+        />,
+      );
+      fireEvent.click(container.querySelector('button[data-shape-trigger]') as HTMLElement);
+      expect(container.querySelector('[data-shape-picker]')).not.toBeNull();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(container.querySelector('[data-shape-picker]')).toBeNull();
+      expect(onClose).not.toHaveBeenCalled();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(onClose).toHaveBeenCalledTimes(1);
     });
   });
 });

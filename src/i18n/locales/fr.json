@@ -484,6 +484,7 @@
   "nodeStyle": {
     "nodes": "{{count}} Nœuds",
     "label": "Étiquette",
+    "shape": "Forme",
     "labelPlaceholder": "Étiquette du nœud...",
     "presets": "Presets",
     "fillColor": "Couleur de remplissage",
