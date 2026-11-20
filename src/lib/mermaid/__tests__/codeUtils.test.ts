@@ -52,8 +52,10 @@ describe('Mermaid Code Utilities', () => {
 
       expect(result.nodes).toHaveLength(3);
       expect(result.nodes[0].shape).toBe('rect');
-      expect(result.nodes[1].shape).toBe('round');
-      expect(result.nodes[2].shape).toBe('rhombus');
+      // 38-02: the parse side speaks canonical shortNames (round→rounded,
+      // rhombus→diam through the SHAPE_PATTERNS re-key).
+      expect(result.nodes[1].shape).toBe('rounded');
+      expect(result.nodes[2].shape).toBe('diam');
     });
 
     // Phase 26 (26-01): legacy triple-paren double-circle syntax — the
@@ -274,12 +276,16 @@ describe('Mermaid Code Utilities', () => {
       expect(node?.label).toBe('A');
     });
 
-    it('preserves an unknown shape key as a rect with the verbatim span', () => {
+    it('preserves an unknown shape key verbatim with authoredShape (38-02 deletes the rect fallback)', () => {
+      // Same test id and span kept so the history stays greppable: the
+      // pre-38-02 behavior silently mapped the unknown token to rect and
+      // discarded it; authoredShape preservation keeps it verbatim.
       const source = 'flowchart TD\nA@{ shape: "future-shape", label: "X" }';
       const result = parseDiagram(source);
 
       const node = result.nodes.find(n => n.id === 'A');
-      expect(node?.shape).toBe('rect');
+      expect(node?.shape).toBe('future-shape');
+      expect(node?.authoredShape).toBe('future-shape');
       expect(node?.label).toBe('X');
       expect(node?.directiveRaw).toBe('@{ shape: "future-shape", label: "X" }');
     });
@@ -1780,15 +1786,75 @@ describe('odd canonical shape (38-01 tracer)', () => {
     expect(node?.directiveRaw).toBe('@{ shape: "odd", label: "Gate" }');
   });
 
-  it('keeps the rect fallback for tokens outside the odd tracer scope (no plan-02 overreach)', () => {
-    // Null-resolving token (unknown key) — historical fallback unchanged.
+  it('preserves authored tokens instead of the rect fallback (plan-02 replaces the tracer fallback)', () => {
+    // Reversed in 38-02: the tracer contract kept the rect fallback for
+    // non-odd tokens "until plan 02 replaces the fallback with authoredShape
+    // preservation". Null-resolving tokens keep their spelling verbatim
+    // (shape is the authored sentinel); resolvable alias tokens resolve
+    // canonically while authoredShape preserves the authored token.
     const unknown = parseDiagram('flowchart TD\nA@{ shape: "future-shape", label: "X" }');
-    expect(unknown.nodes.find(n => n.id === 'A')?.shape).toBe('rect');
+    const u = unknown.nodes.find(n => n.id === 'A');
+    expect(u?.shape).toBe('future-shape');
+    expect(u?.authoredShape).toBe('future-shape');
 
-    // SSOT-resolvable-but-not-odd token ('card' → notch-rect): the tracer
-    // contract narrows to 'odd' ONLY — everything else stays rect until
-    // plan 02 replaces the fallback with authoredShape preservation.
     const alias = parseDiagram('flowchart TD\nA@{ shape: "card", label: "X" }');
-    expect(alias.nodes.find(n => n.id === 'A')?.shape).toBe('rect');
+    const a = alias.nodes.find(n => n.id === 'A');
+    expect(a?.shape).toBe('notch-rect');
+    expect(a?.authoredShape).toBe('card');
+  });
+});
+
+// ===== 38-02 Task 1 pins: canonical vocabulary — authoredShape preservation,
+// canonical emission through the shapeWrap choke point, CR-01 escape-order
+// guard across a shape change. (The full-domain round-trip battery is
+// Task 2.) =====
+describe('canonical codeUtils vocabulary (38-02 Task 1)', () => {
+  it('populates authoredShape for an alias token and leaves canonical tokens undefined', () => {
+    const alias = parseDiagram('flowchart TD\nA@{ shape: "card", label: "X" }');
+    const a = alias.nodes.find(n => n.id === 'A');
+    expect(a?.shape).toBe('notch-rect');
+    expect(a?.authoredShape).toBe('card');
+
+    const canonical = parseDiagram('flowchart TD\nA@{ shape: "rect", label: "X" }');
+    const r = canonical.nodes.find(n => n.id === 'A');
+    expect(r?.shape).toBe('rect');
+    expect(r?.authoredShape).toBeUndefined();
+  });
+
+  it('populates authoredShape for a legacy directive token while resolving the shape', () => {
+    const legacy = parseDiagram('flowchart TD\nA@{ shape: "asymmetric", label: "Gate" }');
+    const a = legacy.nodes.find(n => n.id === 'A');
+    expect(a?.shape).toBe('odd');
+    expect(a?.authoredShape).toBe('asymmetric');
+  });
+
+  it.each([
+    ['manual-file', 'flip-tri'],
+    ['manual-input', 'sl-rect'],
+    ['procs', 'st-rect'],
+    ['paper-tape', 'flag'],
+  ] as [NodeShape, string][])('emits the canonical key when re-shaping to alias member %s', (member, canonical) => {
+    const result = updateNodeShape('flowchart TD\nA[Box]', 'A', member);
+
+    expect(result).toBe(`flowchart TD\nA@{ shape: "${canonical}", label: "Box" }`);
+    expect(result).not.toContain(`shape: "${member}"`);
+  });
+
+  it('keeps an adversarial backslash+quote label byte-faithful through a shape change (CR-01 order)', () => {
+    // The label carries BOTH a backslash and a double quote — the CR-01
+    // escape order (backslash FIRST, then quotes) must keep the round-trip
+    // lossless across a shape change, which re-escapes on emission and
+    // re-unescapes on parse. A directive target keeps the escaped
+    // always-quoted writer on the path.
+    const source = 'flowchart TD\nA@{ shape: "rect", label: "C:\\\\path \\"q\\"", w: 80 }';
+    const changed = updateNodeShape(source, 'A', 'person');
+
+    expect(changed).toBe('flowchart TD\nA@{ shape: "person", label: "C:\\\\path \\"q\\"", w: 80 }');
+
+    const reparsed = parseDiagram(changed);
+    const node = reparsed.nodes.find(n => n.id === 'A');
+    expect(node?.shape).toBe('person');
+    expect(node?.label).toBe('C:\\path "q"');
+    expect(node?.unknownParams).toEqual(['w: 80']);
   });
 });

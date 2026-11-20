@@ -1,22 +1,37 @@
+// 38-02: canonical migration window — the union carries ALL 53 canonical
+// shortNames (the shapes.ts SSOT vocabulary) PLUS the 13 legacy delimiter
+// keys and the 4 legacy alias keys they replace. Legacy members stay until
+// plan 06 sheds them; every PARSE already resolves to canonical through
+// directiveShapeKey (toDirectiveShapeName), and every directive EMISSION
+// routes through the same choke point, so a legacy key never reaches an
+// emitted @{ shape: ... } span (mermaid 12 throws on round / rhombus /
+// parallelogram / parallelogram-alt / trapezoid-alt / asymmetric there —
+// probe-verified).
 export type NodeShape =
-  | 'rect' | 'round' | 'stadium' | 'subroutine' | 'cylinder'
-  | 'circle' | 'asymmetric' | 'rhombus' | 'hexagon' | 'parallelogram'
-  | 'parallelogram-alt' | 'trapezoid' | 'trapezoid-alt'
-  | 'doc' | 'docs' | 'dbl-circ' | 'cross-circ' | 'bow-rect'
-  | 'flip-tri' | 'curv-trap' | 'manual-file' | 'manual-input' | 'procs' | 'paper-tape'
+  // 53 canonical shortNames (dist declaration order).
+  | 'rect' | 'rounded' | 'stadium' | 'fr-rect' | 'cyl' | 'datastore' | 'folder'
+  | 'bucket' | 'console' | 'browser' | 'person' | 'circle' | 'bang' | 'cloud'
+  | 'diam' | 'hex' | 'lean-r' | 'lean-l' | 'trap-b' | 'trap-t' | 'dbl-circ'
+  | 'text' | 'notch-rect' | 'lin-rect' | 'sm-circ' | 'fr-circ' | 'fork'
+  | 'hourglass' | 'brace' | 'brace-r' | 'braces' | 'bolt' | 'doc' | 'delay'
+  | 'h-cyl' | 'lin-cyl' | 'curv-trap' | 'div-rect' | 'tri' | 'win-pane'
+  | 'f-circ' | 'notch-pent' | 'flip-tri' | 'sl-rect' | 'docs' | 'st-rect'
+  | 'bow-rect' | 'cross-circ' | 'tag-doc' | 'tag-rect' | 'flag' | 'odd'
+  | 'lin-doc'
+  // Legacy delimiter keys — bracket emissions keep them byte-identical
+  // until plan 06 deletes the members.
+  | 'round' | 'subroutine' | 'cylinder' | 'asymmetric' | 'rhombus' | 'hexagon'
+  | 'parallelogram' | 'parallelogram-alt' | 'trapezoid' | 'trapezoid-alt'
   // Phase 27: high-value directive shapes — mermaid 12 shape-registry keys
   // with no legacy delimiter form; the at-brace span is their only syntax.
-  | 'person' | 'delay' | 'sl-rect' | 'div-rect' | 'folder' | 'datastore'
-  | 'cloud' | 'browser' | 'bolt' | 'tri' | 'hourglass'
-  // 38-01: canonical migration window OPENS — canonical shortNames join the
-  // union progressively (plans 02/06) and legacy-only members shed in plan
-  // 06. 'odd' is the first: the asymmetric collision shape, resolved through
-  // the shapes.ts SSOT (toDirectiveShapeName) instead of a hand list.
-  | 'odd';
+  // (The canonical members of this row are listed above; these four are
+  // legacy alias tokens retained for the migration window — shapeWrap emits
+  // their canonical targets, never the alias literal.)
+  | 'manual-file' | 'manual-input' | 'procs' | 'paper-tape';
 
-// 38-01: codeUtils' first import. shapes.ts is core-free (PERF-01, locked in
-// bundlePerf PARSER_ONLY_FILES), so this stays parser-only.
-import { toDirectiveShapeName } from './shapes';
+// 38-01/38-02: codeUtils' first import. shapes.ts is core-free (PERF-01,
+// locked in bundlePerf PARSER_ONLY_FILES), so this stays parser-only.
+import { toDirectiveShapeName, CANONICAL_SHAPES, CANONICAL_SHORT_NAMES } from './shapes';
 
 export interface ParsedSubgraph {
   id: string;
@@ -35,6 +50,14 @@ export interface ParsedNode {
   directiveRaw?: string;
   /** Verbatim unknown key/value slices from the span, in original order. */
   unknownParams?: string[];
+  /**
+   * 38-02 (SHP-02): the verbatim user-authored shape token when it is not
+   * already a canonical shortName — alias tokens (card), legacy keys
+   * (asymmetric), and unresolvable tokens (RECT) keep their authored form
+   * here instead of being silently discarded into rect. Undefined for
+   * canonical tokens; populated by the directive parse paths only.
+   */
+  authoredShape?: string;
 }
 
 export interface IconConfig {
@@ -93,8 +116,17 @@ export interface ParsedDiagram {
 
 const SHAPE_PATTERNS: Array<{ shape: NodeShape; open: string; close: string; regex: RegExp }> = [
   { shape: 'stadium',        open: '([', close: '])',   regex: /^\(\[(.+?)\]\)$/ },
-  { shape: 'subroutine',     open: '[[', close: ']]',  regex: /^\[\[(.+?)\]\]$/ },
-  { shape: 'cylinder',       open: '[(', close: ')]',  regex: /^\[\((.+?)\)\]$/ },
+  // P7 (38-02): the quoted subroutine entry — the compact [[ "label" ]]
+  // double-bracket form, with a regex DISTINCT from the quoted rect entry it
+  // used to byte-duplicate (rect won first and this entry was unreachable).
+  // Placed ABOVE the plain fr-rect entry, which would otherwise match the
+  // quoted spelling first with the quote characters inside the label. The
+  // compact spelling is the mermaid-12 render-oracle truth: the spaced
+  // [[ "x" ]] / [( "x" )] forms are REJECTED by flow.jison (probe-verified,
+  // 38-02 — the plan's spaced prose described the shape loosely).
+  { shape: 'fr-rect',        open: '[["', close: '"]]', regex: /^\[\["(.+?)"\]\]$/ },
+  { shape: 'fr-rect',        open: '[[', close: ']]',  regex: /^\[\[(.+?)\]\]$/ },
+  { shape: 'cyl',            open: '[(', close: ')]',  regex: /^\[\((.+?)\)\]$/ },
   // Phase 26: double-circle legacy triple-paren wrap. Quoted variant FIRST
   // (so quote chars never leak into the label), and BOTH entries above the
   // circle entry below — circle's greedy two-paren regex otherwise steals
@@ -102,26 +134,37 @@ const SHAPE_PATTERNS: Array<{ shape: NodeShape; open: string; close: string; reg
   { shape: 'dbl-circ', open: '((("', close: '")))', regex: /^\(\(\("(.+?)"\)\)\)$/ },
   { shape: 'dbl-circ', open: '(((',  close: ')))',  regex: /^\(\(\((.+?)\)\)\)$/ },
   { shape: 'circle',         open: '((', close: '))',  regex: /^\(\((.+?)\)\)$/ },
-  { shape: 'hexagon',        open: '{{', close: '}}',  regex: /^\{\{(.+?)\}\}$/ },
-  { shape: 'rhombus',        open: '{',  close: '}',   regex: /^\{(.+?)\}$/ },
-  { shape: 'round',          open: '(',  close: ')',   regex: /^\((.+?)\)$/ },
-  { shape: 'asymmetric',     open: '>',  close: ']',   regex: /^>(.+?)\]$/ },
-  { shape: 'parallelogram',  open: '[/', close: '/]',  regex: /^\[\/(.+?)\/\]$/ },
-  { shape: 'parallelogram-alt', open: '[\\', close: '\\]', regex: /^\[\\(.+?)\\\]$/ },
-  { shape: 'trapezoid',      open: '[/', close: '\\]', regex: /^\[\/(.+?)\\\]$/ },
-  { shape: 'trapezoid-alt',  open: '[\\', close: '/]', regex: /^\[\\(.+?)\/\]$/ },
+  // 38-02 re-key: shape values are canonical shortNames — the parse side
+  // speaks the registry vocabulary (round→rounded, rhombus→diam,
+  // subroutine→fr-rect, cylinder→cyl, asymmetric→odd, parallelogram→lean-r,
+  // parallelogram-alt→lean-l, trapezoid→trap-b, trapezoid-alt→trap-t,
+  // hexagon→hex). Delimiters and regexes byte-unchanged.
+  { shape: 'hex',            open: '{{', close: '}}',  regex: /^\{\{(.+?)\}\}$/ },
+  { shape: 'diam',           open: '{',  close: '}',   regex: /^\{(.+?)\}$/ },
+  { shape: 'rounded',        open: '(',  close: ')',   regex: /^\((.+?)\)$/ },
+  { shape: 'odd',            open: '>',  close: ']',   regex: /^>(.+?)\]$/ },
+  { shape: 'lean-r',         open: '[/', close: '/]',  regex: /^\[\/(.+?)\/\]$/ },
+  { shape: 'lean-l',         open: '[\\', close: '\\]', regex: /^\[\\(.+?)\\\]$/ },
+  { shape: 'trap-b',         open: '[/', close: '\\]', regex: /^\[\/(.+?)\\\]$/ },
+  { shape: 'trap-t',         open: '[\\', close: '/]', regex: /^\[\\(.+?)\/\]$/ },
   { shape: 'rect',           open: '[',  close: ']',   regex: /^\[(.+?)\]$/ },
-  // Quoted variants (Mermaid v11: ["label"], ("label"), etc.)
+  // Quoted variants (Mermaid v11: ["label"], ("label"), etc.). P7 (38-02)
+  // metadata fixes: circle/cylinder open/close strings now match the forms
+  // their regexes actually match. (These entries sit behind their plain
+  // family regexes, so the plain family parses quoted spellings with the
+  // quote characters inside the label and re-emits them byte-identically.)
   { shape: 'rect',           open: '["', close: '"]',  regex: /^\["(.+?)"\]$/ },
-  { shape: 'round',          open: '("', close: '")',  regex: /^\("(.+?)"\)$/ },
+  { shape: 'rounded',        open: '("', close: '")',  regex: /^\("(.+?)"\)$/ },
   { shape: 'stadium',        open: '(["', close: '"])', regex: /^\(\["(.+?)"\]\)$/ },
-  { shape: 'subroutine',     open: '["', close: '"]',  regex: /^\["(.+?)"\]$/ },
-  { shape: 'rhombus',        open: '{"', close: '"}',  regex: /^\{"(.+?)"\}$/ },
-  { shape: 'hexagon',        open: '{{"', close: '"}}', regex: /^\{\{"(.+?)"\}\}$/ },
-  { shape: 'circle',         open: '("', close: '")',  regex: /^\(\("(.+?)"\)\)$/ },
-  { shape: 'cylinder',       open: '["', close: '")',  regex: /^\[\("(.+?)"\)\]$/ },
-  { shape: 'asymmetric',     open: '>"', close: '"]',  regex: /^>"(.+?)"\]$/ },
+  { shape: 'circle',         open: '(("', close: '"))', regex: /^\(\("(.+?)"\)\)$/ },
+  { shape: 'diam',           open: '{"', close: '"}',  regex: /^\{"(.+?)"\}$/ },
+  { shape: 'hex',            open: '{{"', close: '"}}', regex: /^\{\{"(.+?)"\}\}$/ },
+  { shape: 'cyl',            open: '[("', close: '")]', regex: /^\[\("(.+?)"\)\]$/ },
+  { shape: 'odd',            open: '>"', close: '"]',  regex: /^>"(.+?)"\]$/ },
 ];
+
+/** Canonical shapes carrying a SHAPE_PATTERNS bracket form (derived, not hand-listed). */
+const SHAPE_PATTERNS_KEYS: ReadonlySet<string> = new Set(SHAPE_PATTERNS.map(p => p.shape));
 
 const V11_SHAPES: NodeShape[] = [
   'doc', 'docs', 'dbl-circ', 'cross-circ', 'bow-rect',
@@ -136,43 +179,57 @@ const V11_SHAPES: NodeShape[] = [
 // typed data; parseDiagram routes spans here (the standalone branch and the
 // arrow branch's shape-raw captures).
 
-/** Every NodeShape union member — the known-shape set for directive tokens. */
-const ALL_NODE_SHAPES: NodeShape[] = [
-  'rect', 'round', 'stadium', 'subroutine', 'cylinder',
-  'circle', 'asymmetric', 'rhombus', 'hexagon', 'parallelogram',
-  'parallelogram-alt', 'trapezoid', 'trapezoid-alt',
-  'doc', 'docs', 'dbl-circ', 'cross-circ', 'bow-rect',
-  'flip-tri', 'curv-trap', 'manual-file', 'manual-input', 'procs', 'paper-tape',
-  'person', 'delay', 'sl-rect', 'div-rect', 'folder', 'datastore',
-  'cloud', 'browser', 'bolt', 'tri', 'hourglass',
-];
-
 /**
- * Map a directive shape token to the union. The shapes.ts SSOT resolution
- * runs FIRST for the one canonical member this task wires ('odd': the SSOT
- * maps the crashing legacy key `asymmetric` — still a union member, so it
- * would otherwise short-circuit the passthrough into a mermaid-12 parse
- * crash — to `odd`); legacy union members then pass through unchanged;
- * every OTHER unresolved token keeps the historical rect fallback for THIS
- * task only — plan 02 replaces the fallback with authoredShape
- * preservation; do not widen the canonicalization here.
+ * 38-02: every directive shape token resolves through the shapes.ts SSOT —
+ * canonical passthrough first, then the alias/legacy catalog (the SSOT runs
+ * FIRST: legacy union members would otherwise short-circuit into the
+ * mermaid-12 crash keys, the 38-01 lesson). A token the registry cannot
+ * resolve is returned VERBATIM as the sentinel shape: callers pair it with
+ * `authoredShape` so the authored token survives (rect remains only the
+ * render approximation, never the stored truth) — the historical all-rect
+ * fallback with token discard is deleted.
  */
 function directiveShapeKey(token: string): NodeShape {
-  if (toDirectiveShapeName(token) === 'odd') {
-    return 'odd';
-  }
-  if (ALL_NODE_SHAPES.includes(token as NodeShape)) {
-    return token as NodeShape;
-  }
-  return 'rect';
+  return toDirectiveShapeName(token) ?? (token as NodeShape);
 }
 
-/** Shapes whose writer emission is the directive wrap (dbl-circ is legacy now). */
+/**
+ * 38-02 (SHP-02): the verbatim authored token whenever it is not already a
+ * canonical shortName — aliases (card → notch-rect), legacy keys
+ * (asymmetric → odd), and unresolvable tokens (RECT) all differ from their
+ * resolution and are preserved; canonical tokens return undefined.
+ */
+function authoredShapeFor(token: string): string | undefined {
+  return CANONICAL_SHORT_NAMES.has(token) ? undefined : token;
+}
+
+/**
+ * 38-02: the emit key for a LABEL edit on an existing directive span.
+ * Canonical tokens pass through; mermaid-safe dist aliases (card, procs,
+ * subroutine — probe-verified to parse inside @{ shape: ... }) keep the
+ * authored token verbatim so authoredShape survives the edit; the net-new
+ * legacy keys (round, asymmetric et al., which crash mermaid 12 in a
+ * directive span) translate to their canonical targets and never enter an
+ * emitted span; unresolvable tokens keep their authored spelling rather
+ * than being silently re-cased or canonicalized.
+ */
+function emitKeyForLabelEdit(token: string): string {
+  const resolved = toDirectiveShapeName(token);
+  if (resolved === null || resolved === token) {return token;}
+  return CANONICAL_SHAPES.some(s => s.aliases.includes(token)) ? token : resolved;
+}
+
+/**
+ * Shapes whose directive-origin re-emission is the directive wrap — derived
+ * from the registry (38-02, not hand-listed): every canonical shape without
+ * a SHAPE_PATTERNS bracket form, plus `odd` (dual-form: the legacy `>`
+ * bracket family AND directive-authored spans) and the four migration-window
+ * alias members (which emit their canonical targets through shapeWrap).
+ */
 const DIRECTIVE_EMISSION_SHAPES: NodeShape[] = [
-  'doc', 'docs', 'cross-circ', 'bow-rect', 'flip-tri', 'curv-trap',
+  ...CANONICAL_SHAPES.map(s => s.shortName).filter(name => !SHAPE_PATTERNS_KEYS.has(name)),
+  'odd',
   'manual-file', 'manual-input', 'procs', 'paper-tape',
-  'person', 'delay', 'sl-rect', 'div-rect', 'folder', 'datastore',
-  'cloud', 'browser', 'bolt', 'tri', 'hourglass', 'odd',
 ];
 
 export interface ParsedAtDirective {
@@ -328,7 +385,7 @@ export function parseAtDirective(raw: string): ParsedAtDirective | null {
 function parseNodeRawDirective(
   raw: string,
   nodeId: string,
-): { label: string; shape: NodeShape; directiveRaw?: string; unknownParams?: string[] } {
+): { label: string; shape: NodeShape; directiveRaw?: string; unknownParams?: string[]; authoredShape?: string } {
   const trimmed = raw.trim();
   if (trimmed.startsWith('@{')) {
     // WR-04: the directive form attaches directly to its id (`A@{...}`) —
@@ -343,6 +400,7 @@ function parseNodeRawDirective(
         shape: directiveShapeKey(parsed.shape),
         directiveRaw: trimmed,
         unknownParams: parsed.unknownParams,
+        authoredShape: authoredShapeFor(parsed.shape),
       };
     }
   }
@@ -379,25 +437,26 @@ function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted:
     };
   }
 
-  // Check for empty brackets (e.g. [], (), {}, [[]], (()), etc.)
+  // Check for empty brackets (e.g. [], (), {}, [[]], (()), etc.) — 38-02:
+  // shape values re-keyed to canonical like SHAPE_PATTERNS above.
   const EMPTY_SHAPES: Array<{ shape: NodeShape; open: string; close: string }> = [
     { shape: 'stadium',        open: '([', close: '])' },
-    { shape: 'subroutine',     open: '[[', close: ']]' },
-    { shape: 'cylinder',       open: '[(', close: ')]' },
+    { shape: 'fr-rect',        open: '[[', close: ']]' },
+    { shape: 'cyl',            open: '[(', close: ')]' },
     // Phase 26 (WR-01): the dbl-circ writer emits `((()))` for an empty
     // label; without this reader the bare triple-paren form fell through to
     // the circle pattern and re-parsed as a circle labeled `()`. Positioned
     // above circle to mirror SHAPE_PATTERNS ordering.
     { shape: 'dbl-circ',       open: '(((', close: ')))' },
     { shape: 'circle',         open: '((', close: '))' },
-    { shape: 'hexagon',        open: '{{', close: '}}' },
-    { shape: 'rhombus',        open: '{',  close: '}' },
-    { shape: 'round',          open: '(',  close: ')' },
-    { shape: 'asymmetric',     open: '>',  close: ']' },
-    { shape: 'parallelogram',  open: '[/', close: '/]' },
-    { shape: 'parallelogram-alt', open: '[\\', close: '\\]' },
-    { shape: 'trapezoid',      open: '[/', close: '\\]' },
-    { shape: 'trapezoid-alt',  open: '[\\', close: '/]' },
+    { shape: 'hex',            open: '{{', close: '}}' },
+    { shape: 'diam',           open: '{',  close: '}' },
+    { shape: 'rounded',        open: '(',  close: ')' },
+    { shape: 'odd',            open: '>',  close: ']' },
+    { shape: 'lean-r',         open: '[/', close: '/]' },
+    { shape: 'lean-l',         open: '[\\', close: '\\]' },
+    { shape: 'trap-b',         open: '[/', close: '\\]' },
+    { shape: 'trap-t',         open: '[\\', close: '/]' },
     { shape: 'rect',           open: '[',  close: ']' },
   ];
   for (const es of EMPTY_SHAPES) {
@@ -464,14 +523,99 @@ function shapeWrap(label: string, shape: NodeShape, quoted = false, unknownParam
   const needsQuotes = quoted === false ? false : (quoted || /[^a-zA-Z0-9_-]/.test(label));
   const q = '"';
   const l = needsQuotes ? `${q}${label}${q}` : label;
+  // 38-02: the directive-emission choke point — every directiveWrap route
+  // resolves its shape key through toDirectiveShapeName FIRST, so an alias
+  // or legacy member (manual-file → flip-tri, manual-input → sl-rect,
+  // procs → st-rect, paper-tape → flag, …) emits its canonical shortName
+  // and a crash key can never enter an emitted span. Unresolvable keys
+  // (authored-sentinel shapes) emit verbatim rather than being rewritten.
+  const directive = (key: NodeShape): string =>
+    directiveWrap(toDirectiveShapeName(key) ?? key, label, unknownParams);
 
   switch (shape) {
+    // Canonical bracket families — the keys parseDiagram resolves since the
+    // 38-02 re-key. Delimiter emissions byte-identical to the legacy cases.
     case 'rect':            return `[${l}]`;
-    case 'round':           return `(${l})`;
+    case 'rounded':         return `(${l})`;
     case 'stadium':         return `([${l}])`;
+    case 'fr-rect':         return `[[${l}]]`;
+    case 'cyl':             return `[(${l})]`;
+    case 'circle':          return `((${l}))`;
+    case 'diam':            return `{${l}}`;
+    case 'hex':             return `{{${l}}}`;
+    // `odd` is dual-form: a directive-origin caller carries unknownParams
+    // (extras !== undefined) and re-emits the canonical directive span; a
+    // bracket-origin caller (the legacy `>` family) keeps the delimiters —
+    // the legacy family's byte-identity contract.
+    case 'odd':             return unknownParams !== undefined ? directive('odd') : `>${l}]`;
+    case 'lean-r':          return `[/${l}/]`;
+    case 'lean-l':          return `[\\${l}\\]`;
+    case 'trap-b':          return `[/${l}\\]`;
+    case 'trap-t':          return `[\\${l}/]`;
+    // v11 + Phase 27 directive shapes — all route through the choke point
+    // (escaped always-quoted emission, unknown params re-emitted verbatim
+    // after the label). Phase 27 (27-01): the raw-label interpolation the
+    // v11 cases carried before is gone — every directive-emitting case now
+    // escapes labels and carries extras through rename/shape-change.
+    case 'doc':             return directive('doc');
+    case 'docs':            return directive('docs');
+    // Phase 26: legacy triple-paren wrap (quote-aware label var, mirroring
+    // the circle case). An at-brace metadata emission here would flip the
+    // visual editor read-only via the D6 presence gate on the next autosave.
+    case 'dbl-circ':        return `(((${l})))`;
+    case 'cross-circ':      return directive('cross-circ');
+    case 'bow-rect':        return directive('bow-rect');
+    case 'flip-tri':        return directive('flip-tri');
+    case 'curv-trap':       return directive('curv-trap');
+    case 'div-rect':        return directive('div-rect');
+    case 'person':          return directive('person');
+    // Phase 27 (27-02): the remaining toolbar targets join person — same
+    // escaped always-quoted emission, unknown params re-emitted verbatim.
+    case 'delay':           return directive('delay');
+    case 'sl-rect':         return directive('sl-rect');
+    case 'folder':          return directive('folder');
+    case 'datastore':       return directive('datastore');
+    case 'cloud':           return directive('cloud');
+    case 'browser':         return directive('browser');
+    case 'bolt':            return directive('bolt');
+    case 'tri':             return directive('tri');
+    case 'hourglass':       return directive('hourglass');
+    // 38-02: the directive-only canonical shapes grown with the union —
+    // every case emits through the choke point.
+    case 'bucket':          return directive('bucket');
+    case 'console':         return directive('console');
+    case 'bang':            return directive('bang');
+    case 'text':            return directive('text');
+    case 'notch-rect':      return directive('notch-rect');
+    case 'lin-rect':        return directive('lin-rect');
+    case 'sm-circ':         return directive('sm-circ');
+    case 'fr-circ':         return directive('fr-circ');
+    case 'fork':            return directive('fork');
+    case 'brace':           return directive('brace');
+    case 'brace-r':         return directive('brace-r');
+    case 'braces':          return directive('braces');
+    case 'h-cyl':           return directive('h-cyl');
+    case 'lin-cyl':         return directive('lin-cyl');
+    case 'win-pane':        return directive('win-pane');
+    case 'f-circ':          return directive('f-circ');
+    case 'notch-pent':      return directive('notch-pent');
+    case 'tag-doc':         return directive('tag-doc');
+    case 'tag-rect':        return directive('tag-rect');
+    case 'st-rect':         return directive('st-rect');
+    case 'flag':            return directive('flag');
+    case 'lin-doc':         return directive('lin-doc');
+    // 38-02: migration-window alias members emit their canonical targets
+    // (flip-tri / sl-rect / st-rect / flag) — never the alias literal.
+    case 'manual-file':     return directive('manual-file');
+    case 'manual-input':    return directive('manual-input');
+    case 'procs':           return directive('procs');
+    case 'paper-tape':      return directive('paper-tape');
+    // Legacy delimiter keys — migration window: identical delimiter
+    // emissions to before the re-key (parse no longer produces these keys,
+    // but consumers may still pass them until plan 06 sheds the members).
+    case 'round':           return `(${l})`;
     case 'subroutine':      return `[[${l}]]`;
     case 'cylinder':        return `[(${l})]`;
-    case 'circle':          return `((${l}))`;
     case 'rhombus':         return `{${l}}`;
     case 'hexagon':         return `{{${l}}}`;
     case 'asymmetric':      return `>${l}]`;
@@ -479,42 +623,6 @@ function shapeWrap(label: string, shape: NodeShape, quoted = false, unknownParam
     case 'parallelogram-alt': return `[\\${l}\\]`;
     case 'trapezoid':       return `[/${l}\\]`;
     case 'trapezoid-alt':   return `[\\${l}/]`;
-    // v11 + Phase 27 directive shapes — all route through directiveWrap
-    // (escaped always-quoted emission, unknown params re-emitted verbatim
-    // after the label). Phase 27 (27-01): the raw-label interpolation the
-    // v11 cases carried before is gone — every directive-emitting case now
-    // escapes labels and carries extras through rename/shape-change.
-    case 'doc':             return directiveWrap('doc', label, unknownParams);
-    case 'docs':            return directiveWrap('docs', label, unknownParams);
-    // Phase 26: legacy triple-paren wrap (quote-aware label var, mirroring
-    // the circle case). An at-brace metadata emission here would flip the
-    // visual editor read-only via the D6 presence gate on the next autosave.
-    case 'dbl-circ':        return `(((${l})))`;
-    case 'cross-circ':      return directiveWrap('cross-circ', label, unknownParams);
-    case 'bow-rect':        return directiveWrap('bow-rect', label, unknownParams);
-    case 'flip-tri':        return directiveWrap('flip-tri', label, unknownParams);
-    case 'curv-trap':       return directiveWrap('curv-trap', label, unknownParams);
-    case 'manual-file':     return directiveWrap('manual-file', label, unknownParams);
-    case 'manual-input':    return directiveWrap('manual-input', label, unknownParams);
-    case 'procs':           return directiveWrap('procs', label, unknownParams);
-    case 'paper-tape':      return directiveWrap('paper-tape', label, unknownParams);
-    case 'person':          return directiveWrap('person', label, unknownParams);
-    // Phase 27 (27-02): the remaining toolbar targets join person — same
-    // escaped always-quoted emission, unknown params re-emitted verbatim.
-    case 'delay':           return directiveWrap('delay', label, unknownParams);
-    case 'sl-rect':         return directiveWrap('sl-rect', label, unknownParams);
-    case 'div-rect':        return directiveWrap('div-rect', label, unknownParams);
-    case 'folder':          return directiveWrap('folder', label, unknownParams);
-    case 'datastore':       return directiveWrap('datastore', label, unknownParams);
-    case 'cloud':           return directiveWrap('cloud', label, unknownParams);
-    case 'browser':         return directiveWrap('browser', label, unknownParams);
-    case 'bolt':            return directiveWrap('bolt', label, unknownParams);
-    case 'tri':             return directiveWrap('tri', label, unknownParams);
-    case 'hourglass':       return directiveWrap('hourglass', label, unknownParams);
-    // 38-01: canonical `odd` (the asymmetric banner) joins the directive
-    // emitters — the crashing legacy key `asymmetric` must never enter an
-    // emitted span (directiveShapeKey resolves it to 'odd' upstream).
-    case 'odd':             return directiveWrap('odd', label, unknownParams);
     default:                return `[${l}]`;
   }
 }
@@ -1288,6 +1396,7 @@ export function parseDiagram(source: string): ParsedDiagram {
             parentSubgraphId: parentId,
             directiveRaw: span,
             unknownParams: parsed.unknownParams,
+            authoredShape: authoredShapeFor(parsed.shape),
           });
         }
         continue;
@@ -1314,7 +1423,7 @@ export function parseDiagram(source: string): ParsedDiagram {
               raw: sourceShapeRaw,
               parentSubgraphId: parentId,
               ...(parsed.directiveRaw
-                ? { directiveRaw: parsed.directiveRaw, unknownParams: parsed.unknownParams }
+                ? { directiveRaw: parsed.directiveRaw, unknownParams: parsed.unknownParams, authoredShape: parsed.authoredShape }
                 : {}),
             });
           } else {
@@ -1358,6 +1467,7 @@ export function parseDiagram(source: string): ParsedDiagram {
               if (parsed.directiveRaw) {
                 existing.directiveRaw = parsed.directiveRaw;
                 existing.unknownParams = parsed.unknownParams;
+                existing.authoredShape = parsed.authoredShape;
               }
             }
           }
@@ -1472,7 +1582,10 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
       if (directiveMatch && directiveMatch[2] === nodeId) {
         const parsed = parseAtDirective(directiveMatch[3]);
         if (parsed) {
-          lines[i] = `${directiveMatch[1]}${nodeId}${directiveWrap(parsed.shape, newLabel, parsed.unknownParams)}`;
+          // 38-02: the emit key goes through the label-edit rule — canonical
+          // and mermaid-safe alias tokens keep the authored spelling
+          // (authoredShape survives), legacy crash keys translate.
+          lines[i] = `${directiveMatch[1]}${nodeId}${directiveWrap(emitKeyForLabelEdit(parsed.shape), newLabel, parsed.unknownParams)}`;
           return lines.join('\n');
         }
       }
@@ -1501,7 +1614,7 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
             // writer so the shape key and unknown params survive (P4).
             const srcDirective = srcRaw.startsWith('@{') ? parseAtDirective(srcRaw) : null;
             if (srcDirective) {
-              lines[i] = `${nodeId}${directiveWrap(srcDirective.shape, newLabel, srcDirective.unknownParams)}${srcEdgePrefix}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${tailParts.hopPrefix}${tailParts.tail}`;
+              lines[i] = `${nodeId}${directiveWrap(emitKeyForLabelEdit(srcDirective.shape), newLabel, srcDirective.unknownParams)}${srcEdgePrefix}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${tailParts.hopPrefix}${tailParts.tail}`;
               return lines.join('\n');
             }
             // Node has explicit shape
@@ -1537,7 +1650,7 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
             // Phase 27: directive target — same directive-writer rebuild.
             const tgtDirective = tgtRaw.startsWith('@{') ? parseAtDirective(tgtRaw) : null;
             if (tgtDirective) {
-              lines[i] = `${beforeTarget}${nodeId}${directiveWrap(tgtDirective.shape, newLabel, tgtDirective.unknownParams)}${tailParts.hopPrefix}${tailParts.tail}`;
+              lines[i] = `${beforeTarget}${nodeId}${directiveWrap(emitKeyForLabelEdit(tgtDirective.shape), newLabel, tgtDirective.unknownParams)}${tailParts.hopPrefix}${tailParts.tail}`;
               return lines.join('\n');
             }
             // Node has explicit shape
