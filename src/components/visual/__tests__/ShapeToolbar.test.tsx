@@ -42,6 +42,7 @@ vi.mock('react-i18next', () => ({
         'visual.shapes.trapezoidAlt': 'Trapezoid (mirrored)',
         'visual.shapes.subroutine': 'Subroutine',
         'visual.shapes.flag': 'Flag',
+        'visual.shapes.odd': 'Asymmetric',
         'visual.shapes.dblCirc': 'Double Circle',
         'visual.shapes.person': 'Person',
         'visual.shapes.delay': 'Delay',
@@ -146,7 +147,7 @@ describe('ShapeToolbar', () => {
     const ALL_LABELS = [
       'Box', 'Round', 'Stadium', 'Diamond', 'Circle', 'Hexagon', 'Cylinder',
       'Slant', 'Slant (mirrored)', 'Trapezoid', 'Trapezoid (mirrored)',
-      'Subroutine', 'Flag', 'Double Circle',
+      'Subroutine', 'Asymmetric', 'Double Circle',
       ...NEW_SHAPES.map(([, label]) => label),
     ];
 
@@ -197,10 +198,13 @@ describe('ShapeToolbar', () => {
       };
 
       // 27-RESEARCH Q6 named these pairs as the manual-check confusions;
-      // the structural half of that check is pinned here.
+      // the structural half of that check is pinned here. 38-01: the
+      // asymmetric banner entry is re-keyed to canonical `odd` (label
+      // Asymmetric) — the true flag shape has no toolbar entry yet, so the
+      // pair is asserted against the re-keyed entry.
       expect(markup('Sloped rect')).not.toBe(markup('Slant'));
       expect(markup('Data store')).not.toBe(markup('Cylinder'));
-      expect(markup('Triangle')).not.toBe(markup('Flag'));
+      expect(markup('Triangle')).not.toBe(markup('Asymmetric'));
     });
   });
 });

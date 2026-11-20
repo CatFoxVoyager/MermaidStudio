@@ -38,6 +38,11 @@ function ShapePreview({ shape }: { shape: NodeShape }) {
     case 'bolt':          return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="15,2 5,11 11,11 9,18 23,7 15,7" {...props} /></svg>;
     case 'tri':           return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="14,3 25,17 3,17" {...props} /></svg>;
     case 'hourglass':     return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="4,3 24,3 14,10" {...props} /><polygon points="4,17 24,17 14,10" {...props} /></svg>;
+    // 38-01: canonical odd (the asymmetric banner) — mermaid's
+    // rect_left_inv_arrow: a right-angle rectangle whose LEFT edge carries a
+    // concave triangular notch (corners protrude, mid indents inward).
+    // Pairwise-distinct from every other case (uniqueness sweep enforces).
+    case 'odd':           return <svg width="28" height="20" viewBox="0 0 28 20"><polygon points="5.5,3 2,10 5.5,17 26,17 26,3" {...props} /></svg>;
     case 'doc':           return <svg width="28" height="20" viewBox="0 0 28 20"><path d="M4 3 H24 V14 C22 16 20 12 17.5 13.5 C15 15 13 12 10.5 13.5 C8 15 6 13 4 14.5 Z" {...props} /></svg>;
     default:              return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="2" {...props} /></svg>;
   }
@@ -75,7 +80,10 @@ const SHAPES: { shape: NodeShape; labelKey: string }[] = [
   { shape: 'trapezoid',     labelKey: 'visual.shapes.trapezoid' },
   { shape: 'trapezoid-alt', labelKey: 'visual.shapes.trapezoidAlt' },
   { shape: 'subroutine',    labelKey: 'visual.shapes.subroutine' },
-  { shape: 'asymmetric',    labelKey: 'visual.shapes.flag' },
+  // 38-01: the collision entry re-keyed — the asymmetric banner is canonical
+  // `odd` with its own label (visual.shapes.odd); the true flag shape keeps
+  // visual.shapes.flag (full 53-key re-key lands in plan 04/05).
+  { shape: 'odd',           labelKey: 'visual.shapes.odd' },
   { shape: 'dbl-circ',      labelKey: 'visual.shapes.dblCirc' },
   { shape: 'person',        labelKey: 'visual.shapes.person' },
   { shape: 'delay',         labelKey: 'visual.shapes.delay' },
