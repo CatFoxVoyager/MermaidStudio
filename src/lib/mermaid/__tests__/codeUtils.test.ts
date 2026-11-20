@@ -33,7 +33,7 @@ import {
 } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
 import type { NodeShape } from '../codeUtils';
-import { CANONICAL_SHAPES, ALIAS_TO_CANONICAL } from '../shapes';
+import { CANONICAL_SHAPES, CANONICAL_SHORT_NAMES, ALIAS_TO_CANONICAL } from '../shapes';
 
 describe('Mermaid Code Utilities', () => {
   describe('parseDiagram', () => {
@@ -761,7 +761,9 @@ describe('Mermaid Code Utilities', () => {
   describe('updateNodeShape', () => {
     it('should update node shape', () => {
       const source = 'flowchart TD\nA[Label]';
-      const result = updateNodeShape(source, 'A', 'round');
+      // 38-06: 'round' left the union with the migration window — the same
+      // bracket emission now flows through the canonical 'rounded' case.
+      const result = updateNodeShape(source, 'A', 'rounded');
 
       expect(result).toContain('A(Label)');
     });
@@ -815,13 +817,16 @@ describe('Mermaid Code Utilities', () => {
       expect(result).toBe(source);
     });
 
-    // The deliberate drop: unknown params cannot be represented in legacy
-    // syntax, so converting to a legacy shape loses them (pinned contract).
-    // The label stays quoted — the directive context always quotes, and the
-    // quoted legacy form round-trips labels containing special characters.
-    it('drops unknown params when converting a directive node to a legacy shape', () => {
+    // The deliberate drop: unknown params cannot be represented in bracket
+    // syntax, so converting to a bracket-family shape loses them (pinned
+    // contract). The label stays quoted — the directive context always
+    // quotes, and the quoted bracket form round-trips labels containing
+    // special characters.
+    it('drops unknown params when converting a directive node to a bracket shape', () => {
       const source = 'flowchart TD\nA@{ shape: "doc", label: "D", w: 100 }';
-      const result = updateNodeShape(source, 'A', 'round');
+      // 38-06: 'round' left the union — the canonical 'rounded' twin emits
+      // the byte-identical parens.
+      const result = updateNodeShape(source, 'A', 'rounded');
 
       expect(result).toBe('flowchart TD\nA("D")');
       expect(result).not.toContain('w: 100');
@@ -860,7 +865,8 @@ describe('Mermaid Code Utilities', () => {
 
     it('should add node with custom shape', () => {
       const source = 'flowchart TD\nA-->B';
-      const result = addNode(source, 'C', 'Node C', 'round');
+      // 38-06: canonical 'rounded' (the 'round' member left the union).
+      const result = addNode(source, 'C', 'Node C', 'rounded');
 
       expect(result).toContain('C(Node C)');
     });
@@ -1829,16 +1835,25 @@ describe('canonical codeUtils vocabulary (38-02 Task 1)', () => {
     expect(a?.authoredShape).toBe('asymmetric');
   });
 
+  // 38-06: the window closed — alias tokens are no longer mutator inputs.
+  // The alias → canonical-target knowledge now lives at the parse layer
+  // (directiveShapeKey through the registry); these pins re-home the 38-02
+  // alias-member sweep there, authoredShape carrying the authored token.
   it.each([
     ['manual-file', 'flip-tri'],
     ['manual-input', 'sl-rect'],
     ['procs', 'st-rect'],
     ['paper-tape', 'flag'],
-  ] as [NodeShape, string][])('emits the canonical key when re-shaping to alias member %s', (member, canonical) => {
-    const result = updateNodeShape('flowchart TD\nA[Box]', 'A', member);
+  ] as [string, string][])('parses alias token %s to canonical %s with authoredShape preserved', (member, canonical) => {
+    const source = `flowchart TD\nA@{ shape: "${member}", label: "Box" }`;
+    const node = parseDiagram(source).nodes.find(n => n.id === 'A');
+    expect(node?.shape).toBe(canonical);
+    expect(node?.authoredShape).toBe(member);
 
-    expect(result).toBe(`flowchart TD\nA@{ shape: "${canonical}", label: "Box" }`);
-    expect(result).not.toContain(`shape: "${member}"`);
+    // Re-emission through the mutator never carries the alias literal.
+    const reshaped = updateNodeShape(source, 'A', canonical as NodeShape);
+    expect(reshaped).toBe(`flowchart TD\nA@{ shape: "${canonical}", label: "Box" }`);
+    expect(reshaped).not.toContain(`shape: "${member}"`);
   });
 
   it('keeps an adversarial backslash+quote label byte-faithful through a shape change (CR-01 order)', () => {
@@ -2241,5 +2256,73 @@ describe('ghost-node cascade delete (38-03 Task 1)', () => {
     expect(bodyHasUnparsedAtDirective(wellFormed)).toBe(false);
     const malformed = 'flowchart TD\nA@{ shape: rect, label: "A" } --> B@{ shape: doc, label: "B"';
     expect(bodyHasUnparsedAtDirective(malformed)).toBe(true);
+  });
+
+  // ===== 38-06: the plan-02 migration window CLOSES here =====
+  describe('38-06 window close: union === registry 53', () => {
+    // Compile-time exhaustiveness: Record<NodeShape, true> fails to compile
+    // if the union gains or loses a member relative to these keys, so the
+    // union and this record can never drift. The runtime assertion below
+    // then pins the record's keys to the registry — union ≡ record ≡ 53.
+    const UNION_MEMBERS: Record<NodeShape, true> = {
+      rect: true, rounded: true, stadium: true, 'fr-rect': true, cyl: true,
+      datastore: true, folder: true, bucket: true, console: true, browser: true,
+      person: true, circle: true, bang: true, cloud: true, diam: true, hex: true,
+      'lean-r': true, 'lean-l': true, 'trap-b': true, 'trap-t': true,
+      'dbl-circ': true, text: true, 'notch-rect': true, 'lin-rect': true,
+      'sm-circ': true, 'fr-circ': true, fork: true, hourglass: true, brace: true,
+      'brace-r': true, braces: true, bolt: true, doc: true, delay: true,
+      'h-cyl': true, 'lin-cyl': true, 'curv-trap': true, 'div-rect': true,
+      tri: true, 'win-pane': true, 'f-circ': true, 'notch-pent': true,
+      'flip-tri': true, 'sl-rect': true, docs: true, 'st-rect': true,
+      'bow-rect': true, 'cross-circ': true, 'tag-doc': true, 'tag-rect': true,
+      flag: true, odd: true, 'lin-doc': true,
+    };
+
+    it('the NodeShape union is exactly the registry 53 canonical shortNames (no legacy member remains)', () => {
+      const members = Object.keys(UNION_MEMBERS);
+      expect(members).toHaveLength(53);
+      expect(new Set(members)).toEqual(new Set(CANONICAL_SHORT_NAMES));
+      // The deleted legacy keys are absent from the type vocabulary (the
+      // Record above IS the union) and their registry alias entries still
+      // resolve — legacy tokens survive only as lookup inputs.
+      for (const legacy of ['round', 'rhombus', 'hexagon', 'parallelogram', 'parallelogram-alt',
+        'trapezoid', 'trapezoid-alt', 'asymmetric', 'subroutine', 'cylinder',
+        'manual-file', 'manual-input', 'procs', 'paper-tape']) {
+        expect(Object.hasOwn(UNION_MEMBERS, legacy)).toBe(false);
+        expect(ALIAS_TO_CANONICAL.has(legacy)).toBe(true);
+      }
+    });
+
+    it('every re-keyed bracket family emits the byte-identical delimiters its deleted legacy case carried, and re-parses to the canonical key', () => {
+      // [shape, open, close] — the exact delimiters the legacy cases (round,
+      // subroutine, cylinder, rhombus, hexagon, asymmetric, parallelogram,
+      // parallelogram-alt, trapezoid, trapezoid-alt) emitted before the
+      // window closed; the canonical twins keep them byte-for-byte.
+      const families: Array<[NodeShape, string, string]> = [
+        ['rounded', '(', ')'],
+        ['fr-rect', '[[', ']]'],
+        ['cyl', '[(', ')]'],
+        ['diam', '{', '}'],
+        ['hex', '{{', '}}'],
+        ['odd', '>', ']'],
+        ['lean-r', '[/', '/]'],
+        ['lean-l', '[\\', '\\]'],
+        ['trap-b', '[/', '\\]'],
+        ['trap-t', '[\\', '/]'],
+      ];
+      for (const [shape, open, close] of families) {
+        const emitted = updateNodeShape('flowchart TD\nA[Box]', 'A', shape);
+        expect(emitted).toBe(`flowchart TD\nA${open}Box${close}`);
+        const reparsed = parseDiagram(emitted);
+        const node = reparsed.nodes.find(n => n.id === 'A');
+        expect(node?.shape).toBe(shape);
+        expect(node?.label).toBe('Box');
+      }
+      // dbl-circ keeps its legacy triple-paren emission (Phase 26 contract).
+      const dbl = updateNodeShape('flowchart TD\nA[Box]', 'A', 'dbl-circ');
+      expect(dbl).toBe('flowchart TD\nA(((Box)))');
+      expect(parseDiagram(dbl).nodes.find(n => n.id === 'A')?.shape).toBe('dbl-circ');
+    });
   });
 });

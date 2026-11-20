@@ -1,14 +1,15 @@
-// 38-02: canonical migration window — the union carries ALL 53 canonical
-// shortNames (the shapes.ts SSOT vocabulary) PLUS the 13 legacy delimiter
-// keys and the 4 legacy alias keys they replace. Legacy members stay until
-// plan 06 sheds them; every PARSE already resolves to canonical through
+// 38-06: the plan-02 migration window is CLOSED — the union is EXACTLY the
+// 53 canonical shortNames (the shapes.ts SSOT vocabulary, in dist
+// declaration order). The 14 legacy members (10 delimiter keys + 4 alias
+// keys) are deleted; every PARSE resolves to canonical through
 // directiveShapeKey (toDirectiveShapeName), and every directive EMISSION
 // routes through the same choke point, so a legacy key never reaches an
 // emitted @{ shape: ... } span (mermaid 12 throws on round / rhombus /
 // parallelogram / parallelogram-alt / trapezoid-alt / asymmetric there —
-// probe-verified).
+// probe-verified). Legacy keys survive only as registry lookup inputs
+// (ALIAS_TO_CANONICAL) and authoredShape string values. The
+// codeUtils.test.ts correspondence pin asserts union === registry 53.
 export type NodeShape =
-  // 53 canonical shortNames (dist declaration order).
   | 'rect' | 'rounded' | 'stadium' | 'fr-rect' | 'cyl' | 'datastore' | 'folder'
   | 'bucket' | 'console' | 'browser' | 'person' | 'circle' | 'bang' | 'cloud'
   | 'diam' | 'hex' | 'lean-r' | 'lean-l' | 'trap-b' | 'trap-t' | 'dbl-circ'
@@ -17,17 +18,7 @@ export type NodeShape =
   | 'h-cyl' | 'lin-cyl' | 'curv-trap' | 'div-rect' | 'tri' | 'win-pane'
   | 'f-circ' | 'notch-pent' | 'flip-tri' | 'sl-rect' | 'docs' | 'st-rect'
   | 'bow-rect' | 'cross-circ' | 'tag-doc' | 'tag-rect' | 'flag' | 'odd'
-  | 'lin-doc'
-  // Legacy delimiter keys — bracket emissions keep them byte-identical
-  // until plan 06 deletes the members.
-  | 'round' | 'subroutine' | 'cylinder' | 'asymmetric' | 'rhombus' | 'hexagon'
-  | 'parallelogram' | 'parallelogram-alt' | 'trapezoid' | 'trapezoid-alt'
-  // Phase 27: high-value directive shapes — mermaid 12 shape-registry keys
-  // with no legacy delimiter form; the at-brace span is their only syntax.
-  // (The canonical members of this row are listed above; these four are
-  // legacy alias tokens retained for the migration window — shapeWrap emits
-  // their canonical targets, never the alias literal.)
-  | 'manual-file' | 'manual-input' | 'procs' | 'paper-tape';
+  | 'lin-doc';
 
 // 38-01/38-02: codeUtils' first import. shapes.ts is core-free (PERF-01,
 // locked in bundlePerf PARSER_ONLY_FILES), so this stays parser-only.
@@ -182,12 +173,20 @@ const SHAPE_PATTERNS: Array<{ shape: NodeShape; open: string; close: string; reg
 /** Canonical shapes carrying a SHAPE_PATTERNS bracket form (derived, not hand-listed). */
 const SHAPE_PATTERNS_KEYS: ReadonlySet<string> = new Set(SHAPE_PATTERNS.map(p => p.shape));
 
-const V11_SHAPES: NodeShape[] = [
+// 38-06: the v11 @{...} allowlist, re-expressed as a closed-union subset.
+// The four legacy alias members (manual-file, manual-input, procs,
+// paper-tape) left with the migration window: on the directive path their
+// tokens resolve through directiveShapeKey before any membership matters
+// (manual-file → flip-tri, manual-input → sl-rect, procs → st-rect,
+// paper-tape → flag), so only canonical keys can ever be stored on a node.
+// Every member is pinned as a registry subset by the codeUtils.test.ts
+// correspondence battery (union === registry 53 ⊇ this set).
+const V11_SHAPES: ReadonlySet<NodeShape> = new Set<NodeShape>([
   'doc', 'docs', 'dbl-circ', 'cross-circ', 'bow-rect',
-  'flip-tri', 'curv-trap', 'manual-file', 'manual-input', 'procs', 'paper-tape',
+  'flip-tri', 'curv-trap',
   'person', 'delay', 'sl-rect', 'div-rect', 'folder', 'datastore',
   'cloud', 'browser', 'bolt', 'tri', 'hourglass',
-];
+]);
 
 // ===== Phase 27: at-brace directive parser =====
 // The `id@{ shape: "key", label: "..." }` metadata form is the only syntax
@@ -239,13 +238,13 @@ function emitKeyForLabelEdit(token: string): string {
  * Shapes whose directive-origin re-emission is the directive wrap — derived
  * from the registry (38-02, not hand-listed): every canonical shape without
  * a SHAPE_PATTERNS bracket form, plus `odd` (dual-form: the legacy `>`
- * bracket family AND directive-authored spans) and the four migration-window
- * alias members (which emit their canonical targets through shapeWrap).
+ * bracket family AND directive-authored spans). The four migration-window
+ * alias members left with the window close (38-06) — their tokens resolve
+ * to their canonical targets through the SSOT before this table matters.
  */
 const DIRECTIVE_EMISSION_SHAPES: NodeShape[] = [
   ...CANONICAL_SHAPES.map(s => s.shortName).filter(name => !SHAPE_PATTERNS_KEYS.has(name)),
   'odd',
-  'manual-file', 'manual-input', 'procs', 'paper-tape',
 ];
 
 export interface ParsedAtDirective {
@@ -431,7 +430,7 @@ function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted:
   if (v11Match) {
     const shapeName = v11Match[1];
     const label = v11Match[2] ?? shapeName;
-    if (V11_SHAPES.includes(shapeName as NodeShape)) {
+    if (V11_SHAPES.has(shapeName as NodeShape)) {
       return { label, shape: shapeName as NodeShape, quoted: true };
     }
   }
@@ -496,7 +495,7 @@ function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted:
       if (innerV11) {
         const shapeName = innerV11[1];
         const v11Label = innerV11[2] ?? shapeName;
-        if (V11_SHAPES.includes(shapeName as NodeShape)) {
+        if (V11_SHAPES.has(shapeName as NodeShape)) {
           return { label: v11Label, shape: shapeName as NodeShape, quoted: true };
         }
       }
@@ -622,23 +621,10 @@ function shapeWrap(label: string, shape: NodeShape, quoted = false, unknownParam
     case 'lin-doc':         return directive('lin-doc');
     // 38-02: migration-window alias members emit their canonical targets
     // (flip-tri / sl-rect / st-rect / flag) — never the alias literal.
-    case 'manual-file':     return directive('manual-file');
-    case 'manual-input':    return directive('manual-input');
-    case 'procs':           return directive('procs');
-    case 'paper-tape':      return directive('paper-tape');
-    // Legacy delimiter keys — migration window: identical delimiter
-    // emissions to before the re-key (parse no longer produces these keys,
-    // but consumers may still pass them until plan 06 sheds the members).
-    case 'round':           return `(${l})`;
-    case 'subroutine':      return `[[${l}]]`;
-    case 'cylinder':        return `[(${l})]`;
-    case 'rhombus':         return `{${l}}`;
-    case 'hexagon':         return `{{${l}}}`;
-    case 'asymmetric':      return `>${l}]`;
-    case 'parallelogram':   return `[/${l}/]`;
-    case 'parallelogram-alt': return `[\\${l}\\]`;
-    case 'trapezoid':       return `[/${l}\\]`;
-    case 'trapezoid-alt':   return `[\\${l}/]`;
+    // 38-06: the migration-window alias cases (manual-file, manual-input,
+    // procs, paper-tape) left with the union — their canonical targets
+    // (flip-tri, sl-rect, st-rect, flag) carry the identical directive()
+    // emissions above, and the union no longer admits the alias keys.
     default:                return `[${l}]`;
   }
 }
