@@ -1,33 +1,18 @@
-import { useState, useLayoutEffect } from 'react';
+import { useState, useLayoutEffect, useRef } from 'react';
 import { Settings2, ChevronDown, Zap } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ColorPicker } from './ColorPicker';
+// 38-06 (SHP-04): the flat hardcoded-EN 23-option <select> is replaced by the
+// unified ShapePicker (SSOT-derived 53 shapes, searchable, categorized). The
+// trigger opens it as a FIXED-position popover anchored to the trigger's
+// viewport rect — the panel's 220px overflow-hidden container
+// (VisualEditorCanvas.tsx:884-885) would clip an absolutely-positioned
+// dropdown, but cannot clip a fixed host.
+import { ShapePicker } from '@/components/shared/ShapePicker';
+import type { ShapePickerAnchor } from '@/components/shared/ShapePicker';
+import { ShapePreview } from '@/components/shared/ShapePreview';
+import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
 import type { NodeShape, NodeStyle, VisualNode, VisualEdge } from './types';
-
-const SHAPE_OPTIONS: { value: NodeShape; label: string }[] = [
-  { value: 'rect',          label: 'Rectangle' },
-  { value: 'round',         label: 'Rounded' },
-  { value: 'stadium',       label: 'Stadium' },
-  { value: 'subroutine',    label: 'Subroutine' },
-  { value: 'cylinder',      label: 'Cylinder' },
-  { value: 'circle',        label: 'Circle' },
-  { value: 'rhombus',       label: 'Diamond' },
-  { value: 'hexagon',       label: 'Hexagon' },
-  { value: 'asymmetric',    label: 'Asymmetric' },
-  { value: 'parallelogram', label: 'Parallelogram' },
-  { value: 'dbl-circ',      label: 'Double circle' },
-  { value: 'person',        label: 'Person' },
-  { value: 'delay',         label: 'Delay' },
-  { value: 'sl-rect',       label: 'Sloped rect' },
-  { value: 'div-rect',      label: 'Divided rect' },
-  { value: 'folder',        label: 'Folder' },
-  { value: 'datastore',     label: 'Data store' },
-  { value: 'cloud',         label: 'Cloud' },
-  { value: 'browser',       label: 'Browser' },
-  { value: 'bolt',          label: 'Bolt' },
-  { value: 'tri',           label: 'Triangle' },
-  { value: 'hourglass',     label: 'Hourglass' },
-  { value: 'doc',           label: 'Document' },
-];
 
 const ARROW_OPTIONS = [
   { value: '-->',   label: 'Arrow (-->)' },
@@ -56,8 +41,12 @@ interface NodePanelProps {
 }
 
 function NodePanel({ nodes, onLabelChange, onShapeChange, onStyleChange }: NodePanelProps) {
+  const { t } = useTranslation();
   const single = nodes.length === 1 ? nodes[0] : null;
   const [label, setLabel] = useState(single?.label ?? '');
+  const [shapeOpen, setShapeOpen] = useState(false);
+  const [shapeAnchor, setShapeAnchor] = useState<ShapePickerAnchor | null>(null);
+  const shapeBtnRef = useRef<HTMLButtonElement>(null);
 
   // Sync label when single node changes
   useLayoutEffect(() => { setLabel(single?.label ?? ''); }, [single?.id, single?.label]);
@@ -72,6 +61,30 @@ function NodePanel({ nodes, onLabelChange, onShapeChange, onStyleChange }: NodeP
   const sharedShape: NodeShape | 'mixed' = nodes.length === 1
     ? nodes[0].shape
     : (nodes.every(n => n.shape === nodes[0].shape) ? nodes[0].shape : 'mixed' as const);
+  // 38-06: labels come only from i18n keys — the shape label from the
+  // canonical slug key, the multi-select mixed state from nodeStyle.mixed
+  // (the "Mixed shapes" hardcoded-EN select option it replaces).
+  const shapeLabel = sharedShape === 'mixed' ? t('nodeStyle.mixed') : t(`visual.shapes.${sharedShape}`);
+
+  // Fixed-position anchor recipe (Surface 1, ShapeToolbar): measure the
+  // trigger's viewport rect at open time; the popover is position:fixed, so
+  // the 220px overflow-hidden panel container cannot clip it.
+  const toggleShapePicker = () => {
+    if (!shapeOpen && shapeBtnRef.current) {
+      const r = shapeBtnRef.current.getBoundingClientRect();
+      setShapeAnchor({
+        right: window.innerWidth - r.right,
+        top: r.bottom + 8,
+        maxHeight: window.innerHeight - r.bottom - 24,
+      });
+    }
+    setShapeOpen(v => !v);
+  };
+
+  const closeShapePicker = () => {
+    setShapeOpen(false);
+    setShapeAnchor(null);
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -92,22 +105,38 @@ function NodePanel({ nodes, onLabelChange, onShapeChange, onStyleChange }: NodeP
 
       <div className="flex flex-col gap-1">
         <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Shape</span>
-        <div className="relative">
-          <select
-            value={sharedShape === 'mixed' ? '' : sharedShape}
-            onChange={e => {
-              const s = e.target.value as NodeShape;
-              nodes.forEach(n => onShapeChange(n.id, s));
+        <button
+          ref={shapeBtnRef}
+          type="button"
+          data-shape-trigger
+          onClick={toggleShapePicker}
+          title={t('visual.shapeChangeHint', { shape: shapeLabel })}
+          aria-label={t('visual.shapeChangeHint', { shape: shapeLabel })}
+          className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs ${FOCUS_RING_CLASSES}`}
+          style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)', outline: 'none' }}>
+          <span className="shrink-0 flex items-center">
+            {/* Mixed state carries the neutral rect preview (the old
+                "Mixed shapes" select-option precedent, carried to the
+                trigger). */}
+            <ShapePreview shape={sharedShape === 'mixed' ? 'rect' : sharedShape} />
+          </span>
+          <span className="truncate">{shapeLabel}</span>
+          <ChevronDown size={11} className="ml-auto shrink-0 pointer-events-none" style={{ color: 'var(--text-tertiary)' }} />
+        </button>
+        {shapeOpen && shapeAnchor && (
+          <ShapePicker
+            anchor={shapeAnchor}
+            onClose={closeShapePicker}
+            onPick={(shape) => {
+              // Mixed multi-select: apply the chosen shape to every selected
+              // node (the old select's onChange.forEach idiom, unchanged).
+              nodes.forEach(n => onShapeChange(n.id, shape));
+              closeShapePicker();
             }}
-            className="w-full px-2.5 py-1.5 rounded-md border text-xs appearance-none pr-8"
-            style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)', outline: 'none' }}>
-            {sharedShape === 'mixed' && <option value="">Mixed shapes</option>}
-            {SHAPE_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-tertiary)' }} />
-        </div>
+            selected={sharedShape === 'mixed' ? null : sharedShape}
+            triggerRef={shapeBtnRef}
+          />
+        )}
       </div>
 
       <ColorPicker label="Fill Color" value={sharedStyle.fill ?? ''} onChange={v => handleStyleField('fill', v)} />
