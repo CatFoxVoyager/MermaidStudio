@@ -1,7 +1,8 @@
 /**
  * SVG post-processing utilities for fixing Mermaid rendering issues.
  */
-import { parseDiagram, type ParsedDiagram } from '@/lib/mermaid/codeUtils';
+import type { ParsedDiagram } from '@/lib/mermaid/codeUtils';
+import { buildSvgToParsedEdgeMap } from './svgEdgeMatching';
 
 /** Subset of ParsedDiagram needed to drive the post-processing pipeline. */
 export type ParsedDiagramStyles = Pick<ParsedDiagram, 'styles' | 'linkStyles' | 'edges'>;
@@ -443,12 +444,9 @@ function fixDiagramLabelsInDoc(doc: Document, source: string): boolean {
 
   // Scale and color arrowhead markers
   const markers = doc.querySelectorAll('marker');
-  const arrowheadMarkers = new Map<string, SVGMarkerElement>();
+  const markerMap = new Map<string, SVGMarkerElement>();
   markers.forEach(marker => {
-    const id = marker.id;
-    if (id.includes('arrowhead') || id.includes('head')) {
-      arrowheadMarkers.set(id, marker as SVGMarkerElement);
-    }
+    markerMap.set(marker.id, marker as SVGMarkerElement);
 
     // Ensure markers are visible even if content exceeds viewport (Mermaid sequence diagram bug)
     marker.setAttribute('overflow', 'visible');
@@ -480,37 +478,14 @@ function fixDiagramLabelsInDoc(doc: Document, source: string): boolean {
   // Expanded selector to include sequence diagram message lines
   doc
     .querySelectorAll('.edgePaths path, .messageLine0, .messageLine1, .messageLine')
-    .forEach((path, idx) => {
+    .forEach(path => {
       const stroke = (path as SVGPathElement).style.stroke || path.getAttribute('stroke');
       if (!stroke || stroke === 'none') return;
-
-      const markerEnd = path.getAttribute('marker-end');
-      if (markerEnd) {
-        const markerIdMatch = markerEnd.match(/url\(#([^)]+)\)/);
-        if (markerIdMatch) {
-          const originalMarkerId = markerIdMatch[1];
-          const originalMarker = arrowheadMarkers.get(originalMarkerId);
-
-          if (originalMarker) {
-            // Create a unique marker for this color if it doesn't exist
-            const cleanStroke = stroke.replace('#', '');
-            const newMarkerId = `${originalMarkerId}-${cleanStroke}`;
-
-            if (!doc.getElementById(newMarkerId)) {
-              const newMarker = originalMarker.cloneNode(true) as SVGMarkerElement;
-              newMarker.id = newMarkerId;
-              const pathInMarker = newMarker.querySelector('path');
-              if (pathInMarker) {
-                pathInMarker.setAttribute('fill', stroke);
-                pathInMarker.style.fill = stroke;
-              }
-              defs.appendChild(newMarker);
-            }
-
-            path.setAttribute('marker-end', `url(#${newMarkerId})`);
-            changed = true;
-          }
-        }
+      if (syncMarkerColorForAttr(doc, defs, markerMap, path, 'marker-end', stroke)) {
+        changed = true;
+      }
+      if (syncMarkerColorForAttr(doc, defs, markerMap, path, 'marker-start', stroke)) {
+        changed = true;
       }
     });
 
@@ -518,146 +493,76 @@ function fixDiagramLabelsInDoc(doc: Document, source: string): boolean {
 }
 
 /**
- * Build a mapping from SVG edge-path index to parsed-edge index.
- * Uses edge label text as the primary matching signal (reliable even when
- * Mermaid reorders edges in the SVG), falling back to geometric matching
- * (path endpoints vs node positions) for edges with identical/empty labels.
- * Enforces one-to-one mapping so the Map inversion in applyEdgeFontStyles
- * never silently overwrites entries.
+ * Clone a marker with a color-specific ID and apply `stroke` to its shape elements
+ * (supporting flowchart pointEnd/crossEnd/circleEnd as well as sequence arrowheads).
+ * Returns true if the attribute was updated.
  */
-function buildSvgToParsedEdgeMap(
+function syncMarkerColorForAttr(
   doc: Document,
-  parsedEdges: Array<{ source: string; target: string; label?: string }>
-): Map<number, number> {
-  const svg = doc.querySelector('svg');
-  if (!svg) return new Map();
+  defs: Element,
+  markerMap: Map<string, SVGMarkerElement>,
+  path: Element,
+  attrName: 'marker-end' | 'marker-start',
+  stroke: string
+): boolean {
+  const markerRef = path.getAttribute(attrName);
+  if (!markerRef) return false;
+  const markerIdMatch = markerRef.match(/url\(#([^)]+)\)/);
+  if (!markerIdMatch) return false;
 
-  // Collect node positions from their transforms
-  // Store both full ID and simple ID (extracted from flowchart-{ID}-{NUM} pattern)
-  const nodePositions = new Map<string, { x: number; y: number }>();
-  svg.querySelectorAll('.node').forEach(nodeEl => {
-    const transform = nodeEl.getAttribute('transform');
-    const nodeId = nodeEl.getAttribute('id') || nodeEl.getAttribute('data-id');
-    if (transform && nodeId) {
-      const match = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
-      if (match) {
-        const pos = { x: parseFloat(match[1]), y: parseFloat(match[2]) };
-        nodePositions.set(nodeId, pos);
+  const currentMarkerId = markerIdMatch[1];
+  const safeStroke = stroke.replace('#', '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  if (!safeStroke || currentMarkerId.endsWith(`-${safeStroke}`)) return false;
 
-        // Also store under simple ID extracted from the full ID
-        // Pattern: ...flowchart-{SIMPLE_ID}-{NUM}
-        const simpleIdMatch = nodeId.match(/flowchart-([A-Za-z0-9_-]+)-\d+$/);
-        if (simpleIdMatch) {
-          const simpleId = simpleIdMatch[1];
-          nodePositions.set(simpleId, pos);
-        }
+  const currentMarker = markerMap.get(currentMarkerId) ?? doc.getElementById(currentMarkerId);
+  if (!currentMarker || currentMarker.tagName.toLowerCase() !== 'marker') return false;
+
+  const baseMarkerId = currentMarker.getAttribute('data-base-marker') || currentMarkerId;
+  const baseMarker = markerMap.get(baseMarkerId) ?? (currentMarker as SVGMarkerElement);
+  const newMarkerId = `${baseMarkerId}-${safeStroke}`;
+
+  if (!doc.getElementById(newMarkerId)) {
+    const newMarker = baseMarker.cloneNode(true) as SVGMarkerElement;
+    newMarker.id = newMarkerId;
+    newMarker.setAttribute('data-base-marker', baseMarkerId);
+    newMarker.querySelectorAll('path, circle, polygon').forEach(shapeEl => {
+      const s = shapeEl as SVGElement;
+      if (s.getAttribute('fill') !== 'none' && s.style.fill !== 'none') {
+        s.setAttribute('fill', stroke);
+        s.style.fill = stroke;
       }
-    }
-  });
-
-  // Extract text content from SVG edge labels (same order as edgePaths)
-  const edgeLabelsContainer = svg.querySelector('g.edgeLabels');
-  const svgLabelTexts: string[] = [];
-  if (edgeLabelsContainer) {
-    Array.from(edgeLabelsContainer.children).forEach(label => {
-      const textEl = label.querySelector('text');
-      svgLabelTexts.push(textEl?.textContent?.trim() ?? '');
+      if (s.getAttribute('stroke') !== 'none' && s.style.stroke !== 'none') {
+        s.setAttribute('stroke', stroke);
+        s.style.stroke = stroke;
+      }
     });
+    defs.appendChild(newMarker);
+    markerMap.set(newMarkerId, newMarker);
   }
 
-  const edgePaths = svg.querySelectorAll('.edgePaths path.flowchart-link');
-  const map = new Map<number, number>();
-  const matchedParsed = new Set<number>();
-
-  edgePaths.forEach((path, svgIndex) => {
-    const svgLabel = svgLabelTexts[svgIndex] ?? '';
-    const d = path.getAttribute('d');
-    const moveMatch = d?.match(/M\s+([-\d.]+)\s+([-\d.]+)/);
-    const endMatch = d?.match(/([-\d.]+)\s+([-\d.]+)$/);
-    const hasPathData = moveMatch && endMatch;
-
-    // Phase 1: exact label text match among unmatched parsed edges
-    const textCandidates: number[] = [];
-    for (let i = 0; i < parsedEdges.length; i++) {
-      if (matchedParsed.has(i)) continue;
-      if ((parsedEdges[i].label?.trim() ?? '') === svgLabel) {
-        textCandidates.push(i);
-      }
-    }
-
-    if (textCandidates.length === 1) {
-      map.set(svgIndex, textCandidates[0]);
-      matchedParsed.add(textCandidates[0]);
-      return;
-    }
-
-    // Phase 2: geometric matching among candidates
-    // If multiple text-matched candidates exist, disambiguate among them;
-    // otherwise fall back to all unmatched parsed edges.
-    const geoCandidates =
-      textCandidates.length > 1
-        ? textCandidates
-        : parsedEdges.map((_, i) => i).filter(i => !matchedParsed.has(i));
-
-    if (!hasPathData) {
-      if (geoCandidates.length > 0) {
-        map.set(svgIndex, geoCandidates[0]);
-        matchedParsed.add(geoCandidates[0]);
-      }
-      return;
-    }
-
-    const pathStart = { x: parseFloat(moveMatch![1]), y: parseFloat(moveMatch![2]) };
-    const pathEnd = { x: parseFloat(endMatch![1]), y: parseFloat(endMatch![2]) };
-
-    let bestMatch = -1;
-    let bestDistance = Infinity;
-
-    for (const parsedIdx of geoCandidates) {
-      const edge = parsedEdges[parsedIdx];
-      const sourcePos = nodePositions.get(edge.source);
-      const targetPos = nodePositions.get(edge.target);
-      if (!sourcePos || !targetPos) continue;
-
-      const forward =
-        Math.hypot(pathStart.x - sourcePos.x, pathStart.y - sourcePos.y) +
-        Math.hypot(pathEnd.x - targetPos.x, pathEnd.y - targetPos.y);
-      const reverse =
-        Math.hypot(pathStart.x - targetPos.x, pathStart.y - targetPos.y) +
-        Math.hypot(pathEnd.x - sourcePos.x, pathEnd.y - sourcePos.y);
-      const minDist = Math.min(forward, reverse);
-
-      if (minDist < bestDistance && minDist < 50) {
-        bestDistance = minDist;
-        bestMatch = parsedIdx;
-      }
-    }
-
-    if (bestMatch !== -1) {
-      map.set(svgIndex, bestMatch);
-      matchedParsed.add(bestMatch);
-    } else {
-      // Fallback: assign first unmatched parsed index
-      const unmatched = parsedEdges.findIndex((_, i) => !matchedParsed.has(i));
-      if (unmatched !== -1) {
-        map.set(svgIndex, unmatched);
-        matchedParsed.add(unmatched);
-      }
-    }
-  });
-
-  return map;
+  path.setAttribute(attrName, `url(#${newMarkerId})`);
+  return true;
 }
 
 /**
- * Apply per-edge style overrides (font, stroke, arrowheads) directly to SVG elements.
- * Uses geometric matching to reliably map linkStyle indices to SVG paths and labels.
+ * Apply per-edge style overrides (font, stroke, color, arrowheads) directly to SVG elements.
+ * Uses label, identity, and geometric matching to reliably map linkStyle indices to SVG paths and labels.
  */
 export function applyEdgeFontStyles(
   svgString: string,
   linkStyles: Map<
     number | 'default',
-    { fontSize?: string; fontWeight?: string; stroke?: string; fill?: string; fillOpacity?: string }
+    {
+      fontSize?: string;
+      fontWeight?: string;
+      stroke?: string;
+      strokeWidth?: string;
+      strokeDasharray?: string;
+      opacity?: string;
+      color?: string;
+      fill?: string;
+      fillOpacity?: string;
+    }
   >,
   parsedEdges?: Array<{ source: string; target: string; label?: string }>
 ): string {
@@ -675,7 +580,17 @@ function applyEdgeFontStylesInDoc(
   doc: Document,
   linkStyles: Map<
     number | 'default',
-    { fontSize?: string; fontWeight?: string; stroke?: string; fill?: string; fillOpacity?: string }
+    {
+      fontSize?: string;
+      fontWeight?: string;
+      stroke?: string;
+      strokeWidth?: string;
+      strokeDasharray?: string;
+      opacity?: string;
+      color?: string;
+      fill?: string;
+      fillOpacity?: string;
+    }
   >,
   parsedEdges?: Array<{ source: string; target: string; label?: string }>
 ): void {
@@ -690,18 +605,38 @@ function applyEdgeFontStylesInDoc(
     )
   );
   const labelChildren = edgeLabelsContainer ? Array.from(edgeLabelsContainer.children) : [];
+  const labelByDataId = new Map<string, Element>();
+  labelChildren.forEach(child => {
+    const dataId =
+      child.getAttribute('data-id') || child.querySelector('[data-id]')?.getAttribute('data-id');
+    if (dataId && !labelByDataId.has(dataId)) {
+      labelByDataId.set(dataId, child);
+    }
+  });
 
-  // Collect all arrowhead markers
+  // Collect all markers in defs so flowchart pointEnd/crossEnd/circleEnd and sequence arrowheads all sync
   const defs =
     svg.querySelector('defs') || doc.createElementNS('http://www.w3.org/2000/svg', 'defs');
   if (!svg.querySelector('defs')) svg.insertBefore(defs, svg.firstChild);
 
-  const arrowheadMarkers = new Map<string, SVGMarkerElement>();
+  const markerMap = new Map<string, SVGMarkerElement>();
   doc.querySelectorAll('marker').forEach(marker => {
-    if (marker.id.includes('arrowhead')) {
-      arrowheadMarkers.set(marker.id, marker as SVGMarkerElement);
-    }
+    markerMap.set(marker.id, marker as SVGMarkerElement);
   });
+
+  const resolveLabelForEdge = (svgPathIdx: number, path?: Element): Element | undefined => {
+    const pathId = path?.getAttribute('id') || '';
+    if (pathId) {
+      const direct = labelByDataId.get(pathId);
+      if (direct) return direct;
+      const suffixMatch = pathId.match(/(?:^|-)(L_[^\s]+)$/);
+      if (suffixMatch) {
+        const bySuffix = labelByDataId.get(suffixMatch[1]);
+        if (bySuffix) return bySuffix;
+      }
+    }
+    return svgPathIdx < labelChildren.length ? labelChildren[svgPathIdx] : undefined;
+  };
 
   const applyToEdge = (
     svgPathIdx: number,
@@ -709,51 +644,50 @@ function applyEdgeFontStylesInDoc(
       fontSize?: string;
       fontWeight?: string;
       stroke?: string;
+      strokeWidth?: string;
+      strokeDasharray?: string;
+      opacity?: string;
+      color?: string;
       fill?: string;
       fillOpacity?: string;
     }
   ) => {
-    // 1. Apply to Path (Stroke & Arrowhead)
+    // 1. Apply to Path (Stroke, Width, Dasharray, Opacity & Arrowheads)
     const path = edgePaths[svgPathIdx];
     if (path instanceof SVGElement) {
+      const tagName = path.nodeName.toLowerCase();
+      const isLineOrPath = tagName === 'path' || tagName === 'line';
       if (style.stroke) {
         path.setAttribute('stroke', style.stroke);
-        const tagName = path.nodeName.toLowerCase();
-        if (tagName === 'path' || tagName === 'line') {
+        if (isLineOrPath) {
           (path as any).style.stroke = style.stroke;
         }
-
-        // Sync Arrowhead color
-        const markerEnd = path.getAttribute('marker-end');
-        if (markerEnd) {
-          const markerIdMatch = markerEnd.match(/url\(#([^)]+)\)/);
-          if (markerIdMatch) {
-            const originalMarkerId = markerIdMatch[1];
-            const originalMarker = arrowheadMarkers.get(originalMarkerId);
-            if (originalMarker) {
-              const cleanStroke = style.stroke.replace('#', '');
-              const newMarkerId = `${originalMarkerId}-${cleanStroke}`;
-              if (!doc.getElementById(newMarkerId)) {
-                const newMarker = originalMarker.cloneNode(true) as SVGMarkerElement;
-                newMarker.id = newMarkerId;
-                const pathInMarker = newMarker.querySelector('path');
-                if (pathInMarker) {
-                  pathInMarker.setAttribute('fill', style.stroke);
-                  pathInMarker.style.fill = style.stroke;
-                }
-                defs.appendChild(newMarker);
-              }
-              path.setAttribute('marker-end', `url(#${newMarkerId})`);
-            }
-          }
+        syncMarkerColorForAttr(doc, defs, markerMap, path, 'marker-end', style.stroke);
+        syncMarkerColorForAttr(doc, defs, markerMap, path, 'marker-start', style.stroke);
+      }
+      if (style.strokeWidth) {
+        path.setAttribute('stroke-width', style.strokeWidth);
+        if (isLineOrPath) {
+          (path as any).style.strokeWidth = style.strokeWidth;
+        }
+      }
+      if (style.strokeDasharray) {
+        path.setAttribute('stroke-dasharray', style.strokeDasharray);
+        if (isLineOrPath) {
+          (path as any).style.strokeDasharray = style.strokeDasharray;
+        }
+      }
+      if (style.opacity) {
+        path.setAttribute('opacity', style.opacity);
+        if (isLineOrPath) {
+          (path as any).style.opacity = style.opacity;
         }
       }
     }
 
-    // 2. Apply to Label (Font, Background, Opacity)
-    if (svgPathIdx < labelChildren.length) {
-      const label = labelChildren[svgPathIdx];
-
+    // 2. Apply to Label (Font, Color, Background, Opacity)
+    const label = resolveLabelForEdge(svgPathIdx, path);
+    if (label) {
       // Find the background rect - in Mermaid 11.x, it may be a sibling of the label group,
       // not nested inside it. Check the label itself first, then adjacent children.
       let rectEl =
@@ -771,6 +705,18 @@ function applyEdgeFontStylesInDoc(
             nextSibling.querySelector('rect') ||
             (nextSibling instanceof SVGRectElement ? nextSibling : null);
         }
+      }
+
+      // Text color (supports both Mermaid 11/12 foreignObject labels and legacy SVG text)
+      if (style.color) {
+        const svgText = label.querySelector('text');
+        if (svgText) {
+          svgText.setAttribute('fill', style.color);
+          (svgText as SVGTextElement).style.fill = style.color;
+        }
+        label.querySelectorAll('foreignObject div, foreignObject span, foreignObject p').forEach(el => {
+          (el as HTMLElement).style.setProperty('color', style.color!, 'important');
+        });
       }
 
       // Font styles
@@ -885,7 +831,7 @@ function applyEdgeFontStylesInDoc(
 
   // Map SVG indices to parsed indices for precise individual styling
   if (parsedEdges && parsedEdges.length > 0) {
-    const svgToParsed = buildSvgToParsedEdgeMap(doc, parsedEdges);
+    const svgToParsed = buildSvgToParsedEdgeMap(svg, parsedEdges, edgePaths);
     const parsedToSvg = new Map<number, number>();
     svgToParsed.forEach((parsedIdx, svgIdx) => parsedToSvg.set(parsedIdx, svgIdx));
 
@@ -919,12 +865,15 @@ function applyEdgeFontStylesInDoc(
       // Also try style attribute if it exists
       const currentStyle = path.getAttribute('style') || '';
       if (currentStyle) {
-        const newStyle =
-          currentStyle
-            .replace(/fill\s*:\s*[^;]+;?/g, '')
-            .replace(/fill-opacity\s*:\s*[^;]+;?/g, '') +
-          'fill: none !important; fill-opacity: 0 !important;';
-        path.setAttribute('style', newStyle);
+        const cleaned = currentStyle
+          .replace(/fill\s*:\s*[^;]+;?/g, '')
+          .replace(/fill-opacity\s*:\s*[^;]+;?/g, '')
+          .trimEnd();
+        const sep = cleaned && !cleaned.endsWith(';') ? '; ' : cleaned ? ' ' : '';
+        path.setAttribute(
+          'style',
+          `${cleaned}${sep}fill: none !important; fill-opacity: 0 !important;`
+        );
       }
     }
   });

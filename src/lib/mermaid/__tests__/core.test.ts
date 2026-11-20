@@ -606,3 +606,43 @@ describe('usecase type adoption (DIA-02, mermaid 12 usecase-beta)', { timeout: 3
     }
   });
 });
+
+describe('renderDiagram edge label color preservation with linkStyle', { timeout: 30000 }, () => {
+  const GETBBOX_JSDOM_LIMITATION = /\bgetBBox\b[^\n]*\bnot a function\b/;
+
+  it('preserves explicit linkStyle color while still contrasting unstyled labels against edgeLabelBackground', async () => {
+    const content = `---
+config:
+  theme: base
+  themeVariables:
+    edgeLabelBackground: "#111111"
+---
+flowchart TB
+  A[Start] ---|Styled| B[Mid]
+  B ---|Unstyled| C[End]
+linkStyle 0 stroke:#996500,color:#c99732,stroke-width:1.8px;`;
+    const id = 'edge_label_color_preserve';
+    const { svg, error } = await renderDiagram(content, id);
+    try {
+      if (error && !GETBBOX_JSDOM_LIMITATION.test(error)) {
+        throw new Error(`Unexpected render error: ${error}`);
+      }
+      expect(svg).not.toBe('');
+      const doc = new DOMParser().parseFromString(svg, 'text/html');
+      const labels = Array.from(doc.querySelectorAll('.edgeLabel'));
+      const styledLabel = labels.find(l => l.textContent?.includes('Styled'));
+      const unstyledLabel = labels.find(l => l.textContent?.includes('Unstyled'));
+      expect(styledLabel).toBeDefined();
+      expect(unstyledLabel).toBeDefined();
+      // Styled label must keep Mermaid's color:#c99732 (not forced to #ffffff)
+      const styledSpan = styledLabel!.querySelector('span, p') as HTMLElement | null;
+      expect(styledSpan?.style.color).not.toBe('rgb(255, 255, 255)');
+      // Unstyled label gets #ffffff contrast against #111111 background
+      const unstyledSpan = unstyledLabel!.querySelector('span, p') as HTMLElement | null;
+      expect(unstyledSpan?.style.color).toBe('rgb(255, 255, 255)');
+    } finally {
+      document.getElementById(id)?.remove();
+      document.getElementById(`d${id}`)?.remove();
+    }
+  });
+});

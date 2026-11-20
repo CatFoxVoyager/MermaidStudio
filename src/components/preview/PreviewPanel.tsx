@@ -8,6 +8,7 @@ import { extractThemeIdFromContent } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
 import { sanitizeCssValue } from '@/utils/sanitization';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
+import { buildSvgToParsedEdgeMap } from '@/utils/svgEdgeMatching';
 import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape, PresetType, PresetColors } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
@@ -61,7 +62,7 @@ function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElem
 
   nodeElements.forEach(el => {
     const idAttr = el.id ?? '';
-    const flowchartMatch = idAttr.match(/flowchart-([^-]+)-\d+/);
+    const flowchartMatch = idAttr.match(/flowchart-([A-Za-z0-9_-]+)-\d+$/);
     const nodeId = flowchartMatch ? flowchartMatch[1] : null;
     if (!nodeId || seen.has(nodeId)) {return;}
     seen.add(nodeId);
@@ -144,39 +145,6 @@ function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTM
   return overlays;
 }
 
-// Node ids in rendered SVGs carry the render-cache prefix
-// ("preview_2_1789…_flowchart-A-0") while parsed edges keep the bare id ("A").
-// Key node maps by the bare id, like extractSvgNodes and the visual editor's
-// extractSvgEdges do — matching on the raw id never hits and everything fell
-// back to index order.
-function collectNodeCenters(svg: Element): Map<string, { x: number; y: number }> {
-  const nodePositions = new Map<string, { x: number; y: number }>();
-  svg.querySelectorAll('.node').forEach((nodeEl) => {
-    const transform = nodeEl.getAttribute('transform');
-    const idAttr = nodeEl.getAttribute('id') || nodeEl.getAttribute('data-id') || '';
-    const idMatch = idAttr.match(/flowchart-([^-]+)-\d+/);
-    if (transform && idMatch) {
-      const tMatch = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
-      if (tMatch) {
-        nodePositions.set(idMatch[1], { x: parseFloat(tMatch[1]), y: parseFloat(tMatch[2]) });
-      }
-    }
-  });
-  return nodePositions;
-}
-
-// Tolerant numeric tokenization of path data — Mermaid writes coordinates
-// comma-separated ("M185,56L185,174"), which the previous space-anchored
-// regexes never matched.
-function extractPathEndpoints(d: string): { start: { x: number; y: number }; end: { x: number; y: number } } | null {
-  const coords = d.match(/-?\d*\.?\d+(?:[eE][-+]?\d+)?/g);
-  if (!coords || coords.length < 4) return null;
-  return {
-    start: { x: parseFloat(coords[0]), y: parseFloat(coords[1]) },
-    end: { x: parseFloat(coords[coords.length - 2]), y: parseFloat(coords[coords.length - 1]) },
-  };
-}
-
 function addEdgeClickTargets(
   shadowHost: HTMLDivElement,
   containerEl: HTMLDivElement,
@@ -190,64 +158,10 @@ function addEdgeClickTargets(
   const svg = shadowRoot.querySelector('svg');
   if (!svg) return () => {};
 
-  const edgePaths = svg.querySelectorAll('.edgePaths path.flowchart-link');
+  const edgePaths = Array.from(svg.querySelectorAll('.edgePaths path.flowchart-link'));
   if (edgePaths.length === 0) return () => {};
 
-  // Create a mapping from SVG path index to parsed edge index by matching source/target
-  const svgToParsedIndex = new Map<number, number>();
-
-  // Get node positions from SVG for matching
-  const nodePositions = collectNodeCenters(svg);
-
-  // For each SVG edge path, find the matching parsed edge by checking path endpoints
-  edgePaths.forEach((path, svgIndex) => {
-    const d = path.getAttribute('d');
-    if (!d) return;
-
-    const endpoints = extractPathEndpoints(d);
-    if (!endpoints) {
-      // Fallback: use SVG order if we can't parse path
-      svgToParsedIndex.set(svgIndex, Math.min(svgIndex, parsedEdges.length - 1));
-      return;
-    }
-
-    const { start: pathStart, end: pathEnd } = endpoints;
-
-    // Find the closest matching parsed edge by checking node positions
-    let bestMatch = -1;
-    let bestDistance = Infinity;
-
-    for (let i = 0; i < parsedEdges.length; i++) {
-      const edge = parsedEdges[i];
-      const sourcePos = nodePositions.get(edge.source);
-      const targetPos = nodePositions.get(edge.target);
-
-      if (!sourcePos || !targetPos) continue;
-
-      // Check if path direction matches source->target or target->source
-      const distStartToSource = Math.hypot(pathStart.x - sourcePos.x, pathStart.y - sourcePos.y);
-      const distStartToTarget = Math.hypot(pathStart.x - targetPos.x, pathStart.y - targetPos.y);
-      const distEndToSource = Math.hypot(pathEnd.x - sourcePos.x, pathEnd.y - sourcePos.y);
-      const distEndToTarget = Math.hypot(pathEnd.x - targetPos.x, pathEnd.y - targetPos.y);
-
-      // Edge matches if one endpoint is near source and the other near target
-      const forwardMatch = distStartToSource + distEndToTarget;
-      const reverseMatch = distStartToTarget + distEndToSource;
-      const minMatch = Math.min(forwardMatch, reverseMatch);
-
-      if (minMatch < bestDistance && minMatch < 50) { // 50px tolerance
-        bestDistance = minMatch;
-        bestMatch = i;
-      }
-    }
-
-    if (bestMatch !== -1) {
-      svgToParsedIndex.set(svgIndex, bestMatch);
-    } else {
-      // Fallback: use SVG order if no match found
-      svgToParsedIndex.set(svgIndex, Math.min(svgIndex, parsedEdges.length - 1));
-    }
-  });
+  const svgToParsedIndex = buildSvgToParsedEdgeMap(svg, parsedEdges, edgePaths);
 
   // Create an overlay SVG in the main DOM (above node overlays which have z-index: 5)
   const svgRect = svg.getBoundingClientRect();
@@ -281,7 +195,7 @@ function addEdgeClickTargets(
     hitPath.style.cursor = 'pointer';
 
     // Use the mapped parsed edge index instead of SVG index
-    const parsedIndex = svgToParsedIndex.get(svgIndex) ?? svgIndex;
+    const parsedIndex = svgToParsedIndex.get(svgIndex) ?? Math.min(svgIndex, Math.max(0, parsedEdges.length - 1));
 
     hitPath.addEventListener('click', (e) => {
       // In connect mode the click must fall through to the canvas so it can
@@ -307,7 +221,7 @@ export function highlightSelectedEdge(shadowHost: HTMLDivElement, edgeIndex: num
   const svg = shadowRoot.querySelector('svg');
   if (!svg) return;
 
-  const edgePaths = svg.querySelectorAll('.edgePaths path.flowchart-link');
+  const edgePaths = Array.from(svg.querySelectorAll('.edgePaths path.flowchart-link'));
   if (edgePaths.length === 0) return;
   if (edgeIndex === null) {
     // Clear all selections
@@ -318,43 +232,13 @@ export function highlightSelectedEdge(shadowHost: HTMLDivElement, edgeIndex: num
     return;
   }
 
-  // Get node positions from SVG for matching
-  const nodePositions = collectNodeCenters(svg);
-
-  // Find the SVG path index that matches the selected parsed edge
-  const selectedEdge = parsedEdges[edgeIndex];
-  if (!selectedEdge) return;
-
+  const svgToParsed = buildSvgToParsedEdgeMap(svg, parsedEdges, edgePaths);
   let matchingSvgIndex = -1;
-  const sourcePos = nodePositions.get(selectedEdge.source);
-  const targetPos = nodePositions.get(selectedEdge.target);
-
-  if (sourcePos && targetPos) {
-    let bestDistance = Infinity;
-    edgePaths.forEach((path, svgIndex) => {
-      const d = path.getAttribute('d');
-      if (!d) return;
-
-      const endpoints = extractPathEndpoints(d);
-      if (!endpoints) return;
-
-      const { start: pathStart, end: pathEnd } = endpoints;
-
-      const distStartToSource = Math.hypot(pathStart.x - sourcePos.x, pathStart.y - sourcePos.y);
-      const distStartToTarget = Math.hypot(pathStart.x - targetPos.x, pathStart.y - targetPos.y);
-      const distEndToSource = Math.hypot(pathEnd.x - sourcePos.x, pathEnd.y - sourcePos.y);
-      const distEndToTarget = Math.hypot(pathEnd.x - targetPos.x, pathEnd.y - targetPos.y);
-
-      const forwardMatch = distStartToSource + distEndToTarget;
-      const reverseMatch = distStartToTarget + distEndToSource;
-      const minMatch = Math.min(forwardMatch, reverseMatch);
-
-      if (minMatch < bestDistance && minMatch < 50) {
-        bestDistance = minMatch;
-        matchingSvgIndex = svgIndex;
-      }
-    });
-  }
+  svgToParsed.forEach((parsedIdx, svgIdx) => {
+    if (parsedIdx === edgeIndex && matchingSvgIndex === -1) {
+      matchingSvgIndex = svgIdx;
+    }
+  });
 
   // Apply highlight to the matching edge (or fallback to index)
   edgePaths.forEach((path, index) => {

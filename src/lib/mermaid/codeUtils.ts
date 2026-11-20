@@ -756,13 +756,83 @@ function isSubgraphId(id: string, subgraphs: ParsedSubgraph[]): boolean {
   return subgraphs.some(sg => sg.id === id);
 }
 
+/**
+ * Split a CSS declaration list from `style` / `classDef` / `linkStyle` directives.
+ * Strips trailing semicolons before picking `;` vs `,` as the delimiter, and respects
+ * parentheses (`rgb(...)`) and quotes so commas inside values stay intact.
+ */
+function splitCssDeclarations(val: string): string[] {
+  const cleaned = val.trim().replace(/;+\s*$/, '');
+  if (!cleaned) {return [];}
+
+  let hasTopLevelSemi = false;
+  let parenDepth = 0;
+  let quote: string | null = null;
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (quote) {
+      if (ch === quote) {quote = null;}
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+    } else if (ch === '(') {
+      parenDepth++;
+    } else if (ch === ')') {
+      parenDepth = Math.max(0, parenDepth - 1);
+    } else if (ch === ';' && parenDepth === 0) {
+      hasTopLevelSemi = true;
+      break;
+    }
+  }
+
+  const delimiter = hasTopLevelSemi ? ';' : ',';
+  const parts: string[] = [];
+  let current = '';
+  parenDepth = 0;
+  quote = null;
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i];
+    if (quote) {
+      if (ch === quote) {quote = null;}
+      current += ch;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      current += ch;
+    } else if (ch === '(') {
+      parenDepth++;
+      current += ch;
+    } else if (ch === ')') {
+      parenDepth = Math.max(0, parenDepth - 1);
+      current += ch;
+    } else if (ch === delimiter && parenDepth === 0) {
+      if (current.trim()) {parts.push(current.trim());}
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim()) {parts.push(current.trim());}
+  return parts;
+}
+
+function splitCssKeyValue(declaration: string): [string, string] | null {
+  const colonIdx = declaration.indexOf(':');
+  if (colonIdx === -1) {return null;}
+  const k = declaration.slice(0, colonIdx).trim();
+  const v = declaration.slice(colonIdx + 1).trim();
+  if (!k || !v) {return null;}
+  return [k, v];
+}
+
 export function parseStyleValue(val: string): NodeStyle {
   const style: NodeStyle = {};
-  // Try comma split first (classDef format), fall back to semicolon (style format)
-  const separator = val.includes(',') && !val.includes(';') ? ',' : ';';
-  val.split(separator).forEach(part => {
-    const [k, v] = part.trim().split(':').map(s => s.trim());
-    if (!k || !v) {return;}
+  for (const part of splitCssDeclarations(val)) {
+    const kv = splitCssKeyValue(part);
+    if (!kv) {continue;}
+    const [k, v] = kv;
     if (k === 'fill') {style.fill = v;}
     else if (k === 'stroke') {style.stroke = v;}
     else if (k === 'stroke-width') {style.strokeWidth = v;}
@@ -774,7 +844,7 @@ export function parseStyleValue(val: string): NodeStyle {
     else if (k === 'rx') {style.rx = v;}
     else if (k === 'ry') {style.ry = v;}
     else if (k === 'opacity') {style.opacity = v;}
-  });
+  }
   return style;
 }
 
@@ -800,13 +870,21 @@ export function parseLinkStyles(source: string): Map<number | 'default', EdgeSty
 
   for (const line of lines) {
     const trimmed = line.trim();
-    const match = trimmed.match(/^linkStyle\s+(\d+|default)\s+(.+)$/);
+    const match = trimmed.match(/^linkStyle\s+(\d+(?:\s*,\s*\d+)*|default)\s+(.+)$/);
     if (match) {
       const indexStr = match[1];
-      const index = indexStr === 'default' ? 'default' : parseInt(indexStr, 10);
       const styleStr = match[2];
       const parsedStyle = parseEdgeStyleValue(styleStr);
-      linkStyles.set(index, parsedStyle);
+      if (indexStr === 'default') {
+        linkStyles.set('default', { ...linkStyles.get('default'), ...parsedStyle });
+      } else {
+        for (const rawIdx of indexStr.split(',')) {
+          const idx = parseInt(rawIdx.trim(), 10);
+          if (!Number.isNaN(idx)) {
+            linkStyles.set(idx, { ...linkStyles.get(idx), ...parsedStyle });
+          }
+        }
+      }
     }
   }
 
@@ -815,10 +893,10 @@ export function parseLinkStyles(source: string): Map<number | 'default', EdgeSty
 
 function parseEdgeStyleValue(val: string): EdgeStyle {
   const style: EdgeStyle = {};
-  const separator = val.includes(',') && !val.includes(';') ? ',' : ';';
-  val.split(separator).forEach(part => {
-    const [k, v] = part.trim().split(':').map(s => s.trim());
-    if (!k || !v) {return;}
+  for (const part of splitCssDeclarations(val)) {
+    const kv = splitCssKeyValue(part);
+    if (!kv) {continue;}
+    const [k, v] = kv;
     // Support both camelCase and kebab-case property names
     if (k === 'stroke') {style.stroke = v;}
     else if (k === 'stroke-width' || k === 'strokeWidth') {style.strokeWidth = v;}
@@ -829,7 +907,7 @@ function parseEdgeStyleValue(val: string): EdgeStyle {
     else if (k === 'fill') {style.fill = v;}
     else if (k === 'fill-opacity' || k === 'fillOpacity') {style.fillOpacity = v;}
     else if (k === 'color') {style.color = v;}
-  });
+  }
   return style;
 }
 

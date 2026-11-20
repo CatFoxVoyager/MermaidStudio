@@ -111,12 +111,28 @@ function extractEdgeLabelTextColor(content: string): string | null {
   return lum > 0.5 ? '#000000' : '#ffffff';
 }
 
+function hasExplicitAncestorColor(el: Element): boolean {
+  const boundary = el.closest('.edgeLabel');
+  let curr: Element | null = el;
+  while (curr) {
+    if ((curr as HTMLElement).style?.color) {
+      return true;
+    }
+    if (curr === boundary) break;
+    curr = curr.parentElement;
+  }
+  return false;
+}
+
 function fixEdgeLabelTextColor(svgStr: string, textColor: string): string {
   const parser = new DOMParser();
   const doc = parser.parseFromString(svgStr, 'text/html');
   const labels = doc.querySelectorAll('.edgeLabel span, .edgeLabel p');
   labels.forEach(el => {
-    (el as HTMLElement).style.color = textColor;
+    // Preserve per-edge or default `linkStyle ... color:...` set by Mermaid on `.labelBkg` / `.label`
+    if (!hasExplicitAncestorColor(el)) {
+      (el as HTMLElement).style.color = textColor;
+    }
   });
   const svgEl = doc.querySelector('svg');
   return svgEl ? svgEl.outerHTML : svgStr;

@@ -327,4 +327,62 @@ describe('svgPostProcessing', () => {
       expect(result).toContain('color: rgb(0, 255, 0)'); // JSDOM might convert hex to rgb in style
     });
   });
+
+  describe('Mermaid 12 foreignObject labels, comma paths, wide nodes, and pointEnd markers', () => {
+    it('maps linkStyle 0 to labeled edge 0 (not stolen by later unlabeled edges) on htmlLabels + comma paths + wide nodes', () => {
+      const svgString = `<svg xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="p_flowchart-v2-pointEnd"><path d="M0,0 L10,5 L0,10 z"/></marker>
+        </defs>
+        <g class="root">
+          <g class="nodes">
+            <g class="node" id="p-flowchart-DIST1-0" transform="translate(500,100)"><rect x="-100" y="-20" width="200" height="40"/></g>
+            <g class="node" id="p-flowchart-RMS1-1" transform="translate(100,300)"><rect x="-40" y="-20" width="80" height="40"/></g>
+            <g class="node" id="p-flowchart-FMON-2" transform="translate(800,100)"><rect x="-40" y="-20" width="80" height="40"/></g>
+            <g class="node" id="p-flowchart-FW-3" transform="translate(800,300)"><rect x="-40" y="-20" width="80" height="40"/></g>
+          </g>
+          <g class="edgePaths">
+            <path id="p-L_DIST1_RMS1_0" class="flowchart-link" d="M400,100L100,280" marker-end="url(#p_flowchart-v2-pointEnd)" style="stroke:#bbbbbb"/>
+            <path id="p-L_FMON_FW_0" class="flowchart-link" d="M800,120L800,280" marker-end="url(#p_flowchart-v2-pointEnd)" style="stroke:#bbbbbb"/>
+          </g>
+          <g class="edgeLabels">
+            <g class="edgeLabel"><g class="label" data-id="L_DIST1_RMS1_0"><foreignObject width="100" height="24"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg"><span><p>D01 : 44 / RMS_01 : 25</p></span></div></foreignObject></g></g>
+            <g class="edgeLabel"><g class="label" data-id="L_FMON_FW_0"><foreignObject width="0" height="0"><div xmlns="http://www.w3.org/1999/xhtml" class="labelBkg"><span></span></div></foreignObject></g></g>
+          </g>
+        </g>
+      </svg>`.replace(/>\s+</g, '><');
+
+      const parsedEdges = [
+        { source: 'DIST1', target: 'RMS1', label: '"D01 : 44 / RMS_01 : 25"' },
+        { source: 'FMON', target: 'FW', label: '' },
+      ];
+      const styles = new Map<number | 'default', { stroke?: string; color?: string; strokeWidth?: string }>([
+        ['default', { stroke: '#bbbbbb', color: '#dddddd', strokeWidth: '1px' }],
+        [0, { stroke: '#959595', color: '#c99732', strokeWidth: '1.8px' }],
+      ]);
+
+      const result = applyEdgeFontStyles(svgString, styles, parsedEdges);
+      const doc = new DOMParser().parseFromString(result, 'image/svg+xml');
+      const paths = doc.querySelectorAll('.edgePaths path');
+      expect(paths[0].getAttribute('stroke')).toBe('#959595');
+      expect(paths[0].getAttribute('stroke-width')).toBe('1.8px');
+      expect(paths[0].getAttribute('marker-end')).toBe('url(#p_flowchart-v2-pointEnd-959595)');
+      expect(paths[1].getAttribute('stroke')).toBe('#bbbbbb');
+      expect(paths[1].getAttribute('marker-end')).toBe('url(#p_flowchart-v2-pointEnd-bbbbbb)');
+
+      // Final cleanup must insert a semicolon before fill: none !important
+      expect(paths[1].getAttribute('style')).toContain('; fill: none !important;');
+
+      // Label text color must follow linkStyle color on foreignObject spans
+      const firstLabelSpan = doc.querySelectorAll('.edgeLabel span')[0] as HTMLElement;
+      expect(firstLabelSpan.style.color).toBe('rgb(201, 151, 50)');
+
+      // Idempotency: running twice must not double-suffix marker IDs
+      const second = applyEdgeFontStyles(result, styles, parsedEdges);
+      const doc2 = new DOMParser().parseFromString(second, 'image/svg+xml');
+      expect(doc2.querySelectorAll('.edgePaths path')[0].getAttribute('marker-end')).toBe(
+        'url(#p_flowchart-v2-pointEnd-959595)'
+      );
+    });
+  });
 });

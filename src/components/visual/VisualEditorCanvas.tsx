@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { renderDiagram } from '@/lib/mermaid/core';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
+import { buildSvgToParsedEdgeMap } from '@/utils/svgEdgeMatching';
 import {
   parseDiagram, updateNodeStyle, updateNodeLabel, updateNodeShape,
   addNode, removeNode, addEdge, generateNodeId, getNodeStyle,
@@ -35,7 +36,7 @@ export function extractSvgNodes(container: HTMLDivElement, zoom: number): NodeOv
 
   nodeElements.forEach(el => {
     const idAttr = el.id ?? '';
-    const flowchartMatch = idAttr.match(/flowchart-([^-]+)-\d+/);
+    const flowchartMatch = idAttr.match(/flowchart-([A-Za-z0-9_-]+)-\d+$/);
     const nodeId = flowchartMatch ? flowchartMatch[1] : null;
     if (!nodeId || seen.has(nodeId)) {return;}
     seen.add(nodeId);
@@ -82,7 +83,7 @@ export function extractSvgEdges(
   const svg = container.querySelector('svg');
   if (!svg) {return { edges: [], svgBox: null, viewBox: null };}
 
-  const edgePaths = svg.querySelectorAll('.edgePaths path.flowchart-link');
+  const edgePaths = Array.from(svg.querySelectorAll('.edgePaths path.flowchart-link'));
   if (edgePaths.length === 0) {return { edges: [], svgBox: null, viewBox: null };}
   // Without parsed edges there is nothing to label a hit target with — the
   // order fallback below would index out of bounds.
@@ -97,63 +98,15 @@ export function extractSvgEdges(
     height: svgRect.height / zoom,
   };
 
-  // Node positions from their SVG transform, in SVG coordinates.
-  const nodePositions = new Map<string, { x: number; y: number }>();
-  svg.querySelectorAll('g.node').forEach(nodeEl => {
-    const transform = nodeEl.getAttribute('transform');
-    const idMatch = (nodeEl.id ?? '').match(/flowchart-([^-]+)-\d+/);
-    if (transform && idMatch) {
-      const tMatch = transform.match(/translate\(([^,]+),\s*([^)]+)\)/);
-      if (tMatch) {
-        nodePositions.set(idMatch[1], { x: parseFloat(tMatch[1]), y: parseFloat(tMatch[2]) });
-      }
-    }
-  });
+  const svgToParsed = buildSvgToParsedEdgeMap(svg, parsedEdges, edgePaths);
 
   const edges: EdgeOverlay[] = [];
   edgePaths.forEach((path, svgIndex) => {
     const d = path.getAttribute('d');
     if (!d) {return;}
 
-    // Tolerant numeric tokenization — Mermaid writes edge path coordinates
-    // both space- and comma-separated ("M 100 200", "M100,200").
-    const coords = d.match(/-?\d*\.?\d+(?:[eE][-+]?\d+)?/g);
-    const pathStart = coords && coords.length >= 4
-      ? { x: parseFloat(coords[0]), y: parseFloat(coords[1]) }
-      : null;
-    const pathEnd = coords && coords.length >= 4
-      ? { x: parseFloat(coords[coords.length - 2]), y: parseFloat(coords[coords.length - 1]) }
-      : null;
-
-    let bestMatch = -1;
-    let bestDistance = Infinity;
-    if (pathStart && pathEnd) {
-      for (let i = 0; i < parsedEdges.length; i++) {
-        const sourcePos = nodePositions.get(parsedEdges[i].source);
-        const targetPos = nodePositions.get(parsedEdges[i].target);
-        if (!sourcePos || !targetPos) {continue;}
-
-        const distStartToSource = Math.hypot(pathStart.x - sourcePos.x, pathStart.y - sourcePos.y);
-        const distStartToTarget = Math.hypot(pathStart.x - targetPos.x, pathStart.y - targetPos.y);
-        const distEndToSource = Math.hypot(pathEnd.x - sourcePos.x, pathEnd.y - sourcePos.y);
-        const distEndToTarget = Math.hypot(pathEnd.x - targetPos.x, pathEnd.y - targetPos.y);
-        const minMatch = Math.min(distStartToSource + distEndToTarget, distStartToTarget + distEndToSource);
-
-        if (minMatch < bestDistance && minMatch < 50) {
-          bestDistance = minMatch;
-          bestMatch = i;
-        }
-      }
-    }
-
-    if (bestMatch !== -1) {
-      edges.push({ source: parsedEdges[bestMatch].source, target: parsedEdges[bestMatch].target, d });
-    } else {
-      // Order fallback (same policy as PreviewPanel.addEdgeClickTargets):
-      // a missing hit target is worse than a possibly-mislabelled one.
-      const fallback = Math.min(svgIndex, parsedEdges.length - 1);
-      edges.push({ source: parsedEdges[fallback].source, target: parsedEdges[fallback].target, d });
-    }
+    const parsedIdx = svgToParsed.get(svgIndex) ?? Math.min(svgIndex, parsedEdges.length - 1);
+    edges.push({ source: parsedEdges[parsedIdx].source, target: parsedEdges[parsedIdx].target, d });
   });
 
   return { edges, svgBox, viewBox: svg.getAttribute('viewBox') };
