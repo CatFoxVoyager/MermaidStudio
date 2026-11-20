@@ -2175,7 +2175,9 @@ export function parseFrontmatter(content: string): { frontmatter: FrontmatterCon
  * directive rules cannot fully consume keeps the whole-document read-only
  * fence — malformed or unclosed spans, the invalid space-separated form,
  * subgraph-header directives (their rename path would drop the trailing
- * metadata), and icon-param lines (no icon write-back exists). Superset-safe
+ * metadata), and icon/img-param lines (no write-back exists for either —
+ * the img: fence is the 38-03 superset-safe widening; Phase 39 (ICON-01)
+ * deliberately narrows it when img write-back ships). Superset-safe
  * by design: when consumption is uncertain, fence. The body comes from the
  * app's own parseFrontmatter split, so frontmatter-embedded metadata
  * (legitimate mermaid config) and legacy `%%{init:...}%%` directives never
@@ -2199,13 +2201,22 @@ export function bodyHasUnparsedAtDirective(content: string): boolean {
   return false;
 }
 
-/** A span is editable when it parses AND carries no icon param (no icon write-back exists). */
+/**
+ * A span is editable when it parses AND carries no icon/img param (no
+ * icon write-back exists; the img payload has no mutation writer either, so
+ * an edit would silently drop it — fenced since 38-03, deliberately
+ * narrowed in Phase 39 / ICON-01 when the write-back ships).
+ */
 function directiveSpanEditable(span: string): boolean {
   // LOOSE parse: 12.3 edge directives (`e1@{ step: 1 }`) carry no shape but
   // parse cleanly — they count as consumed (editable) like node spans.
   const parsed = parseAtDirectiveLoose(span);
   if (!parsed) {return false;}
-  return !parsed.unknownParams.some(p => /^icon\s*:/.test(p));
+  // 38-03: img: joins icon: in the fence (superset-safe widening — the
+  // fence regex only ever widens here; narrowing is Phase 39's deliberate
+  // change).
+  return !parsed.unknownParams.some(p => /^icon\s*:/.test(p))
+    && !parsed.unknownParams.some(p => /^img\s*:/.test(p));
 }
 
 /**

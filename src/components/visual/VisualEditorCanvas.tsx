@@ -6,6 +6,7 @@ import { buildSvgToParsedEdgeMap } from '@/utils/svgEdgeMatching';
 import {
   parseDiagram, updateNodeStyle, updateNodeLabel, updateNodeShape,
   addNode, removeNode, addEdge, generateNodeId, getNodeStyle,
+  updateEdgeArrowType, updateEdgeLabel, removeEdge,
   bodyHasUnparsedAtDirective,
 } from '@/lib/mermaid/codeUtils';
 import type { ParsedDiagram, ParsedEdge } from '@/lib/mermaid/codeUtils';
@@ -651,44 +652,25 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     onChange(updateNodeStyle(content, id, style));
   }
 
+  // 38-03 (SHP-06): every edge mutation is a thin readOnly-guarded delegate
+  // to the codeUtils mutator — the duplicated inline regex/filter bodies are
+  // deleted, so the canvas has exactly one edge-mutation vocabulary. The
+  // mutators are chain-aware (bare 12.3 edge ids, multi-hop) and decline on
+  // ambiguity, which the inline regexes silently mishandled.
   function handleArrowChange(source: string, target: string, arrowType: string) {
     if (readOnly) {return;}
-    const lines = content.split('\n');
-    const updated = lines.map(line => {
-      const trimmed = line.trim();
-      if (trimmed.includes(source) && trimmed.includes(target)) {
-        const edgeMatch = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*)\s*(-->|---|-.->|-\.->|==>|-->>|o--o|<-->)/);
-        if (edgeMatch && edgeMatch[1] === source) {
-          return line.replace(edgeMatch[2], arrowType);
-        }
-      }
-      return line;
-    });
-    onChange(updated.join('\n'));
+    onChange(updateEdgeArrowType(content, source, target, arrowType));
   }
 
   function handleEdgeLabelChange(source: string, target: string, label: string) {
     if (readOnly) {return;}
-    const lines = content.split('\n');
-    const updated = lines.map(line => {
-      const trimmed = line.trim();
-      if (!trimmed.includes(source) || !trimmed.includes(target)) {return line;}
-      const withLabel = label
-        ? line.replace(/(-->|---|-.->|-\.->|==>|-->>|o--o|<-->)\s*(?:\|[^|]*\|)?\s*/, `$1|${label}| `)
-        : line.replace(/\|[^|]*\|\s*/, '');
-      return withLabel;
-    });
-    onChange(updated.join('\n'));
+    onChange(updateEdgeLabel(content, source, target, label));
   }
 
   function handleDeleteEdge(source: string, target: string) {
     if (readOnly) {return;}
-    const lines = content.split('\n').filter(line => {
-      const t = line.trim();
-      return !(t.includes(source) && t.includes(target) && (t.includes('-->') || t.includes('---') || t.includes('==>') || t.includes('-.->') || t.includes('o--o')));
-    });
+    onChange(removeEdge(content, source, target));
     setSelection({ nodeIds: [], edgeKey: null });
-    onChange(lines.join('\n'));
   }
 
   useEffect(() => {
