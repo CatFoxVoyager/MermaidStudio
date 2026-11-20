@@ -112,6 +112,16 @@ export interface ParsedDiagram {
   nodeClasses: Map<string, string[]>;
   linkStyles: Map<number | 'default', EdgeStyle>;
   subgraphs: ParsedSubgraph[];
+  /**
+   * 38-03 (SHP-06): standalone `id@{...}` lines that do NOT define a node —
+   * edge-id metadata lines (`e1@{ animate: true }`) and subgraph directive
+   * lines (`SG@{ view: collapsed }`) — linked to their entity id for cascade
+   * deletion. The lines are stored VERBATIM and their contents are never
+   * interpreted here (the P6 blind spot stays uninterpreted; Phase 40 /
+   * EDGE-05 owns interpretation). Deletion mutators consult this registry so
+   * removing an entity removes its own directive footprint and nothing else.
+   */
+  linkedDirectives: Map<string, string[]>;
 }
 
 const SHAPE_PATTERNS: Array<{ shape: NodeShape; open: string; close: string; regex: RegExp }> = [
@@ -838,8 +848,19 @@ function matchEdgeChain(trimmed: string): EdgeChain | null {
   if (!first) {return null;}
   const sourceId = first[1];
   const sourceRawAll = first[2] ?? '';
-  const { span: sourceSpan, edgeId: sourceEdgeId } = extractTrailingBareEdgeId(sourceRawAll);
-  const sourceShapeRaw = sourceEdgeId ? sourceSpan : sourceRawAll;
+  const extractedEdgeId = extractTrailingBareEdgeId(sourceRawAll);
+  let sourceEdgeId = extractedEdgeId.edgeId;
+  let sourceShapeRaw = sourceEdgeId ? extractedEdgeId.span : sourceRawAll;
+  // 38-03: the ATTACHED line-start form (`e1@--> A`) has no source token
+  // before the marker — the whole pre-arrow slice is the bare `id@` lexeme
+  // (12.3 edge-id syntax with the source elided). The id is then BOTH the
+  // source vertex (as before) and the edge's id, so its `id@{ ... }`
+  // metadata line links to the edge for cascade deletion; re-emitting the
+  // slice as a shape raw was the mangled `e1@` ghost-node defect.
+  if (!sourceEdgeId && sourceRawAll.trim() === '@') {
+    sourceEdgeId = sourceId;
+    sourceShapeRaw = '';
+  }
   const hops: EdgeHop[] = [];
   let arrowType = first[3];
   let edgeId = '';
@@ -1125,6 +1146,29 @@ export function removeLinkStyles(source: string, indices: number[]): string {
  * The removed edge's linkStyle line is dropped and subsequent linkStyle
  * indices are decremented, so edge styles stay attached to the right edges.
  */
+/**
+ * 38-03 (SHP-06): drop the linked `id@{...}` metadata lines of every dead id
+ * from a rebuilt line list. The registry comes from parseDiagram on the
+ * ORIGINAL source; matching is verbatim (trimmed) and the cascade only ever
+ * DELETES — it never rewrites a line (decline-don't-normalize). Linked lines
+ * of surviving entities are never touched and never reordered.
+ */
+function stripLinkedDirectiveLines(
+  outLines: string[],
+  source: string,
+  deadIds: Iterable<string>,
+): string {
+  const linked = parseDiagram(source).linkedDirectives;
+  const doomed = new Set<string>();
+  for (const id of deadIds) {
+    for (const linkedLine of linked.get(id) ?? []) {
+      doomed.add(linkedLine);
+    }
+  }
+  if (doomed.size === 0) {return outLines.join('\n');}
+  return outLines.filter(line => !doomed.has(line.trim())).join('\n');
+}
+
 export function removeEdge(source: string, srcId: string, tgtId: string): string {
   const lines = source.split('\n');
   const tgtRe = new RegExp(`\\b${escapeRegex(tgtId)}\\b`);
@@ -1146,10 +1190,14 @@ export function removeEdge(source: string, srcId: string, tgtId: string): string
   })();
   if (!edgeInfo) {return source;}
   const { index: edgeIdx, chain, hopIdx } = edgeInfo;
+  // 38-03 (SHP-06): the dead hop's 12.3 edge id cascades its linked
+  // `id@{...}` metadata lines (generic by id — orphaned `e1@{ animate: true }`
+  // ghost lines die with their edge).
+  const deadEdgeId = chain.hops[hopIdx]?.edgeId ?? '';
 
   if (chain.hops.length > 1) {
     lines[edgeIdx] = rebuildChainWithoutHop(chain, hopIdx, lines[edgeIdx].match(/^\s*/)?.[0] ?? '') ?? '';
-    return lines.join('\n');
+    return stripLinkedDirectiveLines(lines, source, deadEdgeId ? [deadEdgeId] : []);
   }
 
   // linkStyle indices count edge lines in code order — same numbering mermaid uses
@@ -1161,7 +1209,7 @@ export function removeEdge(source: string, srcId: string, tgtId: string): string
   };
   const ordinal = lines.slice(0, edgeIdx).filter(isEdgeLine).length;
 
-  return lines
+  const filtered = lines
     .flatMap((line, i) => {
       if (i === edgeIdx) {return [];}
       const m = line.trim().match(/^linkStyle\s+(\d+)/);
@@ -1171,8 +1219,11 @@ export function removeEdge(source: string, srcId: string, tgtId: string): string
         if (n > ordinal) {return [line.replace(/^(linkStyle\s+)(\d+)/, `$1${n - 1}`)];}
       }
       return [line];
-    })
-    .join('\n');
+    });
+  // 38-03: linked metadata lines of the dead edge id cascade with it. They
+  // are not edge lines (no arrow), so the linkStyle ordinal math above never
+  // counted them and removing them keeps every remaining index valid.
+  return stripLinkedDirectiveLines(filtered, source, deadEdgeId ? [deadEdgeId] : []);
 }
 
 /**
@@ -1210,17 +1261,20 @@ export function removeSubgraph(source: string, subgraphId: string): string {
       lines[startIdx] = lines[startIdx]
         .replace(/^\s*subgraph\s+\S+/, '')
         .replace(/\s*\bend\s*$/, '');
-      return lines.filter(line => {
+      const kept = lines.filter(line => {
         const trimmed = line.trim();
         if (trimmed.startsWith(`style ${subgraphId} `) || trimmed.startsWith(`style ${subgraphId}\t`)) {return false;}
         if (trimmed.startsWith(`class ${subgraphId} `)) {return false;}
         return true;
-      }).join('\n');
+      });
+      // 38-03: the subgraph's linked directive lines (`SG@{ view: collapsed }`)
+      // cascade with it (generic by id).
+      return stripLinkedDirectiveLines(kept, source, [subgraphId]);
     }
     return source;
   }
 
-  return lines
+  const kept = lines
     .filter((line, i) => {
       if (i === startIdx || i === endIdx) {return false;}
       // drop the block's own direction lines; children between the braces stay
@@ -1232,8 +1286,9 @@ export function removeSubgraph(source: string, subgraphId: string): string {
       if (trimmed.startsWith(`style ${subgraphId} `) || trimmed.startsWith(`style ${subgraphId}\t`)) {return false;}
       if (trimmed.startsWith(`class ${subgraphId} `)) {return false;}
       return true;
-    })
-    .join('\n');
+    });
+  // 38-03: the subgraph's linked directive lines cascade with it.
+  return stripLinkedDirectiveLines(kept, source, [subgraphId]);
 }
 
 /** Split an edge line into: [beforeArrow, arrowType, edgeLabel, afterArrow] */
@@ -1300,6 +1355,10 @@ export function parseDiagram(source: string): ParsedDiagram {
   const seenIds = new Set<string>();
   const subgraphs: ParsedSubgraph[] = [];
   const subgraphStack: string[] = []; // stack of subgraph IDs
+  // 38-03 pass-1 residue: the trimmed standalone `id@{...}` lines that DID
+  // define a node — pass 2 links every other standalone directive line
+  // (edge-id metadata, subgraph directives) by entity id.
+  const directiveNodeLines = new Set<string>();
 
   const currentParent = (): string | null => subgraphStack.length > 0 ? subgraphStack[subgraphStack.length - 1] : null;
 
@@ -1394,6 +1453,7 @@ export function parseDiagram(source: string): ParsedDiagram {
         const parsed = parseAtDirective(span);
         if (parsed && !seenIds.has(directiveLine[1]) && !isSubgraphId(directiveLine[1], subgraphs)) {
           seenIds.add(directiveLine[1]);
+          directiveNodeLines.add(trimmed);
           nodes.push({
             id: directiveLine[1],
             label: parsed.label ?? directiveLine[1],
@@ -1524,7 +1584,28 @@ export function parseDiagram(source: string): ParsedDiagram {
   }
 
   const linkStyles = parseLinkStyles(source);
-  return { nodes, edges, styles, classDefs, nodeClasses, linkStyles, subgraphs };
+  // 38-03 pass 2: link every standalone `id@{...}` line pass 1 did NOT turn
+  // into a node — edge-id metadata lines (`e1@{ animate: true }`) and
+  // subgraph directive lines (`SG@{ view: collapsed }`) — to its entity id,
+  // verbatim and uninterpreted (parseDiagram stops silently dropping them;
+  // interpretation is Phase 40 / EDGE-05). Order-independent: the
+  // node-definition test reads pass 1's final seenIds, so a metadata line
+  // placed before its edge line still links instead of minting a node.
+  const linkedDirectives = new Map<string, string[]>();
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('%%')) {continue;}
+    if (ARROW_RE.test(trimmed) || directiveNodeLines.has(trimmed)) {continue;}
+    const directiveLine = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*)(@\{.*\})$/);
+    if (!directiveLine) {continue;}
+    const linked = linkedDirectives.get(directiveLine[1]);
+    if (linked) {
+      linked.push(trimmed);
+    } else {
+      linkedDirectives.set(directiveLine[1], [trimmed]);
+    }
+  }
+  return { nodes, edges, styles, classDefs, nodeClasses, linkStyles, subgraphs, linkedDirectives };
 }
 
 export function updateNodeStyle(source: string, nodeId: string, newStyle: NodeStyle): string {
@@ -1714,6 +1795,9 @@ export function addNode(source: string, id: string, label: string, shape: NodeSh
 }
 
 export function removeNode(source: string, nodeId: string): string {
+  // 38-03 (SHP-06): the deleted node's id plus the ids of every edge hop
+  // that dies with it cascade their linked `id@{...}` metadata lines.
+  const deadIds = new Set<string>([nodeId]);
   const lines: string[] = [];
   for (const line of source.split('\n')) {
     const trimmed = line.trim();
@@ -1721,8 +1805,15 @@ export function removeNode(source: string, nodeId: string): string {
     if (trimmed.startsWith(`style ${nodeId}\t`)) {continue;}
     if (trimmed.startsWith(`class ${nodeId} `)) {continue;}
 
+    // 38-03: the standalone branch is guarded on edge lines exactly like
+    // updateNodeLabel's — without the ARROW_RE guard it fired on lines whose
+    // SOURCE carries a directive span (`A@{...} --> B`), deleting the whole
+    // line before the chain rebuild ran and vanishing the untouched target
+    // (the reproduced vanished-B ghost-node defect). Edge lines fall through
+    // to the hop-aware chain rebuild below, which is the only path that may
+    // rewrite them.
     const nodeMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[|@\{)[^\n]+)/);
-    if (nodeMatch && nodeMatch[2] === nodeId) {continue;}
+    if (nodeMatch && nodeMatch[2] === nodeId && !ARROW_RE.test(trimmed)) {continue;}
 
     // Backlog C: chained lines are rebuilt hop-aware — removing a node drops
     // only the hops touching it. The entering hop (target === nodeId) and the
@@ -1738,6 +1829,15 @@ export function removeNode(source: string, nodeId: string): string {
         ? 0
         : chain.hops.findIndex((h, i) => i > 0 && chain.hops[i - 1].targetId === nodeId);
       if (entryIdx === -1 && exitIdx === -1) {lines.push(line); continue;}
+
+      // 38-03: hops in [dropStart, dropEnd) die as EDGES with the node —
+      // their bare 12.3 edge ids cascade the ids' linked metadata lines.
+      const dropStart = entryIdx === -1 ? 0 : entryIdx;
+      const dropEnd = exitIdx === -1 ? chain.hops.length : exitIdx + 1;
+      for (let h = dropStart; h < dropEnd; h++) {
+        const deadEdgeId = chain.hops[h].edgeId;
+        if (deadEdgeId) {deadIds.add(deadEdgeId);}
+      }
 
       const indent = line.match(/^\s*/)?.[0] ?? '';
       const out: string[] = [];
@@ -1759,7 +1859,10 @@ export function removeNode(source: string, nodeId: string): string {
 
     lines.push(line);
   }
-  return lines.join('\n');
+  // 38-03: node/subgraph deletion cascades linked metadata lines generic by
+  // id — the dead node's own `id@{...}` lines and the ids of the edges that
+  // died with it. Unrelated entities' linked lines are never touched.
+  return stripLinkedDirectiveLines(lines, source, deadIds);
 }
 
 export function removeNodeStyles(source: string, nodeIds: string[]): string {

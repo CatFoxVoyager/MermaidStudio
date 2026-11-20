@@ -2098,3 +2098,148 @@ describe('full-domain round-trip battery (38-02 Task 2)', () => {
     expect(reshaped).toBe('flowchart TD\nA@{ shape: "person", label: "X", w: 40, h: 20, foo: "bar" }');
   });
 });
+
+// ===== 38-03 Task 1: ghost-node cascade delete =====
+// The three research-reproduced defects (38-RESEARCH.md Pattern 2), pinned
+// red-to-green on the probe's exact sources. RED baseline measured at HEAD
+// e159440 (pre-fix tree): removeNode('A') on the attached-form source
+// re-emitted `e1@`, vanished B, and orphaned `e1@{ animate: true }`;
+// removeEdge('A','B') on the spaced-form source orphaned the metadata line;
+// `SG@{ view: collapsed }` was silently dropped from the parsed model.
+describe('ghost-node cascade delete (38-03 Task 1)', () => {
+  // The probe's exact source: an edge whose SOURCE carries a directive span,
+  // a bare 12.3 edge-id line (attached form), that edge's metadata line, and
+  // a subgraph carrying its own directive line.
+  const GHOST = [
+    'flowchart LR',
+    '  A@{ shape: rect, label: "A" } --> B',
+    '  e1@--> A',
+    '  e1@{ animate: true }',
+    '  subgraph SG [Box]',
+    '  end',
+    '  SG@{ view: collapsed }',
+  ].join('\n');
+
+  // The spaced 12.3 edge-id form: the A–B edge CARRIES the id e1, and the
+  // `e1@{ animate: true }` line is that edge's metadata.
+  const GHOST_SPACED = [
+    'flowchart LR',
+    '  A@{ shape: rect, label: "A" } e1@--> B',
+    '  e1@{ animate: true }',
+    '  subgraph SG [Box]',
+    '  end',
+    '  SG@{ view: collapsed }',
+  ].join('\n');
+
+  it('removeNode keeps the directive-edge target alive (vanished-B defect)', () => {
+    const out = removeNode(GHOST, 'A');
+    // B was only declared on the A–B line — it keeps a standalone declaration.
+    expect(out).toContain('  B');
+    expect(out).not.toContain('A@{');
+    // The re-emission is well-formed: no mangled bare `e1@` remnant, and the
+    // untouched source node e1 survives with a clean standalone declaration.
+    expect(out).not.toContain('e1@');
+    expect(out).toContain('  e1\n');
+    // The A–B edge and the e1-->A edge both died with A, so e1's metadata
+    // line cascades (the e1 edge no longer exists).
+    expect(out).not.toContain('animate');
+    // Everything else survives in its original order.
+    expect(out).toBe(
+      'flowchart LR\n  B\n  e1\n  subgraph SG [Box]\n  end\n  SG@{ view: collapsed }',
+    );
+  });
+
+  it('removeEdge removes the dead edge id metadata line (orphaned-e1@ defect)', () => {
+    const out = removeEdge(GHOST_SPACED, 'A', 'B');
+    // The A–B edge carried the id e1 — its metadata dies with it (no orphan).
+    expect(out).not.toContain('animate');
+    expect(out).not.toContain('e1@');
+    // Unrelated linked lines and nodes are untouched.
+    expect(out).toContain('SG@{ view: collapsed }');
+    expect(out).toContain('subgraph SG [Box]');
+  });
+
+  it('removeNode on the spaced form cascades the edge metadata and keeps B', () => {
+    const out = removeNode(GHOST_SPACED, 'A');
+    // The A–B edge (id e1) died with A; its metadata cascades.
+    expect(out).not.toContain('animate');
+    // B was only declared on the edge line — it keeps a standalone declaration.
+    expect(out).toContain('  B');
+    expect(out).not.toContain('e1@');
+    expect(out).toContain('SG@{ view: collapsed }');
+  });
+
+  it('the subgraph directive line survives unrelated removals verbatim and is linked', () => {
+    // Removing an unrelated node / a nonexistent edge leaves every byte in
+    // place — including the subgraph's directive line, in position.
+    expect(removeNode(GHOST, 'ZZZ')).toBe(GHOST);
+    expect(removeEdge(GHOST, 'X', 'Y')).toBe(GHOST);
+    // The registry links both metadata lines verbatim, by entity id, and
+    // parseDiagram no longer drops them from its model.
+    const parsed = parseDiagram(GHOST);
+    expect(parsed.linkedDirectives.get('SG')).toEqual(['SG@{ view: collapsed }']);
+    expect(parsed.linkedDirectives.get('e1')).toEqual(['e1@{ animate: true }']);
+    // The registry carries exactly the NON-node directive lines — the
+    // directive node declarations are nodes, not metadata.
+    expect(parsed.linkedDirectives.has('A')).toBe(false);
+    expect(parsed.linkedDirectives.has('B')).toBe(false);
+  });
+
+  it('removeEdge leaves a live edge id metadata line alone (unrelated cascade guard)', () => {
+    // On the attached-form source the A–B edge carries NO edge id, so
+    // removing it must NOT cascade the e1 metadata — the e1-->A edge is
+    // untouched and its metadata stays exactly where it was.
+    const out = removeEdge(GHOST, 'A', 'B');
+    expect(out).toContain('e1@{ animate: true }');
+    expect(out).toContain('e1@--> A');
+    expect(out).toContain('SG@{ view: collapsed }');
+    expect(out).not.toContain('A@{');
+  });
+
+  it('removeNode cascades a linked node directive line generic by id', () => {
+    const source = 'flowchart TD\n  A@{ shape: rect, label: "A" }\n  e1@--> A\n  e1@{ animate: true }';
+    const out = removeNode(source, 'A');
+    expect(out).not.toContain('animate');
+    expect(out.split('\n')).toContain('  e1');
+    // ...and removing the e1 node itself removes its own metadata line.
+    const outE1 = removeNode('flowchart TD\nX\ne1@{ animate: true }', 'e1');
+    expect(outE1).not.toContain('animate');
+    expect(outE1).toContain('X');
+  });
+
+  it('removing one directive node leaves the sibling directive line intact and in order', () => {
+    const source = 'flowchart TD\nA@{ shape: rect, label: "A" }\nB@{ shape: rect, label: "B" }';
+    const out = removeNode(source, 'A');
+    expect(out).toBe('flowchart TD\nB@{ shape: rect, label: "B" }');
+    expect(out.indexOf('B@{')).toBeGreaterThan('flowchart TD\n'.length - 1);
+  });
+
+  it('removing a directive-less node leaves every other line byte-identical and in order', () => {
+    const source = [
+      'flowchart LR',
+      '  A',
+      '  B@{ shape: rect, label: "B" }',
+      '  C(x)',
+      '  D@{ shape: doc, label: "D" }',
+    ].join('\n');
+    const out = removeNode(source, 'C');
+    expect(out).toBe('flowchart LR\n  A\n  B@{ shape: rect, label: "B" }\n  D@{ shape: doc, label: "D" }');
+  });
+
+  it('removeSubgraph cascades the subgraph directive line', () => {
+    const out = removeSubgraph(GHOST, 'SG');
+    expect(out).not.toContain('subgraph SG');
+    expect(out).not.toContain('SG@{ view: collapsed }');
+    // Lines outside the block are untouched verbatim — including e1's live
+    // metadata (its edge still exists).
+    expect(out).toContain('A@{ shape: rect, label: "A" } --> B');
+    expect(out).toContain('e1@{ animate: true }');
+  });
+
+  it('a two-span edge line fences when one span is malformed and stays editable when both parse', () => {
+    const wellFormed = 'flowchart TD\nA@{ shape: rect, label: "A" } --> B@{ shape: doc, label: "B" }';
+    expect(bodyHasUnparsedAtDirective(wellFormed)).toBe(false);
+    const malformed = 'flowchart TD\nA@{ shape: rect, label: "A" } --> B@{ shape: doc, label: "B"';
+    expect(bodyHasUnparsedAtDirective(malformed)).toBe(true);
+  });
+});

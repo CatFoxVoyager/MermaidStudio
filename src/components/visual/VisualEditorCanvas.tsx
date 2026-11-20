@@ -157,6 +157,7 @@ const EMPTY_PARSED: ParsedDiagram = {
   nodeClasses: new Map(),
   linkStyles: new Map(),
   subgraphs: [],
+  linkedDirectives: new Map(),
 };
 
 export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props) {

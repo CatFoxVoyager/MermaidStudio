@@ -1219,6 +1219,7 @@ describe('PreviewPanel Component', () => {
       nodeClasses: new Map(),
       linkStyles: new Map(),
       subgraphs: [{ id: 'phase0', label: 'Phase 0' }],
+      linkedDirectives: new Map(),
     };
 
     async function renderWithSubgraphOverlays(onChange = vi.fn()) {
@@ -1511,6 +1512,7 @@ describe('PreviewPanel Component', () => {
         nodeClasses: new Map(),
         linkStyles: new Map(),
         subgraphs: [],
+        linkedDirectives: new Map(),
       };
 
       const rect = (left: number, top: number, width: number, height: number) =>
