@@ -33,6 +33,7 @@ import {
 } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
 import type { NodeShape } from '../codeUtils';
+import { CANONICAL_SHAPES, ALIAS_TO_CANONICAL } from '../shapes';
 
 describe('Mermaid Code Utilities', () => {
   describe('parseDiagram', () => {
@@ -1856,5 +1857,244 @@ describe('canonical codeUtils vocabulary (38-02 Task 1)', () => {
     expect(node?.shape).toBe('person');
     expect(node?.label).toBe('C:\\path "q"');
     expect(node?.unknownParams).toEqual(['w: 80']);
+  });
+});
+
+// ===== 38-02 Task 2: the full-domain round-trip battery. The sweeps
+// enumerate the REAL domain — all 53 CANONICAL_SHAPES plus the full
+// ALIAS_TO_CANONICAL catalog — never a hand-picked fixture subset; the
+// sweep lengths are pinned in dedicated tests so a registry shrink fails
+// loudly instead of silently narrowing the battery. =====
+describe('full-domain round-trip battery (38-02 Task 2)', () => {
+  it('the canonical sweep enumerates the full registry domain (53, not a subset)', () => {
+    expect(CANONICAL_SHAPES).toHaveLength(53);
+    expect(new Set(CANONICAL_SHAPES.map(s => s.shortName)).size).toBe(53);
+  });
+
+  it('the alias sweep enumerates the full catalog (98 measured entries)', () => {
+    expect(ALIAS_TO_CANONICAL.size).toBe(98);
+  });
+
+  // (1) Canonical sweep: every canonical shortName parses from its directive
+  // form with no authored delta, and a same-shape change re-emits text that
+  // re-parses identically (shape + label); directive-span emissions carry
+  // the canonical key.
+  it.each(CANONICAL_SHAPES.map(s => [s.shortName] as [string]))(
+    'canonical sweep: %s parses and round-trips losslessly',
+    (shortName) => {
+      const source = `flowchart TD\nA@{ shape: "${shortName}", label: "X" }`;
+      const parsed = parseDiagram(source);
+      const node = parsed.nodes.find(n => n.id === 'A');
+      if (!node) {throw new Error('canonical sweep: node A missing');}
+      expect(node.shape).toBe(shortName);
+      expect(node.authoredShape).toBeUndefined();
+
+      const emitted = updateNodeShape(source, 'A', node.shape);
+      const reparsed = parseDiagram(emitted);
+      const rnode = reparsed.nodes.find(n => n.id === 'A');
+      expect(rnode?.shape).toBe(shortName);
+      expect(rnode?.label).toBe('X');
+      if (emitted.includes('@{')) {
+        expect(emitted).toContain(`shape: "${shortName}"`);
+      } else {
+        // Bracket-form family: the emission is delimiters, never a span.
+        expect(emitted).not.toContain('@{');
+      }
+    },
+  );
+
+  // (2) Alias sweep: every catalog entry parses to its canonical target with
+  // authoredShape carrying the alias token (self-aliases are canonical
+  // tokens — authoredShape undefined); an explicit shape change emits the
+  // canonical key, never the alias; a label edit keeps mermaid-safe alias
+  // tokens verbatim (authoredShape survives) while the net-new legacy keys
+  // (round et al. — mermaid 12 rejects them inside a directive span,
+  // probe-verified) translate to their canonical targets.
+  it.each([...ALIAS_TO_CANONICAL.entries()] as [string, string][])(
+    'alias sweep: %s resolves to %s with authored preservation and canonical emission',
+    (alias, target) => {
+      const source = `flowchart TD\nA@{ shape: "${alias}", label: "X" }`;
+      const parsed = parseDiagram(source);
+      const node = parsed.nodes.find(n => n.id === 'A');
+      if (!node) {throw new Error('alias sweep: node A missing');}
+      expect(node.shape).toBe(target);
+      if (alias === target) {
+        expect(node.authoredShape).toBeUndefined();
+      } else {
+        expect(node.authoredShape).toBe(alias);
+      }
+
+      const emitted = updateNodeShape(source, 'A', node.shape);
+      if (emitted.includes('@{')) {
+        expect(emitted).toContain(`shape: "${target}"`);
+      } else {
+        expect(emitted).not.toContain('@{');
+      }
+      if (alias !== target) {
+        expect(emitted).not.toContain(`shape: "${alias}"`);
+      }
+
+      const renamed = updateNodeLabel(source, 'A', 'Y');
+      const rnode = parseDiagram(renamed).nodes.find(n => n.id === 'A');
+      expect(rnode?.shape).toBe(target);
+      const netNewLegacy =
+        alias !== target && !CANONICAL_SHAPES.some(s => s.aliases.includes(alias));
+      if (netNewLegacy) {
+        expect(renamed).not.toContain(`shape: "${alias}"`);
+        expect(rnode?.authoredShape).toBeUndefined();
+      } else if (alias === target) {
+        expect(rnode?.authoredShape).toBeUndefined();
+      } else {
+        expect(rnode?.authoredShape).toBe(alias);
+      }
+    },
+  );
+
+  // (3) Legacy delimiter-family byte-identity — all 14 SHAPE_PATTERNS
+  // families, plain and quoted variants: parse then re-emit (updateNodeShape
+  // to the parsed shape) reproduces the line byte-identically. The quoted
+  // subroutine uses the compact [["x"]] form the P7-fixed regex now claims;
+  // the other quoted spellings parse through their plain family with the
+  // quote characters inside the label (byte-identical re-emission).
+  it.each([
+    ['stadium', 'A([x])', 'A(["x"])'],
+    ['fr-rect', 'A[[x]]', 'A[["x"]]'],
+    ['cyl', 'A[(x)]', 'A[("x")]'],
+    ['dbl-circ', 'A(((x)))', 'A((("x")))'],
+    ['circle', 'A((x))', 'A(("x"))'],
+    ['hex', 'A{{x}}', 'A{{"x"}}'],
+    ['diam', 'A{x}', 'A{"x"}'],
+    ['rounded', 'A(x)', 'A("x")'],
+    ['odd', 'A>x]', 'A>"x"]'],
+    ['lean-r', 'A[/x/]', 'A[/"x"/]'],
+    ['lean-l', 'A[\\x\\]', 'A[\\"x"\\]'],
+    ['trap-b', 'A[/x\\]', 'A[/"x"\\]'],
+    ['trap-t', 'A[\\x/]', 'A[\\"x"/]'],
+    ['rect', 'A[x]', 'A["x"]'],
+  ] as [string, string, string][])(
+    'delimiter family %s round-trips byte-identical (%s and %s)',
+    (_family, plain, quoted) => {
+      for (const line of [plain, quoted]) {
+        const source = `flowchart TD\n${line}`;
+        const parsed = parseDiagram(source);
+        const node = parsed.nodes.find(n => n.id === 'A');
+        if (!node) {throw new Error(`byte-identity: node A missing for ${line}`);}
+        const emitted = updateNodeShape(source, 'A', node.shape);
+        expect(emitted).toBe(source);
+      }
+    },
+  );
+
+  // (4) Ellipse verbatim pin — `A(-label-)` parses in the paren family with
+  // its bare label and re-emits byte-identically. No code path invents an
+  // @{ shape: "ellipse" } span or rewrites the node to rect with different
+  // text. (The mermaid-side render failure is upstream — P1: shapesDefs has
+  // no ellipse entry; the app's Preview shows mermaid's error, the DATA
+  // layer must not lose the authored form.)
+  it('ellipse paren form parses, keeps its family, and re-emits byte-identical', () => {
+    const source = 'flowchart TD\nA(-label-) --> B';
+    const parsed = parseDiagram(source);
+    const a = parsed.nodes.find(n => n.id === 'A');
+    if (!a) {throw new Error('ellipse pin: node A missing');}
+    expect(a.label).toBe('-label-');
+    expect(a.shape).toBe('rounded');
+    expect(a.raw).toBe('(-label-)');
+
+    // Byte-identity through the safe writer path (updateNodeLabel — the
+    // updateNodeShape edge-line branch is the documented D3 pre-existing
+    // gap and stays out of scope). The edge writer re-emits its normalized
+    // single-space form (pre-existing contract — the space before the arrow
+    // collapses); the ellipse delimiters and label must survive verbatim,
+    // with no invented ellipse span and no rect rewrite.
+    const same = updateNodeLabel(source, 'A', '-label-');
+    // The writer's normalized form drops arrow-adjacent spaces (the same
+    // contract the baseline rename pin asserts: `A[NewLabel]-->B`); the
+    // ellipse delimiters and label survive verbatim, with no invented
+    // ellipse span and no rect rewrite.
+    expect(same).toBe('flowchart TD\nA(-label-)-->B');
+    expect(same).not.toContain('@{ shape: "ellipse" }');
+
+    const renamed = updateNodeLabel(source, 'A', '-renamed-');
+    expect(renamed).toContain('A(-renamed-)');
+    expect(renamed).not.toContain('@{');
+
+    // Standalone form round-trips through updateNodeShape as well.
+    const standalone = 'flowchart TD\nA(-label-)';
+    expect(updateNodeShape(standalone, 'A', a.shape)).toBe(standalone);
+  });
+
+  it('populates authoredShape on an edge-line directive target too', () => {
+    const parsed = parseDiagram('flowchart TD\nA --> B@{ shape: "card", label: "B" }');
+    const b = parsed.nodes.find(n => n.id === 'B');
+    expect(b?.shape).toBe('notch-rect');
+    expect(b?.authoredShape).toBe('card');
+  });
+
+  // (5) Adjacency: two directive blocks on ONE node line parse
+  // independently, each with its own shape and label.
+  it('parses two directive blocks on one edge line independently', () => {
+    const source = 'flowchart TD\nA@{ shape: "rect", label: "One" } --> B@{ shape: "circle", label: "Two" }';
+    const parsed = parseDiagram(source);
+    const a = parsed.nodes.find(n => n.id === 'A');
+    const b = parsed.nodes.find(n => n.id === 'B');
+    expect(a?.shape).toBe('rect');
+    expect(a?.label).toBe('One');
+    expect(b?.shape).toBe('circle');
+    expect(b?.label).toBe('Two');
+    expect(parsed.edges).toHaveLength(1);
+  });
+
+  // (6) Empty label: the directive form emits label: "" and it survives
+  // parse + re-emission as an empty string (never the null-fallback to the
+  // node id); empty-line input is a no-op for every mutator.
+  it('parses an empty directive label as empty string and re-emits label: ""', () => {
+    const source = 'flowchart TD\nA@{ shape: "rect", label: "" }';
+    const parsed = parseDiagram(source);
+    expect(parsed.nodes.find(n => n.id === 'A')?.label).toBe('');
+
+    const renamed = updateNodeLabel(source, 'A', '');
+    expect(renamed).toBe(source);
+
+    const reshaped = updateNodeShape(source, 'A', 'person');
+    expect(reshaped).toBe('flowchart TD\nA@{ shape: "person", label: "" }');
+    expect(parseDiagram(reshaped).nodes.find(n => n.id === 'A')?.label).toBe('');
+  });
+
+  it('returns empty-string input unchanged from updateNodeShape, updateNodeLabel, removeEdge', () => {
+    expect(updateNodeShape('', 'A', 'rect')).toBe('');
+    expect(updateNodeLabel('', 'A', 'X')).toBe('');
+    expect(removeEdge('', 'A', 'B')).toBe('');
+  });
+
+  // (7) Encoding: shape matching is lowercase-exact — an uppercase token
+  // never silently canonicalizes, and a label edit re-emits the authored
+  // spelling verbatim (codeUtils never re-cases user input).
+  it('never silently canonicalizes an uppercase token — authoredShape survives a label edit', () => {
+    const source = 'flowchart TD\nA@{ shape: "RECT", label: "X" }';
+    const parsed = parseDiagram(source);
+    const a = parsed.nodes.find(n => n.id === 'A');
+    expect(a?.shape).toBe('RECT');
+    expect(a?.authoredShape).toBe('RECT');
+
+    const renamed = updateNodeLabel(source, 'A', 'Y');
+    expect(renamed).toContain('shape: "RECT"');
+    const rnode = parseDiagram(renamed).nodes.find(n => n.id === 'A');
+    expect(rnode?.shape).toBe('RECT');
+    expect(rnode?.authoredShape).toBe('RECT');
+  });
+
+  // (8) Ordering: unknownParams re-emit verbatim, in their original order,
+  // after the label — through both a label edit and a directive shape change.
+  it('re-emits unknown params in their original order after the label', () => {
+    const source = 'flowchart TD\nA@{ shape: "rect", label: "X", w: 40, h: 20, foo: "bar" }';
+    const parsed = parseDiagram(source);
+    expect(parsed.nodes.find(n => n.id === 'A')?.unknownParams)
+      .toEqual(['w: 40', 'h: 20', 'foo: "bar"']);
+
+    const renamed = updateNodeLabel(source, 'A', 'New');
+    expect(renamed).toBe('flowchart TD\nA@{ shape: "rect", label: "New", w: 40, h: 20, foo: "bar" }');
+
+    const reshaped = updateNodeShape(source, 'A', 'person');
+    expect(reshaped).toBe('flowchart TD\nA@{ shape: "person", label: "X", w: 40, h: 20, foo: "bar" }');
   });
 });

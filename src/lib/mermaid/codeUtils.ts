@@ -115,17 +115,24 @@ export interface ParsedDiagram {
 }
 
 const SHAPE_PATTERNS: Array<{ shape: NodeShape; open: string; close: string; regex: RegExp }> = [
+  // 38-02: quoted variants sit IMMEDIATELY BEFORE their plain family entry —
+  // behind it they were dead code (the plain lazy regex matched first with
+  // the quote characters inside the label), and the canonical sweep's
+  // "re-emits re-parsing identical" contract needs quoted re-emissions to
+  // parse back to the bare label. All quoted forms are the COMPACT spellings
+  // — the spaced [[ "x" ]] / [( "x" )] forms are REJECTED by mermaid 12.3
+  // flow.jison (probe-verified, 38-02); the compact quoted slant forms
+  // (lean/trap families, new in 38-02) probe PARSE OK. Delimiters and plain
+  // regexes are byte-unchanged from the pre-38-02 table.
+  { shape: 'stadium',        open: '(["', close: '"])', regex: /^\(\["(.+?)"\]\)$/ },
   { shape: 'stadium',        open: '([', close: '])',   regex: /^\(\[(.+?)\]\)$/ },
-  // P7 (38-02): the quoted subroutine entry — the compact [[ "label" ]]
-  // double-bracket form, with a regex DISTINCT from the quoted rect entry it
-  // used to byte-duplicate (rect won first and this entry was unreachable).
-  // Placed ABOVE the plain fr-rect entry, which would otherwise match the
-  // quoted spelling first with the quote characters inside the label. The
-  // compact spelling is the mermaid-12 render-oracle truth: the spaced
-  // [[ "x" ]] / [( "x" )] forms are REJECTED by flow.jison (probe-verified,
-  // 38-02 — the plan's spaced prose described the shape loosely).
+  // P7 (38-02): the quoted fr-rect entry with a regex DISTINCT from the
+  // quoted rect entry it used to byte-duplicate (rect won first and this
+  // entry was unreachable — rect's quoted entry now sits behind every other
+  // family, fr-rect's quoted form claims [[ "x" ]] first).
   { shape: 'fr-rect',        open: '[["', close: '"]]', regex: /^\[\["(.+?)"\]\]$/ },
   { shape: 'fr-rect',        open: '[[', close: ']]',  regex: /^\[\[(.+?)\]\]$/ },
+  { shape: 'cyl',            open: '[("', close: '")]', regex: /^\[\("(.+?)"\)\]$/ },
   { shape: 'cyl',            open: '[(', close: ')]',  regex: /^\[\((.+?)\)\]$/ },
   // Phase 26: double-circle legacy triple-paren wrap. Quoted variant FIRST
   // (so quote chars never leak into the label), and BOTH entries above the
@@ -133,34 +140,33 @@ const SHAPE_PATTERNS: Array<{ shape: NodeShape; open: string; close: string; reg
   // every triple-paren input and the outer parens end up inside the label.
   { shape: 'dbl-circ', open: '((("', close: '")))', regex: /^\(\(\("(.+?)"\)\)\)$/ },
   { shape: 'dbl-circ', open: '(((',  close: ')))',  regex: /^\(\(\((.+?)\)\)\)$/ },
+  { shape: 'circle',         open: '(("', close: '"))', regex: /^\(\("(.+?)"\)\)$/ },
   { shape: 'circle',         open: '((', close: '))',  regex: /^\(\((.+?)\)\)$/ },
   // 38-02 re-key: shape values are canonical shortNames — the parse side
-  // speaks the registry vocabulary (round→rounded, rhombus→diam,
-  // subroutine→fr-rect, cylinder→cyl, asymmetric→odd, parallelogram→lean-r,
-  // parallelogram-alt→lean-l, trapezoid→trap-b, trapezoid-alt→trap-t,
-  // hexagon→hex). Delimiters and regexes byte-unchanged.
-  { shape: 'hex',            open: '{{', close: '}}',  regex: /^\{\{(.+?)\}\}$/ },
-  { shape: 'diam',           open: '{',  close: '}',   regex: /^\{(.+?)\}$/ },
-  { shape: 'rounded',        open: '(',  close: ')',   regex: /^\((.+?)\)$/ },
-  { shape: 'odd',            open: '>',  close: ']',   regex: /^>(.+?)\]$/ },
-  { shape: 'lean-r',         open: '[/', close: '/]',  regex: /^\[\/(.+?)\/\]$/ },
-  { shape: 'lean-l',         open: '[\\', close: '\\]', regex: /^\[\\(.+?)\\\]$/ },
-  { shape: 'trap-b',         open: '[/', close: '\\]', regex: /^\[\/(.+?)\\\]$/ },
-  { shape: 'trap-t',         open: '[\\', close: '/]', regex: /^\[\\(.+?)\/\]$/ },
-  { shape: 'rect',           open: '[',  close: ']',   regex: /^\[(.+?)\]$/ },
-  // Quoted variants (Mermaid v11: ["label"], ("label"), etc.). P7 (38-02)
-  // metadata fixes: circle/cylinder open/close strings now match the forms
-  // their regexes actually match. (These entries sit behind their plain
-  // family regexes, so the plain family parses quoted spellings with the
-  // quote characters inside the label and re-emits them byte-identically.)
-  { shape: 'rect',           open: '["', close: '"]',  regex: /^\["(.+?)"\]$/ },
-  { shape: 'rounded',        open: '("', close: '")',  regex: /^\("(.+?)"\)$/ },
-  { shape: 'stadium',        open: '(["', close: '"])', regex: /^\(\["(.+?)"\]\)$/ },
-  { shape: 'circle',         open: '(("', close: '"))', regex: /^\(\("(.+?)"\)\)$/ },
-  { shape: 'diam',           open: '{"', close: '"}',  regex: /^\{"(.+?)"\}$/ },
+  // speaks the registry vocabulary (rhombus→diam, round→rounded,
+  // asymmetric→odd, parallelogram→lean-r, parallelogram-alt→lean-l,
+  // trapezoid→trap-b, trapezoid-alt→trap-t, hexagon→hex).
   { shape: 'hex',            open: '{{"', close: '"}}', regex: /^\{\{"(.+?)"\}\}$/ },
-  { shape: 'cyl',            open: '[("', close: '")]', regex: /^\[\("(.+?)"\)\]$/ },
+  { shape: 'hex',            open: '{{', close: '}}',  regex: /^\{\{(.+?)\}\}$/ },
+  { shape: 'diam',           open: '{"', close: '"}',  regex: /^\{"(.+?)"\}$/ },
+  { shape: 'diam',           open: '{',  close: '}',   regex: /^\{(.+?)\}$/ },
+  { shape: 'rounded',        open: '("', close: '")',  regex: /^\("(.+?)"\)$/ },
+  { shape: 'rounded',        open: '(',  close: ')',   regex: /^\((.+?)\)$/ },
   { shape: 'odd',            open: '>"', close: '"]',  regex: /^>"(.+?)"\]$/ },
+  { shape: 'odd',            open: '>',  close: ']',   regex: /^>(.+?)\]$/ },
+  { shape: 'lean-r',         open: '[/"', close: '/"]', regex: /^\[\/"(.+?)"\/\]$/ },
+  { shape: 'lean-r',         open: '[/', close: '/]',  regex: /^\[\/(.+?)\/\]$/ },
+  { shape: 'lean-l',         open: '[\\"', close: '\\"]', regex: /^\[\\"(.+?)"\\\]$/ },
+  { shape: 'lean-l',         open: '[\\', close: '\\]', regex: /^\[\\(.+?)\\\]$/ },
+  { shape: 'trap-b',         open: '[/"', close: '\\"]', regex: /^\[\/"(.+?)"\\\]$/ },
+  { shape: 'trap-b',         open: '[/', close: '\\]', regex: /^\[\/(.+?)\\\]$/ },
+  { shape: 'trap-t',         open: '[\\"', close: '/"]', regex: /^\[\\"(.+?)"\/\]$/ },
+  { shape: 'trap-t',         open: '[\\', close: '/]', regex: /^\[\\(.+?)\/\]$/ },
+  // rect's quoted variant stays LAST (its ["x"] shape is the loosest quoted
+  // form — every other family must claim its input first, the same ordering
+  // discipline the plain table always had).
+  { shape: 'rect',           open: '["', close: '"]',  regex: /^\["(.+?)"\]$/ },
+  { shape: 'rect',           open: '[',  close: ']',   regex: /^\[(.+?)\]$/ },
 ];
 
 /** Canonical shapes carrying a SHAPE_PATTERNS bracket form (derived, not hand-listed). */
@@ -1452,7 +1458,7 @@ export function parseDiagram(source: string): ParsedDiagram {
                 raw: targetShapeRaw,
                 parentSubgraphId: parentId,
                 ...(parsed.directiveRaw
-                  ? { directiveRaw: parsed.directiveRaw, unknownParams: parsed.unknownParams }
+                  ? { directiveRaw: parsed.directiveRaw, unknownParams: parsed.unknownParams, authoredShape: parsed.authoredShape }
                   : {}),
               });
             } else {
