@@ -149,6 +149,7 @@ const PARSER_ONLY_FILES = [
   'src/components/modals/diagram/SaveTemplateModal.tsx',
   'src/components/modals/settings/AdvancedStylePanel.tsx',
   'src/lib/mermaid/diagramType.ts',
+  'src/lib/mermaid/shapes.ts',
 ] as const;
 
 describe('PERF-01 parser purity', () => {
