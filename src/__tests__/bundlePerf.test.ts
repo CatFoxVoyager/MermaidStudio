@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 // (src/types/node-builtin-shims.d.ts) declare exactly these — the same
 // convention as crawlableShell.test.ts / buildTarget.test.ts (Phase 28).
 import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { relative, resolve } from 'path';
 
 /**
  * Bundle-performance fs gates (PERF-01 / PERF-03 / PERF-04).
@@ -142,6 +142,20 @@ describe('PERF-03 font consolidation', () => {
 // src/lib/mermaid/diagramType.ts, never from '@/lib/mermaid/core' — a static
 // core import here keeps the mermaid runtime on the eager boot graph
 // (useTabs reaches themeDerivation at mount).
+//
+// WR-01 (38 review): the gate matches the MODULE, not one import spelling.
+// For each file it certifies the absence of every static-import specifier
+// that resolves to src/lib/mermaid/core.ts from that file's own directory —
+// the '@/lib/mermaid/core' alias form AND the per-file relative form
+// ('./core' from inside src/lib/mermaid/, '../lib/mermaid/core' from
+// elsewhere) — in single, double, or backtick quotes, on whitespace-
+// normalized source, so the side-effect spelling (no `from` clause) is
+// caught too. Matching runs on comment-stripped source (leading-comment and
+// block-comment lines dropped): the contract binds applied code, not prose
+// mentions (shapes.ts's own header quotes the core specifier when telling
+// readers never to import it). NOT certified forms: dynamic `import()`
+// (a lazy chunk stays off the eager boot chain by construction) and
+// `require()` (absent from this ESM-only codebase).
 const PARSER_ONLY_FILES = [
   'src/constants/themeDerivation.ts',
   'src/components/editor/StatusBar.tsx',
@@ -152,15 +166,51 @@ const PARSER_ONLY_FILES = [
   'src/lib/mermaid/shapes.ts',
 ] as const;
 
+// Comment-line filter shared by both gates below. This is a line-granular
+// strip (lines whose first non-space char is a comment opener); a quoted
+// specifier inside a TRAILING comment on a code line could still trip the
+// gate — none exists today, and a trip fails loud, not silent.
+const stripCommentLines = (src: string): string =>
+  src
+    .split('\n')
+    .filter((line) => !/^\s*(\/\/|\/\*|\*)/.test(line))
+    .join('\n');
+
+// Every static-import specifier spelling that resolves to the core module
+// from the directory of `rel`: the alias form plus the per-file relative
+// form (computed, so the check tracks the file's real location).
+function coreSpecifiersFor(rel: (typeof PARSER_ONLY_FILES)[number]): string[] {
+  const root = resolve(__dirname, '../..');
+  const dir = resolve(root, rel, '..');
+  const relSpec = relative(dir, resolve(root, 'src/lib/mermaid/core')).replace(/\\/g, '/');
+  return ['@/lib/mermaid/core', relSpec.startsWith('.') ? relSpec : `./${relSpec}`];
+}
+
 describe('PERF-01 parser purity', () => {
   it.each(PARSER_ONLY_FILES)(
-    '%s carries zero core-module import specifiers',
+    '%s carries zero core-module import specifiers (any static import form)',
     (rel) => {
-      const src = readFileSync(resolve(__dirname, '../..', rel), 'utf8');
-      expect(
-        src,
-        `PERF-01: ${rel} statically imports '@/lib/mermaid/core' — parser-only consumers must import detectDiagramType from '@/lib/mermaid/diagramType' (the core-free module) or the mermaid runtime stays on the eager boot chain`,
-      ).not.toMatch(/from ['"]@\/lib\/mermaid\/core['"]/);
+      const flat = stripCommentLines(
+        readFileSync(resolve(__dirname, '../..', rel), 'utf8'),
+      ).replace(/\s+/g, '');
+      for (const spec of coreSpecifiersFor(rel)) {
+        for (const q of ['\'', '"', '`']) {
+          expect(
+            flat,
+            `PERF-01: ${rel} statically imports the mermaid core module ('${spec}') — parser-only consumers must import detectDiagramType from the core-free diagramType module ('@/lib/mermaid/diagramType') or the mermaid runtime stays on the eager boot chain`,
+          ).not.toContain(`${q}${spec}${q}`);
+        }
+      }
     },
   );
+
+  it('src/lib/mermaid/shapes.ts stays import-free (its documented contract is ZERO imports of any kind)', () => {
+    const code = stripCommentLines(
+      readFileSync(resolve(__dirname, '../../src/lib/mermaid/shapes.ts'), 'utf8'),
+    );
+    expect(
+      code.match(/^\s*(?:import\b|export\s+(?:\*|\{))/m),
+      'PERF-01: src/lib/mermaid/shapes.ts must stay import-free — zero imports is the header-documented contract for this eager-boot parser-only module (any import or re-export drags runtime modules onto the boot chain)',
+    ).toBeNull();
+  });
 });
