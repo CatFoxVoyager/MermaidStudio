@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.7.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.6.0...mermaid-studio-v2.7.0) (2026-11-20)
+
+
+### Features
+
+* **deps:** mermaid 12.3.0 + official examples library, with visual-editor safety fixes ([a86e8d8](https://github.com/CatFoxVoyager/MermaidStudio/commit/a86e8d86d38635f1400a47eba2ea033ea43745ef))
+* **deps:** upgrade mermaid to 12.3.0 and add official examples library ([a6f92ab](https://github.com/CatFoxVoyager/MermaidStudio/commit/a6f92ab270a7f1a82ac0cdd14eeeb9c0520664a4))
+* **mobile:** direct Template Library row in the menu sheet ([a8dc4fa](https://github.com/CatFoxVoyager/MermaidStudio/commit/a8dc4fa7715e15f38ff38fbca24b42074fb75913))
+* **templates:** add French titles/descriptions for official examples ([94b6d0f](https://github.com/CatFoxVoyager/MermaidStudio/commit/94b6d0f42cb87f0bb67b6f271a4e28cc18638c51))
+* **visual:** chain and bare-edge-id round-trip in the visual editor ([c7b48c6](https://github.com/CatFoxVoyager/MermaidStudio/commit/c7b48c6d1c0c8159b2740866063fd6c47f404414))
+
+
+### Bug Fixes
+
+* **mobile:** offer the Template Library command in the mobile palette ([435d89c](https://github.com/CatFoxVoyager/MermaidStudio/commit/435d89ce79d31b831957cc7083135266fa34cf81))
+* **templates:** mobile-true header count and retry after a failed load ([d7c0087](https://github.com/CatFoxVoyager/MermaidStudio/commit/d7c008745c829520ba98ad8779d4aabe5b49d3c2))
+* **templates:** show an error state when a preview render fails ([af810b5](https://github.com/CatFoxVoyager/MermaidStudio/commit/af810b5808716ae9fee4b090bb73ffb18b7b1408))
+* **templates:** type RESTRICTED_TYPES and fix stale architecture label ([b7c517b](https://github.com/CatFoxVoyager/MermaidStudio/commit/b7c517b72dd5f892fd9df9193a9d1a9d622efbce))
+* **visual:** fence bare 12.3 edge ids from the visual editor ([e08d658](https://github.com/CatFoxVoyager/MermaidStudio/commit/e08d65896934870d5dd0c7139381a8fb1db88532))
+* **visual:** parse chained edge hops and fence multi-hop lines ([e6c902c](https://github.com/CatFoxVoyager/MermaidStudio/commit/e6c902cfe0100dad4931113d3720a7c81193b274))
+
 ## [2.6.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.5.0...mermaid-studio-v2.6.0) (2026-11-18)
 
 
