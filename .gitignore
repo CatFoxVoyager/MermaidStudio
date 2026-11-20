@@ -316,3 +316,7 @@ docs/superpowers/
 # Ad-hoc research scratch
 tmp-*.json
 
+
+# Audit SEO local (skill seo) — ne pas versionner
+FULL-AUDIT-REPORT.md
+ACTION-PLAN.md
