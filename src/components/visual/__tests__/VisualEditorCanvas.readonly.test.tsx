@@ -28,35 +28,35 @@ import { VisualEditorCanvas } from '../VisualEditorCanvas';
 
 // ShapeToolbar resolves its labels through i18n (iter-9) — this file never
 // mocked react-i18next before because the toolbar was hardcoded English.
-vi.mock('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, args?: Record<string, unknown>) => {
-      const map: Record<string, string> = {
-        'visual.selectTool': 'Select',
-        'visual.selectToolHint': 'Select tool (V)',
-        'visual.connectTool': 'Connect',
-        'visual.connectToolHint': 'Connect tool (C) - click two nodes to connect',
-        'visual.deleteSelected': 'Delete',
-        'visual.shapesTitle': 'SHAPES',
-        'visual.shapeAddHint': 'Add {{shape}} (tap to add, drag to canvas)',
-        'visual.shapes.box': 'Box',
-        'visual.shapes.round': 'Round',
-        'visual.shapes.stadium': 'Stadium',
-        'visual.shapes.rhombus': 'Diamond',
-        'visual.shapes.circle': 'Circle',
-        'visual.shapes.hexagon': 'Hexagon',
-        'visual.shapes.cylinder': 'Cylinder',
-        'visual.shapes.slant': 'Slant',
-        'visual.shapes.slantAlt': 'Slant (variant)',
-        'visual.shapes.trapezoid': 'Trapezoid',
-        'visual.shapes.trapezoidAlt': 'Trapezoid (variant)',
-        'visual.shapes.subroutine': 'Subroutine',
-        'visual.shapes.flag': 'Flag',
-      };
-      return (map[key] ?? key).replace(/\{\{(\w+)\}\}/g, (_, k: string) => String(args?.[k] ?? `{{${k}}}`));
-    },
-  }),
-}));
+vi.mock('react-i18next', async () => {
+  // 38-05 (SHP-03): the toolbar derives its entries from shapes.ts and
+  // resolves visual.shapes.<canonicalSlug>, so the legacy 27-key block is
+  // gone. Derive the full 53-label surface from the registry + the REAL
+  // en.json copy — the button titles these tests query are production labels.
+  const { CANONICAL_SHAPES } = await import('@/lib/mermaid/shapes');
+  const enMod = await import('../../../i18n/locales/en.json');
+  const en = (enMod.default ?? enMod) as { visual: { shapes: Record<string, string> } };
+  const shapeLabels: Record<string, string> = Object.fromEntries(
+    CANONICAL_SHAPES.map((s) => [`visual.shapes.${s.shortName}`, en.visual.shapes[s.shortName] ?? s.shortName]),
+  );
+  return {
+    useTranslation: () => ({
+      t: (key: string, args?: Record<string, unknown>) => {
+        const map: Record<string, string> = {
+          'visual.selectTool': 'Select',
+          'visual.selectToolHint': 'Select tool (V)',
+          'visual.connectTool': 'Connect',
+          'visual.connectToolHint': 'Connect tool (C) - click two nodes to connect',
+          'visual.deleteSelected': 'Delete',
+          'visual.shapesTitle': 'SHAPES',
+          'visual.shapeAddHint': 'Add {{shape}} (tap to add, drag to canvas)',
+          ...shapeLabels,
+        };
+        return (map[key] ?? key).replace(/\{\{(\w+)\}\}/g, (_, k: string) => String(args?.[k] ?? `{{${k}}}`));
+      },
+    }),
+  };
+});
 
 vi.mock('@/lib/mermaid/core', () => ({
   renderDiagram: vi.fn(async () => ({
@@ -302,7 +302,7 @@ describe('VisualEditorCanvas — D6 body-metadata read-only gate', () => {
       expect(container.querySelector('svg')).toBeInTheDocument();
     });
 
-    const boxButton = container.querySelector('button[title="Add Box (tap to add, drag to canvas)"]');
+    const boxButton = container.querySelector('button[title="Add Rectangle (tap to add, drag to canvas)"]');
     expect(boxButton).toBeInTheDocument();
     fireEvent.click(boxButton!);
 
