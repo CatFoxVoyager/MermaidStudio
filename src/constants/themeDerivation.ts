@@ -1415,6 +1415,25 @@ export function applyStyleToContent(
       flowchartCfg.curve = styleOptions.curveStyle;
       hasFlowchartChanges = true;
     }
+    // Typed formatters gate the write (T-40-05): only a positive integer
+    // reaches the frontmatter block, and the change-detection keeps
+    // hasChanges honest (same shape as the curve write above).
+    if (
+      styleOptions.stepDuration !== undefined &&
+      Number.isInteger(styleOptions.stepDuration) &&
+      styleOptions.stepDuration >= 1 &&
+      flowchartCfg.stepDuration !== styleOptions.stepDuration
+    ) {
+      flowchartCfg.stepDuration = styleOptions.stepDuration;
+      hasFlowchartChanges = true;
+    }
+    if (
+      typeof styleOptions.markdownAutoWrap === 'boolean' &&
+      flowchartCfg.markdownAutoWrap !== styleOptions.markdownAutoWrap
+    ) {
+      flowchartCfg.markdownAutoWrap = styleOptions.markdownAutoWrap;
+      hasFlowchartChanges = true;
+    }
     if (
       styleOptions.nodePadding !== undefined &&
       flowchartCfg.padding !== styleOptions.nodePadding
@@ -1499,6 +1518,19 @@ export function extractStyleOptionsFromContent(
           if (fc.padding) options.nodePadding = parseInt(String(fc.padding));
           if (fc.nodeSpacing) options.nodeSpacing = parseInt(String(fc.nodeSpacing));
           if (fc.rankSpacing) options.rankSpacing = parseInt(String(fc.rankSpacing));
+          // markdownAutoWrap must not use the truthy-if idiom: an explicit
+          // false is a real value the panel must read back. parseYamlConfig
+          // stores every scalar as a string, so the boolean forms accept both
+          // `true`/`false` and the string spellings a hand edit produces.
+          if (fc.stepDuration !== undefined && fc.stepDuration !== null) {
+            const sd = parseInt(String(fc.stepDuration), 10);
+            if (!isNaN(sd) && sd >= 1) options.stepDuration = sd;
+          }
+          if (fc.markdownAutoWrap === true || fc.markdownAutoWrap === 'true') {
+            options.markdownAutoWrap = true;
+          } else if (fc.markdownAutoWrap === false || fc.markdownAutoWrap === 'false') {
+            options.markdownAutoWrap = false;
+          }
         }
 
         // Extract layout engine

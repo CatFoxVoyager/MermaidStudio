@@ -16,6 +16,8 @@ interface AdvancedStylePanelProps {
 
 import { FONT_FAMILY_OPTIONS } from '@/constants/fonts';
 import { ensureGoogleFontsForFamily } from '@/utils/fontInjection';
+import { EDGE_CURVE_OPTIONS } from '@/components/shared/edgeArrowOptions';
+import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
 
 function SliderControl({ label, icon, value, min, max, step, unit, onChange, theme }: {
   label: string;
@@ -78,14 +80,14 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   const { t } = useTranslation();
   const [styleOptions, setStyleOptions] = useState<DiagramStyleOptions>({ ...DEFAULT_STYLE_OPTIONS });
 
-  const CURVE_OPTIONS: { value: DiagramStyleOptions['curveStyle']; label: string }[] = [
-    { value: 'basis', label: t('advancedStyle.curveSmooth') },
-    { value: 'linear', label: t('advancedStyle.curveStraight') },
-    { value: 'stepBefore', label: t('advancedStyle.curveStepBefore') },
-    { value: 'stepAfter', label: t('advancedStyle.curveStepAfter') },
-    { value: 'cardinal', label: t('advancedStyle.curveCardinal') },
-    { value: 'catmullRom', label: t('advancedStyle.curveCatmullRom') },
-  ];
+  // The 13 mermaid config-union curves (EDGE-04, Surface 4) come from the ONE
+  // shared EDGE_CURVE_OPTIONS const (40-02) — no second hand-listed copy —
+  // with labels from the 40-01 `advancedStyle.curve*` key table.
+  const CURVE_OPTIONS: { value: DiagramStyleOptions['curveStyle']; label: string }[] =
+    EDGE_CURVE_OPTIONS.map(opt => ({
+      value: opt.value as DiagramStyleOptions['curveStyle'],
+      label: t(opt.labelKey),
+    }));
 
   const LAYOUT_OPTIONS: { value: LayoutEngine; label: string; description: string }[] = [
     { value: 'dagre', label: t('advancedStyle.layoutDagre'), description: t('advancedStyle.layoutDagreDesc') },
@@ -464,6 +466,54 @@ end`}
                   </button>
                 ))}
               </div>
+
+              {/* Step duration (EDGE-04, Surface 4): empty input keeps the
+                  option key undefined so applyStyleToContent omits the config
+                  key and mermaid's default applies; non-integer input is
+                  ignored on commit (the writer's typed formatter gate). */}
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.stepDuration')}</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  aria-label={t('advancedStyle.stepDuration')}
+                  value={styleOptions.stepDuration ?? ''}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      update({ stepDuration: undefined });
+                      return;
+                    }
+                    const n = Number(raw);
+                    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) return;
+                    update({ stepDuration: n });
+                  }}
+                  className={`w-20 text-xs px-2 py-1.5 rounded-sm border text-right tabular-nums outline-hidden ${FOCUS_RING_CLASSES}`}
+                  style={{
+                    background: 'var(--surface-base)',
+                    borderColor: 'var(--border-subtle)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+
+              {/* Markdown auto-wrap (EDGE-04, Surface 4): the ExportModal
+                  pill-switch idiom at panel scale, default off (undefined
+                  writes no config key). */}
+              <label className="flex items-center justify-between gap-2 cursor-pointer">
+                <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.markdownAutoWrap')}</span>
+                <input
+                  type="checkbox"
+                  className="peer sr-only"
+                  checked={styleOptions.markdownAutoWrap ?? false}
+                  onChange={(e) => update({ markdownAutoWrap: e.target.checked })}
+                />
+                <div aria-hidden="true"
+                  className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.markdownAutoWrap ?? false) ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+                  <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.markdownAutoWrap ?? false) ? 'left-[18px]' : 'left-0.5'}`} />
+                </div>
+              </label>
             </div>
 
             {/* Global Edge Styling */}

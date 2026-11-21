@@ -51,7 +51,21 @@ export interface FlowchartStyleOptions {
   nodePadding: number;
   nodeSpacing: number;
   rankSpacing: number;
-  curveStyle: 'basis' | 'linear' | 'stepBefore' | 'stepAfter' | 'cardinal' | 'catmullRom';
+  // The 13-value mermaid config union (config.type.d.ts:415, declared order).
+  curveStyle:
+    | 'basis'
+    | 'bumpX'
+    | 'bumpY'
+    | 'cardinal'
+    | 'catmullRom'
+    | 'linear'
+    | 'monotoneX'
+    | 'monotoneY'
+    | 'natural'
+    | 'step'
+    | 'stepAfter'
+    | 'stepBefore'
+    | 'rounded';
   borderRadius: number;
   useMaxWidth: boolean;
   layoutEngine: LayoutEngine;
@@ -100,7 +114,21 @@ export interface DiagramStyleOptions extends BaseStyleOptions {
   nodeSpacing?: number;
   rankSpacing?: number;
   curveStyle?:
-    'basis' | 'linear' | 'stepBefore' | 'stepAfter' | 'cardinal' | 'catmullRom' | 'natural';
+    | 'basis'
+    | 'bumpX'
+    | 'bumpY'
+    | 'cardinal'
+    | 'catmullRom'
+    | 'linear'
+    | 'monotoneX'
+    | 'monotoneY'
+    | 'natural'
+    | 'step'
+    | 'stepAfter'
+    | 'stepBefore'
+    | 'rounded';
+  stepDuration?: number;
+  markdownAutoWrap?: boolean;
   borderRadius?: number;
   borderWidth?: number;
   useMaxWidth?: boolean;

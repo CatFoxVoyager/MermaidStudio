@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveThemeVariables, deriveThemeVariablesForDiagramType, applyThemeToFrontmatter, applyC4FromTheme, applyStyleToContent, stripThemeDirective, removeThemeColorsFromFrontmatter, DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '../themeDerivation';
+import { deriveThemeVariables, deriveThemeVariablesForDiagramType, applyThemeToFrontmatter, applyC4FromTheme, applyStyleToContent, extractStyleOptionsFromContent, stripThemeDirective, removeThemeColorsFromFrontmatter, DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '../themeDerivation';
 import { toHex } from '@/utils/colorConversion';
 import type { ThemeCoreColors } from '@/types';
 
@@ -459,6 +459,82 @@ graph TD
       // Should NOT include default theme colors
       expect(result).not.toContain("primaryColor:");
       expect(result).not.toContain("background:");
+    });
+  });
+
+  // 40-03 EDGE-04: the flowchart config block grows stepDuration and
+  // markdownAutoWrap alongside the 13-value curve union. The
+  // deriveThemeVariables snapshots above stay untouched — these keys ride
+  // applyStyleToContent's flowchart config section only.
+  describe('flowchart config growth (40-03 EDGE-04)', () => {
+    const flowchartSource = `flowchart TD
+    A[Start] --> B[End]
+`;
+    const sequenceSource = `sequenceDiagram
+    A->>B: hello
+`;
+
+    it('writes flowchart.curve linear on a basis source (13-union value)', () => {
+      const result = applyStyleToContent(flowchartSource, { curveStyle: 'linear' });
+      expect(result).toContain('flowchart:');
+      expect(result).toMatch(/curve: 'linear'/);
+      const extracted = extractStyleOptionsFromContent(result);
+      expect(extracted.curveStyle).toBe('linear');
+    });
+
+    it('writes flowchart.curve rounded (new union member)', () => {
+      const result = applyStyleToContent(flowchartSource, { curveStyle: 'rounded' });
+      expect(result).toMatch(/curve: 'rounded'/);
+    });
+
+    it('stepDuration 400 writes flowchart.stepDuration and extracts back', () => {
+      const result = applyStyleToContent(flowchartSource, { stepDuration: 400 });
+      expect(result).toMatch(/flowchart:\n(?:.*\n)*?\s+stepDuration: 400/);
+      const extracted = extractStyleOptionsFromContent(result);
+      expect(extracted.stepDuration).toBe(400);
+    });
+
+    it('stepDuration undefined writes NO stepDuration key (mermaid default applies)', () => {
+      const result = applyStyleToContent(flowchartSource, { nodePadding: 20 });
+      expect(result).not.toContain('stepDuration');
+    });
+
+    it('markdownAutoWrap true writes and extracts the boolean back', () => {
+      const result = applyStyleToContent(flowchartSource, { markdownAutoWrap: true });
+      expect(result).toMatch(/markdownAutoWrap: true/);
+      const extracted = extractStyleOptionsFromContent(result);
+      expect(extracted.markdownAutoWrap).toBe(true);
+    });
+
+    it('markdownAutoWrap default state writes no key and invalid values are refused', () => {
+      const untouched = applyStyleToContent(flowchartSource, { nodePadding: 20 });
+      expect(untouched).not.toContain('markdownAutoWrap');
+      // Typed formatters (T-40-05): a non-boolean and a non-positive-integer
+      // stepDuration never reach the frontmatter block.
+      const invalid = applyStyleToContent(flowchartSource, {
+        markdownAutoWrap: 'yes' as unknown as boolean,
+        stepDuration: 2.5 as unknown as number,
+      });
+      expect(invalid).not.toContain('markdownAutoWrap');
+      expect(invalid).not.toContain('stepDuration');
+    });
+
+    it('markdownAutoWrap false round-trips (explicit off is a real value)', () => {
+      const result = applyStyleToContent(flowchartSource, { markdownAutoWrap: false });
+      expect(result).toMatch(/markdownAutoWrap: false/);
+      const extracted = extractStyleOptionsFromContent(result);
+      expect(extracted.markdownAutoWrap).toBe(false);
+    });
+
+    it('a non-flowchart (sequence) source gains neither key (diagramType gate holds)', () => {
+      const result = applyStyleToContent(sequenceSource, {
+        curveStyle: 'rounded',
+        stepDuration: 400,
+        markdownAutoWrap: true,
+      });
+      expect(result).not.toContain('flowchart:');
+      expect(result).not.toContain('stepDuration');
+      expect(result).not.toContain('markdownAutoWrap');
     });
   });
 
