@@ -20,6 +20,7 @@ import { useAIChat } from '@/hooks/ai/useAIChat';
 import { useAISend, extractMermaidCode } from '@/hooks/ai/useAISend';
 import { useAISettings } from '@/hooks/ai/useAISettings';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { detectDiagramType } from '@/lib/mermaid/diagramType';
 
 interface Props {
   currentContent: string;
@@ -69,37 +70,16 @@ function CodeBlock({
       return false;
     }
 
-    const openBrackets = (trimmed.match(/\[/g) || []).length;
-    const closeBrackets = (trimmed.match(/\]/g) || []).length;
+    const bracketCheckInput = trimmed.replace(/\b[A-Za-z_][\w-]*>[^[\]\r\n]+\]/g, '');
+    const openBrackets = (bracketCheckInput.match(/\[/g) || []).length;
+    const closeBrackets = (bracketCheckInput.match(/\]/g) || []).length;
     if (openBrackets !== closeBrackets) {
       return false;
     }
 
-    const validStarts = [
-      'flowchart',
-      'graph',
-      'sequenceDiagram',
-      'classDiagram',
-      'stateDiagram',
-      'erDiagram',
-      'gantt',
-      'mindmap',
-      'gitGraph',
-      'journey',
-      'timeline',
-      'pie',
-      'quadrantChart',
-      'block',
-      'kanban',
-      'C4',
-      'architecture',
-    ];
-    const firstLine = trimmed.split('\n')[0].trim();
-    const startsValidly = validStarts.some(start =>
-      firstLine.toLowerCase().startsWith(start.toLowerCase())
-    );
+    const startsValidly = detectDiagramType(trimmed) !== 'unknown' || trimmed.includes('%%');
 
-    return trimmed.length > 0 && (startsValidly || trimmed.includes('%%'));
+    return trimmed.length > 0 && startsValidly;
   };
 
   const isValid = !isMermaid || validateCode(code);
@@ -194,6 +174,7 @@ function CodeBlock({
 }
 
 function looksLikeMermaid(text: string): boolean {
+  if (detectDiagramType(text) !== 'unknown') return true;
   const lines = text
     .split('\n')
     .map(l => l.trim())
@@ -201,14 +182,8 @@ function looksLikeMermaid(text: string): boolean {
   if (lines.length === 0) return false;
   return lines.some(line => {
     if (/^class\s+\w+\s*\{/.test(line)) return true;
-    if (/^\w+\s*(-->|->|==>|\.\.>|--|---)\s*\w+/.test(line)) return true;
-    if (
-      /^(flowchart|graph|sequenceDiagram|classDiagram|stateDiagram|erDiagram|gantt|mindmap|gitGraph|journey|timeline|pie|quadrantChart|block|kanban|C4|architecture|sankey|xychart|radar)\b/i.test(
-        line
-      )
-    )
-      return true;
-    return false;
+    if (/^\w+\s*(-->|->|==>|\.\.>|--|---|-.->|x--x|o--o|<-->|~~~)\s*\w+/.test(line)) return true;
+    return detectDiagramType(line) !== 'unknown';
   });
 }
 

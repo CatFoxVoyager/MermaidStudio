@@ -2,6 +2,7 @@
  * MermaidRAGService - Comprehensive context-aware documentation for Mermaid.js
  * Optimized for CPU-based Micro LLMs (sub-2B parameters)
  */
+import { detectDiagramType as detectSharedDiagramType } from '@/lib/mermaid/diagramType';
 
 export interface MermaidSnippet {
   type: string;
@@ -15,12 +16,13 @@ const KNOWLEDGE_BASE: Record<string, MermaidSnippet> = {
     type: 'flowchart',
     syntax: 'flowchart [direction] (TD, BT, LR, RL)',
     bestPractices: [
-      'Nodes: [square], (rounded), ([stadium]), {diamond}, ((circle)), [(database)]',
-      'Edges: --> (arrow), --- (line), -.-> (dotted), ==> (thick), -- text --> (with label)',
-      'Subgraphs: subgraph ID [Title] ... end',
-      'Styling: classDef className fill:#f9f,stroke:#333; class nodeID className'
+      'Shapes: [box], {diamond}, ([stadium]), ((circle)), [(cylinder)], @{ shape: canonicalName } (53 canonical shapes), @{ icon: "fa:star" }, @{ img: "..." }',
+      'Markdown labels: "`line 1\\n**bold**`"',
+      'Edges: -->, ---, -.->, ==>, x--x, o--o, <-->, <-.->, <==>, ~~~; animated/curved: e1@--> + e1@{ animate: true, animation: fast, step: 1, curve: basis }',
+      'Subgraphs: subgraph ID [Title] ... end; collapsible: ID@{ view: collapsed }',
+      'Styling: classDef className fill:#f9f,stroke:#333; class nodeID className',
     ],
-    example: 'flowchart TD\n  Start([Start]) --> Proc[Process]\n  Proc --> Dec{Decision}\n  Dec -- Yes --> End([End])'
+    example: 'flowchart TD\n  Start([Start]) e1@--> Proc@{ shape: rounded, label: "`Process`" }\n  e1@{ animate: true, curve: basis }\n  Proc --> Dec{Decision}\n  Dec -- Yes --> End([End])',
   },
   sequence: {
     type: 'sequence',
@@ -30,40 +32,40 @@ const KNOWLEDGE_BASE: Record<string, MermaidSnippet> = {
       'Messages: -> (solid line), ->> (arrow), -->> (dashed arrow), -) (async)',
       'Activation: activate/deactivate or suffix +/- to arrows',
       'Groups: alt/else (conditional), opt (optional), loop (repetition)',
-      'Notes: Note over/left of/right of'
+      'Notes: Note over/left of/right of',
     ],
-    example: 'sequenceDiagram\n  autonumber\n  User->>+System: Request\n  System-->>-User: Response'
+    example: 'sequenceDiagram\n  autonumber\n  User->>+System: Request\n  System-->>-User: Response',
   },
-  class: {
-    type: 'class',
-    syntax: 'classDiagram-v2',
+  classDiagram: {
+    type: 'classDiagram',
+    syntax: 'classDiagram',
     bestPractices: [
       'Visibility: + (public), - (private), # (protected), ~ (package)',
       'Relationships: <|-- (inheritance), *-- (composition), o-- (aggregation), --> (association)',
-      'Members: className : +int attr, className : method() void'
+      'Members: className : +int attr, className : method() void',
     ],
-    example: 'classDiagram-v2\n  class Vehicle {\n    +String make\n    +start() void\n  }\n  Vehicle <|-- Car'
+    example: 'classDiagram\n  class Vehicle {\n    +String make\n    +start() void\n  }\n  Vehicle <|-- Car',
   },
-  state: {
-    type: 'state',
+  stateDiagram: {
+    type: 'stateDiagram',
     syntax: 'stateDiagram-v2',
     bestPractices: [
       'Points: [*] for start/end',
       'Transitions: S1 --> S2 : Event',
       'Composite: state Parent { [*] --> Child }',
-      'Choice: state choice_node <<choice>>'
+      'Choice: state choice_node <<choice>>',
     ],
-    example: 'stateDiagram-v2\n  [*] --> Idle\n  Idle --> Busy : start\n  Busy --> [*] : finish'
+    example: 'stateDiagram-v2\n  [*] --> Idle\n  Idle --> Busy : start\n  Busy --> [*] : finish',
   },
-  er: {
-    type: 'er',
+  erDiagram: {
+    type: 'erDiagram',
     syntax: 'erDiagram',
     bestPractices: [
       'Relationships: ||--o{ (1 to many), }o--|| (many to 1), ||--|| (1 to 1)',
       'Attributes: Entity { type name }',
-      'Primary Keys: PK, Foreign Keys: FK'
+      'Primary Keys: PK, Foreign Keys: FK',
     ],
-    example: 'erDiagram\n  USER ||--o{ POST : writes\n  USER { string username PK }'
+    example: 'erDiagram\n  USER ||--o{ POST : writes\n  USER { string username PK }',
   },
   gantt: {
     type: 'gantt',
@@ -71,27 +73,27 @@ const KNOWLEDGE_BASE: Record<string, MermaidSnippet> = {
     bestPractices: [
       'Date format: dateFormat YYYY-MM-DD',
       'Task syntax: Task name :[status], [id], [start], [duration]',
-      'Status: active, done, crit'
+      'Status: active, done, crit',
     ],
-    example: 'gantt\n  title Project Plan\n  dateFormat YYYY-MM-DD\n  section Dev\n  Task1 :done, a1, 2024-01-01, 3d'
+    example: 'gantt\n  title Project Plan\n  dateFormat YYYY-MM-DD\n  section Dev\n  Task1 :done, a1, 2024-01-01, 3d',
   },
   pie: {
     type: 'pie',
-    syntax: 'pie',
+    syntax: 'pie [showData]',
     bestPractices: [
       'Title: title Header',
-      'Data: "Label" : value'
+      'Data: "Label" : value',
     ],
-    example: 'pie title Fruits\n  "Apple" : 45\n  "Banana" : 25'
+    example: 'pie title Fruits\n  "Apple" : 45\n  "Banana" : 25',
   },
-  git: {
+  gitGraph: {
     type: 'gitGraph',
     syntax: 'gitGraph',
     bestPractices: [
       'Actions: commit, branch, checkout, merge, cherry-pick',
-      'Commit options: id, tag, type (NORMAL, REVERSE, HIGHLIGHT)'
+      'Commit options: id, tag, type (NORMAL, REVERSE, HIGHLIGHT)',
     ],
-    example: 'gitGraph\n  commit\n  branch feat\n  commit\n  checkout main\n  merge feat'
+    example: 'gitGraph\n  commit\n  branch feat\n  commit\n  checkout main\n  merge feat',
   },
   mindmap: {
     type: 'mindmap',
@@ -99,85 +101,94 @@ const KNOWLEDGE_BASE: Record<string, MermaidSnippet> = {
     bestPractices: [
       'Root node starts at level 0',
       'Indentation defines hierarchy',
-      'Shapes: ((circle)), [square], (rounded), {{hex}}'
+      'Shapes: ((circle)), [square], (rounded), {{hex}}',
     ],
-    example: 'mindmap\n  root((Root))\n    Child1\n      Grandchild\n    Child2'
+    example: 'mindmap\n  root((Root))\n    Child1\n      Grandchild\n    Child2',
   },
   timeline: {
     type: 'timeline',
     syntax: 'timeline',
     bestPractices: [
       'Format: Time Period : Event : Event',
-      'Group multiple events under one period'
+      'Group multiple events under one period',
     ],
-    example: 'timeline\n  2023 : Launch\n  2024 : Growth : Scale'
+    example: 'timeline\n  2023 : Launch\n  2024 : Growth : Scale',
   },
   journey: {
     type: 'journey',
     syntax: 'journey',
     bestPractices: [
       'Syntax: section Title, Task: score: Actors',
-      'Scores are 1-5'
+      'Scores are 1-5',
     ],
-    example: 'journey\n  title My Day\n  section Work\n    Coffee: 5: Me\n    Email: 1: Me'
+    example: 'journey\n  title My Day\n  section Work\n    Coffee: 5: Me\n    Email: 1: Me',
   },
-  quadrant: {
+  quadrantChart: {
     type: 'quadrantChart',
     syntax: 'quadrantChart',
     bestPractices: [
       'X/Y axis labels: x-axis Low --> High',
       'Quads: quadrant-1 Title, quadrant-2 Title...',
-      'Points: Label: [x, y]'
+      'Points: Label: [x, y]',
     ],
-    example: 'quadrantChart\n  x-axis Low --> High Importance\n  Item1: [0.7, 0.8]'
+    example: 'quadrantChart\n  x-axis Low --> High Importance\n  Item1: [0.7, 0.8]',
   },
-  xy: {
+  requirementDiagram: {
+    type: 'requirementDiagram',
+    syntax: 'requirementDiagram',
+    bestPractices: [
+      'Blocks: requirement Name { id: ..., text: ..., risk: low|medium|high, verifymethod: test|inspection|analysis|demonstration }',
+      'Relationships: req1 - traces|satisfies|verifies|derives -> req2',
+    ],
+    example: 'requirementDiagram\n  requirement sec_req {\n    id: 1\n    text: Encrypt data\n    risk: high\n    verifymethod: test\n  }\n  element api { type: service }\n  api - satisfies -> sec_req',
+  },
+  xyChart: {
     type: 'xyChart',
     syntax: 'xychart-beta',
     bestPractices: [
       'Orientation: orientation horizontal/vertical',
       'Axis: x-axis [labels], y-axis "Title" min --> max',
-      'Types: line, bar'
+      'Types: line, bar',
     ],
-    example: 'xychart-beta\n  x-axis [Jan, Feb]\n  bar [10, 20]'
+    example: 'xychart-beta\n  x-axis [Jan, Feb]\n  bar [10, 20]',
   },
-  block: {
-    type: 'block',
+  blockDiagram: {
+    type: 'blockDiagram',
     syntax: 'block-beta',
     bestPractices: [
       'Columns: columns N',
       'Block ID["Text"]',
-      'Groups: block:ID ... end'
+      'Groups: block:ID ... end',
     ],
-    example: 'block-beta\n  columns 2\n  A["Start"] B["End"]'
+    example: 'block-beta\n  columns 2\n  A["Start"] B["End"]',
   },
-  architecture: {
-    type: 'architecture',
+  architectureDiagram: {
+    type: 'architectureDiagram',
     syntax: 'architecture-beta',
     bestPractices: [
       'Groups: group ID(icon)[Title]',
       'Services: service ID(icon)[Title] in group',
-      'Connections: ID1:R -- L:ID2'
+      'Connections: ID1:R -- L:ID2',
     ],
-    example: 'architecture-beta\n  service web(server)[Web]\n  service db(database)[DB]\n  web:R -- L:db'
+    example: 'architecture-beta\n  service web(server)[Web]\n  service db(database)[DB]\n  web:R -- L:db',
   },
   c4: {
     type: 'c4',
     syntax: 'C4Context, C4Container, C4Component',
     bestPractices: [
       'Elements: Person, System, Container, Component',
-      'Relationships: Rel(from, to, label, protocol)'
+      'Relationships: Rel(from, to, label, protocol)',
     ],
-    example: 'C4Context\n  Person(p1, "User")\n  System(s1, "App")\n  Rel(p1, s1, "Uses")'
+    example: 'C4Context\n  Person(p1, "User")\n  System(s1, "App")\n  Rel(p1, s1, "Uses")',
   },
-  packet: {
-    type: 'packet',
+  packetDiagram: {
+    type: 'packetDiagram',
     syntax: 'packet-beta',
     bestPractices: [
       'Bit ranges: Start-End: "Label"',
-      'Bit values: Start: "Label"'
+      'Bit values: Start: "Label"',
     ],
-    example: 'packet-beta\n  0-7: "Header"\n  8-15: "Data"'
+    example: 'packet-beta\n  0-7: "Header"\n  8-15: "Data"',
   },
   kanban: {
     type: 'kanban',
@@ -185,30 +196,154 @@ const KNOWLEDGE_BASE: Record<string, MermaidSnippet> = {
     bestPractices: [
       'Headers: ## Title',
       'Sections: ### Section',
-      'Items: - Task'
+      'Items: - Task',
     ],
-    example: 'kanban\n  ## Sprint\n  ### Todo\n  - Item 1'
+    example: 'kanban\n  ## Sprint\n  ### Todo\n  - Item 1',
   },
   sankey: {
     type: 'sankey',
-    syntax: 'sankey',
+    syntax: 'sankey-beta',
     bestPractices: [
-      'CSV format: Source,Target,Value'
+      'CSV format: Source,Target,Value',
     ],
-    example: 'sankey\n  A,B,10\n  B,C,5'
-  }
+    example: 'sankey-beta\n  A,B,10\n  B,C,5',
+  },
+  usecaseDiagram: {
+    type: 'usecaseDiagram',
+    syntax: 'usecase-beta',
+    bestPractices: [
+      'Actors: actor Name',
+      'Containers: systemBoundary Name ... end',
+      'Links: User --> "Use Case", "A" ..> : include "B", Admin --|> User',
+    ],
+    example: 'usecase-beta\n  actor User\n  systemBoundary App\n    "Log in"\n  end\n  User --> "Log in"',
+  },
+  zenuml: {
+    type: 'zenuml',
+    syntax: 'zenuml',
+    bestPractices: [
+      'Calls: Client->Server.method()',
+      'Control blocks: if, else, while, par, try/catch',
+    ],
+    example: 'zenuml\n  title Order Flow\n  Client->API.createOrder()',
+  },
+  ishikawa: {
+    type: 'ishikawa',
+    syntax: 'ishikawa-beta',
+    bestPractices: [
+      'First indented level is the root problem spine',
+      'Nested indentation defines categories and sub-causes',
+    ],
+    example: 'ishikawa-beta\n  Slow Build\n  Tooling\n    Cold cache\n  Tests\n    No sharding',
+  },
+  radar: {
+    type: 'radar',
+    syntax: 'radar-beta',
+    bestPractices: [
+      'Axes: axis a["Label A"], b["Label B"]',
+      'Series: curve c1["Series"]{80, 90}',
+      'Scale: min 0, max 100, graticule polygon|circle',
+    ],
+    example: 'radar-beta\n  axis q["Quality"], s["Speed"], r["Reliability"]\n  curve a["Team"]{85, 75, 90}\n  max 100\n  min 0',
+  },
+  treemap: {
+    type: 'treemap',
+    syntax: 'treemap-beta',
+    bestPractices: [
+      'Quoted section headers with indented weighted leaves: "Leaf": 100',
+      'Supports :::className and classDef styling',
+    ],
+    example: 'treemap-beta\n"Budget"\n  "Engineering": 60\n  "Design": 40',
+  },
+  eventmodeling: {
+    type: 'eventmodeling',
+    syntax: 'eventmodeling',
+    bestPractices: [
+      'Frames: tf 01 ui|cmd|evt|rmo|prj|aut Name',
+      'Links: tf 04 rmo View ->> 03',
+    ],
+    example: 'eventmodeling\n  tf 01 ui Checkout\n  tf 02 cmd SubmitOrder\n  tf 03 evt OrderSubmitted\n  tf 04 rmo OrderView ->> 03',
+  },
+  venn: {
+    type: 'venn',
+    syntax: 'venn-beta',
+    bestPractices: [
+      'Sets: set Name',
+      'Intersections: union A,B["Overlap"]',
+      'Optional text items and style overrides',
+    ],
+    example: 'venn-beta\n  title "Overlap"\n  set A\n  set B\n  union A,B["Shared"]',
+  },
+  treeView: {
+    type: 'treeView',
+    syntax: 'treeView-beta (case-sensitive header)',
+    bestPractices: [
+      'Header MUST be exact camelCase: treeView-beta',
+      'Indentation defines parent-child tree structure',
+    ],
+    example: 'treeView-beta\n  project/\n    src/\n      main.ts',
+  },
+  wardley: {
+    type: 'wardley',
+    syntax: 'wardley-beta',
+    bestPractices: [
+      'Nodes: anchor/component Name [visibility, evolution]',
+      'Links: NodeA -> NodeB',
+    ],
+    example: 'wardley-beta\n  title Cup of Tea\n  anchor Customer [0.95, 0.63]\n  component Tea [0.75, 0.60]\n  Customer -> Tea',
+  },
+  cynefin: {
+    type: 'cynefin',
+    syntax: 'cynefin-beta',
+    bestPractices: [
+      'Domains: clear, complicated, complex, chaotic, confusion',
+      'Quoted items indented under each domain header',
+    ],
+    example: 'cynefin-beta\n  title Decision Map\n  clear\n    "Runbook fix"\n  complex\n    "Probe & learn"',
+  },
+  railroad: {
+    type: 'railroad',
+    syntax: 'railroad-beta | railroad-ebnf-beta | railroad-abnf-beta | railroad-peg-beta',
+    bestPractices: [
+      'Rules end with `;`',
+      'Combinators: sequence(...), choice(...), optional(...), oneOrMore(...), zeroOrMore(...), terminal("..."), nonterminal("...")',
+    ],
+    example: 'railroad-beta\n  title Expr\n  expr = sequence(nonterminal("term"), terminal("+"), nonterminal("term")) ;',
+  },
+  swimlane: {
+    type: 'swimlane',
+    syntax: 'swimlane-beta [LR | TD]',
+    bestPractices: [
+      'Each lane is a `subgraph LaneName ... end` block',
+      'Connect tasks across lanes using Flowchart arrows',
+    ],
+    example: 'swimlane-beta LR\n  subgraph User\n    a[Submit]\n  end\n  subgraph Support\n    b[Triage]\n  end\n  a --> b',
+  },
+};
+
+const TYPE_ALIASES: Record<string, string> = {
+  class: 'classDiagram',
+  state: 'stateDiagram',
+  er: 'erDiagram',
+  git: 'gitGraph',
+  quadrant: 'quadrantChart',
+  requirement: 'requirementDiagram',
+  xy: 'xyChart',
+  xychart: 'xyChart',
+  block: 'blockDiagram',
+  architecture: 'architectureDiagram',
+  packet: 'packetDiagram',
+  usecase: 'usecaseDiagram',
+  treeview: 'treeView',
 };
 
 export function getMermaidContext(type: string = 'flowchart'): string {
-  const normalizedType = type.toLowerCase();
-  
-  // Find best match in knowledge base
-  const entry = Object.entries(KNOWLEDGE_BASE).find(([key]) => {
-    // Exact match or partial match
-    return normalizedType.includes(key) || key.includes(normalizedType);
-  });
-
-  const snippet = entry ? entry[1] : KNOWLEDGE_BASE.flowchart;
+  const canonicalKey = TYPE_ALIASES[type.toLowerCase()] ?? type;
+  const snippet =
+    KNOWLEDGE_BASE[type] ??
+    KNOWLEDGE_BASE[canonicalKey] ??
+    KNOWLEDGE_BASE[type.toLowerCase()] ??
+    KNOWLEDGE_BASE.flowchart;
 
   return `
 ## Mermaid.js ${snippet.type.toUpperCase()} Syntax Reference
@@ -225,28 +360,6 @@ ${snippet.example}
 }
 
 export function detectDiagramType(content: string): string {
-  const clean = content.trim().toLowerCase();
-  const firstLine = clean.split('\n')[0];
-  
-  if (firstLine.includes('flowchart') || firstLine.includes('graph ')) return 'flowchart';
-  if (firstLine.includes('sequencediagram')) return 'sequence';
-  if (firstLine.includes('classdiagram')) return 'class';
-  if (firstLine.includes('erdiagram')) return 'er';
-  if (firstLine.includes('statediagram')) return 'state';
-  if (firstLine.includes('gantt')) return 'gantt';
-  if (firstLine.includes('pie')) return 'pie';
-  if (firstLine.includes('gitgraph')) return 'git';
-  if (firstLine.includes('mindmap')) return 'mindmap';
-  if (firstLine.includes('timeline')) return 'timeline';
-  if (firstLine.includes('journey')) return 'journey';
-  if (firstLine.includes('quadrantchart')) return 'quadrant';
-  if (firstLine.includes('xychart')) return 'xy';
-  if (firstLine.includes('block-beta')) return 'block';
-  if (firstLine.includes('architecture-beta')) return 'architecture';
-  if (firstLine.includes('c4')) return 'c4';
-  if (firstLine.includes('packet-beta')) return 'packet';
-  if (firstLine.includes('kanban')) return 'kanban';
-  if (firstLine.includes('sankey')) return 'sankey';
-  
-  return 'flowchart'; // Default
+  const detected = detectSharedDiagramType(content);
+  return detected === 'unknown' ? 'flowchart' : detected;
 }

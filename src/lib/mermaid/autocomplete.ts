@@ -1,7 +1,15 @@
 import { autocompletion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
 import { MERMAID_KEYWORDS, MERMAID_ARROWS } from './language';
+import { CANONICAL_SHAPES, ALIAS_TO_CANONICAL } from './shapes';
+import { detectDiagramType } from './diagramType';
 
-const DIAGRAM_STARTERS = [
+interface CompletionEntry {
+  label: string;
+  detail?: string;
+  type?: string;
+}
+
+const DIAGRAM_STARTERS: CompletionEntry[] = [
   { label: 'flowchart TD', detail: 'Top-down flowchart', type: 'keyword' },
   { label: 'flowchart LR', detail: 'Left-right flowchart', type: 'keyword' },
   { label: 'flowchart BT', detail: 'Bottom-top flowchart', type: 'keyword' },
@@ -20,50 +28,83 @@ const DIAGRAM_STARTERS = [
   { label: 'timeline', detail: 'Timeline diagram', type: 'keyword' },
   { label: 'sankey-beta', detail: 'Sankey flow diagram', type: 'keyword' },
   { label: 'xychart-beta', detail: 'XY scatter chart', type: 'keyword' },
+  { label: 'packet-beta', detail: 'Network packet diagram', type: 'keyword' },
   { label: 'kanban', detail: 'Kanban board', type: 'keyword' },
-  { label: 'block-beta', detail: 'Block diagram', type: 'keyword' },
+  { label: 'architecture-beta', detail: 'Architecture diagram', type: 'keyword' },
   { label: 'usecase-beta', detail: 'Use case diagram', type: 'keyword' },
-  { label: 'railroad-beta', detail: 'Railroad diagram', type: 'keyword' },
+  { label: 'zenuml', detail: 'ZenUML sequence diagram', type: 'keyword' },
+  { label: 'block-beta', detail: 'Block diagram', type: 'keyword' },
+  { label: 'C4Context', detail: 'C4 context diagram', type: 'keyword' },
+  { label: 'ishikawa-beta', detail: 'Ishikawa fishbone diagram', type: 'keyword' },
+  { label: 'radar-beta', detail: 'Radar spider chart', type: 'keyword' },
+  { label: 'treemap-beta', detail: 'Treemap hierarchy chart', type: 'keyword' },
+  { label: 'eventmodeling', detail: 'Event modeling diagram', type: 'keyword' },
+  { label: 'venn-beta', detail: 'Venn set diagram', type: 'keyword' },
+  { label: 'treeView-beta', detail: 'Hierarchical tree view', type: 'keyword' },
+  { label: 'wardley-beta', detail: 'Wardley value chain map', type: 'keyword' },
   { label: 'cynefin-beta', detail: 'Cynefin domain chart', type: 'keyword' },
+  { label: 'railroad-beta', detail: 'Railroad syntax diagram', type: 'keyword' },
+  { label: 'railroad-ebnf-beta', detail: 'Railroad EBNF grammar', type: 'keyword' },
+  { label: 'railroad-abnf-beta', detail: 'Railroad ABNF grammar', type: 'keyword' },
+  { label: 'railroad-peg-beta', detail: 'Railroad PEG grammar', type: 'keyword' },
   { label: 'swimlane-beta', detail: 'Swimlane diagram', type: 'keyword' },
 ];
 
-// Curated v12 shape vocabulary (D5 / Open Question 1 resolution): the app's
-// own V11_SHAPES from codeUtils.ts (all resolve under v12 as shortName or
-// alias — 24-RESEARCH.md) plus 14 clearly v12-era shortNames from the verified
-// 53-name registry. The full registry stays documented in 24-RESEARCH.md as
-// the safe superset source; an exhaustive dump is autocomplete noise (D5).
-// 27-04: +delay, sl-rect, div-rect, datastore, tri complete the 12-shape
-// toolbar set (30 keys).
-const SHAPE_NAMES = [
-  'doc', 'docs', 'dbl-circ', 'cross-circ', 'bow-rect', 'flip-tri', 'curv-trap',
-  'manual-file', 'manual-input', 'procs', 'paper-tape',
-  'person', 'browser', 'cloud', 'console', 'bucket', 'folder', 'fork', 'join',
-  'hourglass', 'flag', 'text', 'odd', 'bang', 'bolt',
-  'delay', 'sl-rect', 'div-rect', 'datastore', 'tri',
+const canonicalNameSet = new Set<string>(CANONICAL_SHAPES.map(shape => shape.shortName));
+const SHAPE_COMPLETIONS: CompletionEntry[] = [
+  ...CANONICAL_SHAPES.map(shape => ({
+    label: shape.shortName,
+    detail: `Shape: ${shape.shortName}`,
+    type: 'type',
+  })),
+  ...Array.from(ALIAS_TO_CANONICAL.entries())
+    .filter(([alias]) => !canonicalNameSet.has(alias))
+    .map(([alias, canonical]) => ({
+      label: alias,
+      detail: `Shape alias → ${canonical}`,
+      type: 'type',
+    })),
 ];
 
-const SHAPE_COMPLETIONS = SHAPE_NAMES.map(shape => ({ label: shape, detail: `Shape: ${shape}`, type: 'type' }));
-
-const FLOWCHART_COMPLETIONS = [
+const FLOWCHART_COMPLETIONS: CompletionEntry[] = [
   { label: 'subgraph', detail: 'Start a subgraph block', type: 'keyword' },
   { label: 'end', detail: 'End a block', type: 'keyword' },
   { label: 'direction', detail: 'Set direction', type: 'keyword' },
   { label: 'click', detail: 'Click event handler', type: 'keyword' },
   { label: 'style', detail: 'Style a node', type: 'keyword' },
   { label: 'classDef', detail: 'Define a style class', type: 'keyword' },
+  { label: 'class', detail: 'Assign style class', type: 'keyword' },
   { label: 'linkStyle', detail: 'Style a link', type: 'keyword' },
   { label: '-->', detail: 'Arrow connection', type: 'operator' },
   { label: '---', detail: 'Line connection', type: 'operator' },
-  { label: '-.->',detail: 'Dotted arrow', type: 'operator' },
+  { label: '-.->', detail: 'Dotted arrow', type: 'operator' },
+  { label: '-.-', detail: 'Dotted line', type: 'operator' },
   { label: '==>', detail: 'Thick arrow', type: 'operator' },
-  { label: '-->>',detail: 'Open arrow', type: 'operator' },
+  { label: '===', detail: 'Thick line', type: 'operator' },
+  { label: '<-->', detail: 'Bidirectional arrow', type: 'operator' },
+  { label: '<-.->', detail: 'Bidirectional dotted arrow', type: 'operator' },
+  { label: '<==>', detail: 'Bidirectional thick arrow', type: 'operator' },
+  { label: 'x--x', detail: 'Cross-ended edge', type: 'operator' },
+  { label: '--x', detail: 'Cross arrow', type: 'operator' },
+  { label: 'x--', detail: 'Start cross edge', type: 'operator' },
+  { label: 'o--o', detail: 'Circle-ended edge', type: 'operator' },
+  { label: '--o', detail: 'Circle arrow', type: 'operator' },
+  { label: 'o--', detail: 'Start circle edge', type: 'operator' },
+  { label: '~~~', detail: 'Invisible link', type: 'operator' },
+  { label: '"`Markdown`"', detail: 'Markdown formatted node label', type: 'string' },
   { label: '@{ view: collapsed }', detail: 'Collapse subgraph to a single node (makes the visual editor read-only)', type: 'keyword' },
   { label: '@{ shape: ', detail: 'Attach shape metadata to a node (editable in the visual editor)', type: 'keyword' },
+  { label: '@{ icon: "fa:star" }', detail: 'Attach FontAwesome icon node', type: 'keyword' },
+  { label: '@{ img: "https://..." }', detail: 'Attach image node', type: 'keyword' },
+  { label: '@{ animate: true }', detail: 'Animate edge flow', type: 'keyword' },
+  { label: '@{ animation: fast }', detail: 'Fast edge animation', type: 'keyword' },
+  { label: '@{ animation: slow }', detail: 'Slow edge animation', type: 'keyword' },
+  { label: '@{ step: 1 }', detail: 'Step index for sequential animation', type: 'keyword' },
+  { label: '@{ curve: basis }', detail: 'Override edge curve interpolation', type: 'keyword' },
   ...SHAPE_COMPLETIONS,
 ];
 
-const SEQUENCE_COMPLETIONS = [
+const SEQUENCE_COMPLETIONS: CompletionEntry[] = [
   { label: 'participant', detail: 'Declare a participant', type: 'keyword' },
   { label: 'actor', detail: 'Declare an actor', type: 'keyword' },
   { label: 'activate', detail: 'Activate a lifeline', type: 'keyword' },
@@ -82,14 +123,11 @@ const SEQUENCE_COMPLETIONS = [
   { label: 'end', detail: 'End a block', type: 'keyword' },
   { label: 'autonumber', detail: 'Auto-number messages', type: 'keyword' },
   { label: '->>', detail: 'Solid arrow with head', type: 'operator' },
-  { label: '-->>',detail: 'Dotted arrow with head', type: 'operator' },
-  { label: '->>', detail: 'Solid arrow', type: 'operator' },
-  { label: '->>',  detail: 'Async message', type: 'operator' },
-  { label: '-->>',  detail: 'Async reply', type: 'operator' },
-  { label: '-x',  detail: 'Lost message', type: 'operator' },
+  { label: '-->>', detail: 'Dotted arrow with head', type: 'operator' },
+  { label: '-x', detail: 'Lost message', type: 'operator' },
 ];
 
-const GANTT_COMPLETIONS = [
+const GANTT_COMPLETIONS: CompletionEntry[] = [
   { label: 'title', detail: 'Chart title', type: 'keyword' },
   { label: 'dateFormat', detail: 'Set date format', type: 'keyword' },
   { label: 'axisFormat', detail: 'Set axis format', type: 'keyword' },
@@ -103,7 +141,18 @@ const GANTT_COMPLETIONS = [
   { label: 'after', detail: 'Task dependency', type: 'keyword' },
 ];
 
-const ER_COMPLETIONS = [
+const PIE_COMPLETIONS: CompletionEntry[] = [
+  { label: 'title', detail: 'Chart title', type: 'keyword' },
+  { label: 'showData', detail: 'Show slice values in legend', type: 'keyword' },
+];
+
+const MINDMAP_COMPLETIONS: CompletionEntry[] = [
+  { label: 'root((Root))', detail: 'Root circle node', type: 'keyword' },
+  { label: '::icon(', detail: 'Node icon class', type: 'property' },
+  { label: ':::', detail: 'Attach CSS class', type: 'property' },
+];
+
+const ER_COMPLETIONS: CompletionEntry[] = [
   { label: '||--o{', detail: 'One-to-many', type: 'operator' },
   { label: '||--|{', detail: 'One-to-many (must)', type: 'operator' },
   { label: '}o--o{', detail: 'Many-to-many', type: 'operator' },
@@ -119,7 +168,7 @@ const ER_COMPLETIONS = [
   { label: 'FK', detail: 'Foreign key', type: 'keyword' },
 ];
 
-const STATE_COMPLETIONS = [
+const STATE_COMPLETIONS: CompletionEntry[] = [
   { label: 'state', detail: 'Define a state', type: 'keyword' },
   { label: '[*]', detail: 'Start/end state', type: 'keyword' },
   { label: 'direction', detail: 'Set direction', type: 'keyword' },
@@ -128,7 +177,7 @@ const STATE_COMPLETIONS = [
   { label: '-->', detail: 'Transition', type: 'operator' },
 ];
 
-const CLASS_COMPLETIONS = [
+const CLASS_COMPLETIONS: CompletionEntry[] = [
   { label: 'class', detail: 'Define a class', type: 'keyword' },
   { label: 'namespace', detail: 'Define a namespace', type: 'keyword' },
   { label: '<<interface>>', detail: 'Interface stereotype', type: 'keyword' },
@@ -142,7 +191,7 @@ const CLASS_COMPLETIONS = [
   { label: '..|>', detail: 'Realization', type: 'operator' },
 ];
 
-const GITGRAPH_COMPLETIONS = [
+const GITGRAPH_COMPLETIONS: CompletionEntry[] = [
   { label: 'commit', detail: 'Add a commit', type: 'keyword' },
   { label: 'branch', detail: 'Create a branch', type: 'keyword' },
   { label: 'checkout', detail: 'Switch branch', type: 'keyword' },
@@ -153,20 +202,25 @@ const GITGRAPH_COMPLETIONS = [
   { label: 'type:', detail: 'Set commit type', type: 'property' },
 ];
 
-const JOURNEY_COMPLETIONS = [
+const JOURNEY_COMPLETIONS: CompletionEntry[] = [
   { label: 'title', detail: 'Journey title', type: 'keyword' },
   { label: 'section', detail: 'Journey section', type: 'keyword' },
   { label: 'Task:', detail: 'Task with score', type: 'keyword' },
 ];
 
-const QUADRANT_COMPLETIONS = [
+const QUADRANT_COMPLETIONS: CompletionEntry[] = [
   { label: 'title', detail: 'Chart title', type: 'keyword' },
   { label: 'x-axis', detail: 'X-axis label', type: 'keyword' },
   { label: 'y-axis', detail: 'Y-axis label', type: 'keyword' },
+  { label: 'quadrant-1', detail: 'Top-right quadrant title', type: 'keyword' },
+  { label: 'quadrant-2', detail: 'Top-left quadrant title', type: 'keyword' },
+  { label: 'quadrant-3', detail: 'Bottom-left quadrant title', type: 'keyword' },
+  { label: 'quadrant-4', detail: 'Bottom-right quadrant title', type: 'keyword' },
 ];
 
-const REQUIREMENT_COMPLETIONS = [
+const REQUIREMENT_COMPLETIONS: CompletionEntry[] = [
   { label: 'requirement', detail: 'Requirement block', type: 'keyword' },
+  { label: 'functionalRequirement', detail: 'Functional requirement', type: 'keyword' },
   { label: 'element', detail: 'Element block', type: 'keyword' },
   { label: 'id:', detail: 'Requirement ID', type: 'property' },
   { label: 'text:', detail: 'Requirement text', type: 'property' },
@@ -174,34 +228,65 @@ const REQUIREMENT_COMPLETIONS = [
   { label: 'verifymethod:', detail: 'Verification method', type: 'property' },
 ];
 
-const TIMELINE_COMPLETIONS = [
+const TIMELINE_COMPLETIONS: CompletionEntry[] = [
   { label: 'title', detail: 'Timeline title', type: 'keyword' },
+  { label: 'section', detail: 'Timeline section', type: 'keyword' },
 ];
 
-const SANKEY_COMPLETIONS = [
+const SANKEY_COMPLETIONS: CompletionEntry[] = [
   { label: 'Source,Target,Value', detail: 'CSV header', type: 'keyword' },
 ];
 
-const XYCHART_COMPLETIONS = [
+const XYCHART_COMPLETIONS: CompletionEntry[] = [
   { label: 'title', detail: 'Chart title', type: 'keyword' },
   { label: 'x-axis', detail: 'X-axis definition', type: 'keyword' },
   { label: 'y-axis', detail: 'Y-axis definition', type: 'keyword' },
   { label: 'line', detail: 'Line data', type: 'keyword' },
-  { label: 'scatter', detail: 'Scatter data', type: 'keyword' },
+  { label: 'bar', detail: 'Bar data', type: 'keyword' },
 ];
 
-const KANBAN_COMPLETIONS = [
+const PACKET_COMPLETIONS: CompletionEntry[] = [
+  { label: 'title', detail: 'Packet title', type: 'keyword' },
+  { label: '0-15: "Field"', detail: 'Bit range field', type: 'property' },
+];
+
+const KANBAN_COMPLETIONS: CompletionEntry[] = [
   { label: '###', detail: 'Column header', type: 'keyword' },
   { label: '-', detail: 'Task item', type: 'keyword' },
 ];
 
-const BLOCK_COMPLETIONS = [
+const ARCHITECTURE_COMPLETIONS: CompletionEntry[] = [
+  { label: 'group', detail: 'Group container', type: 'keyword' },
+  { label: 'service', detail: 'Service node', type: 'keyword' },
+  { label: 'junction', detail: 'Connection junction', type: 'keyword' },
+  { label: 'in', detail: 'Assign to group', type: 'keyword' },
+];
+
+const C4_COMPLETIONS: CompletionEntry[] = [
+  { label: 'title', detail: 'Diagram title', type: 'keyword' },
+  { label: 'Person(', detail: 'Declare a person', type: 'keyword' },
+  { label: 'System(', detail: 'Declare a system', type: 'keyword' },
+  { label: 'Container(', detail: 'Declare a container', type: 'keyword' },
+  { label: 'Component(', detail: 'Declare a component', type: 'keyword' },
+  { label: 'Rel(', detail: 'Declare a relationship', type: 'keyword' },
+];
+
+const ZENUML_COMPLETIONS: CompletionEntry[] = [
+  { label: 'title', detail: 'Diagram title', type: 'keyword' },
+  { label: 'if', detail: 'Conditional block', type: 'keyword' },
+  { label: 'else', detail: 'Else block', type: 'keyword' },
+  { label: 'while', detail: 'Loop block', type: 'keyword' },
+  { label: 'par', detail: 'Parallel block', type: 'keyword' },
+  { label: 'return', detail: 'Return value', type: 'keyword' },
+];
+
+const BLOCK_COMPLETIONS: CompletionEntry[] = [
   { label: 'columns', detail: 'Grid columns', type: 'keyword' },
   { label: 'space', detail: 'Empty space', type: 'keyword' },
   { label: 'block:', detail: 'Block container', type: 'keyword' },
 ];
 
-const USECASE_COMPLETIONS = [
+const USECASE_COMPLETIONS: CompletionEntry[] = [
   { label: 'actor', detail: 'Declare an actor', type: 'keyword' },
   { label: 'systemBoundary', detail: 'System boundary block', type: 'keyword' },
   { label: 'end', detail: 'End a block', type: 'keyword' },
@@ -215,23 +300,76 @@ const USECASE_COMPLETIONS = [
   { label: '--|>', detail: 'Generalization', type: 'operator' },
 ];
 
-// Keywords extracted from the installed mermaid 12.0.0 RailroadGrammar
-// (Langium grammar, chunk-WLRJLAWP.mjs): terminal, nonterminal, special,
-// choice, sequence, optional, oneOrMore, zeroOrMore. The 6 core ones are
-// surfaced here (D5 minimalism); rules read `name = terminal("a");`.
-const RAILROAD_COMPLETIONS = [
+const ISHIKAWA_COMPLETIONS: CompletionEntry[] = [
+  { label: 'Root Problem', detail: 'Fishbone spine title', type: 'keyword' },
+  { label: '  Category', detail: 'Primary cause branch', type: 'keyword' },
+  { label: '    Cause', detail: 'Detailed root cause', type: 'keyword' },
+];
+
+const RADAR_COMPLETIONS: CompletionEntry[] = [
+  { label: 'title', detail: 'Radar chart title', type: 'keyword' },
+  { label: 'axis', detail: 'Define radar axes', type: 'keyword' },
+  { label: 'curve', detail: 'Add data series curve', type: 'keyword' },
+  { label: 'min', detail: 'Minimum scale value', type: 'keyword' },
+  { label: 'max', detail: 'Maximum scale value', type: 'keyword' },
+  { label: 'graticule', detail: 'Grid shape (circle | polygon)', type: 'keyword' },
+  { label: 'ticks', detail: 'Number of grid rings', type: 'keyword' },
+  { label: 'showLegend', detail: 'Show/hide legend', type: 'keyword' },
+];
+
+const TREEMAP_COMPLETIONS: CompletionEntry[] = [
+  { label: '"Section"', detail: 'Treemap section header', type: 'keyword' },
+  { label: '  "Leaf": 100', detail: 'Weighted leaf node', type: 'property' },
+  { label: 'classDef', detail: 'Define a style class', type: 'keyword' },
+];
+
+const EVENTMODELING_COMPLETIONS: CompletionEntry[] = [
+  { label: 'tf', detail: 'Declare timeline frame', type: 'keyword' },
+  { label: 'ui', detail: 'User interface wireframe', type: 'keyword' },
+  { label: 'cmd', detail: 'Command step', type: 'keyword' },
+  { label: 'evt', detail: 'Domain event', type: 'keyword' },
+  { label: 'rmo', detail: 'Read model view', type: 'keyword' },
+  { label: 'prj', detail: 'Projection', type: 'keyword' },
+  { label: 'aut', detail: 'Automation / processor', type: 'keyword' },
+  { label: '->>', detail: 'Data/event link', type: 'operator' },
+];
+
+const VENN_COMPLETIONS: CompletionEntry[] = [
+  { label: 'title', detail: 'Venn diagram title', type: 'keyword' },
+  { label: 'set', detail: 'Declare a set', type: 'keyword' },
+  { label: 'union', detail: 'Declare an intersection/union', type: 'keyword' },
+  { label: 'text', detail: 'Add text item to set/union', type: 'keyword' },
+  { label: 'style', detail: 'Style set or union', type: 'keyword' },
+];
+
+const TREEVIEW_COMPLETIONS: CompletionEntry[] = [
+  { label: 'root/', detail: 'Root folder line', type: 'keyword' },
+  { label: '  child/', detail: 'Nested folder', type: 'keyword' },
+  { label: '    file.ts', detail: 'Nested leaf item', type: 'keyword' },
+];
+
+const WARDLEY_COMPLETIONS: CompletionEntry[] = [
+  { label: 'title', detail: 'Map title', type: 'keyword' },
+  { label: 'anchor', detail: 'User need anchor [visibility, evolution]', type: 'keyword' },
+  { label: 'component', detail: 'Value chain component [vis, evo]', type: 'keyword' },
+  { label: 'pipeline', detail: 'Component pipeline', type: 'keyword' },
+  { label: 'evolve', detail: 'Evolution movement', type: 'keyword' },
+  { label: 'size', detail: 'Map dimensions [w, h]', type: 'keyword' },
+  { label: 'note', detail: 'Map annotation', type: 'keyword' },
+  { label: '->', detail: 'Value chain dependency', type: 'operator' },
+];
+
+const RAILROAD_COMPLETIONS: CompletionEntry[] = [
   { label: 'terminal', detail: 'Terminal (literal token)', type: 'keyword' },
   { label: 'nonterminal', detail: 'Nonterminal (rule reference)', type: 'keyword' },
   { label: 'choice', detail: 'Alternatives block', type: 'keyword' },
   { label: 'sequence', detail: 'Ordered sequence', type: 'keyword' },
   { label: 'optional', detail: 'Optional element', type: 'keyword' },
   { label: 'oneOrMore', detail: 'One or more repetitions', type: 'keyword' },
+  { label: 'zeroOrMore', detail: 'Zero or more repetitions', type: 'keyword' },
 ];
 
-// Domain keywords from the installed CynefinGrammar (Langium): clear,
-// complicated, complex, chaotic, confusion. Items are quoted strings on
-// lines under the bare domain name; transitions use `clear --> complex`.
-const CYNEFIN_COMPLETIONS = [
+const CYNEFIN_COMPLETIONS: CompletionEntry[] = [
   { label: 'clear', detail: 'Clear domain (best practices)', type: 'keyword' },
   { label: 'complicated', detail: 'Complicated domain (good practices)', type: 'keyword' },
   { label: 'complex', detail: 'Complex domain (emergent practices)', type: 'keyword' },
@@ -239,106 +377,67 @@ const CYNEFIN_COMPLETIONS = [
   { label: 'confusion', detail: 'Confusion / disorder (centre)', type: 'keyword' },
 ];
 
-// swimlane-beta is a standalone v12 type rendered by the flowchart engine
-// (createFlowDiagram): lanes are declared as subgraph blocks.
-const SWIMLANE_COMPLETIONS = [
+const SWIMLANE_COMPLETIONS: CompletionEntry[] = [
   { label: 'subgraph', detail: 'Declare a lane', type: 'keyword' },
   { label: 'direction', detail: 'Set direction', type: 'keyword' },
   { label: 'end', detail: 'End a lane block', type: 'keyword' },
   { label: '-->', detail: 'Arrow connection', type: 'operator' },
 ];
 
-function detectType(doc: string): string {
-  // WR-02: strip a leading YAML frontmatter block before the comment-scan.
-  // All 25 app templates start with `---`; without this, the first
-  // non-comment line was the `---` delimiter itself, every
-  // frontmatter-carrying document detected as '' and fell to the generic
-  // completion set — the per-type groups below were unreachable on the
-  // primary (template-created) authoring path. Matches the frontmatter-first
-  // behavior of detectDiagramType in core.ts.
-  const withoutFrontmatter = doc.replace(/^\s*---[\s\S]*?---\s*/, '');
-  const lines = withoutFrontmatter.trim().split('\n');
-  let firstLine = '';
-
-  for (const line of lines) {
-    const trimmed = line.toLowerCase().trim();
-    if (!trimmed.startsWith('%%')) {
-      firstLine = trimmed;
-      break;
-    }
-  }
-
-  if (firstLine.startsWith('flowchart') || firstLine.startsWith('graph')) {return 'flowchart';}
-  if (firstLine.startsWith('sequencediagram')) {return 'sequence';}
-  if (firstLine.startsWith('classdiagram')) {return 'class';}
-  if (firstLine.startsWith('statediagram')) {return 'state';}
-  if (firstLine.startsWith('erdiagram')) {return 'er';}
-  if (firstLine.startsWith('gantt')) {return 'gantt';}
-  if (firstLine.startsWith('gitgraph')) {return 'gitgraph';}
-  if (firstLine.startsWith('pie')) {return 'pie';}
-  if (firstLine.startsWith('mindmap')) {return 'mindmap';}
-  if (firstLine.startsWith('journey')) {return 'journey';}
-  if (firstLine.startsWith('quadrantchart')) {return 'quadrant';}
-  if (firstLine.startsWith('requirementdiagram')) {return 'requirement';}
-  if (firstLine.startsWith('timeline')) {return 'timeline';}
-  if (firstLine.startsWith('sankey')) {return 'sankey';}
-  if (firstLine.startsWith('xychart')) {return 'xychart';}
-  if (firstLine.startsWith('kanban')) {return 'kanban';}
-  if (firstLine.startsWith('block-beta')) {return 'block';}
-  if (firstLine.startsWith('usecase-beta')) {return 'usecase';}
-  if (firstLine.startsWith('railroad-beta')) {return 'railroad';}
-  if (firstLine.startsWith('cynefin-beta')) {return 'cynefin';}
-  if (firstLine.startsWith('swimlane-beta')) {return 'swimlane';}
-  return '';
-}
-
 export function mermaidCompletions(context: CompletionContext): CompletionResult | null {
-  const word = context.matchBefore(/[\w\-.|<>{}[\]():#]+/);
-  if (!word && !context.explicit) {return null;}
+  const word = context.matchBefore(/[\w\-.|<>{}[\]():#"`~=*]+/);
+  if (!word && !context.explicit) { return null; }
 
-  // WR-01: `@` is deliberately outside the matchBefore charset (it is not part
-  // of a mermaid identifier), so a typed `@{` yields word = '{' starting AFTER
-  // the `@`, and a bare typed `@` yields no word at all (explicit path). In
-  // both cases the default `from` lands after the typed `@`, so accepting an
-  // `@{ ... }` metadata completion doubled it (`A@@{ shape: `). When the
-  // character immediately before the replacement range is `@`, extend the
-  // range to consume it so acceptance REPLACES the typed `@`.
+  // Extend backwards across `@` so accepting `@{...}` replaces `@` cleanly instead of doubling `@@{...}`
   let from = word?.from ?? context.pos;
   if (from > 0 && context.state.doc.sliceString(from - 1, from) === '@') {
     from -= 1;
   }
   const text = word?.text?.toLowerCase() ?? '';
   const doc = context.state.doc.toString();
-  const type = detectType(doc);
+  const type = detectDiagramType(doc);
 
   const line = context.state.doc.lineAt(context.pos);
   const lineNum = line.number;
 
-  let completions: { label: string; detail?: string; type?: string }[];
+  let completions: CompletionEntry[];
 
   if (lineNum === 1 || doc.trim().length < 3) {
     completions = [...DIAGRAM_STARTERS];
   } else {
     switch (type) {
-      case 'flowchart': completions = FLOWCHART_COMPLETIONS; break;
-      case 'sequence':  completions = SEQUENCE_COMPLETIONS; break;
-      case 'gantt':     completions = GANTT_COMPLETIONS; break;
-      case 'er':        completions = ER_COMPLETIONS; break;
-      case 'state':     completions = STATE_COMPLETIONS; break;
-      case 'class':     completions = CLASS_COMPLETIONS; break;
-      case 'gitgraph':  completions = GITGRAPH_COMPLETIONS; break;
-      case 'journey':   completions = JOURNEY_COMPLETIONS; break;
-      case 'quadrant':  completions = QUADRANT_COMPLETIONS; break;
-      case 'requirement': completions = REQUIREMENT_COMPLETIONS; break;
-      case 'timeline':  completions = TIMELINE_COMPLETIONS; break;
-      case 'sankey':    completions = SANKEY_COMPLETIONS; break;
-      case 'xychart':   completions = XYCHART_COMPLETIONS; break;
-      case 'kanban':    completions = KANBAN_COMPLETIONS; break;
-      case 'block':     completions = BLOCK_COMPLETIONS; break;
-      case 'usecase':   completions = USECASE_COMPLETIONS; break;
-      case 'railroad':  completions = RAILROAD_COMPLETIONS; break;
-      case 'cynefin':   completions = CYNEFIN_COMPLETIONS; break;
-      case 'swimlane':  completions = SWIMLANE_COMPLETIONS; break;
+      case 'flowchart':           completions = FLOWCHART_COMPLETIONS; break;
+      case 'sequence':            completions = SEQUENCE_COMPLETIONS; break;
+      case 'classDiagram':        completions = CLASS_COMPLETIONS; break;
+      case 'stateDiagram':        completions = STATE_COMPLETIONS; break;
+      case 'erDiagram':           completions = ER_COMPLETIONS; break;
+      case 'gantt':               completions = GANTT_COMPLETIONS; break;
+      case 'pie':                 completions = PIE_COMPLETIONS; break;
+      case 'mindmap':             completions = MINDMAP_COMPLETIONS; break;
+      case 'gitGraph':            completions = GITGRAPH_COMPLETIONS; break;
+      case 'journey':             completions = JOURNEY_COMPLETIONS; break;
+      case 'quadrantChart':       completions = QUADRANT_COMPLETIONS; break;
+      case 'requirementDiagram':  completions = REQUIREMENT_COMPLETIONS; break;
+      case 'timeline':            completions = TIMELINE_COMPLETIONS; break;
+      case 'sankey':              completions = SANKEY_COMPLETIONS; break;
+      case 'xyChart':             completions = XYCHART_COMPLETIONS; break;
+      case 'packetDiagram':       completions = PACKET_COMPLETIONS; break;
+      case 'kanban':              completions = KANBAN_COMPLETIONS; break;
+      case 'architectureDiagram': completions = ARCHITECTURE_COMPLETIONS; break;
+      case 'usecaseDiagram':      completions = USECASE_COMPLETIONS; break;
+      case 'zenuml':              completions = ZENUML_COMPLETIONS; break;
+      case 'blockDiagram':        completions = BLOCK_COMPLETIONS; break;
+      case 'c4':                  completions = C4_COMPLETIONS; break;
+      case 'ishikawa':            completions = ISHIKAWA_COMPLETIONS; break;
+      case 'radar':               completions = RADAR_COMPLETIONS; break;
+      case 'treemap':             completions = TREEMAP_COMPLETIONS; break;
+      case 'eventmodeling':       completions = EVENTMODELING_COMPLETIONS; break;
+      case 'venn':                completions = VENN_COMPLETIONS; break;
+      case 'treeView':            completions = TREEVIEW_COMPLETIONS; break;
+      case 'wardley':             completions = WARDLEY_COMPLETIONS; break;
+      case 'cynefin':             completions = CYNEFIN_COMPLETIONS; break;
+      case 'railroad':            completions = RAILROAD_COMPLETIONS; break;
+      case 'swimlane':            completions = SWIMLANE_COMPLETIONS; break;
       default:
         completions = MERMAID_KEYWORDS.map(k => ({ label: k, type: 'keyword' }));
         completions.push(...MERMAID_ARROWS.map(a => ({ label: a, type: 'operator' })));
@@ -349,9 +448,9 @@ export function mermaidCompletions(context: CompletionContext): CompletionResult
     completions = completions.filter(c => c.label.toLowerCase().includes(text));
   }
 
-  if (completions.length === 0) {return null;}
+  if (completions.length === 0) { return null; }
 
-  return { from, options: completions, validFor: /^[\w\-.|<>{}[\]():#]*$/ };
+  return { from, options: completions, validFor: /^[\w\-.|<>{}[\]():#"`~=*]*$/ };
 }
 
 export const mermaidAutocomplete = autocompletion({

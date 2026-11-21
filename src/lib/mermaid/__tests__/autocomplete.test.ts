@@ -7,6 +7,7 @@ import { mermaidAutocomplete, mermaidCompletions } from '../autocomplete';
 import { CompletionContext } from '@codemirror/autocomplete';
 import { EditorState } from '@codemirror/state';
 import { TEMPLATES } from '@/constants/templates';
+import { CANONICAL_SHAPES, ALIAS_TO_CANONICAL } from '../shapes';
 
 interface CompletionOption {
   label: string;
@@ -417,9 +418,14 @@ describe('v12 gap entries', () => {
       expect(labels).toEqual(['swimlane-beta']);
     });
 
-    it('offers exactly railroad-beta for partial `rail` on the first line', () => {
+    it('offers railroad starters for partial `rail` on the first line', () => {
       const labels = runCompletions('rail').map(o => o.label);
-      expect(labels).toEqual(['railroad-beta']);
+      expect(labels).toEqual([
+        'railroad-beta',
+        'railroad-ebnf-beta',
+        'railroad-abnf-beta',
+        'railroad-peg-beta',
+      ]);
     });
 
     it('offers exactly cynefin-beta for partial `cynef` on the first line', () => {
@@ -610,3 +616,52 @@ describe('phase 27 — 12-shape set: completions and copy accuracy', () => {
     );
   });
 });
+
+describe('phase 42 EDIT-01 — 53 shapes, v12 directives, arrows & 32 families', () => {
+  it('offers all 53 canonical shapes and all official aliases in flowchart context', () => {
+    const labels = new Set(runCompletions('flowchart TD\n').map(o => o.label));
+    for (const shape of CANONICAL_SHAPES) {
+      expect(labels.has(shape.shortName), `missing canonical shape ${shape.shortName}`).toBe(true);
+    }
+    for (const alias of ALIAS_TO_CANONICAL.keys()) {
+      expect(labels.has(alias), `missing alias ${alias}`).toBe(true);
+    }
+  });
+
+  it('offers valid v12 Flowchart arrows/directives/Markdown and excludes sequence-invalid -->>', () => {
+    const labels = runCompletions('flowchart TD\n').map(o => o.label);
+    expect(labels).not.toContain('-->>');
+    for (const item of [
+      'x--x', 'o--o', '<-.->', '<==>', '~~~',
+      '@{ icon: "fa:star" }', '@{ img: "https://..." }',
+      '@{ animate: true }', '@{ animation: fast }', '@{ animation: slow }',
+      '@{ step: 1 }', '@{ curve: basis }', '"`Markdown`"',
+    ]) {
+      expect(labels).toContain(item);
+    }
+  });
+
+  it('offers starters for all 10 new families including exact-case treeView-beta', () => {
+    const starters = runCompletions('').map(o => o.label);
+    for (const starter of [
+      'ishikawa-beta', 'radar-beta', 'treemap-beta', 'eventmodeling',
+      'venn-beta', 'treeView-beta', 'wardley-beta', 'cynefin-beta',
+      'railroad-beta', 'railroad-ebnf-beta', 'railroad-abnf-beta', 'railroad-peg-beta',
+      'swimlane-beta',
+    ]) {
+      expect(starters).toContain(starter);
+    }
+  });
+
+  it('routes all 10 new families (with exact-case treeView-beta and frontmatter) to dedicated groups', () => {
+    expect(runCompletions('ishikawa-beta\n').map(o => o.label)).toContain('Root Problem');
+    expect(runCompletions('radar-beta\n').map(o => o.label)).toContain('graticule');
+    expect(runCompletions('treemap-beta\n').map(o => o.label)).toContain('"Section"');
+    expect(runCompletions('eventmodeling\n').map(o => o.label)).toContain('cmd');
+    expect(runCompletions('venn-beta\n').map(o => o.label)).toContain('union');
+    expect(runCompletions('treeView-beta\n').map(o => o.label)).toContain('root/');
+    expect(runCompletions('wardley-beta\n').map(o => o.label)).toContain('anchor');
+    expect(runCompletions('---\ntitle: Demo\n---\nvenn-beta\n').map(o => o.label)).toContain('set');
+  });
+});
+

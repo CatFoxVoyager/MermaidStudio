@@ -2,24 +2,26 @@ import { useState, useCallback } from 'react';
 import type { TFunction } from 'i18next';
 import { getSettings } from '@/services/storage/database';
 import { callAI } from '@/services/ai/providers';
+import { detectDiagramType } from '@/lib/mermaid/diagramType';
 import { logger } from '@/utils/logger';
-import type { AIMessage, MachineSize } from '@/types';
+import type { AIMessage, DiagramType, MachineSize } from '@/types';
 
 const log = logger.scope('AI Send');
 
-const MERMAID_DIAGRAM_STARTS = [
-  'flowchart', 'graph', 'sequencediagram', 'classdiagram',
-  'statediagram', 'statediagram-v2', 'erdiagram', 'gantt',
-  'mindmap', 'gitgraph', 'journey', 'timeline', 'pie',
-  'quadrantchart', 'block', 'kanban', 'c4', 'architecture',
-  'sankey', 'xychart', 'radar', 'requirement',
-];
-
-function isMermaidStart(line: string): boolean {
-  const lower = line.trim().toLowerCase();
-  if (MERMAID_DIAGRAM_STARTS.some(k => lower.startsWith(k))) return true;
-  if (/^class\s+\w+\s*\{/.test(line.trim())) return true;
-  if (/^\w+\s*(-->|->|==>|\.\.>|--|---)\s*\w+/.test(line.trim())) return true;
+function isMermaidStart(line: string, remainingLines?: string[]): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  if (detectDiagramType(trimmed) !== 'unknown') return true;
+  if (/^class\s+\w+\s*\{/.test(trimmed)) return true;
+  if (/^\w+\s*(-->|->|==>|\.\.>|--|---|-.->|x--x|o--o|<-->|~~~)\s*\w+/.test(trimmed)) return true;
+  // Support unfenced YAML frontmatter blocks (`--- ... --- <diagramHeader>`)
+  if (trimmed === '---' && remainingLines && remainingLines.length > 2) {
+    const rest = remainingLines.join('\n');
+    const closingIdx = rest.indexOf('\n---');
+    if (closingIdx > -1 && detectDiagramType(rest) !== 'unknown') {
+      return true;
+    }
+  }
   return false;
 }
 
@@ -35,7 +37,7 @@ export function extractMermaidCode(text: string): string {
   const lines = cleaned.split('\n');
   let codeStartIndex = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (isMermaidStart(lines[i].trim())) {
+    if (isMermaidStart(lines[i], lines.slice(i))) {
       codeStartIndex = i;
       break;
     }
@@ -61,7 +63,7 @@ function wrapMermaidInFences(reply: string): string {
 
   let codeStartIndex = -1;
   for (let i = 0; i < lines.length; i++) {
-    if (isMermaidStart(lines[i])) {
+    if (isMermaidStart(lines[i], lines.slice(i))) {
       codeStartIndex = i;
       break;
     }
@@ -83,34 +85,44 @@ function wrapMermaidInFences(reply: string): string {
   return result;
 }
 
-const DIAGRAM_TYPE_MAP: Record<string, string> = {
+const HUMAN_DIAGRAM_LABELS: Record<DiagramType, string> = {
   flowchart: 'flowchart',
-  graph: 'flowchart',
   sequence: 'sequence diagram',
-  class: 'class diagram',
-  state: 'state diagram',
-  er: 'entity relationship diagram',
+  classDiagram: 'class diagram',
+  stateDiagram: 'state diagram',
+  erDiagram: 'entity relationship diagram',
   gantt: 'gantt chart',
-  mindmap: 'mindmap',
-  gitgraph: 'git graph',
   pie: 'pie chart',
+  mindmap: 'mindmap',
+  gitGraph: 'git graph',
   journey: 'user journey',
+  quadrantChart: 'quadrant chart',
+  requirementDiagram: 'requirement diagram',
   timeline: 'timeline',
-  block: 'block diagram',
-  architecture: 'architecture diagram',
-  c4: 'c4 diagram',
+  sankey: 'sankey diagram',
+  xyChart: 'xy chart',
+  packetDiagram: 'packet diagram',
   kanban: 'kanban board',
-  quadrant: 'quadrant chart',
+  architectureDiagram: 'architecture diagram',
+  usecaseDiagram: 'use case diagram',
+  zenuml: 'zenuml diagram',
+  blockDiagram: 'block diagram',
+  c4: 'c4 diagram',
+  ishikawa: 'ishikawa diagram',
+  radar: 'radar chart',
+  treemap: 'treemap',
+  eventmodeling: 'event modeling diagram',
+  venn: 'venn diagram',
+  treeView: 'tree view',
+  wardley: 'wardley map',
+  cynefin: 'cynefin chart',
+  railroad: 'railroad diagram',
+  swimlane: 'swimlane diagram',
+  unknown: 'diagram',
 };
 
 function detectDiagramTypeFromContent(content: string): string {
-  const firstLine = content.trim().split('\n')[0].toLowerCase();
-  for (const [keyword, type] of Object.entries(DIAGRAM_TYPE_MAP)) {
-    if (firstLine.includes(keyword)) {
-      return type;
-    }
-  }
-  return 'diagram';
+  return HUMAN_DIAGRAM_LABELS[detectDiagramType(content)] ?? 'diagram';
 }
 
 interface UseAISendParams {
@@ -181,9 +193,9 @@ ${hasDiagram ? `\nThe user's diagram:\n${currentContent}\n\nExplain this ${diagr
             systemPrompt = `You are a Mermaid.js diagram generator. Output ONLY valid Mermaid code in a \`\`\`mermaid code block. No explanations, no markdown outside the code block.
 
 RULES:
-- Use ONLY standard Mermaid syntax. NO @{shape:...} notation.
-- Use standard node shapes: [box], {diamond}, ([stadium]), ((circle)), [[subroutine]], [(cylinder)], >slant]
-- Use standard edges: -->, ---, --->, -.->, ==>, -->|label|
+- Use valid Mermaid v12 syntax across all diagram families (flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, gantt, ishikawa-beta, radar-beta, treemap-beta, eventmodeling, venn-beta, treeView-beta, wardley-beta, cynefin-beta, railroad-beta, swimlane-beta, etc.).
+- Use bracket shapes ([box], {diamond}, ([stadium]), ((circle)), [[subroutine]], [(cylinder)], >flag]) or canonical v12 directives (@{ shape: cyl }, @{ icon: "fa:star" }, @{ img: "..." }, "\`Markdown\`").
+- Use valid Flowchart edges (-->, ---, -.->, ==>, x--x, o--o, <-->, ~~~) and optional edge/subgraph directives (e1@--> + e1@{ animate: true, curve: basis }, sg1@{ view: collapsed }).
 - Keep diagrams SMALL and CONCISE. Maximum 12 nodes.
 - Do NOT repeat nodes or edges.
 - Use the exact data the user requests. Do NOT invent content.
@@ -199,9 +211,8 @@ flowchart LR
             systemPrompt = `You are a Mermaid.js diagram editor. The user wants to modify their existing diagram. Output ONLY the modified Mermaid code in a \`\`\`mermaid code block.
 
 RULES:
-- Use ONLY standard Mermaid syntax. NO @{shape:...} notation.
-- Use standard node shapes: [box], {diamond}, ([stadium]), ((circle)), [[subroutine]], [(cylinder)], >slant]
-- Use standard edges: -->, ---, --->, -.->, ==>, -->|label|
+- Use valid Mermaid v12 syntax (supports bracket shapes, @{ shape/icon/img/... }, e1@{ animate/step/curve }, sg1@{ view: collapsed }, "\`Markdown\`", and all 32 diagram families).
+- Use valid Flowchart edges (-->, ---, -.->, ==>, x--x, o--o, <-->, ~~~, -->|label|).
 - Preserve ALL original formatting, shapes, styles, colors, classes, config blocks, and direction.
 - ONLY change what the user explicitly requests.
 - Keep diagrams SMALL. Maximum 12 nodes.
@@ -308,9 +319,8 @@ ${hasDiagram ? `\nCurrent diagram:\n${currentContent}` : ''}`;
           const systemPrompt = `You are a Mermaid.js syntax fixer. Output ONLY the fixed Mermaid code in a \`\`\`mermaid code block. No explanations.
 
 RULES:
-- Use ONLY standard Mermaid syntax. NO @{shape:...} notation.
-- Standard shapes: [box], {diamond}, ([stadium]), ((circle)), [(cylinder)]
-- Standard edges: -->, ---, -.->, ==>, -->|label|
+- Use valid Mermaid v12 syntax (preserving bracket shapes, @{ shape/icon/img/... }, e1@{ animate/step/curve }, sg1@{ view: collapsed }, "\`Markdown\`", YAML frontmatter, and all 32 diagram families).
+- Valid Flowchart edges: -->, ---, -.->, ==>, x--x, o--o, <-->, ~~~, -->|label|
 - Do NOT change node shapes, edge styles, colors, classes, styles, config, direction, or labels.
 - ONLY fix the syntax error. Keep everything else identical.
 ${hasDiagram ? `\nDiagram to fix:\n${currentContent}` : ''}`;

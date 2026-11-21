@@ -359,4 +359,55 @@ describe('AIPanel - Characterization Tests', () => {
       });
     });
   });
+
+  describe('7. Phase 42 EDIT-03 Validation & Apply Parity', () => {
+    it('applies asymmetric flag syntax (A>Label]) without false bracket-mismatch warning', async () => {
+      mockCallAI.mockResolvedValueOnce(
+        '```mermaid\nflowchart TD\n  A>Start Flag] --> B[End]\n```'
+      );
+
+      render(<AIPanel {...mockProps} />);
+      await userEvent.type(screen.getByTestId('ai-input'), 'Create');
+      await userEvent.click(screen.getByTestId('ai-send'));
+
+      const applyBtn = await screen.findByTestId('apply-ai');
+      await userEvent.click(applyBtn);
+
+      expect(mockProps.onApply).toHaveBeenCalledWith('flowchart TD\n  A>Start Flag] --> B[End]');
+      expect(screen.queryByText(/Possible syntax issues/i)).not.toBeInTheDocument();
+    });
+
+    it('applies frontmatter + new v12 families (treeView-beta, ishikawa-beta) without warnings', async () => {
+      mockCallAI.mockResolvedValueOnce(
+        '```mermaid\n---\ntitle: Repo Tree\n---\ntreeView-beta\n  app/\n    main.ts\n```'
+      );
+
+      render(<AIPanel {...mockProps} />);
+      await userEvent.type(screen.getByTestId('ai-input'), 'Create');
+      await userEvent.click(screen.getByTestId('ai-send'));
+
+      const applyBtn = await screen.findByTestId('apply-ai');
+      await userEvent.click(applyBtn);
+
+      expect(mockProps.onApply).toHaveBeenCalledWith(
+        '---\ntitle: Repo Tree\n---\ntreeView-beta\n  app/\n    main.ts'
+      );
+      expect(screen.queryByText(/Possible syntax issues/i)).not.toBeInTheDocument();
+    });
+
+    it('still warns on genuinely unclosed brackets like A[broken', async () => {
+      mockCallAI.mockResolvedValueOnce('```mermaid\nflowchart TD\n  A[broken\n```');
+
+      render(<AIPanel {...mockProps} />);
+      await userEvent.type(screen.getByTestId('ai-input'), 'Create');
+      await userEvent.click(screen.getByTestId('ai-send'));
+
+      const applyBtn = await screen.findByTestId('apply-ai');
+      await userEvent.click(applyBtn);
+
+      expect(mockProps.onApply).not.toHaveBeenCalled();
+      expect(screen.getByText(/ai\.syntaxIssues|Possible syntax issues/i)).toBeInTheDocument();
+    });
+  });
 });
+

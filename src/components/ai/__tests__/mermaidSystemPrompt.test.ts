@@ -3,7 +3,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { buildSystemPrompt, type DiagramContext } from '../mermaidSystemPrompt';
+import { buildSystemPrompt, buildCompactRAGPrompt, type DiagramContext } from '../mermaidSystemPrompt';
+import { getMermaidContext, detectDiagramType as ragDetectType } from '@/services/ai/MermaidRAGService';
 
 describe('buildSystemPrompt', () => {
   it('should return default prompt for undefined diagram type', () => {
@@ -143,4 +144,40 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('classDef');
     expect(prompt).toContain('fill:#3b82f6');
   });
+
+  it('includes v12 Flowchart directives, Markdown labels, and all 10 new diagram families (EDIT-02)', () => {
+    const prompt = buildSystemPrompt({
+      currentContent: '',
+      hasDiagram: false,
+    });
+    expect(prompt).toContain('@{ shape:');
+    expect(prompt).toContain('@{ icon:');
+    expect(prompt).toContain('@{ animate:');
+    expect(prompt).toContain('@{ view: collapsed }');
+    for (const family of [
+      'ishikawa-beta', 'radar-beta', 'treemap-beta', 'eventmodeling',
+      'venn-beta', 'treeView-beta', 'wardley-beta', 'cynefin-beta',
+      'railroad-beta', 'swimlane-beta',
+    ]) {
+      expect(prompt).toContain(family);
+    }
+  });
 });
+
+describe('MermaidRAGService & buildCompactRAGPrompt (EDIT-02)', () => {
+  it('routes all 32 families including exact-case treeView-beta and requirementDiagram without substring collision', () => {
+    expect(ragDetectType('treeView-beta\n  root/')).toBe('treeView');
+    expect(ragDetectType('---\ntitle: Demo\n---\nvenn-beta\n  set A')).toBe('venn');
+    expect(ragDetectType('requirementDiagram\n  requirement r1 {}')).toBe('requirementDiagram');
+    expect(getMermaidContext('requirementDiagram')).toContain('REQUIREMENTDIAGRAM');
+    expect(getMermaidContext('treeView')).toContain('treeView-beta');
+    expect(getMermaidContext('ishikawa')).toContain('ishikawa-beta');
+
+    const compact = buildCompactRAGPrompt({
+      currentContent: 'cynefin-beta\n  clear\n    "Restart"',
+      hasDiagram: true,
+    });
+    expect(compact).toContain('cynefin-beta');
+  });
+});
+

@@ -171,10 +171,30 @@ describe('Mermaid Language Constants', () => {
 
     it('should not contain duplicates in arrows', () => {
       const uniqueArrows = new Set(MERMAID_ARROWS);
-      // Note: The actual MERMAID_ARROWS array contains duplicates
-      // This test documents the current state
-      expect(uniqueArrows.size).toBeLessThanOrEqual(MERMAID_ARROWS.length);
-      expect(uniqueArrows.size).toBeGreaterThan(5);
+      expect(uniqueArrows.size).toBe(MERMAID_ARROWS.length);
+      expect(uniqueArrows.size).toBeGreaterThan(10);
+    });
+  });
+
+  describe('v12 EDIT-01 Coverage', () => {
+    it('includes all 10 new families and railroad grammar variants in MERMAID_KEYWORDS', () => {
+      for (const kw of [
+        'ishikawa-beta', 'radar-beta', 'treemap-beta', 'eventmodeling',
+        'venn-beta', 'treeView-beta', 'wardley-beta', 'cynefin-beta',
+        'railroad-beta', 'railroad-ebnf-beta', 'railroad-abnf-beta', 'railroad-peg-beta',
+        'swimlane-beta', 'usecase-beta',
+      ]) {
+        expect(MERMAID_KEYWORDS).toContain(kw);
+      }
+    });
+
+    it('includes v12 Flowchart arrows and Markdown/directive shapes', () => {
+      for (const arrow of ['x--x', '--x', 'x--', 'o--o', '--o', 'o--', '<-.->', '<==>', '~~~']) {
+        expect(MERMAID_ARROWS).toContain(arrow);
+      }
+      expect(MERMAID_SHAPES).toContain('@{ shape: rect, label: "text" }');
+      expect(MERMAID_SHAPES).toContain('"`Markdown`"');
     });
   });
 });
+

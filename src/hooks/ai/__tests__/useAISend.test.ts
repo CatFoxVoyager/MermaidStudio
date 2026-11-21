@@ -556,4 +556,88 @@ describe('useAISend', () => {
       expect(mockAddMessage).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe('Phase 42 EDIT-02 — v12 prompts, 32-family detection & fence wrapping', () => {
+    it('does not include "NO @{shape:...}" ban in creation, modification, or fix system prompts', async () => {
+      const { callAI } = await import('@/services/ai/providers');
+
+      const { result: createHook } = renderHook(() =>
+        useAISend({
+          currentContent: '',
+          messages: mockMessages,
+          addMessage: mockAddMessage,
+          isConfigured: true,
+        })
+      );
+      await act(async () => {
+        await createHook.current.send('Create a flowchart with database node', mockT);
+      });
+
+      const { result: modifyHook } = renderHook(() =>
+        useAISend({
+          currentContent: 'flowchart TD\n  A --> B',
+          messages: mockMessages,
+          addMessage: mockAddMessage,
+          isConfigured: true,
+        })
+      );
+      await act(async () => {
+        await modifyHook.current.send('Add a cylinder database node', mockT);
+      });
+      await act(async () => {
+        await modifyHook.current.sendFixRequest(mockT);
+      });
+
+      expect(vi.mocked(callAI)).toHaveBeenCalledTimes(3);
+      for (const call of vi.mocked(callAI).mock.calls) {
+        const systemMsg = call[1].find(m => m.role === 'system')?.content ?? '';
+        expect(systemMsg).not.toContain('NO @{shape:');
+        expect(systemMsg).toContain('@{ shape');
+      }
+    });
+
+    it('wraps unfenced v12 families (e.g. ishikawa-beta, treeView-beta) in mermaid fences', async () => {
+      const { callAI } = await import('@/services/ai/providers');
+      vi.mocked(callAI).mockResolvedValueOnce('ishikawa-beta\n  Root Cause\n  Process\n    Delay');
+
+      const { result } = renderHook(() =>
+        useAISend({
+          currentContent: '',
+          messages: mockMessages,
+          addMessage: mockAddMessage,
+          isConfigured: true,
+        })
+      );
+
+      await act(async () => {
+        await result.current.send('Create an ishikawa diagram', mockT);
+      });
+
+      expect(mockAddMessage).toHaveBeenCalledWith(
+        'assistant',
+        '```mermaid\nishikawa-beta\n  Root Cause\n  Process\n    Delay\n```'
+      );
+    });
+
+    it('reports human-readable labels for new diagram types in demo mode', async () => {
+      const { result } = renderHook(() =>
+        useAISend({
+          currentContent: 'wardley-beta\n  title Demo',
+          messages: mockMessages,
+          addMessage: mockAddMessage,
+          isConfigured: false,
+        })
+      );
+
+      await act(async () => {
+        await result.current.send('Explain this map', mockT);
+      });
+
+      expect(mockAddMessage).toHaveBeenCalledWith(
+        'assistant',
+        expect.stringContaining('wardley map')
+      );
+    });
+  });
 });
+

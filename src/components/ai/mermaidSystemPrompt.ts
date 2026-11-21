@@ -99,14 +99,14 @@ When generating Mermaid code:
 
 ## Diagram Types & Syntax
 
-**Flowchart**: \`flowchart TD\` or \`graph LR\` - Shapes: \`[process]\`, \`{decision}\`, \`([start/end])\`, \`[(database)]\`
+**Flowchart**: \`flowchart TD\` or \`graph LR\` - Shapes: \`[process]\`, \`{decision}\`, \`([start/end])\`, \`[(database)]\`, or v12 directives \`id@{ shape: cyl, label: "DB" }\`, \`id@{ icon: "fa:star" }\`, \`id@{ img: "..." }\`, Markdown strings \`"\`Markdown\`"\`, arrows (\`-->\`, \`---\`, \`-.->\`, \`==>\`, \`x--x\`, \`o--o\`, \`<-->\`, \`~~~\`), edge motion/curves (\`e1@-->\` + \`e1@{ animate: true, animation: fast, step: 1, curve: basis }\`), collapsible subgraphs (\`sg1@{ view: collapsed }\`)
 **Sequence**: \`sequenceDiagram\` - \`participant Name\`, \`A->B: message\`, \`alt/loop/opt\` groups
 **Class**: \`classDiagram\` - \`class Name {\`  +property\`\n  +method()*\`}\`
 **State**: \`stateDiagram-v2\` - \`[*] --> State\`, \`State1 --> State2 : event\`
 **ER**: \`erDiagram\` - \`Entity ||--o{ Entity : label\`
 **Gantt**: \`gantt\` - \`title\`, \`section\`, \`task :done, a, b\`
 **Mindmap**: \`mindmap\` - \`root((center))\`  branch\`  sub-branch\`
-**Other**: gitGraph, journey, timeline, pie, quadrantChart, block, kanban, architecture, c4
+**Other v12 Families**: \`gitGraph\`, \`journey\`, \`timeline\`, \`pie\`, \`quadrantChart\`, \`requirementDiagram\`, \`sankey-beta\`, \`xychart-beta\`, \`packet-beta\`, \`kanban\`, \`architecture-beta\`, \`usecase-beta\`, \`zenuml\`, \`block-beta\`, \`C4Context\`, \`ishikawa-beta\`, \`radar-beta\`, \`treemap-beta\`, \`eventmodeling\`, \`venn-beta\`, \`treeView-beta\` (exact casing), \`wardley-beta\`, \`cynefin-beta\`, \`railroad-beta\` (\`ebnf\`/\`abnf\`/\`peg\`), \`swimlane-beta\`
 
 ## Configuration Format & Styling
 
@@ -215,10 +215,10 @@ You are an expert Mermaid.js diagnostic and repair assistant. Your job is to ana
 When given a diagram, perform these three analysis passes:
 
 ### Pass 1: Syntax Analysis
-- Check for unclosed brackets, braces, parentheses
-- Validate diagram type keywords (flowchart, sequenceDiagram, etc.)
-- Check for malformed lines or invalid characters
-- Verify quote matching and escaping
+- Check for unclosed brackets, braces, parentheses (note: asymmetric \`A>Label]\` and v12 \`id@{ shape/icon/img/animate/view }\` directives are valid)
+- Validate diagram type headers across all 32 families (\`flowchart\`, \`sequenceDiagram\`, \`classDiagram\`, \`stateDiagram-v2\`, \`erDiagram\`, \`gantt\`, \`ishikawa-beta\`, \`radar-beta\`, \`treemap-beta\`, \`eventmodeling\`, \`venn-beta\`, \`treeView-beta\` exact-case, \`wardley-beta\`, \`cynefin-beta\`, \`railroad-beta\`, \`swimlane-beta\`, etc.)
+- Check for malformed lines, YAML frontmatter syntax, or invalid arrow combinations
+- Verify quote matching, Markdown strings \`"\`...\`"\`, and escaping
 
 ### Pass 2: Semantic Analysis
 - Identify orphaned nodes (nodes with no connections)
