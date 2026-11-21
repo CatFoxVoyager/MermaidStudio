@@ -38,10 +38,17 @@ export interface ValidationResult {
 const SUSPICIOUS_PATTERNS = [
   /<script/i, // Script tags
   /javascript:/i, // JavaScript protocol
-  // Event handlers (onclick, onerror, etc.). The leading \b keeps `on` inside
-  // a longer word (`phone =`, `iconon=`) from matching: an HTML attribute
-  // name is always preceded by whitespace, `/` or a quote, all non-word chars.
-  /\bon\w+\s*=/i,
+  // Event handlers (onclick, onerror, ...), narrowed to the two shapes a real
+  // handler injection takes (ICON-04): (a) tag context — the on-word-assignment
+  // sits inside an HTML/SVG open tag (`<img src=x onerror=...>`); or (b) an
+  // executable value — the assignment target is a quoted string or a
+  // function-call-shaped expression (`A[onclick="alert('xss')"]`, the render
+  // path's pinned label payload). The false-positive classes this kills: URL
+  // queries (`...?onerror=1`), ABNF/EBNF rule text (`online = digit`,
+  // `rule = "onload = x"`), and plain labels with inert unquoted values
+  // (`A[System onload=manual]`). The leading \b keeps `on` inside a longer
+  // word (`phone =`, `iconon=`) from matching, as before.
+  /\bon\w+\s*=\s*(?:"[^"]*"|'[^']*'|\w[\w$.]*\s*\()|<[a-z][^>]*\bon\w+\s*=/i,
   /<iframe/i, // Iframe tags
   /<object/i, // Object tags
   /<embed/i, // Embed tags
