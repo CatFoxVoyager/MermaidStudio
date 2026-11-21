@@ -47,6 +47,9 @@ importers:
       '@iconify-json/fa6-solid':
         specifier: 1.2.4
         version: 1.2.4
+      '@iconify/utils':
+        specifier: 3.1.7
+        version: 3.1.7
       '@mermaid-js/examples':
         specifier: 2.1.0
         version: 2.1.0
