@@ -1161,16 +1161,19 @@ describe('Mermaid Code Utilities', () => {
       });
     });
 
-    describe('legacy migration — the fence is the interim state', () => {
-      it('a pre-38 document with form: squircle FENCES read-only until the UI re-pick', () => {
+    describe('legacy migration — the fence is terminal for icon-attached spans', () => {
+      it('a pre-38 document with form: squircle FENCES read-only; the mutator heals only when called directly (unreachable through the fenced UI)', () => {
         const pre38 = 'flowchart TD\nA@{ icon: "fa:user", form: "squircle", label: "U" }';
         // Silent migration is prohibited: the span is read-only...
         expect(bodyHasUnparsedAtDirective(pre38)).toBe(true);
-        // ...and a plain relabel path cannot heal it either (the writer is
-        // unreachable through the fenced UI; the fence is the safe state).
-        // The DOCUMENTED migration is the 39-04 re-pick: updateNodeIcon
-        // replaces the stale media family with the 12.3 enums, keeping the
-        // bare form (no shape key inserted — the bare-span contract).
+        // ...and it STAYS fenced through the shipped UI: directiveSpanEditable
+        // declines any media span with unknownParams, and both editors' media
+        // handlers sit behind that fence (39-REVIEW WR-05 — the earlier
+        // "the 39-04 re-pick heals this" comment named an unreachable route;
+        // the real migration for icon-attached legacy spans is a manual
+        // source edit). This call demonstrates the mutator-level capability
+        // only: updateNodeIcon replaces the stale media family with the 12.3
+        // enums (bare form kept — no shape key inserted) WHEN invoked.
         const migrated = updateNodeIcon(pre38, 'A', { icon: 'fa:user', form: 'square' });
         expect(migrated).toBe('flowchart TD\nA@{ icon: "fa:user", form: "square", label: "U" }');
         expect(bodyHasUnparsedAtDirective(migrated)).toBe(false);

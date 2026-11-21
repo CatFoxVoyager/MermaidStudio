@@ -57,8 +57,13 @@ export interface ParsedNode {
  * 39-01 (ICON-01): completed to the mermaid 12.3 icon param set. The pre-38
  * extras (`squircle`, `l`/`r`/`c`) are MIGRATED OFF the type, not kept
  * alongside — the directive parser contract is the canonical set; spans
- * carrying the legacy spellings parse as unparsed params and fence (the
- * migration path is the phase-39-04 UI re-pick, never a silent rewrite).
+ * carrying the legacy spellings parse as unparsed params and fence (never a
+ * silent rewrite). Fence reality (39-REVIEW WR-05): a media span with any
+ * unknown param is NOT editable (directiveSpanEditable), so an icon-attached
+ * legacy span fences the whole document and NO UI mutator — including the
+ * 39-04 re-pick — can run on it; its migration is a manual source edit.
+ * Only media-ORPHAN legacy params (form/pos/w/h/constraint beside no typed
+ * icon/img) stay editable and heal through a re-pick.
  */
 export interface IconConfig {
   icon: string;
@@ -2132,11 +2137,15 @@ export function updateNodeShape(source: string, nodeId: string, newShape: NodeSh
  */
 /**
  * The media param vocabulary the mutators OWN: on any media mutation, pairs
- * with these keys are replaced by the typed serialization — stale or failed
- * media params (a pre-38 `form: "squircle"`) never survive a set/clear, or
- * the documented UI migration (re-pick through 39-04) could never heal the
- * span's fence. Keys OUTSIDE this family (foo, animate, step, view...)
- * re-emit verbatim after the typed params — decline-don't-normalize.
+ * with these keys are replaced by the typed serialization — stale media
+ * params never survive a set/clear. Reachability (39-REVIEW WR-05): this
+ * strip only runs on spans the fence admits, so its legacy heal cases are
+ * the media-ORPHAN spellings (e.g. `form: "squircle"` beside no typed
+ * icon/img — directiveSpanEditable keeps those editable); an icon-attached
+ * legacy span is fenced upstream and unreachable by any mutator, so its
+ * `form: "squircle"` heals only by a manual source edit. Keys OUTSIDE this
+ * family (foo, animate, step, view...) re-emit verbatim after the typed
+ * params — decline-don't-normalize.
  */
 const MEDIA_PARAM_KEYS = new Set(['icon', 'img', 'form', 'pos', 'w', 'h', 'constraint']);
 
