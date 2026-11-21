@@ -1,6 +1,7 @@
-import { useState, useLayoutEffect, useEffect, useRef } from 'react';
-import { Settings2, ChevronDown, Zap, Type, Smile, Image as ImageIcon } from 'lucide-react';
+import { useState, useLayoutEffect, useEffect, useCallback, useRef } from 'react';
+import { Settings2, ChevronDown, Zap, Type, Smile, Image as ImageIcon, LoaderCircle, TriangleAlert, ImagePlus, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { logger } from '@/utils/logger';
 import { ColorPicker } from './ColorPicker';
 // 38-06 (SHP-04): the flat hardcoded-EN 23-option <select> is replaced by the
 // unified ShapePicker (SSOT-derived 53 shapes, searchable, categorized). The
@@ -10,8 +11,22 @@ import { ColorPicker } from './ColorPicker';
 // dropdown, but cannot clip a fixed host.
 import { ShapePicker } from '@/components/shared/ShapePicker';
 import type { ShapePickerAnchor } from '@/components/shared/ShapePicker';
+// 39-05 Task 3 (ICON-03, Surface 2): the lazy FA6 picker mounts from the
+// icon trigger — the fixed-position sibling recipe, never a nested popover.
+import { IconPicker } from '@/components/shared/IconPicker';
 import { ShapePreview } from '@/components/shared/ShapePreview';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
+// 39-05 Task 3 (ICON-03, Surface 3): the upload/paste compression pipeline —
+// the ONLY route an image takes from file picker to node directive.
+import {
+  IMAGE_ACCEPT,
+  ImageCompressError,
+  SOURCE_MAX_BYTES,
+  dataUriByteLength,
+  fileToCompressedDataUri,
+  formatBytes,
+} from '@/utils/imageCompress';
+import type { ImageCompressErrorCode } from '@/utils/imageCompress';
 import type { NodeShape, NodeStyle, VisualNode, VisualEdge, IconConfig, ImgConfig } from './types';
 
 const ARROW_OPTIONS = [
@@ -63,6 +78,11 @@ function NodePanel({
   const [shapeOpen, setShapeOpen] = useState(false);
   const [shapeAnchor, setShapeAnchor] = useState<ShapePickerAnchor | null>(null);
   const shapeBtnRef = useRef<HTMLButtonElement>(null);
+  // 39-05 Task 3 (Surface 2): the IconPicker popover — the same fixed-anchor
+  // measurement the ShapePicker trigger uses.
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [iconPickerAnchor, setIconPickerAnchor] = useState<ShapePickerAnchor | null>(null);
+  const iconBtnRef = useRef<HTMLButtonElement>(null);
 
   // Sync label when single node changes
   useLayoutEffect(() => { setLabel(single?.label ?? ''); }, [single?.id, single?.label]);
@@ -120,25 +140,54 @@ function NodePanel({
         ? 'image'
         : 'text';
   const [iconTabArmed, setIconTabArmed] = useState(false);
+  const [imageTabArmed, setImageTabArmed] = useState(false);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageError, setImageError] = useState<ImageCompressErrorCode | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     setIconTabArmed(false);
+    setImageTabArmed(false);
+    setImageBusy(false);
+    setImageError(null);
   }, [nodes.map(n => n.id).join(','), nodes.length]);
   const iconBodyVisible =
     activeMedia === 'icon' || (iconTabArmed && mediaWired && !mediaMixed && !nodeIcon && !nodeImage);
+  const imageBodyVisible =
+    activeMedia === 'image' || (imageTabArmed && mediaWired && !mediaMixed && !nodeIcon && !nodeImage);
+
+  const toggleIconPicker = () => {
+    if (!iconPickerOpen && iconBtnRef.current) {
+      const r = iconBtnRef.current.getBoundingClientRect();
+      setIconPickerAnchor({
+        right: window.innerWidth - r.right,
+        top: r.bottom + 8,
+        maxHeight: window.innerHeight - r.bottom - 24,
+      });
+    }
+    setIconPickerOpen(v => !v);
+  };
+  const closeIconPicker = () => {
+    setIconPickerOpen(false);
+    setIconPickerAnchor(null);
+  };
 
   const switchToIcon = () => {
     if (!onIconChange || !onImageChange) {return;}
     setIconTabArmed(true);
+    setImageTabArmed(false);
     const ids = nodes.map(n => n.id);
     if (nodeImage !== null) {onImageChange(ids, null);}
   };
   const switchToImage = () => {
     if (!onIconChange) {return;}
+    setIconTabArmed(false);
+    setImageTabArmed(true);
     if (nodeIcon !== null) {onIconChange(nodes.map(n => n.id), null);}
   };
   const switchToText = () => {
     if (!onIconChange || !onImageChange) {return;}
     setIconTabArmed(false);
+    setImageTabArmed(false);
     const ids = nodes.map(n => n.id);
     if (nodeIcon !== null) {onIconChange(ids, null);}
     if (nodeImage !== null) {onImageChange(ids, null);}
@@ -161,7 +210,74 @@ function NodePanel({
     }
     onIconChange(nodes.map(n => n.id), next);
   };
+
+  // 39-05 Task 3 (ICON-03, Surface 3): the compression route — identical to
+  // the preview panel's (file picker + paste -> fileToCompressedDataUri ->
+  // onImageChange -> the 39-01 updateNodeImg mutator).
+  const nodeIds = nodes.map(n => n.id);
+  const nodeIdsKey = nodeIds.join(',');
+  const handleImageFile = useCallback(async (file: File) => {
+    if (!onImageChange) {return;}
+    setImageError(null);
+    setImageBusy(true);
+    try {
+      const dataUri = await fileToCompressedDataUri(file);
+      onImageChange(nodeIds, { img: dataUri });
+    } catch (err) {
+      if (err instanceof ImageCompressError) {
+        setImageError(err.code);
+      } else {
+        logger.warn('Image compression failed', err);
+      }
+    } finally {
+      setImageBusy(false);
+    }
+  }, [onImageChange, nodeIdsKey]);
+
+  // 39-05 Task 3 (ICON-03 concurrency resolution): the paste listener is
+  // bound ONLY while the Image tab is open and removed on tab switch and
+  // unmount — the same lifetime contract the preview panel carries.
+  useEffect(() => {
+    if (!imageBodyVisible) {return;}
+    const onPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) {return;}
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            void handleImageFile(file);
+            return;
+          }
+        }
+      }
+    };
+    document.addEventListener('paste', onPaste);
+    return () => {document.removeEventListener('paste', onPaste);};
+  }, [imageBodyVisible, handleImageFile]);
+
+  const setImageParam = (patch: Partial<Omit<ImgConfig, 'img' | 'label'>>) => {
+    if (!onImageChange || !nodeImage) {return;}
+    onImageChange(nodes.map(n => n.id), { ...nodeImage, ...patch });
+  };
+  const setImageSize = (field: 'w' | 'h', raw: string) => {
+    if (!onImageChange || !nodeImage) {return;}
+    const next: ImgConfig = { ...nodeImage };
+    const trimmed = raw.trim();
+    if (trimmed === '') {
+      delete next[field]; // Auto — param omitted on emit
+    } else {
+      const n = Number(trimmed);
+      if (!Number.isFinite(n) || n < 0) {return;} // clamp/ignore invalid entry
+      next[field] = n;
+    }
+    onImageChange(nodes.map(n => n.id), next);
+  };
   const sizePlaceholder = mediaMixed ? t('nodeStyle.mixed') : t('nodeStyle.iconSizeAuto');
+  // Surface 3 item 6: the advisory fires on an EXTERNAL https img value
+  // (authored in code — no URL input field exists, Grey Area 2).
+  const isExternalImage = !!nodeImage && nodeImage.img.startsWith('https://');
 
   return (
     <div className="flex flex-col gap-4">
@@ -267,16 +383,15 @@ function NodePanel({
           </div>
 
           {/* Icon tab body — the same trigger/param rows as the preview
-              panel; the fixed-position IconPicker opens from this trigger
-              in 39-05 (fixed-anchor measurement, no nested popover). */}
+              panel; the IconPicker opens from this trigger via the
+              fixed-anchor measurement (39-05, no nested popover). */}
           {iconBodyVisible && (
             <div className="flex flex-col gap-2 pt-1">
               <button
+                ref={iconBtnRef}
                 type="button"
                 data-icon-trigger
-                onClick={() => {
-                  /* 39-05 wires the IconPicker here. */
-                }}
+                onClick={toggleIconPicker}
                 title={nodeIcon ? t('visual.iconChangeHint', { icon: nodeIcon.icon }) : undefined}
                 aria-label={nodeIcon ? t('visual.iconChangeHint', { icon: nodeIcon.icon }) : t('nodeStyle.iconPickAction')}
                 className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
@@ -308,6 +423,23 @@ function NodePanel({
                   style={{ color: 'var(--text-tertiary)' }}
                 />
               </button>
+              {iconPickerOpen && iconPickerAnchor && (
+                <IconPicker
+                  anchor={iconPickerAnchor}
+                  onClose={closeIconPicker}
+                  onPick={(icon) => {
+                    // Per-node mutator calls (the mixed multi-select pick
+                    // idiom this panel's shape row uses) — the ONLY write
+                    // path.
+                    nodes.forEach(n =>
+                      onIconChange?.([n.id], nodeIcon ? { ...nodeIcon, icon } : { icon }),
+                    );
+                    closeIconPicker();
+                  }}
+                  selected={nodeIcon?.icon ?? null}
+                  triggerRef={iconBtnRef}
+                />
+              )}
 
               {nodeIcon && (
                 <>
@@ -422,6 +554,247 @@ function NodePanel({
                     {t('nodeStyle.iconRemove')}
                   </button>
                 </>
+              )}
+            </div>
+          )}
+
+          {/* 39-05 Task 3 (ICON-03, Surface 3): the Image tab body — the
+              pixel-for-pixel semantics of the preview panel's body, adapted
+              to the 220px panel (explicit max-md:min-h-[44px] floors on
+              every interactive control; no .style-panel class here). */}
+          {imageBodyVisible && (
+            <div className="flex flex-col gap-2 pt-1">
+              <input
+                ref={imageInputRef}
+                type="file"
+                data-image-input
+                accept={IMAGE_ACCEPT}
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = ''; // allow re-picking the same file
+                  if (file) {void handleImageFile(file);}
+                }}
+              />
+
+              {/* External-URL advisory (Surface 3 item 6): the fence-pill
+                  idiom — advisory copy on --surface-floating, never a
+                  warning color, with the upload button directly below as
+                  the corrective action. No URL input field exists (Grey
+                  Area 2); the URL renders only as the truncated source row
+                  with its full value in the title. */}
+              {isExternalImage && (
+                <>
+                  <div
+                    data-image-advisory
+                    className="flex items-start gap-1 rounded-md border p-2 text-[11px] leading-[1.5]"
+                    style={{
+                      background: 'var(--surface-floating)',
+                      borderColor: 'var(--border-subtle)',
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
+                    <ExternalLink size={14} aria-hidden="true" className="shrink-0" />
+                    <span>{t('nodeStyle.imageExternalWarning')}</span>
+                  </div>
+                  <span
+                    data-image-source
+                    className="text-[11px] leading-[1.5] truncate max-w-full px-1"
+                    title={nodeImage!.img}
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    {nodeImage!.img}
+                  </span>
+                </>
+              )}
+
+              {imageBusy ? (
+                <div
+                  data-image-busy
+                  className="flex items-center gap-1 px-1 py-1.5 text-[11px] leading-[1.5]"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <LoaderCircle size={14} className="animate-spin shrink-0" aria-hidden="true" />
+                  <span>{t('nodeStyle.imageCompressing')}</span>
+                </div>
+              ) : nodeImage && !isExternalImage ? (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <div
+                      className="flex items-center justify-center rounded-md border p-1"
+                      style={{ borderColor: 'var(--accent)', background: 'var(--surface-floating)' }}
+                    >
+                      <img
+                        src={nodeImage.img}
+                        alt=""
+                        data-image-thumbnail
+                        className="max-h-16 object-contain"
+                      />
+                    </div>
+                    <span
+                      data-image-readout
+                      className="text-[11px] leading-[1.5]"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      {t('nodeStyle.imageSizeReadout', { size: formatBytes(dataUriByteLength(nodeImage.img)) })}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                      {t('nodeStyle.iconPosition')}
+                    </span>
+                    <div className="grid grid-cols-2 gap-1">
+                      {([
+                        { value: 't' as const, key: 'nodeStyle.iconPositionTop' },
+                        { value: 'b' as const, key: 'nodeStyle.iconPositionBottom' },
+                      ]).map(({ value, key }) => {
+                        const active = nodeImage!.pos === value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            data-image-pos={value}
+                            aria-pressed={active}
+                            onClick={() => setImageParam({ pos: value })}
+                            className={`rounded-md border px-1 py-1.5 text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                            style={
+                              active
+                                ? { background: 'var(--accent-dim)', borderColor: 'transparent', color: 'var(--accent)' }
+                                : { background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }
+                            }
+                          >
+                            {t(key)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                      {t('nodeStyle.iconSize')}
+                    </span>
+                    <div className="grid grid-cols-2 gap-1">
+                      <input
+                        type="number"
+                        data-image-w
+                        value={nodeImage!.w ?? ''}
+                        placeholder={sizePlaceholder}
+                        min={0}
+                        onChange={e => setImageSize('w', e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px]"
+                        style={{
+                          background: 'var(--surface-base)',
+                          borderColor: 'var(--border-subtle)',
+                          color: 'var(--text-primary)',
+                          outline: 'none',
+                        }}
+                      />
+                      <input
+                        type="number"
+                        data-image-h
+                        value={nodeImage!.h ?? ''}
+                        placeholder={sizePlaceholder}
+                        min={0}
+                        onChange={e => setImageSize('h', e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px]"
+                        style={{
+                          background: 'var(--surface-base)',
+                          borderColor: 'var(--border-subtle)',
+                          color: 'var(--text-primary)',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    data-image-constraint
+                    aria-pressed={nodeImage!.constraint === 'on'}
+                    onClick={() => setImageParam({ constraint: nodeImage!.constraint === 'on' ? 'off' : 'on' })}
+                    className={`flex items-center justify-between gap-2 w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                    style={
+                      nodeImage!.constraint === 'on'
+                        ? { background: 'var(--accent-dim)', borderColor: 'transparent', color: 'var(--accent)' }
+                        : { background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }
+                    }
+                  >
+                    <span>{t('nodeStyle.imageConstraint')}</span>
+                    <span aria-hidden="true">{nodeImage!.constraint === 'on' ? '✓' : ''}</span>
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      data-image-replace
+                      onClick={() => imageInputRef.current?.click()}
+                      className={`px-2 py-1.5 rounded-md border text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                      style={{
+                        background: 'var(--surface-base)',
+                        borderColor: 'var(--border-subtle)',
+                        color: 'var(--text-primary)',
+                        outline: 'none',
+                      }}
+                    >
+                      {t('nodeStyle.imageReplace')}
+                    </button>
+                    <button
+                      type="button"
+                      data-image-remove
+                      onClick={() => onImageChange?.(nodes.map(n => n.id), null)}
+                      className={`text-xs px-1 py-1.5 max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                      style={{ color: 'var(--danger)', background: 'transparent', border: 'none', outline: 'none' }}
+                    >
+                      {t('nodeStyle.imageRemove')}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    data-image-upload
+                    onClick={() => imageInputRef.current?.click()}
+                    className={`w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-md border text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                    style={{
+                      background: 'var(--surface-base)',
+                      borderColor: 'var(--border-subtle)',
+                      color: 'var(--text-primary)',
+                      outline: 'none',
+                    }}
+                  >
+                    <ImagePlus size={14} aria-hidden="true" />
+                    <span>{t('nodeStyle.imageUpload')}</span>
+                  </button>
+                  <span
+                    data-image-hint
+                    className="text-[11px] leading-[1.5]"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    {t('nodeStyle.imageEmptyHint')}
+                  </span>
+                </>
+              )}
+
+              {/* Inline validation rows (Surface 3 item 5): the typed
+                  error codes render their declared danger copy under the
+                  upload control, persistent until the next attempt — never
+                  a toast. */}
+              {imageError && !imageBusy && (
+                <div
+                  data-image-error={imageError}
+                  className="flex items-start gap-1 px-1 text-[11px] leading-[1.5]"
+                  style={{ color: 'var(--danger)' }}
+                >
+                  <TriangleAlert size={14} aria-hidden="true" className="shrink-0" />
+                  <span>
+                    {imageError === 'invalid-type'
+                      ? t('nodeStyle.imageInvalidType')
+                      : t('nodeStyle.imageTooLarge', { limit: formatBytes(SOURCE_MAX_BYTES) })}
+                  </span>
+                </div>
               )}
             </div>
           )}

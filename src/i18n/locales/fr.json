@@ -128,7 +128,19 @@
     "shapeSearchClear": "Effacer la recherche",
     "shapeSearchEmpty": "Aucune forme correspondante",
     "shapeSearchEmptyHint": "Aucune forme ne correspond à « {{query}} ». Essayez un terme plus court ou parcourez les catégories.",
-    "iconChangeHint": "Définir l'icône : {{icon}}"
+    "iconChangeHint": "Définir l'icône : {{icon}}",
+    "iconSearch": "Rechercher une icône…",
+    "iconSearchClear": "Effacer la recherche",
+    "iconSearchEmpty": "Aucune icône correspondante",
+    "iconSearchEmptyHint": "Aucune icône ne correspond à « {{query}} ». Essayez le nom FontAwesome, ex. « house » ou « github ».",
+    "iconLoading": "Chargement de la bibliothèque d'icônes…",
+    "iconLoadError": "Échec du chargement de la bibliothèque d'icônes.",
+    "iconRetry": "Réessayer",
+    "iconPacks": {
+      "solid": "Solid",
+      "regular": "Regular",
+      "brands": "Brands"
+    }
   },
   "workspace": {
     "toggle": {
@@ -535,7 +547,11 @@
     "imageCompressing": "Compression…",
     "imageSizeReadout": "{{size}} après compression",
     "imageReplace": "Remplacer",
-    "imageRemove": "Retirer l'image"
+    "imageRemove": "Retirer l'image",
+    "imageInvalidType": "Fichier non pris en charge — utilisez PNG, JPEG, WebP ou GIF.",
+    "imageTooLarge": "Image trop volumineuse — choisissez-en une de moins de {{limit}}.",
+    "imageExternalWarning": "Les URL d'images externes peuvent ne pas s'afficher (CSP) et être absentes de l'export PNG (COEP). Téléversez une image locale pour un résultat fiable.",
+    "imageConstraint": "Ajuster le nœud à l'image"
   },
   "edgeStyle": {
     "connection": "Connexion",

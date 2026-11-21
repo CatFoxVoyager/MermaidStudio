@@ -67,7 +67,21 @@ vi.mock('react-i18next', async () => {
           'nodeStyle.imageSizeReadout': '{{size}} after compression',
           'nodeStyle.imageReplace': 'Replace',
           'nodeStyle.imageRemove': 'Remove image',
+          'nodeStyle.imageInvalidType': 'Unsupported file — use PNG, JPEG, WebP, or GIF.',
+          'nodeStyle.imageTooLarge': 'Image too large — pick one under {{limit}}.',
+          'nodeStyle.imageExternalWarning': 'External image URLs can fail to render (CSP) and may be dropped from PNG export (COEP). Upload a local image for reliable results.',
+          'nodeStyle.imageConstraint': 'Fit node to image',
           'visual.iconChangeHint': 'Set icon: {{icon}}',
+          'visual.iconSearch': 'Search icons…',
+          'visual.iconSearchClear': 'Clear search',
+          'visual.iconSearchEmpty': 'No matching icon',
+          'visual.iconSearchEmptyHint': 'No icon matches “{{query}}”.',
+          'visual.iconLoading': 'Loading icon library…',
+          'visual.iconLoadError': 'The icon library failed to load.',
+          'visual.iconRetry': 'Retry',
+          'visual.iconPacks.solid': 'Solid',
+          'visual.iconPacks.regular': 'Regular',
+          'visual.iconPacks.brands': 'Brands',
           'nodeStyle.mix': 'Mix',
           'nodeStyle.solid': 'Solid',
           'nodeStyle.dashed': 'Dashed',
@@ -892,9 +906,44 @@ vi.mock('@/utils/imageCompress', async (importOriginal) => {
   };
 });
 
+// The IconPicker's pack loads are mocked to tiny fixtures — the picker pins
+// here are about the panel's wiring (trigger opens the fixed-position
+// popover, a pick emits through the mutator), not the pack corpus (that is
+// IconPicker.test.tsx's job).
+vi.mock('@/components/shared/iconPickerPacks', () => ({
+  ICON_PICKER_PACKS: [
+    {
+      key: 'solid',
+      headerKey: 'visual.iconPacks.solid',
+      prefix: 'fa',
+      load: () =>
+        Promise.resolve({
+          prefix: 'fa6-solid',
+          width: 512,
+          height: 512,
+          icons: { house: { body: '<path d="M-house"/>' } },
+          aliases: {},
+        }),
+    },
+    {
+      key: 'regular',
+      headerKey: 'visual.iconPacks.regular',
+      prefix: 'far',
+      load: () => Promise.resolve({ prefix: 'fa6-regular', width: 512, height: 512, icons: {}, aliases: {} }),
+    },
+    {
+      key: 'brands',
+      headerKey: 'visual.iconPacks.brands',
+      prefix: 'fab',
+      load: () => Promise.resolve({ prefix: 'fa6-brands', width: 512, height: 512, icons: {}, aliases: {} }),
+    },
+  ],
+}));
+
 describe('NodeStylePanel image tab (39-05 Task 1 ICON-03)', () => {
   const IMG_BIG = 'data:image/png;base64,QUJDREVGRw'; // 7 payload bytes
   const IMG_COMPRESSED = 'data:image/jpeg;base64,aaBBccDD';
+  const ICON_A: IconConfig = { icon: 'fa:user', form: 'square', pos: 't', w: 80 };
 
   const mediaProps = {
     onIconChange: vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>(),
@@ -1014,14 +1063,258 @@ describe('NodeStylePanel image tab (39-05 Task 1 ICON-03)', () => {
     expect(mediaProps.onImageChange).toHaveBeenCalledWith(['A'], { img: IMG_COMPRESSED });
   });
 
-  it('a typed validation failure holds its code on the interim error marker and emits nothing (declared rows land in Task 3)', async () => {
+  it('a typed validation failure renders the declared inline danger row and emits nothing', async () => {
     vi.mocked(fileToCompressedDataUri).mockRejectedValue(new ImageCompressError('invalid-type', 'bad mime'));
     const { container } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
     );
     fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
     await upload(container, makePng());
-    expect(container.querySelector('[data-image-error="invalid-type"]')).not.toBeNull();
+    const row = container.querySelector('[data-image-error="invalid-type"]') as HTMLElement;
+    expect(row).not.toBeNull();
+    expect(row.textContent).toContain('Unsupported file — use PNG, JPEG, WebP, or GIF.');
+    expect(row.style.color).toBe('var(--danger)');
+    expect(mediaProps.onImageChange).not.toHaveBeenCalled();
+  });
+
+  it('the too-large failure interpolates the declared source-cap limit (8 MB)', async () => {
+    vi.mocked(fileToCompressedDataUri).mockRejectedValue(new ImageCompressError('too-large', 'huge'));
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    await upload(container, makePng());
+    const row = container.querySelector('[data-image-error="too-large"]') as HTMLElement;
+    expect(row.textContent).toContain('Image too large — pick one under 8 MB.');
+    expect(row.style.color).toBe('var(--danger)');
+  });
+
+  it('validation rows are persistent until the next attempt clears them (inline, never a toast)', async () => {
+    vi.mocked(fileToCompressedDataUri).mockRejectedValueOnce(new ImageCompressError('invalid-type', 'bad mime'));
+    vi.mocked(fileToCompressedDataUri).mockResolvedValueOnce(IMG_COMPRESSED);
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    await upload(container, makePng());
+    expect(container.querySelector('[data-image-error]')).not.toBeNull();
+    // The next attempt clears the row (and succeeds).
+    await upload(container, makePng('second.png'));
+    expect(container.querySelector('[data-image-error]')).toBeNull();
+    expect(mediaProps.onImageChange).toHaveBeenCalledWith(['A'], { img: IMG_COMPRESSED });
+  });
+
+  it('an https img value renders the advisory row above the upload control and NO URL input exists', () => {
+    const { container } = render(
+      <NodeStylePanel
+        {...defaultProps}
+        {...mediaProps}
+        nodeIcon={null}
+        nodeImage={{ img: 'https://example.com/cat.png' }}
+      />,
+    );
+    const advisory = container.querySelector('[data-image-advisory]') as HTMLElement;
+    expect(advisory).not.toBeNull();
+    expect(advisory.textContent).toContain('External image URLs can fail to render');
+    expect(advisory.style.background).toBe('var(--surface-floating)');
+    expect(advisory.style.color).toBe('var(--text-secondary)');
+    // DOM order: the advisory sits BEFORE the upload control (the
+    // corrective action directly below the advisory).
+    const uploadBtn = container.querySelector('[data-image-upload]') as HTMLElement;
+    expect(uploadBtn).not.toBeNull();
+    expect(advisory.compareDocumentPosition(uploadBtn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Grey Area 2: no free-form URL input exists in the tab — the only
+    // input besides the param rows is the hidden file input.
+    expect(container.querySelector('input[data-image-url]')).toBeNull();
+    expect(container.querySelector('input[type="url"]')).toBeNull();
+  });
+
+  it('a compressed data URI shows no advisory', () => {
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={{ img: IMG_BIG }} />,
+    );
+    expect(container.querySelector('[data-image-advisory]')).toBeNull();
+  });
+
+  it('the constraint switch maps constraint on/off through the mutator (12.3 semantics)', () => {
+    const onImageChange = vi.fn<(nodeIds: string[], img: ImgConfig | null) => void>();
+    const { container } = render(
+      <NodeStylePanel
+        {...defaultProps}
+        {...mediaProps}
+        onImageChange={onImageChange}
+        nodeIcon={null}
+        nodeImage={{ img: IMG_BIG }}
+      />,
+    );
+    const toggle = container.querySelector('[data-image-constraint]') as HTMLElement;
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(toggle);
+    expect(onImageChange).toHaveBeenCalledWith(['A'], { img: IMG_BIG, constraint: 'on' });
+  });
+
+  it('an on-constraint flips to off; image Position rows emit through the mutator', () => {
+    const onImageChange = vi.fn<(nodeIds: string[], img: ImgConfig | null) => void>();
+    const { container } = render(
+      <NodeStylePanel
+        {...defaultProps}
+        {...mediaProps}
+        onImageChange={onImageChange}
+        nodeIcon={null}
+        nodeImage={{ img: IMG_BIG, constraint: 'on', pos: 'b' }}
+      />,
+    );
+    expect(container.querySelector('[data-image-constraint]')!.getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(container.querySelector('[data-image-constraint]')!);
+    expect(onImageChange).toHaveBeenCalledWith(['A'], { img: IMG_BIG, constraint: 'off', pos: 'b' });
+    // Position rows: the parsed pos is marked; clicking t emits it.
+    fireEvent.click(container.querySelector('[data-image-pos="t"]')!);
+    expect(onImageChange).toHaveBeenLastCalledWith(['A'], { img: IMG_BIG, constraint: 'on', pos: 't' });
+  });
+
+  it('absent image w/h render empty inputs with the Auto placeholder and omit the params on emit', () => {
+    const onImageChange = vi.fn<(nodeIds: string[], img: ImgConfig | null) => void>();
+    const { container } = render(
+      <NodeStylePanel
+        {...defaultProps}
+        {...mediaProps}
+        onImageChange={onImageChange}
+        nodeIcon={null}
+        nodeImage={{ img: IMG_BIG, w: 120 }}
+      />,
+    );
+    const w = container.querySelector('[data-image-w]') as HTMLInputElement;
+    const h = container.querySelector('[data-image-h]') as HTMLInputElement;
+    expect(w.value).toBe('120');
+    expect(h.value).toBe('');
+    expect(h.placeholder).toBe('Auto');
+    // Clearing W (Auto) deletes the param on emit (the tracked value is
+    // '120', so '' is a real change React reports).
+    fireEvent.change(w, { target: { value: '' } });
+    const emitted = onImageChange.mock.calls[0][1] as ImgConfig;
+    expect(emitted).not.toHaveProperty('w');
+    expect(emitted.img).toBe(IMG_BIG);
+    // A numeric H entry emits through the mutator.
+    fireEvent.change(h, { target: { value: '90' } });
+    expect(onImageChange).toHaveBeenLastCalledWith(['A'], { img: IMG_BIG, w: 120, h: 90 });
+  });
+
+  it('the icon trigger opens the fixed-position IconPicker and a pick emits through onIconChange', async () => {
+    const onIconChange = vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>();
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} nodeIcon={null} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="icon"]')!);
+    fireEvent.click(container.querySelector('[data-icon-trigger]') as HTMLElement);
+    const root = container.querySelector('[data-icon-picker]') as HTMLElement;
+    expect(root).not.toBeNull();
+    expect(root.className).toContain('fixed');
+    await act(async () => {});
+    fireEvent.click(root.querySelector('button[data-icon-cell="house"]') as HTMLElement);
+    expect(onIconChange).toHaveBeenCalledWith(['A'], { icon: 'fa:house' });
+    expect(container.querySelector('[data-icon-picker]')).toBeNull();
+  });
+
+  it('a pick on an existing icon config composes the next config (icon replaced, params kept)', async () => {
+    const onIconChange = vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>();
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} nodeIcon={ICON_A} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-icon-trigger]') as HTMLElement);
+    await act(async () => {});
+    const root = container.querySelector('[data-icon-picker]') as HTMLElement;
+    fireEvent.click(root.querySelector('button[data-icon-cell="house"]') as HTMLElement);
+    expect(onIconChange).toHaveBeenCalledWith(['A'], { ...ICON_A, icon: 'fa:house' });
+  });
+
+  it('Escape closes the IconPicker first and the panel only on a second press', async () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={ICON_A} nodeImage={null} onClose={onClose} />,
+    );
+    fireEvent.click(container.querySelector('[data-icon-trigger]') as HTMLElement);
+    expect(container.querySelector('[data-icon-picker]')).not.toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(container.querySelector('[data-icon-picker]')).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ===== 39-05 Task 3 (ICON-03): the paste flow — the ICON-03 concurrency
+// resolution: the clipboard listener is bound ONLY while the Image tab is
+// open, and removed on tab switch and unmount (the bind/unbind lifecycle
+// the checker info names).
+describe('NodeStylePanel paste flow (39-05 ICON-03 bind/unbind lifecycle)', () => {
+  const IMG_COMPRESSED = 'data:image/jpeg;base64,aaBBccDD';
+  const mediaProps = {
+    onIconChange: vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>(),
+    onImageChange: vi.fn<(nodeIds: string[], img: ImgConfig | null) => void>(),
+  };
+  const makePng = (name = 'pasted.png'): File => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' });
+
+  const pasteEvent = async (file: File | null) => {
+    await act(async () => {
+      fireEvent.paste(document, {
+        clipboardData: { items: file ? [{ type: file.type, getAsFile: () => file }] : [{ type: 'text/plain', getAsFile: () => null }] },
+      });
+    });
+  };
+
+  beforeEach(() => {
+    vi.mocked(fileToCompressedDataUri).mockReset();
+    mediaProps.onIconChange.mockClear();
+    mediaProps.onImageChange.mockClear();
+    defaultProps.onStyleChange.mockClear();
+  });
+
+  it('a pasted image routes through fileToCompressedDataUri while the Image tab is open', async () => {
+    vi.mocked(fileToCompressedDataUri).mockResolvedValue(IMG_COMPRESSED);
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    const file = makePng();
+    await pasteEvent(file);
+    expect(fileToCompressedDataUri).toHaveBeenCalledWith(file);
+    expect(mediaProps.onImageChange).toHaveBeenCalledWith(['A'], { img: IMG_COMPRESSED });
+  });
+
+  it('the paste listener is removed on tab switch (ICON-03 bind/unbind lifecycle)', async () => {
+    vi.mocked(fileToCompressedDataUri).mockResolvedValue(IMG_COMPRESSED);
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    fireEvent.click(container.querySelector('[data-media-tab="text"]')!);
+    vi.mocked(fileToCompressedDataUri).mockClear();
+    await pasteEvent(makePng());
+    expect(fileToCompressedDataUri).not.toHaveBeenCalled();
+    expect(mediaProps.onImageChange).not.toHaveBeenCalled();
+  });
+
+  it('the paste listener is removed on unmount (ICON-03 bind/unbind lifecycle)', async () => {
+    vi.mocked(fileToCompressedDataUri).mockResolvedValue(IMG_COMPRESSED);
+    const { container, unmount } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    unmount();
+    vi.mocked(fileToCompressedDataUri).mockClear();
+    await pasteEvent(makePng());
+    expect(fileToCompressedDataUri).not.toHaveBeenCalled();
+    expect(mediaProps.onImageChange).not.toHaveBeenCalled();
+  });
+
+  it('a non-image paste item is not routed through the compression path', async () => {
+    vi.mocked(fileToCompressedDataUri).mockResolvedValue(IMG_COMPRESSED);
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    await pasteEvent(null);
+    expect(fileToCompressedDataUri).not.toHaveBeenCalled();
     expect(mediaProps.onImageChange).not.toHaveBeenCalled();
   });
 });

@@ -52,7 +52,27 @@ vi.mock('react-i18next', async () => {
           'nodeStyle.iconSize': 'Size (W × H)',
           'nodeStyle.iconSizeAuto': 'Auto',
           'nodeStyle.iconRemove': 'Remove icon',
+          'nodeStyle.imageUpload': 'Upload image',
+          'nodeStyle.imageEmptyHint': '…or paste an image from the clipboard',
+          'nodeStyle.imageCompressing': 'Compressing…',
+          'nodeStyle.imageSizeReadout': '{{size}} after compression',
+          'nodeStyle.imageReplace': 'Replace',
+          'nodeStyle.imageRemove': 'Remove image',
+          'nodeStyle.imageInvalidType': 'Unsupported file — use PNG, JPEG, WebP, or GIF.',
+          'nodeStyle.imageTooLarge': 'Image too large — pick one under {{limit}}.',
+          'nodeStyle.imageExternalWarning': 'External image URLs can fail to render (CSP) and may be dropped from PNG export (COEP). Upload a local image for reliable results.',
+          'nodeStyle.imageConstraint': 'Fit node to image',
           'visual.iconChangeHint': 'Set icon: {{icon}}',
+          'visual.iconSearch': 'Search icons…',
+          'visual.iconSearchClear': 'Clear search',
+          'visual.iconSearchEmpty': 'No matching icon',
+          'visual.iconSearchEmptyHint': 'No icon matches “{{query}}”.',
+          'visual.iconLoading': 'Loading icon library…',
+          'visual.iconLoadError': 'The icon library failed to load.',
+          'visual.iconRetry': 'Retry',
+          'visual.iconPacks.solid': 'Solid',
+          'visual.iconPacks.regular': 'Regular',
+          'visual.iconPacks.brands': 'Brands',
           ...shapeLabels,
         };
         return (map[key] ?? key).replace(/\{\{(\w+)\}\}/g, (_, k: string) => String(args?.[k] ?? `{{${k}}}`));
@@ -349,5 +369,230 @@ describe('PropertiesPanel media tabs (39-04 ICON-03)', () => {
     const trigger = container.querySelector('[data-icon-trigger]') as HTMLElement;
     expect(trigger.getAttribute('title')).toBe('Set icon: fa:user');
     expect(trigger.getAttribute('aria-label')).toBe('Set icon: fa:user');
+  });
+});
+
+// ===== 39-05 (ICON-03, Surface 3): the visual panel's Image tab + paste
+// flow — the SAME semantics the preview panel ships, pinned pin-for-pin on
+// the 220px panel (explicit max-md:min-h-[44px] floors on every new
+// control; this panel has no .style-panel class). The compression util and
+// the pack loaders are mocked (their own contracts live in
+// imageCompress.test.ts / IconPicker.test.tsx).
+import { act } from '@testing-library/react';
+import { fileToCompressedDataUri, ImageCompressError } from '@/utils/imageCompress';
+
+vi.mock('@/utils/imageCompress', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/imageCompress')>();
+  return {
+    ...actual,
+    fileToCompressedDataUri: vi.fn<(file: File) => Promise<string>>(),
+  };
+});
+
+vi.mock('@/components/shared/iconPickerPacks', () => ({
+  ICON_PICKER_PACKS: [
+    {
+      key: 'solid',
+      headerKey: 'visual.iconPacks.solid',
+      prefix: 'fa',
+      load: () =>
+        Promise.resolve({
+          prefix: 'fa6-solid',
+          width: 512,
+          height: 512,
+          icons: { house: { body: '<path d="M-house"/>' } },
+          aliases: {},
+        }),
+    },
+    {
+      key: 'regular',
+      headerKey: 'visual.iconPacks.regular',
+      prefix: 'far',
+      load: () => Promise.resolve({ prefix: 'fa6-regular', width: 512, height: 512, icons: {}, aliases: {} }),
+    },
+    {
+      key: 'brands',
+      headerKey: 'visual.iconPacks.brands',
+      prefix: 'fab',
+      load: () => Promise.resolve({ prefix: 'fa6-brands', width: 512, height: 512, icons: {}, aliases: {} }),
+    },
+  ],
+}));
+
+describe('PropertiesPanel image tab parity (39-05 ICON-03)', () => {
+  const IMG_BIG = 'data:image/png;base64,QUJDREVGRw';
+  const IMG_COMPRESSED = 'data:image/jpeg;base64,aaBBccDD';
+  const makePng = (name = 'photo.png'): File => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' });
+
+  const imageMediaHandlers = {
+    onIconChange: vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>(),
+    onImageChange: vi.fn<(nodeIds: string[], img: ImgConfig | null) => void>(),
+  };
+
+  function renderImagePanel(
+    nodes: VisualNode[],
+    overrides?: { nodeIcon?: IconConfig | null; nodeImage?: ImgConfig | null },
+  ) {
+    return render(
+      <PropertiesPanel
+        selectedNodes={nodes}
+        selectedEdge={NO_EDGE}
+        onLabelChange={vi.fn()}
+        onShapeChange={vi.fn()}
+        onStyleChange={vi.fn()}
+        nodeIcon={overrides?.nodeIcon ?? null}
+        nodeImage={overrides?.nodeImage ?? null}
+        onIconChange={imageMediaHandlers.onIconChange}
+        onImageChange={imageMediaHandlers.onImageChange}
+        onArrowChange={vi.fn()}
+        onEdgeLabelChange={vi.fn()}
+        onDeleteEdge={vi.fn()}
+      />,
+    );
+  }
+
+  const pasteEvent = async (file: File | null) => {
+    await act(async () => {
+      fireEvent.paste(document, {
+        clipboardData: { items: file ? [{ type: file.type, getAsFile: () => file }] : [{ type: 'text/plain', getAsFile: () => null }] },
+      });
+    });
+  };
+
+  beforeEach(() => {
+    vi.mocked(fileToCompressedDataUri).mockReset();
+    imageMediaHandlers.onIconChange.mockClear();
+    imageMediaHandlers.onImageChange.mockClear();
+  });
+
+  it('empty state parity: the upload CTA + paste hint pair render on an armed plain selection', () => {
+    const { container } = renderImagePanel([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: null });
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    expect(container.querySelector('[data-image-upload]')).not.toBeNull();
+    expect(container.querySelector('[data-image-hint]')).not.toBeNull();
+    expect(container.querySelector('[data-image-thumbnail]')).toBeNull();
+    expect(container.querySelector('[data-media-tab="text"]')!.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('populated parity: thumbnail + readout + Replace/Remove with the 44px floors', () => {
+    const { container } = renderImagePanel([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: { img: IMG_BIG } });
+    const thumb = container.querySelector('[data-image-thumbnail]') as HTMLImageElement;
+    expect(thumb.src).toBe(IMG_BIG);
+    expect(thumb.className).toContain('max-h-16');
+    expect(container.querySelector('[data-image-readout]')!.textContent).toBe('7 B after compression');
+    expect(container.querySelector('[data-image-replace]')).not.toBeNull();
+    const remove = container.querySelector('[data-image-remove]') as HTMLElement;
+    expect(remove.style.color).toBe('var(--danger)');
+    fireEvent.click(remove);
+    expect(imageMediaHandlers.onImageChange).toHaveBeenCalledWith(['a'], null);
+    for (const selector of ['[data-image-replace]', '[data-image-remove]', '[data-image-constraint]', '[data-image-pos="t"]']) {
+      expect((container.querySelector(selector) as HTMLElement).className).toContain('max-md:min-h-[44px]');
+    }
+  });
+
+  it('advisory parity: an https img renders the advisory + truncated source row + upload CTA, and NO URL input exists', () => {
+    const { container } = renderImagePanel([mkNode('a', 'rect', 'A')], {
+      nodeIcon: null,
+      nodeImage: { img: 'https://example.com/a-very-long-picture-name.png' },
+    });
+    const advisory = container.querySelector('[data-image-advisory]') as HTMLElement;
+    expect(advisory.textContent).toContain('External image URLs can fail to render');
+    expect(advisory.style.background).toBe('var(--surface-floating)');
+    expect(advisory.style.color).toBe('var(--text-secondary)');
+    // The upload result (thumbnail) does NOT render for an external URL —
+    // the advisory + corrective upload replaces it; the URL itself only
+    // shows in the truncated source row with its full value as the title.
+    expect(container.querySelector('[data-image-thumbnail]')).toBeNull();
+    const source = container.querySelector('[data-image-source]') as HTMLElement;
+    expect(source.getAttribute('title')).toBe('https://example.com/a-very-long-picture-name.png');
+    const uploadBtn = container.querySelector('[data-image-upload]') as HTMLElement;
+    expect(uploadBtn).not.toBeNull();
+    expect(advisory.compareDocumentPosition(uploadBtn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(container.querySelector('input[type="url"]')).toBeNull();
+    expect(container.querySelector('input[data-image-url]')).toBeNull();
+  });
+
+  it('constraint parity: the Fit switch maps constraint on/off through the mutator; Position rows emit', () => {
+    const { container } = renderImagePanel([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: { img: IMG_BIG, pos: 'b' } });
+    expect(container.querySelector('[data-image-constraint]')!.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(container.querySelector('[data-image-constraint]')!);
+    expect(imageMediaHandlers.onImageChange).toHaveBeenCalledWith(['a'], { img: IMG_BIG, pos: 'b', constraint: 'on' });
+    // The mock parent keeps the original prop, so the Position click
+    // composes from the parsed config: pos flips to t.
+    fireEvent.click(container.querySelector('[data-image-pos="t"]')!);
+    expect(imageMediaHandlers.onImageChange).toHaveBeenLastCalledWith(['a'], { img: IMG_BIG, pos: 't' });
+  });
+
+  it('validation parity: the typed codes render the declared inline danger rows (never a toast)', async () => {
+    vi.mocked(fileToCompressedDataUri).mockRejectedValue(new ImageCompressError('invalid-type', 'bad mime'));
+    const { container } = renderImagePanel([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: null });
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    const input = container.querySelector('[data-image-input]') as HTMLInputElement;
+    Object.defineProperty(input, 'files', { value: [makePng()], configurable: true });
+    await act(async () => {
+      fireEvent.change(input);
+    });
+    const row = container.querySelector('[data-image-error="invalid-type"]') as HTMLElement;
+    expect(row.textContent).toContain('Unsupported file — use PNG, JPEG, WebP, or GIF.');
+    expect(row.style.color).toBe('var(--danger)');
+    expect(imageMediaHandlers.onImageChange).not.toHaveBeenCalled();
+  });
+
+  it('upload parity: a picked file flows through fileToCompressedDataUri and emits the compressed URI', async () => {
+    vi.mocked(fileToCompressedDataUri).mockResolvedValue(IMG_COMPRESSED);
+    const { container } = renderImagePanel([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: null });
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    const input = container.querySelector('[data-image-input]') as HTMLInputElement;
+    const file = makePng();
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    await act(async () => {
+      fireEvent.change(input);
+    });
+    expect(fileToCompressedDataUri).toHaveBeenCalledWith(file);
+    expect(imageMediaHandlers.onImageChange).toHaveBeenCalledWith(['a'], { img: IMG_COMPRESSED });
+  });
+
+  it('paste parity: a pasted image routes through the compression path while the tab is open (ICON-03 bind/unbind lifecycle)', async () => {
+    vi.mocked(fileToCompressedDataUri).mockResolvedValue(IMG_COMPRESSED);
+    const { container } = renderImagePanel([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: null });
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    const file = makePng('pasted.png');
+    await pasteEvent(file);
+    expect(fileToCompressedDataUri).toHaveBeenCalledWith(file);
+    expect(imageMediaHandlers.onImageChange).toHaveBeenCalledWith(['a'], { img: IMG_COMPRESSED });
+  });
+
+  it('paste parity: the listener is removed on tab switch and unmount (ICON-03 bind/unbind lifecycle)', async () => {
+    vi.mocked(fileToCompressedDataUri).mockResolvedValue(IMG_COMPRESSED);
+    const { container, unmount } = renderImagePanel([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: null });
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    // Tab switch unbinds.
+    fireEvent.click(container.querySelector('[data-media-tab="text"]')!);
+    await pasteEvent(makePng());
+    expect(fileToCompressedDataUri).not.toHaveBeenCalled();
+    expect(imageMediaHandlers.onImageChange).not.toHaveBeenCalled();
+    // Unmount unbinds (no throw, no call).
+    unmount();
+    await pasteEvent(makePng());
+    expect(fileToCompressedDataUri).not.toHaveBeenCalled();
+    expect(imageMediaHandlers.onImageChange).not.toHaveBeenCalled();
+  });
+
+  it('picker parity: the icon trigger opens the fixed-position IconPicker; a pick emits per selected node', async () => {
+    const { container } = renderImagePanel(
+      [mkNode('a', 'rect', 'A'), mkNode('b', 'circle', 'B')],
+      { nodeIcon: null, nodeImage: null },
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="icon"]')!);
+    fireEvent.click(container.querySelector('[data-icon-trigger]') as HTMLElement);
+    const root = container.querySelector('[data-icon-picker]') as HTMLElement;
+    expect(root).not.toBeNull();
+    expect(root.className).toContain('fixed');
+    await act(async () => {});
+    fireEvent.click(root.querySelector('button[data-icon-cell="house"]') as HTMLElement);
+    expect(imageMediaHandlers.onIconChange).toHaveBeenCalledTimes(2);
+    expect(imageMediaHandlers.onIconChange).toHaveBeenNthCalledWith(1, ['a'], { icon: 'fa:house' });
+    expect(imageMediaHandlers.onIconChange).toHaveBeenNthCalledWith(2, ['b'], { icon: 'fa:house' });
+    expect(container.querySelector('[data-icon-picker]')).toBeNull();
   });
 });

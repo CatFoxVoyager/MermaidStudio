@@ -128,7 +128,19 @@
     "shapeSearchClear": "Clear search",
     "shapeSearchEmpty": "No matching shape",
     "shapeSearchEmptyHint": "No shape matches “{{query}}”. Try a shorter term or browse the categories.",
-    "iconChangeHint": "Set icon: {{icon}}"
+    "iconChangeHint": "Set icon: {{icon}}",
+    "iconSearch": "Search icons…",
+    "iconSearchClear": "Clear search",
+    "iconSearchEmpty": "No matching icon",
+    "iconSearchEmptyHint": "No icon matches “{{query}}”. Try the FontAwesome name, e.g. “house” or “github”.",
+    "iconLoading": "Loading icon library…",
+    "iconLoadError": "The icon library failed to load.",
+    "iconRetry": "Retry",
+    "iconPacks": {
+      "solid": "Solid",
+      "regular": "Regular",
+      "brands": "Brands"
+    }
   },
   "workspace": {
     "toggle": {
@@ -532,7 +544,11 @@
     "imageCompressing": "Compressing…",
     "imageSizeReadout": "{{size}} after compression",
     "imageReplace": "Replace",
-    "imageRemove": "Remove image"
+    "imageRemove": "Remove image",
+    "imageInvalidType": "Unsupported file — use PNG, JPEG, WebP, or GIF.",
+    "imageTooLarge": "Image too large — pick one under {{limit}}.",
+    "imageExternalWarning": "External image URLs can fail to render (CSP) and may be dropped from PNG export (COEP). Upload a local image for reliable results.",
+    "imageConstraint": "Fit node to image"
   },
   "edgeStyle": {
     "connection": "Connection",

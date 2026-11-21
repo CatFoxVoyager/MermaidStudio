@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, type CSSProperties } from 'react';
-import { X, RotateCcw, ChevronDown, Settings2, Zap, Trash2, Type, Smile, Image as ImageIcon, LoaderCircle, TriangleAlert, ImagePlus } from 'lucide-react';
+import { X, RotateCcw, ChevronDown, Settings2, Zap, Trash2, Type, Smile, Image as ImageIcon, LoaderCircle, TriangleAlert, ImagePlus, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { logger } from '@/utils/logger';
 import { ColorPicker } from '@/components/visual/ColorPicker';
@@ -8,6 +8,9 @@ import { ColorPicker } from '@/components/visual/ColorPicker';
 // panel's own overflow clipping cannot eat it.
 import { ShapePicker } from '@/components/shared/ShapePicker';
 import type { ShapePickerAnchor } from '@/components/shared/ShapePicker';
+// 39-05 Task 3 (ICON-03, Surface 2): the lazy FA6 picker mounts from the
+// icon trigger — the fixed-position sibling recipe, never a nested popover.
+import { IconPicker } from '@/components/shared/IconPicker';
 import { ShapePreview } from '@/components/shared/ShapePreview';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
 import type { NodeStyle, NodeShape, PresetType, IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
@@ -16,6 +19,7 @@ import type { NodeStyle, NodeShape, PresetType, IconConfig, ImgConfig } from '@/
 import {
   IMAGE_ACCEPT,
   ImageCompressError,
+  SOURCE_MAX_BYTES,
   dataUriByteLength,
   fileToCompressedDataUri,
   formatBytes,
@@ -231,6 +235,11 @@ export function NodeStylePanel({
   const [imageBusy, setImageBusy] = useState(false);
   const [imageError, setImageError] = useState<ImageCompressErrorCode | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  // 39-05 Task 3 (Surface 2): the IconPicker popover — the same fixed-anchor
+  // measurement the ShapePicker trigger uses.
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [iconPickerAnchor, setIconPickerAnchor] = useState<ShapePickerAnchor | null>(null);
+  const iconBtnRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     setIconTabArmed(false);
     setImageTabArmed(false);
@@ -241,6 +250,22 @@ export function NodeStylePanel({
     activeMedia === 'icon' || (iconTabArmed && mediaWired && !mediaMixed && !nodeIcon && !nodeImage);
   const imageBodyVisible =
     activeMedia === 'image' || (imageTabArmed && mediaWired && !mediaMixed && !nodeIcon && !nodeImage);
+
+  const toggleIconPicker = () => {
+    if (!iconPickerOpen && iconBtnRef.current) {
+      const r = iconBtnRef.current.getBoundingClientRect();
+      setIconPickerAnchor({
+        right: window.innerWidth - r.right,
+        top: r.bottom + 8,
+        maxHeight: window.innerHeight - r.bottom - 24,
+      });
+    }
+    setIconPickerOpen(v => !v);
+  };
+  const closeIconPicker = () => {
+    setIconPickerOpen(false);
+    setIconPickerAnchor(null);
+  };
 
   // Switch semantics (the locked Surface-1 table) route ONLY through the
   // mutator props: a null config clears exactly that media kind on every
@@ -269,12 +294,12 @@ export function NodeStylePanel({
     if (nodeImage !== null) {onImageChange(selectedNodeIds, null);}
   };
 
-  // 39-05 Task 1 (Surface 3): the compression route — file picker (and, in
+  // 39-05 Task 1 (Surface 3): the compression route — file picker (and,
   // Task 3, paste) -> fileToCompressedDataUri -> onImageChange -> the 39-01
   // updateNodeImg mutator. Validation failures hold their typed code for
-  // the inline row (declared copy lands with Task 3's keys); unexpected
-  // failures log and never pretend to have succeeded.
-  const handleImageFile = async (file: File) => {
+  // the declared inline rows; unexpected failures log and never pretend to
+  // have succeeded.
+  const handleImageFile = useCallback(async (file: File) => {
     if (!onImageChange) {return;}
     setImageError(null);
     setImageBusy(true);
@@ -290,7 +315,58 @@ export function NodeStylePanel({
     } finally {
       setImageBusy(false);
     }
+  }, [onImageChange, selectedNodeIds]);
+
+  // 39-05 Task 3 (ICON-03 concurrency resolution): the paste listener is
+  // bound ONLY while the Image tab is open and removed on tab switch and
+  // unmount — a selection-scoped global clipboard handler that outlived its
+  // tab would hijack pastes meant for the editor. Image items route through
+  // the SAME compression path as uploads; the first image item wins.
+  useEffect(() => {
+    if (!imageBodyVisible) {return;}
+    const onPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) {return;}
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            void handleImageFile(file);
+            return;
+          }
+        }
+      }
+    };
+    document.addEventListener('paste', onPaste);
+    return () => {document.removeEventListener('paste', onPaste);};
+  }, [imageBodyVisible, handleImageFile]);
+
+  // 39-05 Task 3 (Surface 6): the Image tab's param rows — the identical
+  // semantics as the icon rows (Auto-omitted W/H, the 12.3 enum position),
+  // plus the Fit-node-to-image switch mapping constraint on/off (Grey Area
+  // 7: `constraint: on` sizes the node to the image).
+  const setImageParam = (patch: Partial<Omit<ImgConfig, 'img' | 'label'>>) => {
+    if (!onImageChange || !nodeImage) {return;}
+    onImageChange(selectedNodeIds, { ...nodeImage, ...patch });
   };
+  const setImageSize = (field: 'w' | 'h', raw: string) => {
+    if (!onImageChange || !nodeImage) {return;}
+    const next: ImgConfig = { ...nodeImage };
+    const trimmed = raw.trim();
+    if (trimmed === '') {
+      delete next[field]; // Auto — param omitted on emit
+    } else {
+      const n = Number(trimmed);
+      if (!Number.isFinite(n) || n < 0) {return;} // clamp/ignore invalid entry
+      next[field] = n;
+    }
+    onImageChange(selectedNodeIds, next);
+  };
+  // Surface 3 item 6: the advisory fires on an EXTERNAL https img value
+  // (authored in code — there is deliberately no URL input field, Grey
+  // Area 2); compressed local data URIs never show it.
+  const isExternalImage = !!nodeImage && nodeImage.img.startsWith('https://');
 
   // Icon param rows (Surface 6): every edit composes the next config from
   // the parsed shared config and emits it through onIconChange. Empty W/H
@@ -337,12 +413,13 @@ export function NodeStylePanel({
       // 38-06: the shape picker owns Escape while it is open (topmost layer
       // closes first — ShapePicker's own handler does not stop propagation,
       // so this guard is what keeps one Escape from closing panel + picker).
-      if (shapeOpen) {return;}
+      // 39-05: the IconPicker joins the same topmost-layer rule.
+      if (shapeOpen || iconPickerOpen) {return;}
       if (e.key === 'Escape') {onClose();}
     };
     document.addEventListener('keydown', onKey);
     return () => {document.removeEventListener('keydown', onKey);};
-  }, [onClose, shapeOpen]);
+  }, [onClose, shapeOpen, iconPickerOpen]);
 
   return (
     <>
@@ -530,16 +607,14 @@ export function NodeStylePanel({
             {/* Icon tab body (Surface 6). The trigger row shows the picked
                 name truncating with the full value as its accessible title
                 (empty state: the declared CTA copy). The IconPicker popover
-                cloning the ShapePicker fixed-anchor recipe is 39-05's
-                deliverable — this trigger is its anchor. */}
+                clones the ShapePicker fixed-anchor recipe (39-05). */}
             {iconBodyVisible && (
               <div className="flex flex-col gap-2 pt-1">
                 <button
+                  ref={iconBtnRef}
                   type="button"
                   data-icon-trigger
-                  onClick={() => {
-                    /* 39-05 wires the IconPicker here. */
-                  }}
+                  onClick={toggleIconPicker}
                   title={nodeIcon ? t('visual.iconChangeHint', { icon: nodeIcon.icon }) : undefined}
                   aria-label={nodeIcon ? t('visual.iconChangeHint', { icon: nodeIcon.icon }) : t('nodeStyle.iconPickAction')}
                   className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs ${FOCUS_RING_CLASSES}`}
@@ -571,6 +646,21 @@ export function NodeStylePanel({
                     style={{ color: 'var(--text-tertiary)' }}
                   />
                 </button>
+                {iconPickerOpen && iconPickerAnchor && (
+                  <IconPicker
+                    anchor={iconPickerAnchor}
+                    onClose={closeIconPicker}
+                    onPick={(icon) => {
+                      // A pick emits through the mutator — the ONLY write
+                      // path. A plain selection gains the minimal config
+                      // (form/pos omitted; mermaid defaults apply).
+                      onIconChange?.(selectedNodeIds, nodeIcon ? { ...nodeIcon, icon } : { icon });
+                      closeIconPicker();
+                    }}
+                    selected={nodeIcon?.icon ?? null}
+                    triggerRef={iconBtnRef}
+                  />
+                )}
 
                 {nodeIcon && (
                   <>
@@ -695,14 +785,14 @@ export function NodeStylePanel({
               </div>
             )}
 
-            {/* 39-05 Task 1 (ICON-03, Surface 3): the Image tab body. The
-                empty state IS the upload CTA + paste hint pair — no dropzone
+            {/* 39-05 (ICON-03, Surface 3): the Image tab body. The empty
+                state IS the upload CTA + paste hint pair — no dropzone
                 chrome; in-flight compression renders the spinner in the
                 thumbnail slot; a compressed result renders the thumbnail +
-                size readout + Replace / Remove. Every value routes through
-                onImageChange -> the 39-01 updateNodeImg mutator. The declared
-                validation rows, paste binding, external-URL advisory and the
-                fit switch complete this body in Task 3. */}
+                size readout + Replace / Remove; an external https img value
+                renders the advisory row instead of a result. Every value
+                routes through onImageChange -> the 39-01 updateNodeImg
+                mutator; validation renders inline (never a toast). */}
             {imageBodyVisible && (
               <div className="flex flex-col gap-2 pt-1">
                 <input
@@ -718,6 +808,38 @@ export function NodeStylePanel({
                   }}
                 />
 
+                {/* External-URL advisory (Surface 3 item 6): the fence-pill
+                    idiom — advisory copy on --surface-floating, NEVER a
+                    warning color, with the upload button directly below as
+                    the corrective action. There is deliberately NO URL
+                    input field (Grey Area 2). The external URL itself never
+                    renders as live text beyond the truncated source row
+                    with the full value in its title. */}
+                {isExternalImage && (
+                  <>
+                    <div
+                      data-image-advisory
+                      className="flex items-start gap-1 rounded-md border p-2 text-[11px] leading-[1.5]"
+                      style={{
+                        background: 'var(--surface-floating)',
+                        borderColor: 'var(--border-subtle)',
+                        color: 'var(--text-secondary)',
+                      }}
+                    >
+                      <ExternalLink size={14} aria-hidden="true" className="shrink-0" />
+                      <span>{t('nodeStyle.imageExternalWarning')}</span>
+                    </div>
+                    <span
+                      data-image-source
+                      className="text-[11px] leading-[1.5] truncate max-w-full px-1"
+                      title={nodeImage!.img}
+                      style={{ color: 'var(--text-tertiary)' }}
+                    >
+                      {nodeImage!.img}
+                    </span>
+                  </>
+                )}
+
                 {imageBusy ? (
                   <div
                     data-image-busy
@@ -727,13 +849,11 @@ export function NodeStylePanel({
                     <LoaderCircle size={14} className="animate-spin shrink-0" aria-hidden="true" />
                     <span>{t('nodeStyle.imageCompressing')}</span>
                   </div>
-                ) : nodeImage ? (
+                ) : nodeImage && !isExternalImage ? (
                   <>
                     {/* Populated state: thumbnail (max-height 64px,
-                        object-contain) with the accent frame (Color item 3),
-                        the compressed size readout, Replace (re-opens the
-                        same file input) and Remove image (danger text, no
-                        confirmation — reversible by re-uploading). */}
+                        object-contain) with the accent frame (Color item 3)
+                        and the compressed size readout. */}
                     <div className="flex flex-col gap-1">
                       <div
                         className="flex items-center justify-center rounded-md border p-1"
@@ -754,6 +874,100 @@ export function NodeStylePanel({
                         {t('nodeStyle.imageSizeReadout', { size: formatBytes(dataUriByteLength(nodeImage.img)) })}
                       </span>
                     </div>
+
+                    {/* Position segmented control (Top / Bottom). */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                        {t('nodeStyle.iconPosition')}
+                      </span>
+                      <div className="grid grid-cols-2 gap-1">
+                        {([
+                          { value: 't' as const, key: 'nodeStyle.iconPositionTop' },
+                          { value: 'b' as const, key: 'nodeStyle.iconPositionBottom' },
+                        ]).map(({ value, key }) => {
+                          const active = nodeImage!.pos === value;
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              data-image-pos={value}
+                              aria-pressed={active}
+                              onClick={() => setImageParam({ pos: value })}
+                              className={`rounded-md border px-1 py-1.5 text-xs ${FOCUS_RING_CLASSES}`}
+                              style={
+                                active
+                                  ? { background: 'var(--accent-dim)', borderColor: 'transparent', color: 'var(--accent)' }
+                                  : { background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }
+                              }
+                            >
+                              {t(key)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* W/H number inputs — empty means Auto (param omitted
+                        on emit); mixed selection shows the mixed idiom. */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                        {t('nodeStyle.iconSize')}
+                      </span>
+                      <div className="grid grid-cols-2 gap-1">
+                        <input
+                          type="number"
+                          data-image-w
+                          value={nodeImage!.w ?? ''}
+                          placeholder={sizePlaceholder}
+                          min={0}
+                          onChange={e => setImageSize('w', e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded-md border text-xs"
+                          style={{
+                            background: 'var(--surface-base)',
+                            borderColor: 'var(--border-subtle)',
+                            color: 'var(--text-primary)',
+                            outline: 'none',
+                          }}
+                        />
+                        <input
+                          type="number"
+                          data-image-h
+                          value={nodeImage!.h ?? ''}
+                          placeholder={sizePlaceholder}
+                          min={0}
+                          onChange={e => setImageSize('h', e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded-md border text-xs"
+                          style={{
+                            background: 'var(--surface-base)',
+                            borderColor: 'var(--border-subtle)',
+                            color: 'var(--text-primary)',
+                            outline: 'none',
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Fit node to image switch — `constraint: on` sizes
+                        the node to the image (12.3 semantics, Grey Area 7). */}
+                    <button
+                      type="button"
+                      data-image-constraint
+                      aria-pressed={nodeImage!.constraint === 'on'}
+                      onClick={() => setImageParam({ constraint: nodeImage!.constraint === 'on' ? 'off' : 'on' })}
+                      className={`flex items-center justify-between gap-2 w-full px-2.5 py-1.5 rounded-md border text-xs ${FOCUS_RING_CLASSES}`}
+                      style={
+                        nodeImage!.constraint === 'on'
+                          ? { background: 'var(--accent-dim)', borderColor: 'transparent', color: 'var(--accent)' }
+                          : { background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }
+                      }
+                    >
+                      <span>{t('nodeStyle.imageConstraint')}</span>
+                      <span aria-hidden="true">{nodeImage!.constraint === 'on' ? '✓' : ''}</span>
+                    </button>
+
+                    {/* Replace (re-opens the same file input) + Remove
+                        image (danger text, no confirmation — reversible by
+                        re-uploading). */}
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
@@ -809,12 +1023,22 @@ export function NodeStylePanel({
                   </>
                 )}
 
-                {/* Interim validation marker: the typed code is held (never
-                    swallowed) until Task 3 renders the declared inline danger
-                    rows in both panels. */}
+                {/* Inline validation rows (Surface 3 item 5): the typed
+                    error codes render their declared danger copy UNDER the
+                    upload control, persistent until the next attempt —
+                    never a toast. */}
                 {imageError && !imageBusy && (
-                  <div data-image-error={imageError} style={{ color: 'var(--danger)' }}>
-                    <TriangleAlert size={14} aria-hidden="true" />
+                  <div
+                    data-image-error={imageError}
+                    className="flex items-start gap-1 px-1 text-[11px] leading-[1.5]"
+                    style={{ color: 'var(--danger)' }}
+                  >
+                    <TriangleAlert size={14} aria-hidden="true" className="shrink-0" />
+                    <span>
+                      {imageError === 'invalid-type'
+                        ? t('nodeStyle.imageInvalidType')
+                        : t('nodeStyle.imageTooLarge', { limit: formatBytes(SOURCE_MAX_BYTES) })}
+                    </span>
                   </div>
                 )}
               </div>
