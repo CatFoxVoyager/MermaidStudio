@@ -24,6 +24,8 @@ import {
   removeSubgraph,
   updateEdgeArrowType,
   updateEdgeLabel,
+  updateNodeIcon,
+  updateNodeImg,
   bodyHasUnparsedAtDirective,
 } from '../codeUtils';
 import {
@@ -997,6 +999,81 @@ describe('Mermaid Code Utilities', () => {
       const source = `flowchart TD\nA@{ shape: "doc", label: "S", icon: "fa:user" } --> B@{ shape: "rect", label: "T", img: "${URI}" }`;
       const relabeled = updateNodeLabel(source, 'B', 'Target2');
       expect(relabeled).toBe(`flowchart TD\nA@{ shape: "doc", label: "S", icon: "fa:user" } --> B@{ shape: "rect", label: "Target2", img: "${URI}" }`);
+    });
+  });
+
+  // ===== 39-01 Task 2: updateNodeIcon / updateNodeImg — the single write
+  // path for media params (Surface-1 switch semantics through the
+  // directiveWrap choke point). =====
+  describe('media mutators (39-01 Surface-1 cross-strip)', () => {
+    const URI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+    it('sets icon params on a plain directive node in canonical order', () => {
+      const source = 'flowchart TD\nA@{ shape: "rect", label: "N" }';
+      const result = updateNodeIcon(source, 'A', { icon: 'fa:user', form: 'square', pos: 't', w: 24, h: 60 });
+      expect(result).toBe('flowchart TD\nA@{ shape: "rect", label: "N", icon: "fa:user", form: "square", pos: "t", w: 24, h: 60 }');
+      // Idempotent: the same set re-emits the same bytes.
+      expect(updateNodeIcon(result, 'A', { icon: 'fa:user', form: 'square', pos: 't', w: 24, h: 60 })).toBe(result);
+    });
+
+    it('converts a bracket-form node to the canonical directive span when media arrives', () => {
+      const source = 'flowchart TD\nA[Start]';
+      const result = updateNodeIcon(source, 'A', { icon: 'fa:user' });
+      expect(result).toBe('flowchart TD\nA@{ shape: "rect", label: "Start", icon: "fa:user" }');
+      // The edge tail survives the conversion byte-for-byte.
+      expect(updateNodeIcon('flowchart TD\nA[Start] --> B', 'A', { icon: 'fa:user' }))
+        .toBe('flowchart TD\nA@{ shape: "rect", label: "Start", icon: "fa:user" } --> B');
+    });
+
+    it('cross-strips: setting icon strips img params and vice versa', () => {
+      const imgNode = `flowchart TD\nA@{ shape: "rect", label: "N", img: "${URI}" }`;
+      const toIcon = updateNodeIcon(imgNode, 'A', { icon: 'fa:user', form: 'circle' });
+      expect(toIcon).toBe('flowchart TD\nA@{ shape: "rect", label: "N", icon: "fa:user", form: "circle" }');
+      expect(toIcon).not.toContain('img:');
+
+      const iconNode = 'flowchart TD\nA@{ shape: "rect", label: "N", icon: "fa:user", form: "circle" }';
+      const toImg = updateNodeImg(iconNode, 'A', { img: URI, constraint: 'on' });
+      expect(toImg).toBe(`flowchart TD\nA@{ shape: "rect", label: "N", img: "${URI}", constraint: "on" }`);
+      expect(toImg).not.toContain('icon:');
+    });
+
+    it('null clears only that media; the other media survives', () => {
+      // Bare span with label param — clear icon keeps the label as a media param.
+      const bareIcon = 'flowchart TD\nA@{ icon: "fa:user", form: "square", label: "U" }';
+      expect(updateNodeIcon(bareIcon, 'A', null)).toBe('flowchart TD\nA@{ shape: "rect", label: "U" }');
+      // Clearing img from an img+... span keeps icon params untouched.
+      const both = 'flowchart TD\nA@{ shape: "rect", label: "N", icon: "fa:user", img: "x.png" }';
+      expect(updateNodeImg(both, 'A', null)).toBe('flowchart TD\nA@{ shape: "rect", label: "N", icon: "fa:user" }');
+      // Clearing media on a bracket node is a no-op (nothing to remove).
+      expect(updateNodeImg('flowchart TD\nA[Start]', 'A', null)).toBe('flowchart TD\nA[Start]');
+    });
+
+    it('shape, styles, and label values survive every mutation verbatim', () => {
+      const source = 'flowchart TD\nA@{ shape: "hex", label: "Deep node", foo: "bar" }\nstyle A fill:#f00';
+      const result = updateNodeImg(source, 'A', { img: URI });
+      expect(result).toContain('style A fill:#f00');
+      expect(result).toBe(`flowchart TD\nA@{ shape: "hex", label: "Deep node", img: "${URI}", foo: "bar" }\nstyle A fill:#f00`);
+    });
+
+    it('a label containing a double quote or backslash survives set-icon (CR-01 order)', () => {
+      const quotedSource = 'flowchart TD\nA@{ shape: "rect", label: "Say \\"hi\\"" }';
+      expect(updateNodeIcon(quotedSource, 'A', { icon: 'fa:user' }))
+        .toBe('flowchart TD\nA@{ shape: "rect", label: "Say \\"hi\\"", icon: "fa:user" }');
+      const backslashSource = 'flowchart TD\nA@{ shape: "rect", label: "C:\\\\path" }';
+      expect(updateNodeIcon(backslashSource, 'A', { icon: 'fa:user' }))
+        .toBe('flowchart TD\nA@{ shape: "rect", label: "C:\\\\path", icon: "fa:user" }');
+    });
+
+    it('a data-URI img value round-trips byte-stably through set -> parse -> emit', () => {
+      let source = 'flowchart TD\nA@{ shape: "rect", label: "N" }';
+      source = updateNodeImg(source, 'A', { img: URI, constraint: 'on', w: 120.5 });
+      // set -> parse: typed config intact
+      const parsed = parseDiagram(source).nodes[0].img;
+      expect(parsed).toEqual({ img: URI, constraint: 'on', w: 120.5 });
+      // parse -> emit (re-set of the parsed config): byte-identical
+      expect(updateNodeImg(source, 'A', parsed!)).toBe(source);
+      // The long URI emits as ONE quoted value — no wrapping or truncation.
+      expect(source).toContain(`img: "${URI}"`);
     });
   });
 

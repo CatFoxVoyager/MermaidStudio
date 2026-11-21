@@ -2108,6 +2108,111 @@ export function updateNodeShape(source: string, nodeId: string, newShape: NodeSh
   return source;
 }
 
+/**
+ * 39-01 (ICON-01): the ONLY write path for media params — updateNodeIcon /
+ * updateNodeImg route here; components never regex-edit directive spans
+ * (locked 38-SSOT rule). Surface-1 switch semantics (39-UI-SPEC):
+ *
+ * - SET icon strips any img params; SET img strips any icon params (the
+ *   cross-strip); null removes ONLY that media's params — the other media
+ *   and every shape/style/label value survive verbatim.
+ * - Typed params serialize in canonical order through the directiveWrap
+ *   choke point (CR-01 escape rules); unrelated unknownParams re-emit
+ *   verbatim AFTER the typed params (decline-don't-normalize).
+ * - Attachment: a node already carrying a directive span gains/loses media
+ *   params inside its existing span (bare media spans keep the bare form —
+ *   no shape key is inserted); clearing the last media from a bare span
+ *   emits the shaped rect form (a directive span needs shape or media).
+ *   A bracket-form node GAINING media converts to the canonical directive
+ *   span — the conversion is inherent to carrying directive params (shape
+ *   key via toDirectiveShapeName, label value preserved); clearing media on
+ *   a bracket node is a no-op (there is nothing to remove).
+ * - Long data-URI img values emit as a single quoted value — no wrapping,
+ *   no truncation.
+ */
+function updateNodeMedia(
+  source: string,
+  nodeId: string,
+  which: 'icon' | 'img',
+  config: IconConfig | ImgConfig | null,
+): string {
+  const lines = source.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const nodeMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[|\(\["|@\{)["']?[^\n]+)/);
+    if (!nodeMatch || nodeMatch[2] !== nodeId) {continue;}
+    const rest = nodeMatch[4].trim();
+    if (rest.startsWith('@{')) {
+      // Standalone span only; the spaced form and a directive span on an
+      // edge line decline exactly like updateNodeShape (D3) — never rewrite
+      // a line the writer cannot reconstruct faithfully.
+      if (nodeMatch[3] !== '' || !/^@\{.*\}\s*$/.test(rest)) {return source;}
+      const parsed = parseAtDirective(rest);
+      if (!parsed) {return source;}
+      // Cross-strip + keep semantics: SET replaces this media and strips
+      // the other; null removes only this media and keeps the other.
+      const newIcon = which === 'icon' ? (config as IconConfig | null) : (config === null ? parsed.icon : null);
+      const newImg = which === 'img' ? (config as ImgConfig | null) : (config === null ? parsed.img : null);
+      const hadLabelParam = parsed.label !== null;
+      const effectiveLabel = parsed.label ?? nodeId;
+      const configLabel = (config as IconConfig | ImgConfig | null)?.label;
+      const newLabel = hadLabelParam || configLabel === undefined ? effectiveLabel : configLabel;
+      if (!newIcon && !newImg) {
+        // No media left: the shaped rect form is the only valid directive
+        // form for a bare span; a shaped span keeps its own shape key.
+        const shapeKey = parsed.mediaOnly ? 'rect' : (toDirectiveShapeName(parsed.shape) ?? parsed.shape);
+        lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${directiveWrap(shapeKey, newLabel, parsed.unknownParams)}`;
+        return lines.join('\n');
+      }
+      if (parsed.mediaOnly) {
+        // Bare form: the label rides the first media config's canonical slot.
+        const iconOut: IconConfig | undefined = newIcon ? { ...newIcon, label: undefined } : undefined;
+        const imgOut: ImgConfig | undefined = newImg ? { ...newImg, label: undefined } : undefined;
+        const labelTarget = iconOut ?? imgOut;
+        if (labelTarget && (hadLabelParam || configLabel !== undefined)) {
+          if (iconOut) {iconOut.label = newLabel;}
+          else if (imgOut) {imgOut.label = newLabel;}
+        }
+        const parts = [
+          ...(iconOut ? serializeIconParams(iconOut) : []),
+          ...(imgOut ? serializeImgParams(imgOut) : []),
+          ...parsed.unknownParams,
+        ];
+        lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}@{ ${parts.join(', ')} }`;
+        return lines.join('\n');
+      }
+      // Shaped span: label at span level — strip config labels from the
+      // media serialization so the label param cannot emit twice.
+      const iconOut: IconConfig | undefined = newIcon ? { ...newIcon, label: undefined } : undefined;
+      const imgOut: ImgConfig | undefined = newImg ? { ...newImg, label: undefined } : undefined;
+      lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${directiveWrap(toDirectiveShapeName(parsed.shape) ?? parsed.shape, newLabel, parsed.unknownParams, { icon: iconOut, img: imgOut })}`;
+      return lines.join('\n');
+    }
+    // Bracket/other span — conversion path: only a SET carries media onto a
+    // node that has no directive params yet; CLEAR is a no-op here.
+    if (config === null) {return source;}
+    const split = splitNodeSpan(nodeMatch[4].trim());
+    const spanRaw = split ? split.span : nodeMatch[4].trim();
+    const tail = split ? split.tail : '';
+    const { label, shape } = parseNodeLabel(spanRaw);
+    const shapeKey = toDirectiveShapeName(shape) ?? shape;
+    const mediaOut = which === 'icon'
+      ? { icon: { ...(config as IconConfig), label: undefined }, img: undefined }
+      : { icon: undefined, img: { ...(config as ImgConfig), label: undefined } };
+    lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${directiveWrap(shapeKey, label, undefined, mediaOut)}${tail}`;
+    return lines.join('\n');
+  }
+  return source;
+}
+
+export function updateNodeIcon(source: string, nodeId: string, icon: IconConfig | null): string {
+  return updateNodeMedia(source, nodeId, 'icon', icon);
+}
+
+export function updateNodeImg(source: string, nodeId: string, img: ImgConfig | null): string {
+  return updateNodeMedia(source, nodeId, 'img', img);
+}
+
 export function addNode(source: string, id: string, label: string, shape: NodeShape): string {
   const lines = source.split('\n');
   const insertIdx = lines.length > 1 ? lines.length - 1 : 1;
