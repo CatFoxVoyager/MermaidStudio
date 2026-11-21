@@ -218,15 +218,18 @@ describe('Mermaid Code Utilities', () => {
     });
 
     it('should parse new edge types', () => {
-      const source = 'flowchart TD\nA~~~B\nAx--xB\nC--oD\nEo--F\nG--|>H';
+      // 40-02 (EDGE-01) tombstone: the old pin asserted the drifted
+      // enumeration's `o--` (Eo--F) and flag-arrow (G--|>H) lines as edges —
+      // both are probe-INVALID at mermaid 12.3 (40-probe-grammar.cjs), the
+      // grammar family table removed them, and such lines now produce no
+      // edge (the length-aware battery lives in arrow-grammar.test.ts).
+      const source = 'flowchart TD\nA~~~B\nAx--xB\nC--oD';
       const result = parseDiagram(source);
 
-      expect(result.edges).toHaveLength(5);
+      expect(result.edges).toHaveLength(3);
       expect(result.edges[0].arrowType).toBe('~~~');
       expect(result.edges[1].arrowType).toBe('x--x');
       expect(result.edges[2].arrowType).toBe('--o');
-      expect(result.edges[3].arrowType).toBe('o--');
-      expect(result.edges[4].arrowType).toBe('--|>');
     });
 
     it('silently drops a bare post-id metadata line (D6 corruption vector — observation test)', () => {

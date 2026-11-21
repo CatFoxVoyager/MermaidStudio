@@ -108,9 +108,16 @@ export interface EdgeMetadata {
 export interface ParsedEdge {
   source: string;
   target: string;
+  /** Family canonical single-length token (`---->` parses to `-->`). */
   arrowType: string;
   label: string;
   raw: string;
+  /**
+   * 40-02 (EDGE-01): user-facing link length 1..10 — omitted at 1 (the plain
+   * token). An authored `---->` reports arrowType `-->` + length 4; the
+   * authored spelling survives re-emission unless a mutation touches the hop.
+   */
+  length?: number;
   /** Bare 12.3 edge id attached before this hop's arrow (`e1@-->`), when present. */
   edgeId?: string;
   /**
@@ -1015,15 +1022,155 @@ function shapeWrap(label: string, shape: NodeShape, quoted = false, unknownParam
 }
 
 const STANDALONE_NODE_RE = /^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)$/;
-const ARROW_RE = /-->|---|--\|>|\|>|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|~~~/;
-// Arrow alternatives in EXACTLY the order the old arrow-line regex listed
-// them (same set as ARROW_RE) — candidate enumeration below depends on the
-// order to keep picking the winner the old engine picked.
-const ARROW_ALT_STRINGS = ['-->', '---', '--|>', '|>', '-.->', '==>', 'x--x', '.->', '<-->', 'o--o', '--o', 'o--', '~~~'] as const;
 const EDGE_HEAD_ID_RE = /^([A-Za-z_][A-Za-z0-9_-]*)/;
 const WS_RE = /\s/;
 const ID_START_RE = /[A-Za-z_]/;
 const ID_CHAR_RE = /[A-Za-z0-9_-]/;
+
+/**
+ * 40-02 (EDGE-01): the probed-valid Flowchart arrow grammar as a length-aware
+ * FAMILY table. The matrix is the planning probe record (40-probe-grammar.cjs
+ * rounds 1-2 + the executor's 40-probe-glue.cjs at mermaid@12.3.0) — every
+ * family below is probe-verified VALID at its minimum length and scales to
+ * length 10. The drifted enumeration this table replaces carried the
+ * Sequence-invalid flag-arrow tokens (probe: ERR) and matched no longer spelling;
+ * `o--` / `x--` are INVALID at their bare 2-dash spelling in every form
+ * (spaced, glued, labeled — probe ERR) and VALID from 3 dashes, so their
+ * length-1 emitted forms are `o---` / `x---` (the mutator can never emit the
+ * invalid spelling; the picker's separate `minimumLength: 2` flag on those
+ * two option entries drives the link-length input's min attribute, not this
+ * clamp).
+ *
+ * DoS (T-40-03): every matcher is a bounded-length sticky regex tried at one
+ * position — the walk stays linear in line length on the per-keystroke
+ * fence/parse path (the WR-02 lesson; pinned by a scale fixture in
+ * arrow-grammar.test.ts).
+ *
+ * Glue rule (probe 40-probe-glue.cjs): an `o`/`x` glued DIRECTLY after a
+ * `>`-terminated token merges into an invalid lexeme (`-->o B`, `-..->o B`,
+ * `==>o B` all ERR) — arrowFinal families refuse such a match — while every
+ * other glued id char is a legal zero-space target (`-->B`, `---B`,
+ * `----oB`, `o==oB` all PARSE OK).
+ *
+ * Order matters at one position: suffix-carrying families precede the bare
+ * runs of the same start character so `---o` is a circle end to B, never the
+ * old engine's mis-split of an open line to a target named `o`.
+ */
+interface ArrowFamily {
+  id: string;
+  /** Sticky full-token matcher anchored at the candidate position. */
+  re: RegExp;
+  /** Single-length token — the picker's family identity. */
+  canonical: string;
+  /** User-facing minimum length — emission clamps up to it (1 everywhere). */
+  minLength: number;
+  /** True when the token ends in `>` (the glue rule applies). */
+  arrowFinal: boolean;
+  emit: (length: number) => string;
+  /** User-facing length (1..10) from a matched span. */
+  lengthOf: (span: string) => number;
+}
+
+const ARROW_FAMILIES: ArrowFamily[] = [
+  { id: 'arrow', re: /-{2,11}>/y, canonical: '-->', minLength: 1, arrowFinal: true,
+    emit: n => `${'-'.repeat(n + 1)}>`, lengthOf: s => s.length - 2 },
+  { id: 'circleEnd', re: /-{2,11}o/y, canonical: '--o', minLength: 1, arrowFinal: false,
+    emit: n => `${'-'.repeat(n + 1)}o`, lengthOf: s => s.length - 2 },
+  { id: 'crossEnd', re: /-{2,11}x/y, canonical: '--x', minLength: 1, arrowFinal: false,
+    emit: n => `${'-'.repeat(n + 1)}x`, lengthOf: s => s.length - 2 },
+  { id: 'dottedArrow', re: /-\.{1,10}->/y, canonical: '-.->', minLength: 1, arrowFinal: true,
+    emit: n => `-${'.'.repeat(n)}->`, lengthOf: s => s.length - 3 },
+  { id: 'dottedOpen', re: /-\.[.-]{0,9}-/y, canonical: '-.-', minLength: 1, arrowFinal: false,
+    emit: n => `-${'.'.repeat(n)}-`, lengthOf: s => s.length - 2 },
+  { id: 'openLine', re: /-{3,12}/y, canonical: '---', minLength: 1, arrowFinal: false,
+    emit: n => '-'.repeat(n + 2), lengthOf: s => s.length - 2 },
+  { id: 'thickArrow', re: /={2,11}>/y, canonical: '==>', minLength: 1, arrowFinal: true,
+    emit: n => `${'='.repeat(n + 1)}>`, lengthOf: s => s.length - 2 },
+  { id: 'thickOpen', re: /={3,12}/y, canonical: '===', minLength: 1, arrowFinal: false,
+    emit: n => '='.repeat(n + 2), lengthOf: s => s.length - 2 },
+  { id: 'bidiArrow', re: /<-{2,11}>/y, canonical: '<-->', minLength: 1, arrowFinal: true,
+    emit: n => `<${'-'.repeat(n + 1)}>`, lengthOf: s => s.length - 3 },
+  { id: 'bidiDotted', re: /<-\.{1,10}->/y, canonical: '<-.->', minLength: 1, arrowFinal: true,
+    emit: n => `<-${'.'.repeat(n)}->`, lengthOf: s => s.length - 4 },
+  { id: 'bidiThick', re: /<={2,11}>/y, canonical: '<==>', minLength: 1, arrowFinal: true,
+    emit: n => `<${'='.repeat(n + 1)}>`, lengthOf: s => s.length - 3 },
+  { id: 'invisible', re: /~{3,12}/y, canonical: '~~~', minLength: 1, arrowFinal: false,
+    emit: n => '~'.repeat(n + 2), lengthOf: s => s.length - 2 },
+  { id: 'circleBoth', re: /o-{2,11}o/y, canonical: 'o--o', minLength: 1, arrowFinal: false,
+    emit: n => `o${'-'.repeat(n + 1)}o`, lengthOf: s => s.length - 3 },
+  { id: 'dottedCircleBoth', re: /o-\.[.-]{0,9}-o/y, canonical: 'o-.-o', minLength: 1, arrowFinal: false,
+    emit: n => `o-${'.'.repeat(n)}-o`, lengthOf: s => s.length - 4 },
+  { id: 'dottedCircleArrow', re: /o-\.{1,10}->/y, canonical: 'o-.->', minLength: 1, arrowFinal: true,
+    emit: n => `o-${'.'.repeat(n)}->`, lengthOf: s => s.length - 4 },
+  { id: 'thickCircleBoth', re: /o={2,11}o/y, canonical: 'o==o', minLength: 1, arrowFinal: false,
+    emit: n => `o${'='.repeat(n + 1)}o`, lengthOf: s => s.length - 3 },
+  { id: 'thickCircleArrow', re: /o={2,11}>/y, canonical: 'o==>', minLength: 1, arrowFinal: true,
+    emit: n => `o${'='.repeat(n + 1)}>`, lengthOf: s => s.length - 3 },
+  { id: 'circleStart', re: /o-{3,12}/y, canonical: 'o--', minLength: 1, arrowFinal: false,
+    emit: n => `o${'-'.repeat(n + 2)}`, lengthOf: s => s.length - 3 },
+  { id: 'crossBoth', re: /x-{2,11}x/y, canonical: 'x--x', minLength: 1, arrowFinal: false,
+    emit: n => `x${'-'.repeat(n + 1)}x`, lengthOf: s => s.length - 3 },
+  { id: 'dottedCrossBoth', re: /x-\.[.-]{0,9}-x/y, canonical: 'x-.-x', minLength: 1, arrowFinal: false,
+    emit: n => `x-${'.'.repeat(n)}-x`, lengthOf: s => s.length - 4 },
+  { id: 'dottedCrossArrow', re: /x-\.{1,10}->/y, canonical: 'x-.->', minLength: 1, arrowFinal: true,
+    emit: n => `x-${'.'.repeat(n)}->`, lengthOf: s => s.length - 4 },
+  { id: 'thickCrossBoth', re: /x={2,11}x/y, canonical: 'x==x', minLength: 1, arrowFinal: false,
+    emit: n => `x${'='.repeat(n + 1)}x`, lengthOf: s => s.length - 3 },
+  { id: 'thickCrossArrow', re: /x={2,11}>/y, canonical: 'x==>', minLength: 1, arrowFinal: true,
+    emit: n => `x${'='.repeat(n + 1)}>`, lengthOf: s => s.length - 3 },
+  { id: 'crossStart', re: /x-{3,12}/y, canonical: 'x--', minLength: 1, arrowFinal: false,
+    emit: n => `x${'-'.repeat(n + 2)}`, lengthOf: s => s.length - 3 },
+  // Legacy leading-dot dotted arrow (probe PARSE OK) — parse-and-round-trip
+  // only, never emitted by the picker (the 16-token core set excludes it).
+  { id: 'leadingDotArrow', re: /\.->/y, canonical: '.->', minLength: 1, arrowFinal: true,
+    emit: () => '.->', lengthOf: () => 1 },
+];
+
+/** The grammar gate: any family token at any legal length. */
+const ARROW_RE = new RegExp(ARROW_FAMILIES.map(f => f.re.source).join('|'));
+
+/** Family alternation source for composite regexes (updateNodeLabel's
+ * arrow-line branch — built from the SAME table so no second drifted copy
+ * of the token set can exist). */
+const ARROW_FAMILIES_RE_SOURCE = ARROW_FAMILIES.map(f => f.re.source).join('|');
+
+/** Edge-line capture shape for updateNodeLabel's rename path: the SAME
+ * group layout the old inline regex carried (id, sourceRaw, arrow, label,
+ * targetId, tail) with the family-table alternation. */
+const EDGE_LINE_ARROW_RE = new RegExp(
+  `^\\s*([A-Za-z_][A-Za-z0-9_-]*)([^\\n]*?)\\s*(${ARROW_FAMILIES_RE_SOURCE})\\s*(?:\\|([^|]*)\\|)?\\s*([A-Za-z_][A-Za-z0-9_-]*)([^\\n]*)$`,
+);
+
+/** Bounded emission: the mutators never write beyond the probed grammar. */
+const MAX_ARROW_LENGTH = 10;
+
+/** Try the family table at one position; null when no family matches (or the
+ * glue rule rejects the match). Bounded patterns keep this linear. */
+function matchArrowToken(s: string, i: number): { family: ArrowFamily; span: string } | null {
+  for (const family of ARROW_FAMILIES) {
+    family.re.lastIndex = i;
+    const m = family.re.exec(s);
+    if (!m) {continue; }
+    const span = m[0];
+    if (family.arrowFinal) {
+      const next = s[i + span.length];
+      if (next === 'o' || next === 'x') {continue; }
+    }
+    return { family, span };
+  }
+  return null;
+}
+
+/** Resolve a picker family token + length to its emitted spelling. The
+ * per-family minimum is honored (`o--` at length 1 emits `o---` — probe:
+ * `o--` INVALID, `o---` PARSE OK); length clamps to the probed 1..10 band.
+ * Null for a token outside the family table (the mutator declines). */
+function emitArrowToken(familyToken: string, length: number): string | null {
+  const family = ARROW_FAMILIES.find(f => f.canonical === familyToken);
+  if (!family) {return null; }
+  const n = Math.min(MAX_ARROW_LENGTH, Math.max(family.minLength, Math.trunc(length) || 1));
+  return family.emit(n);
+}
 
 /**
  * Full arrow-line structure (id + optional shape raw + arrow + optional edge
@@ -1080,37 +1227,55 @@ function edgeScanUpdate(st: EdgeScanState, ch: string): void {
   if (ch === ')' || ch === ']' || ch === '}') {st.depth = Math.max(0, st.depth - 1);}
 }
 
-function matchArrowLine(trimmed: string): RegExpMatchArray | null {
+/**
+ * The first-hop arrow-line match (40-02: typed, family-resolved — the old
+ * fake-RegExpMatchArray layout is gone with the enumeration it mirrored).
+ */
+interface ArrowLineMatch {
+  id: string;
+  /** Slice between the head id and the arrow (may carry ` & B` amp text). */
+  sourceRaw: string;
+  /** AUTHORED matched spelling — re-emitted verbatim when untouched. */
+  arrowSpan: string;
+  /** Family canonical single-length token (`---->` parses to `-->`). */
+  arrowType: string;
+  /** User-facing length 1..10. */
+  arrowLength: number;
+  /** Absolute index of the arrow span within the trimmed line. */
+  arrowIndex: number;
+  edgeLabel?: string;
+  targetId: string;
+  targetRaw: string;
+}
+
+function matchArrowLine(trimmed: string): ArrowLineMatch | null {
   const leadingIdLen = trimmed.match(EDGE_HEAD_ID_RE)?.[0].length ?? 0;
   if (leadingIdLen === 0) {return null;}
   // 40-01 (EDGE-02 markdown survival): the candidate walk carries the same
   // depth/quote state findNextHopArrow has — an arrow-like token inside a
   // bracket label (`A["x --> y"]`) or a quoted/backtick Markdown span never
   // wins the first-hop split. The state is inert on lines with no nesting,
-  // so the winning split for plain lines stays byte-identical to the flat
-  // engine (same per-position alternative order, same first
-  // continuing-tail win; the walk still starts at 1).
+  // so the winning split for plain lines stays the flat engine's (same walk
+  // start at 1, same first continuing-tail win).
   const st: EdgeScanState = { depth: 0, quote: null, inBackticks: false };
   for (let i = 1; i < trimmed.length; i++) {
     if (edgeScanAtHopLevel(st)) {
-      for (const alt of ARROW_ALT_STRINGS) {
-        if (!trimmed.startsWith(alt, i)) {continue;}
-        const tail = matchEdgeTail(trimmed, i + alt.length);
+      const token = matchArrowToken(trimmed, i);
+      if (token) {
+        const tail = matchEdgeTail(trimmed, i + token.span.length);
         if (tail) {
-          // Group layout mirrors the old regex match so callers keep their
-          // indices: [full, id, sourceRaw, arrow, edgeLabel, targetId,
-          // targetRaw]. edgeLabel stays undefined when no `|label|` is
-          // present, like a non-participating group.
           const idLen = Math.min(leadingIdLen, i);
-          return [
-            trimmed,
-            trimmed.slice(0, idLen),
-            trimmed.slice(idLen, i),
-            alt,
-            tail[0],
-            tail[1],
-            tail[2],
-          ] as unknown as RegExpMatchArray;
+          return {
+            id: trimmed.slice(0, idLen),
+            sourceRaw: trimmed.slice(idLen, i),
+            arrowSpan: token.span,
+            arrowType: token.family.canonical,
+            arrowLength: token.family.lengthOf(token.span),
+            arrowIndex: i,
+            edgeLabel: tail[0],
+            targetId: tail[1],
+            targetRaw: tail[2],
+          };
         }
       }
     }
@@ -1198,18 +1363,25 @@ function splitHopTail(rest: string): { targetSpan: string; hopPrefix: string; ta
  */
 function findNextHopArrow(
   s: string,
-): { alt: string; index: number; tail: [string | undefined, string, string] } | null {
+): { span: string; canonical: string; length: number; index: number; tail: [string | undefined, string, string] } | null {
   // 40-01: the state machine moved to the shared EdgeScanState helpers —
   // identical depth/quote semantics, plus the backtick Markdown-string
-  // channel (`` ` ``-delimited spans inside straight quotes).
+  // channel (`` ` ``-delimited spans inside straight quotes). 40-02: the
+  // family table resolves canonical + length per hop the same way.
   const st: EdgeScanState = { depth: 0, quote: null, inBackticks: false };
   for (let i = 0; i < s.length; i++) {
     if (edgeScanAtHopLevel(st)) {
-      for (const alt of ARROW_ALT_STRINGS) {
-        if (!s.startsWith(alt, i)) {continue;}
-        const tail = matchEdgeTail(s, i + alt.length);
+      const token = matchArrowToken(s, i);
+      if (token) {
+        const tail = matchEdgeTail(s, i + token.span.length);
         if (tail) {
-          return { alt, index: i, tail };
+          return {
+            span: token.span,
+            canonical: token.family.canonical,
+            length: token.family.lengthOf(token.span),
+            index: i,
+            tail,
+          };
         }
       }
     }
@@ -1224,20 +1396,37 @@ function findNextHopArrow(
  * targets); matchArrowLine only ever reports the FIRST hop and silently
  * discarded the rest — the visual model then lost every trailing node, and
  * a visual edit rewrote the line without them. The first hop is matched by
- * matchArrowLine (same winner the old engine picked); later hops are found
- * by findNextHopArrow in the previous hop's remainder, with each hop's
- * target shape raw sliced to the text before the next arrow. Hops.length>1
- * lines are fenced from mutation (see bodyHasUnparsedAtDirective): the
- * line-surgical mutation writers cannot re-emit a chain faithfully yet.
+ * matchArrowLine; later hops are found by findNextHopArrow in the previous
+ * hop's remainder, with each hop's target shape raw sliced to the text
+ * before the next arrow.
+ *
+ * 40-02 (EDGE-01): each hop carries the AUTHORED arrow span (re-emitted
+ * verbatim when no mutation touches it), the family canonical + user-facing
+ * length, and the absolute arrow index the surgical mutators splice at. An
+ * `&` group on either side (`A & B --> C & D`) expands to pairs at parse
+ * time (one ParsedEdge per source-target combination); single-hop amp lines
+ * stay mutable (member drops rebuild the group), amp + multi-hop fences.
  */
 interface EdgeHop {
+  /** AUTHORED matched spelling (`---->`) — verbatim on untouched re-emits. */
+  arrowSpan: string;
+  /** Family canonical single-length token (`-->`). */
   arrowType: string;
+  /** User-facing length 1..10 (1 = plain token). */
+  arrowLength: number;
+  /** Absolute index of the arrow span within the trimmed line. */
+  arrowIndex: number;
   /** Bare 12.3 edge id attached directly before this hop's arrow (`e1@-->`). */
   edgeId: string;
+  /** Trimmed label content ('' when none). */
   label: string;
+  /** UNTRIMMED label span content between the pipes (surgery-exact). */
+  labelRaw: string;
   targetId: string;
   /** UNTRIMMED slice the target node owns (bare next-hop id stripped). */
   targetShapeRaw: string;
+  /** `--> B & C` — every target member; ≥2 entries only when grouped. */
+  targetGroup?: { id: string; shapeRaw: string }[];
 }
 
 interface EdgeChain {
@@ -1247,13 +1436,52 @@ interface EdgeChain {
   /** Bare edge id attached before the first hop's arrow, '' when none. */
   sourceEdgeId: string;
   hops: EdgeHop[];
+  /** `A & B -->` — every source member; ≥2 entries only when grouped. */
+  sourceGroup?: { id: string; shapeRaw: string }[];
+  /** True when any `&` group exists on the line (sources or hop targets). */
+  isAmp: boolean;
 }
 
-function matchEdgeChain(trimmed: string): EdgeChain | null {
+/**
+ * Split a pre-arrow / post-target slice on TOP-LEVEL `&` separators (40-02
+ * EDGE-01 amp chains). Depth/quote/backtick aware via the shared scanner —
+ * an `&` inside a bracket label or quoted Markdown span never splits.
+ * Returns null when the slice carries no top-level `&` (the non-amp shape)
+ * or any `&`-side member lacks an id. Each member keeps its raw id + shape
+ * span slice.
+ */
+function splitAmpGroup(headId: string, groupText: string): { id: string; shapeRaw: string }[] | null {
+  const full = `${headId}${groupText}`;
+  const st: EdgeScanState = { depth: 0, quote: null, inBackticks: false };
+  const cuts: number[] = [];
+  for (let i = 0; i < full.length; i++) {
+    if (edgeScanAtHopLevel(st) && full[i] === '&') {cuts.push(i); }
+    edgeScanUpdate(st, full[i] ?? '');
+  }
+  if (cuts.length === 0) {return null; }
+  const parts: string[] = [];
+  let prev = 0;
+  for (const cut of cuts) {
+    parts.push(full.slice(prev, cut));
+    prev = cut + 1;
+  }
+  parts.push(full.slice(prev));
+  const members = parts.map(p => {
+    const t = p.trim();
+    const id = t.match(EDGE_HEAD_ID_RE)?.[0] ?? '';
+    return { id, shapeRaw: t.slice(id.length) };
+  });
+  if (members.some(m => !m.id)) {return null; }
+  return members;
+}
+
+/** Exported for the EDGE-01 grammar battery (arrow-grammar.test.ts) — the
+ * same matcher parseDiagram and every edge mutator run, pinned directly. */
+export function matchEdgeChain(trimmed: string): EdgeChain | null {
   const first = matchArrowLine(trimmed);
   if (!first) {return null;}
-  const sourceId = first[1];
-  const sourceRawAll = first[2] ?? '';
+  const sourceId = first.id;
+  const sourceRawAll = first.sourceRaw;
   const extractedEdgeId = extractTrailingBareEdgeId(sourceRawAll);
   let sourceEdgeId = extractedEdgeId.edgeId;
   let sourceShapeRaw = sourceEdgeId ? extractedEdgeId.span : sourceRawAll;
@@ -1267,36 +1495,81 @@ function matchEdgeChain(trimmed: string): EdgeChain | null {
     sourceEdgeId = sourceId;
     sourceShapeRaw = '';
   }
+  // 40-02: the amp group splits AFTER the trailing edge id is stripped —
+  // `A & B e1@--> C` carries the id on the shared hop0, not on member B.
+  const sourceGroup = splitAmpGroup(sourceId, sourceEdgeId ? extractedEdgeId.span : sourceRawAll);
   const hops: EdgeHop[] = [];
-  let arrowType = first[3];
+  let arrowSpan = first.arrowSpan;
+  let arrowType = first.arrowType;
+  let arrowLength = first.arrowLength;
+  let arrowIndex = first.arrowIndex;
   let edgeId = '';
-  let label = first[4]?.trim() ?? '';
-  let rest = first[6] ?? ''; // text after the current hop's target id
-  let targetId = first[5];
+  let labelRaw = first.edgeLabel ?? '';
+  let label = labelRaw.trim();
+  let targetId = first.targetId;
+  // text after the current hop's target id (a suffix of the trimmed line —
+  // absolute offsets always derive as trimmed.length - rest.length).
+  let rest = first.targetRaw;
   for (;;) {
     const split = splitHopTail(rest);
-    hops.push({ arrowType, edgeId, label, targetId, targetShapeRaw: split.targetSpan });
-    if (!split.tail) {break;}
+    // 40-02: the hop's target group splits on the span BEFORE the next hop
+    // arrow (`--> B & C e2@--> D` — the `e2@` prefix belongs to hop 1).
+    const group = splitAmpGroup(targetId, split.targetSpan);
+    hops.push({
+      arrowSpan,
+      arrowType,
+      arrowLength,
+      arrowIndex,
+      edgeId,
+      label,
+      labelRaw,
+      targetId,
+      // A grouped hop's member-0 raw slice rides the group entry; the flat
+      // slice stays for the ungrouped emit path.
+      targetShapeRaw: group ? group[0].shapeRaw : split.targetSpan,
+      ...(group && group.length > 1 ? { targetGroup: group } : {}),
+    });
+    if (!split.tail) {break; }
     const nextArrow = findNextHopArrow(split.tail);
-    if (!nextArrow) {break;}
+    if (!nextArrow) {break; }
     const [nextLabel, nextId, nextRaw] = nextArrow.tail;
-    arrowType = nextArrow.alt;
+    arrowSpan = nextArrow.span;
+    arrowType = nextArrow.canonical;
+    arrowLength = nextArrow.length;
+    // split.tail is a suffix of the trimmed line; nextArrow.index is
+    // relative to it — the sum is the absolute arrow position.
+    arrowIndex = (trimmed.length - split.tail.length) + nextArrow.index;
     edgeId = split.hopPrefix.trim().replace(/@$/, '');
-    label = nextLabel?.trim() ?? '';
+    labelRaw = nextLabel ?? '';
+    label = labelRaw.trim();
     targetId = nextId;
     rest = nextRaw;
   }
   // Unify: the id before hop0's arrow is hop0's edge id (`A e1@--> B`).
   if (hops.length > 0) {hops[0].edgeId = sourceEdgeId;}
-  return { sourceId, sourceShapeRaw, sourceEdgeId, hops };
+  const isAmp = (sourceGroup?.length ?? 0) > 1 || hops.some(h => (h.targetGroup?.length ?? 0) > 1);
+  return { sourceId, sourceShapeRaw, sourceEdgeId, hops, ...(sourceGroup && sourceGroup.length > 1 ? { sourceGroup } : {}), isAmp };
 }
 
 /**
- * Re-emit one hop in normalized single-space form, preserving its bare
- * edge-id prefix, arrow, label, target and shape span.
+ * Emit one hop in normalized single-space form, preserving its bare edge-id
+ * prefix, authored arrow span, label, target and shape span (40-02: group
+ * aware — a `&` target group re-emits every member).
  */
 function emitHop(hop: EdgeHop): string {
-  return ` ${hop.edgeId ? `${hop.edgeId}@` : ''}${hop.arrowType}${hop.label ? `|${hop.label}|` : ''} ${hop.targetId}${hop.targetShapeRaw}`;
+  const arrowPart = ` ${hop.edgeId ? `${hop.edgeId}@` : ''}${hop.arrowSpan}${hop.label ? `|${hop.label}|` : ''}`;
+  if (hop.targetGroup) {
+    return `${arrowPart} ${hop.targetGroup.map(m => `${m.id}${m.shapeRaw.trim()}`).join(' & ')}`;
+  }
+  return `${arrowPart} ${hop.targetId}${hop.targetShapeRaw}`;
+}
+
+/** Emit the chain lead: the `&`-joined source group, or the flat source. */
+function emitChainLead(chain: EdgeChain): string {
+  if (chain.sourceGroup) {
+    return chain.sourceGroup.map(m => `${m.id}${m.shapeRaw.trim()}`).join(' & ');
+  }
+  return `${chain.sourceId}${chain.sourceShapeRaw.trim()}`;
 }
 
 /**
@@ -1304,7 +1577,8 @@ function emitHop(hop: EdgeHop): string {
  * the surviving chain is the skipped hop's target (with its shape span), or
  * the original source when a later hop was removed. Null when no hop
  * remains (the caller deletes the line). Used by the chain-aware mutation
- * writers (removeEdge, removeNode).
+ * writers (removeEdge, removeNode). Amp + multi-hop chains never reach this
+ * writer (fenced upstream); a grouped lead fails closed.
  */
 function rebuildChainWithoutHop(chain: EdgeChain, skip: number, indent: string): string | null {
   const kept = chain.hops.filter((_, i) => i !== skip);
@@ -1313,9 +1587,24 @@ function rebuildChainWithoutHop(chain: EdgeChain, skip: number, indent: string):
     // The skipped hop's target becomes the surviving chain's lead node —
     // every kept hop (starting with the first one) then re-emits fully.
     const lead = chain.hops[0];
+    if (lead.targetGroup) {return null; }
     return `${indent}${lead.targetId}${lead.targetShapeRaw.trim()}${kept.map(emitHop).join('')}`;
   }
-  return `${indent}${chain.sourceId}${chain.sourceShapeRaw.trim()}${kept.map(emitHop).join('')}`;
+  return `${indent}${emitChainLead(chain)}${kept.map(emitHop).join('')}`;
+}
+
+/**
+ * Locate the hop index connecting srcId to tgtId (40-02: amp aware — a pair
+ * may name a source-group member on hop 0 or a target-group member).
+ */
+function findHopIndex(chain: EdgeChain, srcId: string, tgtId: string): number {
+  return chain.hops.findIndex((h, idx) => {
+    const srcMatch = idx === 0
+      ? chain.sourceId === srcId || (chain.sourceGroup?.some(m => m.id === srcId) ?? false)
+      : chain.hops[idx - 1].targetId === srcId;
+    const tgtMatch = h.targetId === tgtId || (h.targetGroup?.some(m => m.id === tgtId) ?? false);
+    return srcMatch && tgtMatch;
+  });
 }
 
 /**
@@ -1624,29 +1913,67 @@ function stripLinkedDirectiveLines(
 
 export function removeEdge(source: string, srcId: string, tgtId: string): string {
   const lines = source.split('\n');
-  const tgtRe = new RegExp(`\\b${escapeRegex(tgtId)}\\b`);
   // Backlog C: prefer the chain-aware match — on a chained line
   // (`A --> B --> C`) only the targeted hop is dropped (the line is rebuilt,
   // edge-line count unchanged so linkStyle indices stay valid); a single-hop
   // line keeps the legacy whole-line delete + linkStyle renumber.
+  // 40-02: the pair match is amp aware — a pair may name a source-group
+  // member on hop 0 or a target-group member of any hop.
   const edgeInfo = (() => {
     for (let i = 0; i < lines.length; i++) {
       const trimmed = lines[i].trim();
       if (!trimmed.startsWith(srcId) && !ARROW_RE.test(trimmed)) {continue;}
       const chain = matchEdgeChain(trimmed);
       if (!chain) {continue;}
-      const prevOf = (h: number): string => (h === 0 ? chain.sourceId : chain.hops[h - 1].targetId);
-      const hopIdx = chain.hops.findIndex((h, idx) => prevOf(idx) === srcId && h.targetId === tgtId);
+      const hopIdx = findHopIndex(chain, srcId, tgtId);
       if (hopIdx !== -1) {return { index: i, chain, hopIdx }; }
     }
     return null;
   })();
-  if (!edgeInfo) {return source;}
+  if (!edgeInfo) {return source; }
   const { index: edgeIdx, chain, hopIdx } = edgeInfo;
   // 38-03 (SHP-06): the dead hop's 12.3 edge id cascades its linked
   // `id@{...}` metadata lines (generic by id — orphaned `e1@{ animate: true }`
   // ghost lines die with their edge).
   const deadEdgeId = chain.hops[hopIdx]?.edgeId ?? '';
+
+  // 40-02 (EDGE-01): an amp line drops the PAIR's member from its group and
+  // rebuilds — `A & B --> C & D` minus (A,C) re-emits `B --> C & D`; a
+  // singleton group drops the `&`. Multi-hop amp lines are fenced (decline —
+  // the D6 pill guards them read-only upstream).
+  if (chain.isAmp) {
+    if (chain.hops.length > 1) {return source; }
+    const hop = chain.hops[hopIdx];
+    let sources = chain.sourceGroup ?? [{ id: chain.sourceId, shapeRaw: chain.sourceShapeRaw }];
+    let targets = hop.targetGroup ?? [{ id: hop.targetId, shapeRaw: hop.targetShapeRaw }];
+    // ONE member drops per removed pair: the source member when srcId is a
+    // source-group member, otherwise the target member — a cross-product
+    // line cannot express a single missing pair, and dropping BOTH sides
+    // would take out two edges (the plan's coarse one-member disposition).
+    const srcIsMember = chain.sourceGroup?.some(m => m.id === srcId) ?? false;
+    const tgtIsMember = hop.targetGroup?.some(m => m.id === tgtId) ?? false;
+    if (srcIsMember) {sources = sources.filter(m => m.id !== srcId); }
+    else if (tgtIsMember) {targets = targets.filter(m => m.id !== tgtId); }
+    // A member drop that empties either side kills the whole hop → the
+    // single-hop line dies entirely (with its cascade).
+    if (sources.length === 0 || targets.length === 0) {
+      const filtered = lines.filter((_, i) => i !== edgeIdx);
+      return stripLinkedDirectiveLines(filtered, source, deadEdgeId ? [deadEdgeId] : []);
+    }
+    const indent = lines[edgeIdx].match(/^\s*/)?.[0] ?? '';
+    const srcPart = sources.map(m => `${m.id}${m.shapeRaw.trim()}`).join(' & ');
+    const hopOut: EdgeHop = {
+      ...hop,
+      targetId: targets[0].id,
+      targetShapeRaw: targets[0].shapeRaw,
+      // A collapsed group must NOT inherit the spread hop's old group —
+      // emitHop keys on the group's presence, so a singleton override is
+      // load-bearing (a stale `[B, C]` here re-emits the removed member).
+      ...(targets.length > 1 ? { targetGroup: targets } : { targetGroup: undefined }),
+    };
+    lines[edgeIdx] = `${indent}${srcPart}${emitHop(hopOut)}`;
+    return stripLinkedDirectiveLines(lines, source, []);
+  }
 
   if (chain.hops.length > 1) {
     lines[edgeIdx] = rebuildChainWithoutHop(chain, hopIdx, lines[edgeIdx].match(/^\s*/)?.[0] ?? '') ?? '';
@@ -1658,7 +1985,7 @@ export function removeEdge(source: string, srcId: string, tgtId: string): string
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('%%')) {return false;}
     if (/^(flowchart|graph|style|class|classDef|linkStyle|click|subgraph|direction|end)\b/i.test(trimmed)) {return false;}
-    return splitEdgeLine(trimmed) !== null;
+    return matchEdgeChain(trimmed) !== null;
   };
   const ordinal = lines.slice(0, edgeIdx).filter(isEdgeLine).length;
 
@@ -1744,63 +2071,65 @@ export function removeSubgraph(source: string, subgraphId: string): string {
   return stripLinkedDirectiveLines(kept, source, [subgraphId]);
 }
 
-/** Split an edge line into: [beforeArrow, arrowType, edgeLabel, afterArrow] */
-function splitEdgeLine(line: string): [string, string, string, string] | null {
-  // 40-01 (EDGE-02 markdown survival): the split point is the FIRST
-  // hop-level arrow — the old flat regex matched arrow-like text inside
-  // bracket/quoted labels, so the arrow/label mutation writers corrupted
-  // the label span. Same scanner state as matchArrowLine; no tail
-  // requirement (the first hop-level arrow is the split point exactly as
-  // the flat engine split it on plain lines — same per-position
-  // alternative order).
-  const st: EdgeScanState = { depth: 0, quote: null, inBackticks: false };
-  for (let i = 0; i < line.length; i++) {
-    if (edgeScanAtHopLevel(st)) {
-      for (const alt of ARROW_ALT_STRINGS) {
-        if (!line.startsWith(alt, i)) {continue;}
-        const beforeArrow = line.substring(0, i);
-        const rest = line.substring(i + alt.length);
-        // Extract edge label if present: |label|
-        const labelMatch = rest.match(/^\|([^|]*)\|\s*(.*)/);
-        if (labelMatch) {
-          return [beforeArrow, alt, labelMatch[1], labelMatch[2]];
-        }
-        return [beforeArrow, alt, '', rest];
-      }
-    }
-    edgeScanUpdate(st, line[i] ?? '');
-  }
-  return null;
-}
-
-export function updateEdgeArrowType(source: string, srcId: string, tgtId: string, newType: string): string {
+/**
+ * 40-02 (EDGE-01): retarget ONE pair's arrow via the length-aware family
+ * table. The signature grows the user-facing length (default 1) and the
+ * write is SURGICAL — only the hop's arrow span is spliced, so every other
+ * byte of the line (spacing, sibling hops' authored spellings, shapes,
+ * labels) survives verbatim. Per-family minimums are honored (`o--` at
+ * length 1 emits `o---`) and emission clamps to the probed 1..10 band.
+ * Tokens outside the family table decline (return source unchanged), and an
+ * amp + multi-hop line declines (fenced upstream by the D6 pill).
+ */
+export function updateEdgeArrowType(
+  source: string,
+  srcId: string,
+  tgtId: string,
+  newType: string,
+  length = 1,
+): string {
+  const emitted = emitArrowToken(newType, length);
+  if (emitted === null) {return source; }
   const lines = source.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
-    if (!trimmed.startsWith(srcId)) continue;
-    const parts = splitEdgeLine(trimmed);
-    if (!parts) continue;
-    const [, , label, after] = parts;
-    // Verify target ID appears after the arrow+label
-    const tgtRe = new RegExp(`\\b${escapeRegex(tgtId)}\\b`);
-    if (!tgtRe.test(after)) continue;
-    lines[i] = lines[i].replace(trimmed, `${parts[0].trimEnd()} ${newType}${label ? `|${label}|` : ''} ${after.trimStart()}`);
+    const chain = matchEdgeChain(trimmed);
+    if (!chain) {continue; }
+    const hopIdx = findHopIndex(chain, srcId, tgtId);
+    if (hopIdx === -1) {continue; }
+    if (chain.isAmp && chain.hops.length > 1) {return source; }
+    const hop = chain.hops[hopIdx];
+    const indent = lines[i].match(/^\s*/)?.[0] ?? '';
+    const at = indent.length + hop.arrowIndex;
+    lines[i] = lines[i].slice(0, at) + emitted + lines[i].slice(at + hop.arrowSpan.length);
     return lines.join('\n');
   }
   return source;
 }
 
+/**
+ * 40-02: relabel ONE pair's hop with the same surgical splice contract as
+ * updateEdgeArrowType — the label span (authored, whitespace-exact via
+ * labelRaw) is the only bytes touched; an empty newLabel removes the
+ * `|...|` span entirely.
+ */
 export function updateEdgeLabel(source: string, srcId: string, tgtId: string, newLabel: string): string {
   const lines = source.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const trimmed = lines[i].trim();
-    if (!trimmed.startsWith(srcId)) continue;
-    const parts = splitEdgeLine(trimmed);
-    if (!parts) continue;
-    const [before, arrow, , after] = parts;
-    const tgtRe = new RegExp(`\\b${escapeRegex(tgtId)}\\b`);
-    if (!tgtRe.test(after)) continue;
-    lines[i] = lines[i].replace(trimmed, `${before.trimEnd()} ${arrow}${newLabel ? `|${newLabel}|` : ''} ${after.trimStart()}`);
+    const chain = matchEdgeChain(trimmed);
+    if (!chain) {continue; }
+    const hopIdx = findHopIndex(chain, srcId, tgtId);
+    if (hopIdx === -1) {continue; }
+    if (chain.isAmp && chain.hops.length > 1) {return source; }
+    const hop = chain.hops[hopIdx];
+    const indent = lines[i].match(/^\s*/)?.[0] ?? '';
+    const arrowEnd = indent.length + hop.arrowIndex + hop.arrowSpan.length;
+    const hadLabel = hop.labelRaw.length > 0;
+    const labelOut = newLabel ? `|${newLabel}|` : '';
+    lines[i] = hadLabel
+      ? lines[i].slice(0, arrowEnd) + labelOut + lines[i].slice(arrowEnd + hop.labelRaw.length + 2)
+      : lines[i].slice(0, arrowEnd) + labelOut + lines[i].slice(arrowEnd);
     return lines.join('\n');
   }
   return source;
@@ -2035,49 +2364,23 @@ export function parseDiagram(source: string): ParsedDiagram {
         const sourceId = chain.sourceId;
         const sourceShapeRaw = chain.sourceShapeRaw.trim();
 
-        // Ensure source node exists (unless it's a subgraph)
-        if (!seenIds.has(sourceId) && !isSubgraphId(sourceId, subgraphs)) {
-          seenIds.add(sourceId);
-          if (sourceShapeRaw) {
-            // parseNodeRawDirective receives the UNTRIMMED slice: its WR-04
-            // check keys on a leading space (` id @{...}` stays declined).
-            const parsed = parseNodeRawDirective(chain.sourceShapeRaw, sourceId);
-            nodes.push({
-              id: sourceId,
-              label: parsed.label,
-              shape: parsed.shape,
-              raw: sourceShapeRaw,
-              parentSubgraphId: parentId,
-              ...(parsed.directiveRaw
-                ? { directiveRaw: parsed.directiveRaw, unknownParams: parsed.unknownParams, authoredShape: parsed.authoredShape }
-                : {}),
-              ...(parsed.icon ? { icon: parsed.icon } : {}),
-              ...(parsed.img ? { img: parsed.img } : {}),
-            });
-          } else {
-            nodes.push({ id: sourceId, label: sourceId, shape: 'rect', raw: sourceId, parentSubgraphId: parentId });
-          }
-        }
-        // Per-hop target creation (chained lines contribute every hop, not
-        // just the first — the model used to silently drop trailing nodes,
-        // and a visual edit then rewrote the line without them). Bare hop
-        // edge ids (`e2@`) are stripped from the shape slices so the target
-        // keeps no ghost label.
-        let prevId = sourceId;
-        for (const hop of chain.hops) {
-          const targetId = hop.targetId;
-          const targetShapeRaw = hop.targetShapeRaw.trim();
-          // Parse target label from shape (e.g. B{Is it working?}) — the
-          // parse call keeps the untrimmed slice for the WR-04 space check.
-          if (!seenIds.has(targetId) && !isSubgraphId(targetId, subgraphs)) {
-            seenIds.add(targetId);
-            if (targetShapeRaw) {
-              const parsed = parseNodeRawDirective(hop.targetShapeRaw, targetId);
+        // Ensure source nodes exist (unless they're subgraphs). 40-02: every
+        // `&` group member creates its node — the flat path is the singleton
+        // group, byte-identical to the pre-amp behavior.
+        const sourceMembers = chain.sourceGroup ?? [{ id: sourceId, shapeRaw: chain.sourceShapeRaw }];
+        for (const member of sourceMembers) {
+          const memberRaw = member.shapeRaw.trim();
+          if (!seenIds.has(member.id) && !isSubgraphId(member.id, subgraphs)) {
+            seenIds.add(member.id);
+            if (memberRaw) {
+              // parseNodeRawDirective receives the UNTRIMMED slice: its WR-04
+              // check keys on a leading space (` id @{...}` stays declined).
+              const parsed = parseNodeRawDirective(member.shapeRaw, member.id);
               nodes.push({
-                id: targetId,
+                id: member.id,
                 label: parsed.label,
                 shape: parsed.shape,
-                raw: targetShapeRaw,
+                raw: memberRaw,
                 parentSubgraphId: parentId,
                 ...(parsed.directiveRaw
                   ? { directiveRaw: parsed.directiveRaw, unknownParams: parsed.unknownParams, authoredShape: parsed.authoredShape }
@@ -2086,32 +2389,80 @@ export function parseDiagram(source: string): ParsedDiagram {
                 ...(parsed.img ? { img: parsed.img } : {}),
               });
             } else {
-              nodes.push({ id: targetId, label: targetId, shape: 'rect', raw: targetId, parentSubgraphId: parentId });
-            }
-          } else if (targetShapeRaw && !isSubgraphId(targetId, subgraphs)) {
-            const existing = nodes.find(n => n.id === targetId);
-            if (existing && existing.label === existing.id) {
-              const parsed = parseNodeRawDirective(hop.targetShapeRaw, targetId);
-              existing.label = parsed.label;
-              existing.shape = parsed.shape;
-              if (parsed.directiveRaw) {
-                existing.directiveRaw = parsed.directiveRaw;
-                existing.unknownParams = parsed.unknownParams;
-                existing.authoredShape = parsed.authoredShape;
-              }
-              if (parsed.icon) {existing.icon = parsed.icon;}
-              if (parsed.img) {existing.img = parsed.img;}
+              nodes.push({ id: member.id, label: member.id, shape: 'rect', raw: member.id, parentSubgraphId: parentId });
             }
           }
-          edges.push({
-            source: prevId,
-            target: targetId,
-            arrowType: hop.arrowType,
-            label: hop.label,
-            raw: trimmed,
-            ...(hop.edgeId ? { edgeId: hop.edgeId } : {}),
-          });
-          prevId = targetId;
+        }
+        // Per-hop target creation (chained lines contribute every hop, not
+        // just the first — the model used to silently drop trailing nodes,
+        // and a visual edit then rewrote the line without them). Bare hop
+        // edge ids (`e2@`) are stripped from the shape slices so the target
+        // keeps no ghost label. 40-02: every `&` target member creates its
+        // node the same way.
+        let prevId = sourceId;
+        for (let hIdx = 0; hIdx < chain.hops.length; hIdx++) {
+          const hop = chain.hops[hIdx];
+          // 40-02: the amp source group expands hop 0 ONLY — a later hop's
+          // source is the previous hop's target (the chain's own wiring).
+          const hopSources = hIdx === 0 ? sourceMembers : [{ id: prevId, shapeRaw: '' }];
+          const targetMembers = hop.targetGroup ?? [{ id: hop.targetId, shapeRaw: hop.targetShapeRaw }];
+          for (const member of targetMembers) {
+            const targetId = member.id;
+            const targetShapeRaw = member.shapeRaw.trim();
+            // Parse target label from shape (e.g. B{Is it working?}) — the
+            // parse call keeps the untrimmed slice for the WR-04 space check.
+            if (!seenIds.has(targetId) && !isSubgraphId(targetId, subgraphs)) {
+              seenIds.add(targetId);
+              if (targetShapeRaw) {
+                const parsed = parseNodeRawDirective(member.shapeRaw, targetId);
+                nodes.push({
+                  id: targetId,
+                  label: parsed.label,
+                  shape: parsed.shape,
+                  raw: targetShapeRaw,
+                  parentSubgraphId: parentId,
+                  ...(parsed.directiveRaw
+                    ? { directiveRaw: parsed.directiveRaw, unknownParams: parsed.unknownParams, authoredShape: parsed.authoredShape }
+                    : {}),
+                  ...(parsed.icon ? { icon: parsed.icon } : {}),
+                  ...(parsed.img ? { img: parsed.img } : {}),
+                });
+              } else {
+                nodes.push({ id: targetId, label: targetId, shape: 'rect', raw: targetId, parentSubgraphId: parentId });
+              }
+            } else if (targetShapeRaw && !isSubgraphId(targetId, subgraphs)) {
+              const existing = nodes.find(n => n.id === targetId);
+              if (existing && existing.label === existing.id) {
+                const parsed = parseNodeRawDirective(member.shapeRaw, targetId);
+                existing.label = parsed.label;
+                existing.shape = parsed.shape;
+                if (parsed.directiveRaw) {
+                  existing.directiveRaw = parsed.directiveRaw;
+                  existing.unknownParams = parsed.unknownParams;
+                  existing.authoredShape = parsed.authoredShape;
+                }
+                if (parsed.icon) {existing.icon = parsed.icon;}
+                if (parsed.img) {existing.img = parsed.img;}
+              }
+            }
+          }
+          // 40-02: ONE ParsedEdge per source-target combination — an amp hop
+          // (`A & B --> C & D`) expands to four entries sharing the raw line;
+          // the flat path is the 1x1 loop, byte-identical entries.
+          for (const srcMember of hopSources) {
+            for (const tgtMember of targetMembers) {
+              edges.push({
+                source: srcMember.id,
+                target: tgtMember.id,
+                arrowType: hop.arrowType,
+                label: hop.label,
+                raw: trimmed,
+                ...(hop.arrowLength > 1 ? { length: hop.arrowLength } : {}),
+                ...(hop.edgeId ? { edgeId: hop.edgeId } : {}),
+              });
+            }
+          }
+          prevId = hop.targetId;
         }
       }
       continue;
@@ -2284,7 +2635,12 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
     }
     // Second try: node defined on an edge line (e.g. A([Start]) --> B{Label})
     if (ARROW_RE.test(line)) {
-      const arrowMatch = line.match(/^\s*([A-Za-z_][A-Za-z0-9_-]*)([^\n]*?)\s*(-->|---|-.->|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|--\|>|\|>|~~~)\s*(?:\|([^|]*)\|)?\s*([A-Za-z_][A-Za-z0-9_-]*)([^\n]*)$/);
+      // 40-02: the arrow alternation is BUILT from the family table (no
+      // second drifted copy of the token set). Full-token families match the
+      // authored spelling whole (`---->` parses as one length-4 span, which
+      // the old lazy `-->` split truncated on rename — the length survived
+      // only by accident of group 2, which the rebuild dropped).
+      const arrowMatch = line.match(EDGE_LINE_ARROW_RE);
       if (arrowMatch) {
         // Backlog C: a bare 12.3 edge id (`A e1@--> B`) sits in the source
         // span, and a chained tail (`--> C`) trails the target span — both
@@ -2982,8 +3338,17 @@ export function bodyHasUnparsedAtDirective(content: string): boolean {
     // Backlog C: chained hops and bare 12.3 edge ids are EDITABLE now — the
     // mutation writers survive both (chain-survival.test.ts gates that), so
     // no fence here anymore. The remaining fences are the at-brace forms the
-    // directive rules cannot fully consume.
-    if (!line.includes('@{')) {continue;}
+    // directive rules cannot fully consume — plus (40-02) the amp + multi-hop
+    // combination, whose group-rebuild writers handle single-hop amp lines
+    // only (plain multi-hop lines stay lifted).
+    if (!line.includes('@{')) {
+      const trimmed = line.trim();
+      if (ARROW_RE.test(trimmed)) {
+        const chain = matchEdgeChain(trimmed);
+        if (chain?.isAmp && chain.hops.length > 1) {return true; }
+      }
+      continue;
+    }
     if (!directiveLineFullyConsumed(line.trim())) {return true;}
   }
   return false;
@@ -3034,8 +3399,13 @@ function directiveLineFullyConsumed(trimmed: string): boolean {
   }
   const edge = matchArrowLine(trimmed);
   if (edge) {
-    const sourceCapture = edge[2] ?? '';
-    const targetCapture = edge[6] ?? '';
+    // 40-02 (EDGE-01): an amp line combined with additional hops fences —
+    // the group-rebuild writers handle single-hop amp lines only, so the D6
+    // pill guards the multi-hop combinations read-only.
+    const chain = matchEdgeChain(trimmed);
+    if (chain?.isAmp && chain.hops.length > 1) {return false; }
+    const sourceCapture = edge.sourceRaw;
+    const targetCapture = edge.targetRaw;
     const sourceRaw = sourceCapture.trim();
     const targetRaw = targetCapture.trim();
     // WR-04: a directive span must attach directly to its id — the
