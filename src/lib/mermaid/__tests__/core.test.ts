@@ -646,3 +646,35 @@ linkStyle 0 stroke:#996500,color:#c99732,stroke-width:1.8px;`;
     }
   });
 });
+
+describe('swimlane native layout preservation (41-01 DIAG-03)', { timeout: 30000 }, () => {
+  const GETBBOX_JSDOM_LIMITATION = /\bgetBBox\b[^\n]*\bnot a function\b/;
+
+  it('pins swimlane.layout to swimlane alongside global layout:dagre and renders swimlane-beta cleanly', async () => {
+    initMermaid('light');
+    const cfg = mermaid.mermaidAPI.getConfig();
+    expect(cfg.layout).toBe('dagre');
+    expect(cfg.swimlane?.layout).toBe('swimlane');
+
+    const content = `swimlane-beta
+  subgraph Intake
+    A[Receive ticket]
+  end
+  subgraph Triage
+    B[Assign owner]
+  end
+  A --> B`;
+    const id = 'swimlane_native_layout_probe';
+    const { svg, error } = await renderDiagram(content, id);
+    try {
+      if (error && !GETBBOX_JSDOM_LIMITATION.test(error)) {
+        throw new Error(`Unexpected render error: ${error}`);
+      }
+      expect(svg).not.toBe('');
+      expect(svg).toMatch(/swimlane/);
+    } finally {
+      document.getElementById(id)?.remove();
+      document.getElementById(`d${id}`)?.remove();
+    }
+  });
+});

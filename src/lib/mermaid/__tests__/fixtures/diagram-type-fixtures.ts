@@ -238,15 +238,114 @@ export const SWEEP_FIXTURES: Record<SweepFixtureKey, SweepFixture> = {
   User --> "View dashboard"
   "Log in" ..> : include "View dashboard"`,
   },
+  ishikawa: {
+    type: 'ishikawa',
+    content: `ishikawa-beta
+  Blurry Photo
+  Process
+    Out of focus
+    Shutter speed too slow
+  User
+    Shaky hands
+  Equipment
+    Dirty lens`,
+  },
+  radar: {
+    type: 'radar',
+    content: `radar-beta
+  axis m["Math"], s["Science"], e["English"]
+  axis h["History"], g["Geography"]
+  curve a["Alice"]{85, 90, 80, 70, 75}
+  curve b["Bob"]{70, 75, 85, 80, 90}
+  max 100
+  min 0`,
+  },
+  treemap: {
+    type: 'treemap',
+    content: `treemap-beta
+"Budget"
+  "Housing"
+    "Rent": 1400
+    "Utilities": 220
+  "Food"
+    "Groceries": 480`,
+  },
+  eventmodeling: {
+    type: 'eventmodeling',
+    content: `eventmodeling
+  tf 01 ui ShopUI
+  tf 02 cmd AddItemToCart
+  tf 03 evt ItemAdded
+  tf 04 rmo CartView ->> 03`,
+  },
+  venn: {
+    type: 'venn',
+    content: `venn-beta
+  title "Sweet Spot"
+  set Desirable
+  set Feasible
+  set Viable
+  union Desirable,Feasible,Viable["Sweet spot"]`,
+  },
+  treeView: {
+    type: 'treeView',
+    content: `treeView-beta
+  my-project/
+    src/
+      App.tsx
+    package.json`,
+  },
+  wardley: {
+    type: 'wardley',
+    content: `wardley-beta
+  title Tea Shop
+  anchor Business [0.95, 0.63]
+  component Cup of Tea [0.79, 0.61]
+  component Kettle [0.43, 0.35]
+  Business -> Cup of Tea
+  Cup of Tea -> Kettle`,
+  },
+  cynefin: {
+    type: 'cynefin',
+    content: `cynefin-beta
+  title Incident Response
+  complex
+    "Investigate root cause"
+  complicated
+    "Analyze metrics"
+  clear
+    "Restart service"
+  chaotic
+    "Page on-call"
+  confusion
+    "Unknown mode"`,
+  },
+  railroad: {
+    type: 'railroad',
+    content: `railroad-beta
+  title Expression
+  expr = sequence(nonterminal("term"), choice(terminal("+"), terminal("-")), nonterminal("term")) ;`,
+  },
+  swimlane: {
+    type: 'swimlane',
+    content: `swimlane-beta LR
+  subgraph Customer
+    request[Request]
+  end
+  subgraph Support
+    triage[Triage]
+  end
+  request --> triage`,
+  },
 };
 
-// DIA-01 grid integrity: exactly 22 fixtures (theme-matrix shrink-guard
-// precedent). A future type adoption must extend the sweep consciously —
-// the Record<SweepFixtureKey, ...> typing already forces the key set at
-// compile time; this guards the runtime count against silent erosion.
+// DIA-01 / DIAG-05 grid integrity: exactly 32 fixtures. A future type adoption
+// must extend the sweep consciously — the Record<SweepFixtureKey, ...> typing
+// already forces the key set at compile time; this guards the runtime count
+// against silent erosion.
 const SWEEP_KEYS = Object.keys(SWEEP_FIXTURES);
-if (SWEEP_KEYS.length !== 22) {
+if (SWEEP_KEYS.length !== 32) {
   throw new Error(
-    `DIA-01 grid integrity: expected 22 sweep fixtures (21 legacy union entries + usecaseDiagram), found ${SWEEP_KEYS.length} — a type adoption must extend the sweep consciously, never silently`
+    `DIAG-05 grid integrity: expected 32 sweep fixtures, found ${SWEEP_KEYS.length} — a type adoption must extend the sweep consciously, never silently`
   );
 }

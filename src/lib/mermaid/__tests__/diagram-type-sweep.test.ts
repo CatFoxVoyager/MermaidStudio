@@ -1,6 +1,6 @@
-// DIA-01 — exhaustive diagram-type × theme-mode render sweep on mermaid
-// 12.0.0 (Phase 24, plan 24-04). The Wave 0 lock-in: 22 supported types ×
-// dark/light = 44 cells, every cell rendered through the app's single mermaid
+// DIA-01 / DIAG-05 — exhaustive diagram-type × theme-mode render sweep on mermaid
+// 12.3.0 (Phase 24 + Phase 41): 32 supported types × dark/light = 64 cells,
+// every cell rendered through the app's single mermaid entrypoint
 // entrypoint (renderDiagram → validateDiagramContent → doInit dagre/classic
 // pins → mermaid.render → sanitizeMermaidSVG — NEVER mermaid.render directly,
 // Pitfall 2) and asserted per cell for: no unexpected error, non-empty svg,
@@ -77,8 +77,8 @@ const MODES = ['light', 'dark'] as const;
 type Mode = (typeof MODES)[number];
 
 const TYPE_IDS = Object.keys(SWEEP_FIXTURES) as SweepFixtureKey[];
-if (TYPE_IDS.length !== 22) {
-  throw new Error(`DIA-01 grid integrity: expected 22 types, found ${TYPE_IDS.length}`);
+if (TYPE_IDS.length !== 32) {
+  throw new Error(`DIAG-05 grid integrity: expected 32 types, found ${TYPE_IDS.length}`);
 }
 
 async function renderCell(type: SweepFixtureKey, mode: Mode): Promise<{ svg: string; error: string | null }> {

@@ -157,6 +157,7 @@ describe('PERF-03 font consolidation', () => {
 // (a lazy chunk stays off the eager boot chain by construction) and
 // `require()` (absent from this ESM-only codebase).
 const PARSER_ONLY_FILES = [
+  'src/constants/diagramLabels.ts',
   'src/constants/themeDerivation.ts',
   'src/components/editor/StatusBar.tsx',
   'src/components/sidebar/Sidebar.tsx',

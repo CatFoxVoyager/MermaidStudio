@@ -27,6 +27,12 @@ vi.mock('react-i18next', () => ({
         // The two new EDGE-04 rows.
         'advancedStyle.stepDuration': 'Step duration',
         'advancedStyle.markdownAutoWrap': 'Markdown auto-wrap',
+        // Swimlane DIAG-03 controls.
+        'advancedStyle.swimlaneLineHops': 'Line hops',
+        'advancedStyle.swimlaneLineHopsArc': 'Arc',
+        'advancedStyle.swimlaneLineHopsGap': 'Gap',
+        'advancedStyle.swimlaneLineHopsOff': 'Off',
+        'advancedStyle.swimlaneAutoOrder': 'Auto-order lanes',
       };
       return map[key] ?? (typeof fallbackOrOpts === 'string' ? fallbackOrOpts : key);
     },
@@ -195,5 +201,60 @@ describe('AdvancedStylePanel (40-03 EDGE-04)', () => {
 
     fireEvent.change(input, { target: { value: '' } });
     expect(latestContent).not.toContain('stepDuration');
+  });
+});
+
+describe('AdvancedStylePanel Swimlane config (41-01 DIAG-03)', () => {
+  const SWIMLANE_CONTENT = `swimlane-beta
+  subgraph LaneA
+    A[Step 1]
+  end
+  subgraph LaneB
+    B[Step 2]
+  end
+  A --> B
+`;
+
+  it('renders Line hops segmented controls (Arc/Gap/Off) and Auto-order lanes toggle for swimlane', () => {
+    renderPanel(SWIMLANE_CONTENT);
+
+    const arcBtn = screen.getByRole('button', { name: 'Arc' });
+    const gapBtn = screen.getByRole('button', { name: 'Gap' });
+    const offBtn = screen.getByRole('button', { name: 'Off' });
+    expect(arcBtn.getAttribute('aria-pressed')).toBe('true');
+    expect(gapBtn.getAttribute('aria-pressed')).toBe('false');
+    expect(offBtn.getAttribute('aria-pressed')).toBe('false');
+
+    const autoOrderToggle = screen.getByLabelText('Auto-order lanes') as HTMLInputElement;
+    expect(autoOrderToggle.checked).toBe(false);
+
+    // Suppresses generic noOptions notice because swimlane has config controls
+    expect(screen.queryByText(/advancedStyle\.noOptions/)).toBeNull();
+    // Does not render flowchart controls
+    expect(screen.queryByRole('button', { name: 'Smooth' })).toBeNull();
+  });
+
+  it('writes config.swimlane.lineHops and config.swimlane.automaticLaneOrdering into frontmatter', () => {
+    const { onContentChange } = renderPanel(SWIMLANE_CONTENT);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Gap' }));
+    expect(lastAppliedContent(onContentChange)).toMatch(/swimlane:\n[\s\S]*lineHops: 'gap'/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Off' }));
+    expect(lastAppliedContent(onContentChange)).toMatch(/swimlane:\n[\s\S]*lineHops: false/);
+
+    fireEvent.click(screen.getByLabelText('Auto-order lanes'));
+    expect(lastAppliedContent(onContentChange)).toMatch(/automaticLaneOrdering: true/);
+  });
+
+  it('does not render Swimlane controls on flowchart or sequence diagrams', () => {
+    const { unmount } = renderPanel(FLOWCHART_CONTENT);
+    expect(screen.queryByText('Line hops')).toBeNull();
+    expect(screen.queryByLabelText('Auto-order lanes')).toBeNull();
+    unmount();
+
+    renderPanel(SEQUENCE_CONTENT);
+    expect(screen.queryByText('Line hops')).toBeNull();
+    expect(screen.queryByLabelText('Auto-order lanes')).toBeNull();
   });
 });

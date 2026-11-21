@@ -684,7 +684,12 @@
     "curveStep": "Palier",
     "curveRounded": "Arrondi",
     "stepDuration": "Durée des étapes",
-    "markdownAutoWrap": "Retour à la ligne Markdown"
+    "markdownAutoWrap": "Retour à la ligne Markdown",
+    "swimlaneLineHops": "Sauts de ligne",
+    "swimlaneLineHopsArc": "Arc",
+    "swimlaneLineHopsGap": "Coupure",
+    "swimlaneLineHopsOff": "Désactivé",
+    "swimlaneAutoOrder": "Ordre auto des couloirs"
   },
   "mermaidConfig": {
     "title": "Configuration du diagramme Mermaid",

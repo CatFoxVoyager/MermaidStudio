@@ -105,15 +105,34 @@ sequenceDiagram
     description: 'Core e-commerce class relationships',
     category: 'Class Diagram',
     complexity: 'moderate',
-    type: 'erDiagram',
+    type: 'classDiagram',
     content: `---
 config:
   theme: 'base'
 ---
-erDiagram
-    USER ||--o{ ORDER : places
-    ORDER ||--o{ ORDER_ITEM : contains
-    ORDER_ITEM }o--|| PRODUCT : references`,
+classDiagram
+    class User {
+        +String id
+        +String email
+        +placeOrder() Order
+    }
+    class Order {
+        +String orderId
+        +Date createdAt
+        +calculateTotal() double
+    }
+    class OrderItem {
+        +int quantity
+        +double unitPrice
+    }
+    class Product {
+        +String sku
+        +String name
+        +double price
+    }
+    User "1" --> "*" Order : places
+    Order "1" *-- "*" OrderItem : contains
+    OrderItem "*" --> "1" Product : references`,
   },
   {
     id: 'er-blog',
@@ -302,28 +321,40 @@ quadrantChart
   },
   {
     id: 'requirement-system',
-    title: 'System Requirements',
+    title: 'Authentication & API Requirements',
     description: 'System requirements specification',
     category: 'Requirement Diagram',
     complexity: 'moderate',
-    type: 'flowchart',
+    type: 'requirementDiagram',
     content: `---
 config:
   theme: 'base'
 ---
-flowchart TD
-    A[Authentication System]
-    B[API Rate Limiting]
-    C[Data Encryption]
-    A -->|requires| C
-    B -->|refines| A
-    D[Web Application]
-    E[Database]
-    D -.->|implements| A
-    E -.->|uses| C
-    style A fill:#e1f5ff
-    style B fill:#fff4e6
-    style C fill:#ffe1e1`,
+requirementDiagram
+    requirement auth_req {
+        id: 1
+        text: Authenticate every API request
+        risk: high
+        verifymethod: test
+    }
+    functionalRequirement rate_limit {
+        id: 1.1
+        text: Enforce tenant API rate limits
+        risk: medium
+        verifymethod: inspection
+    }
+    requirement encryption_req {
+        id: 1.2
+        text: Encrypt sensitive payloads at rest
+        risk: high
+        verifymethod: analysis
+    }
+    element api_gateway {
+        type: service
+    }
+    auth_req - derives -> encryption_req
+    rate_limit - refines -> auth_req
+    api_gateway - satisfies -> auth_req`,
   },
   {
     id: 'timeline-product',
@@ -618,6 +649,337 @@ usecase-beta
     User --> "Log in"
     User --> "View dashboard"
     "Log in" ..> : include "View dashboard"`,
+  },
+  {
+    id: 'flowchart-v12-shapes',
+    title: 'v12 Shapes & Markdown Strings',
+    description: 'New v12 @{ shape: ... } nodes and rich Markdown labels',
+    category: 'Flowchart',
+    complexity: 'moderate',
+    type: 'flowchart',
+    content: `---
+config:
+  theme: 'base'
+---
+flowchart LR
+    Start@{ shape: pill, label: "**API Request**" }
+    Parse@{ shape: hex, label: "_Validate JWT_" }
+    Store@{ shape: cyl, label: "Postgres **DB**" }
+    Queue@{ shape: das, label: "Event Queue" }
+    Done@{ shape: dbl-circ, label: "200 OK" }
+    Start --> Parse
+    Parse --> Store
+    Parse --> Queue
+    Store --> Done
+    Queue --> Done`,
+  },
+  {
+    id: 'flowchart-v12-icons',
+    title: 'v12 Icons & Images',
+    description: 'Flowchart nodes using FontAwesome icons and image badges',
+    category: 'Flowchart',
+    complexity: 'moderate',
+    type: 'flowchart',
+    content: `---
+config:
+  theme: 'base'
+---
+flowchart LR
+    Client@{ icon: "fa:user", form: "rounded", label: "Client App", pos: "b", h: 48 }
+    Gateway@{ icon: "fa:shield-halved", form: "circle", label: "API Gateway", pos: "b", h: 48 }
+    Badge@{ img: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", label: "Media Asset", pos: "b", w: 48, h: 48, constraint: "on" }
+    DB@{ icon: "fa:database", form: "square", label: "Primary DB", pos: "b", h: 48 }
+    Client --> Gateway
+    Gateway --> Badge
+    Gateway --> DB`,
+  },
+  {
+    id: 'flowchart-v12-edges',
+    title: 'v12 Animated & Stepped Edges',
+    description: 'Edge animations and stepBefore curve routing',
+    category: 'Flowchart',
+    complexity: 'moderate',
+    type: 'flowchart',
+    content: `---
+config:
+  theme: 'base'
+  flowchart:
+    curve: stepBefore
+---
+flowchart LR
+    Ingress[API Ingress] e1@==> Auth[Auth Check]
+    Auth e2@--> Worker[Async Worker]
+    Worker e3@-.-> Audit[Audit Log]
+    e1@{ animate: true }
+    e2@{ animation: fast }`,
+  },
+  {
+    id: 'flowchart-v12-collapsed',
+    title: 'v12 Collapsible Subgraphs',
+    description: 'Flowchart subgraphs with collapsed view metadata',
+    category: 'Flowchart',
+    complexity: 'moderate',
+    type: 'flowchart',
+    content: `---
+config:
+  theme: 'base'
+---
+flowchart TD
+    Gateway[Edge Gateway] --> sg1
+    subgraph sg1 [Platform Services]
+        Auth[Auth Service] --> Billing[Billing API]
+    end
+    sg1@{ view: collapsed }
+    sg1 --> Warehouse[Analytics Warehouse]`,
+  },
+  {
+    id: 'ishikawa-root-cause',
+    title: 'Root Cause Fishbone',
+    description: 'Ishikawa cause-and-effect quality analysis',
+    category: 'Ishikawa',
+    complexity: 'simple',
+    type: 'ishikawa',
+    content: `---
+config:
+  theme: 'base'
+---
+ishikawa-beta
+    Blurry Photo
+    Process
+        Out of focus
+        Shutter speed too slow
+    User
+        Shaky hands
+    Equipment
+        Dirty lens
+        Damaged sensor
+    Environment
+        Too dark`,
+  },
+  {
+    id: 'radar-skills',
+    title: 'Team Competency Radar',
+    description: 'Multi-axis comparison radar chart',
+    category: 'Radar',
+    complexity: 'simple',
+    type: 'radar',
+    content: `---
+config:
+  theme: 'base'
+---
+radar-beta
+    axis arch["Architecture"], perf["Performance"], sec["Security"]
+    axis ux["UX Polish"], docs["Docs"]
+    curve teamA["Team Alpha"]{85, 90, 80, 75, 70}
+    curve teamB["Team Beta"]{70, 75, 90, 85, 80}
+    max 100
+    min 0`,
+  },
+  {
+    id: 'treemap-budget',
+    title: 'Department Budget Treemap',
+    description: 'Hierarchical proportional cost breakdown',
+    category: 'Treemap',
+    complexity: 'simple',
+    type: 'treemap',
+    content: `---
+config:
+  theme: 'base'
+  treemap:
+    valueFormat: '$0,0'
+---
+treemap-beta
+"Annual Budget"
+    "Engineering"
+        "Cloud Infra": 1400
+        "Tooling": 320
+    "Product"
+        "Research": 480
+        "Design": 400
+    "Operations"
+        "Security": 360`,
+  },
+  {
+    id: 'eventmodeling-checkout',
+    title: 'Checkout Event Model',
+    description: 'UI, Command, Event, and Read Model slice timeline',
+    category: 'Event Modeling',
+    complexity: 'moderate',
+    type: 'eventmodeling',
+    content: `---
+config:
+  theme: 'base'
+---
+eventmodeling
+    tf 01 ui ShopUI
+    tf 02 cmd AddItemToCart
+    tf 03 evt ItemAdded
+    tf 04 rmo CartView ->> 03
+    tf 05 ui CheckoutUI
+    tf 06 cmd PlaceOrder
+    tf 07 evt OrderPlaced
+    tf 08 rmo OrderStatus ->> 07`,
+  },
+  {
+    id: 'venn-product-fit',
+    title: 'Product Sweet Spot Venn',
+    description: 'Three-set intersection diagram',
+    category: 'Venn',
+    complexity: 'simple',
+    type: 'venn',
+    content: `---
+config:
+  theme: 'base'
+---
+venn-beta
+    title "Finding the Product Sweet Spot"
+    set Desirable
+    set Feasible
+    set Viable
+    union Desirable,Feasible["Worth prototyping"]
+    union Feasible,Viable["Cheap to run"]
+    union Desirable,Viable["Hard to build"]
+    union Desirable,Feasible,Viable["Sweet spot"]`,
+  },
+  {
+    id: 'treeview-repo',
+    title: 'Repository File Tree',
+    description: 'Hierarchical directory and file structure',
+    category: 'TreeView',
+    complexity: 'simple',
+    type: 'treeView',
+    content: `---
+config:
+  theme: 'base'
+---
+treeView-beta
+    mermaidstudio/
+        src/
+            components/
+                PreviewPanel.tsx
+            lib/
+                diagramType.ts
+            App.tsx
+        package.json
+        README.md`,
+  },
+  {
+    id: 'wardley-tea-shop',
+    title: 'Tea Shop Strategy Map',
+    description: 'Wardley strategy map across evolution stages',
+    category: 'Wardley Map',
+    complexity: 'advanced',
+    type: 'wardley',
+    content: `---
+config:
+  theme: 'base'
+---
+wardley-beta
+    title Tea Shop
+    size [1100, 800]
+    anchor Business [0.95, 0.63]
+    anchor Public [0.95, 0.78]
+    component Cup of Tea [0.79, 0.61]
+    component Cup [0.73, 0.78]
+    component Tea [0.63, 0.81]
+    component Hot Water [0.52, 0.80]
+    component Kettle [0.43, 0.35]
+    component Power [0.1, 0.7]
+    Business -> Cup of Tea
+    Public -> Cup of Tea
+    Cup of Tea -> Cup
+    Cup of Tea -> Tea
+    Cup of Tea -> Hot Water
+    Hot Water -> Kettle
+    Kettle -> Power
+    evolve Kettle 0.62`,
+  },
+  {
+    id: 'cynefin-incident',
+    title: 'Incident Sense-Making',
+    description: 'Cynefin complexity decision framework',
+    category: 'Cynefin',
+    complexity: 'moderate',
+    type: 'cynefin',
+    content: `---
+config:
+  theme: 'base'
+---
+cynefin-beta
+    title Incident Response
+    complex
+        "Investigate root cause"
+        "Run chaos experiment"
+    complicated
+        "Analyze performance data"
+        "Expert review needed"
+    clear
+        "Restart service"
+        "Apply known fix"
+    chaotic
+        "Page on-call immediately"
+    confusion
+        "Unknown failure mode"
+    complex --> complicated : "Pattern identified"
+    clear --> chaotic : "Complacency"`,
+  },
+  {
+    id: 'railroad-grammar',
+    title: 'Expression Railroad Grammar',
+    description: 'Syntax railroad diagram for arithmetic grammar',
+    category: 'Railroad',
+    complexity: 'moderate',
+    type: 'railroad',
+    content: `---
+config:
+  theme: 'base'
+---
+railroad-beta
+    title Expression Grammar
+    expression = sequence(
+        nonterminal("term"),
+        zeroOrMore(sequence(choice(terminal("+"), terminal("-")), nonterminal("term")))
+    ) ;
+    term = sequence(
+        nonterminal("factor"),
+        zeroOrMore(sequence(choice(terminal("*"), terminal("/")), nonterminal("factor")))
+    ) ;
+    factor = choice(
+        nonterminal("number"),
+        sequence(terminal("("), nonterminal("expression"), terminal(")"))
+    ) ;`,
+  },
+  {
+    id: 'swimlane-support',
+    title: 'Support Escalation Swimlanes',
+    description: 'Cross-functional workflow lanes with line hops',
+    category: 'Swimlane',
+    complexity: 'moderate',
+    type: 'swimlane',
+    content: `---
+config:
+  theme: 'base'
+  swimlane:
+    lineHops: arc
+---
+swimlane-beta LR
+    subgraph Customer
+        request[Request service]
+        receive[Receive update]
+    end
+    subgraph Support
+        triage[Triage request]
+        answer[Send answer]
+    end
+    subgraph Engineering
+        investigate[Investigate issue]
+        fix[Prepare fix]
+    end
+    request --> triage
+    triage -->|Known issue| answer
+    triage -->|Needs fix| investigate
+    investigate --> fix --> answer
+    answer --> receive`,
   },
 ];
 

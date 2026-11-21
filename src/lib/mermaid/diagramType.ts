@@ -14,7 +14,9 @@ export function detectDiagramType(content: string): DiagramType {
   // Skip Mermaid comment lines (e.g. %% @theme corporate_blue)
   body = body.replace(/^(%%[^\n]*\n?)+/i, '').trim();
 
-  const first = body.split('\n')[0]?.toLowerCase().trim();
+  // Preserve original casing for case-sensitive v12 detectors (e.g. `treeView-beta`).
+  const rawFirst = body.split('\n')[0]?.trim() ?? '';
+  const first = rawFirst.toLowerCase();
   if (!first) return 'unknown';
 
   // Flowchart and variants
@@ -131,6 +133,48 @@ export function detectDiagramType(content: string): DiagramType {
   // input the renderer will reject (IN-03).
   if (/^usecase-beta(?:\s|$)/.test(first)) {
     return 'usecaseDiagram';
+  }
+
+  // Missing 10 Mermaid 12.3.0 families (DIAG-01) — matched against Mermaid's own
+  // dist detector boundaries, preserving exact case where Mermaid requires it.
+  if (/^ishikawa(?:-beta)?\b/i.test(rawFirst)) {
+    return 'ishikawa';
+  }
+
+  if (/^radar-beta(?:\s|$)/.test(rawFirst)) {
+    return 'radar';
+  }
+
+  if (/^treemap(?:-beta)?(?:\s|$)/.test(rawFirst)) {
+    return 'treemap';
+  }
+
+  if (/^eventmodeling(?:\s|$)/.test(rawFirst)) {
+    return 'eventmodeling';
+  }
+
+  if (/^venn-beta(?:\s|$)/.test(rawFirst)) {
+    return 'venn';
+  }
+
+  if (/^treeView-beta(?:\s|$)/.test(rawFirst)) {
+    return 'treeView';
+  }
+
+  if (/^wardley-beta(?:\s|$)/i.test(rawFirst)) {
+    return 'wardley';
+  }
+
+  if (/^cynefin-beta(?:[\s:]|$)/.test(rawFirst)) {
+    return 'cynefin';
+  }
+
+  if (/^railroad(?:-(?:ebnf|abnf|peg))?-beta(?:\s|$)/i.test(rawFirst)) {
+    return 'railroad';
+  }
+
+  if (/^swimlane-beta\b/.test(rawFirst)) {
+    return 'swimlane';
   }
 
   return 'unknown';

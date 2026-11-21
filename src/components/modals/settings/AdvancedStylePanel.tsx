@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Type, Maximize2, ArrowLeftRight, ArrowUpDown, Spline, Square, RotateCcw, LayoutGrid, X, SlidersHorizontal, Compass } from 'lucide-react';
+import { Type, Maximize2, ArrowLeftRight, ArrowUpDown, Spline, Square, RotateCcw, LayoutGrid, X, SlidersHorizontal, Compass, Waypoints, Rows3 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { DEFAULT_STYLE_OPTIONS, type DiagramStyleOptions, type DiagramDirection, type LayoutEngine, type DiagramType, getStylingCapabilities } from '@/types';
 import { applyStyleToContent, extractStyleOptionsFromContent } from '@/constants/themeDerivation';
@@ -222,7 +222,8 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   const isFlowchart = stylingCapabilities.supportsFlowchartConfig;
   const isSequence = stylingCapabilities.supportsSequenceConfig;
   const isGantt = stylingCapabilities.supportsGanttConfig;
-  const hasConfigOptions = isFlowchart || isSequence || isGantt;
+  const isSwimlane = stylingCapabilities.supportsSwimlaneConfig;
+  const hasConfigOptions = isFlowchart || isSequence || isGantt || isSwimlane;
   const isElkLayout = styleOptions.layoutEngine === 'elk' || styleOptions.layoutEngine === 'elk.stress';
   // diagramType is a DiagramType; detectDiagramType normalizes `graph …`
   // sources to 'flowchart', so no separate 'graph' branch exists.
@@ -748,6 +749,64 @@ end`}
                 ))}
               </select>
             </div>
+          </>
+        )}
+
+        {/* Swimlane diagram controls */}
+        {isSwimlane && (
+          <>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Waypoints size={11} style={{ color: 'var(--text-tertiary)' }} />
+                <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.swimlaneLineHops')}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1">
+                {([
+                  { value: 'arc', label: t('advancedStyle.swimlaneLineHopsArc') },
+                  { value: 'gap', label: t('advancedStyle.swimlaneLineHopsGap') },
+                  { value: false, label: t('advancedStyle.swimlaneLineHopsOff') },
+                ] as const).map(opt => {
+                  const active = opt.value === 'arc'
+                    ? (styleOptions.lineHops === undefined || styleOptions.lineHops === true || styleOptions.lineHops === 'arc')
+                    : styleOptions.lineHops === opt.value;
+                  return (
+                    <button
+                      key={String(opt.value)}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => update({ lineHops: opt.value })}
+                      className={`py-1.5 rounded-sm border transition-all text-center ${FOCUS_RING_CLASSES}`}
+                      style={{
+                        background: active
+                          ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
+                          : 'transparent',
+                        borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
+                        color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      <span className="text-[11px] font-medium">{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <label className="flex items-center justify-between gap-2 cursor-pointer">
+              <div className="flex items-center gap-1.5">
+                <Rows3 size={11} style={{ color: 'var(--text-tertiary)' }} />
+                <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.swimlaneAutoOrder')}</span>
+              </div>
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={styleOptions.automaticLaneOrdering ?? false}
+                onChange={(e) => update({ automaticLaneOrdering: e.target.checked })}
+              />
+              <div aria-hidden="true"
+                className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.automaticLaneOrdering ?? false) ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.automaticLaneOrdering ?? false) ? 'left-[18px]' : 'left-0.5'}`} />
+              </div>
+            </label>
           </>
         )}
 

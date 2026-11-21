@@ -24,6 +24,16 @@ export type DiagramType =
   | 'zenuml'
   | 'blockDiagram'
   | 'c4'
+  | 'ishikawa'
+  | 'radar'
+  | 'treemap'
+  | 'eventmodeling'
+  | 'venn'
+  | 'treeView'
+  | 'wardley'
+  | 'cynefin'
+  | 'railroad'
+  | 'swimlane'
   | 'unknown';
 
 export interface Template {
@@ -185,6 +195,10 @@ export interface DiagramStyleOptions extends BaseStyleOptions {
   showDataLabel?: boolean;
   xAxisTitle?: string;
   yAxisTitle?: string;
+
+  // Swimlane options
+  lineHops?: boolean | 'arc' | 'gap';
+  automaticLaneOrdering?: boolean;
 }
 
 export const DEFAULT_STYLE_OPTIONS: DiagramStyleOptions = {
@@ -209,12 +223,14 @@ export const DEFAULT_STYLE_OPTIONS: DiagramStyleOptions = {
 
 // Styling capabilities per diagram type
 export interface StylingCapabilities {
-  supportsClassDef: boolean; // Can use classDef/class for reusable styles (flowcharts only)
+  supportsClassDef: boolean; // Can use classDef/class for reusable styles
+  supportsVisualEditing: boolean; // Interactive flowchart visual editing (ShapeToolbar, node/edge/subgraph tools)
   supportsStyleKeyword: boolean; // Can use style keyword for individual elements (state, class diagrams)
   supportsRectBlocks: boolean; // Can use rect blocks for background highlighting (sequence diagrams)
   supportsFlowchartConfig: boolean; // Can use flowchart config (curve, spacing, etc.)
   supportsSequenceConfig: boolean; // Can use sequence config
   supportsGanttConfig: boolean; // Can use gantt config
+  supportsSwimlaneConfig: boolean; // Can use swimlane config (lineHops, automaticLaneOrdering)
   supportsC4Style: boolean; // Can use UpdateElementStyle/UpdateRelStyle (C4 diagrams)
   supportsThemeVariablesOnly: boolean; // Only theme variables, no per-element styling
   availableConfigOptions: string[]; // List of available config option names
@@ -225,11 +241,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'flowchart':
       return {
         supportsClassDef: true, // classDef/class only for flowcharts
+        supportsVisualEditing: true,
         supportsStyleKeyword: true, // Also supports style keyword
         supportsRectBlocks: false,
         supportsFlowchartConfig: true,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
         availableConfigOptions: [
@@ -246,11 +264,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'journey':
       return {
         supportsClassDef: true, // classDef/class supported
+        supportsVisualEditing: false,
         supportsStyleKeyword: true, // Also supports style keyword
         supportsRectBlocks: false,
         supportsFlowchartConfig: true, // Uses flowchart config
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
         availableConfigOptions: [
@@ -268,11 +288,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'blockDiagram':
       return {
         supportsClassDef: true, // classDef/class supported
+        supportsVisualEditing: false,
         supportsStyleKeyword: true, // Also supports style keyword
         supportsRectBlocks: false,
         supportsFlowchartConfig: true, // Uses flowchart config
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
         availableConfigOptions: [
@@ -289,11 +311,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'architectureDiagram':
       return {
         supportsClassDef: true, // classDef/class supported
+        supportsVisualEditing: false,
         supportsStyleKeyword: true, // Also supports style keyword
         supportsRectBlocks: false,
         supportsFlowchartConfig: true, // Uses flowchart config
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
         availableConfigOptions: [
@@ -311,11 +335,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'c4':
       return {
         supportsClassDef: false,
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: true,
         supportsThemeVariablesOnly: true, // C4 uses built-in styling + theme vars
         availableConfigOptions: [
@@ -331,11 +357,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'stateDiagram':
       return {
         supportsClassDef: false, // NO classDef support
+        supportsVisualEditing: false,
         supportsStyleKeyword: true, // Uses style keyword for individual states
         supportsRectBlocks: false,
         supportsFlowchartConfig: false, // Does NOT support flowchart config options
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false, // Supports themeVariables for global styling
         availableConfigOptions: ['useMaxWidth'], // Very limited config support
@@ -344,11 +372,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'classDiagram':
       return {
         supportsClassDef: false, // NO classDef support
+        supportsVisualEditing: false,
         supportsStyleKeyword: true, // Uses style keyword for individual classes
         supportsRectBlocks: false,
         supportsFlowchartConfig: false, // Does NOT support flowchart config options
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false, // Supports themeVariables for global styling
         availableConfigOptions: ['useMaxWidth'], // Very limited config support
@@ -357,11 +387,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'sequence':
       return {
         supportsClassDef: false,
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: true, // Uses rect for section highlighting
         supportsFlowchartConfig: false,
         supportsSequenceConfig: true,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
         availableConfigOptions: [
@@ -383,11 +415,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'gantt':
       return {
         supportsClassDef: false,
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: true,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
         availableConfigOptions: [
@@ -413,11 +447,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'erDiagram':
       return {
         supportsClassDef: false,
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: true, // Some flowchart config applies
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: true, // ER diagrams only support theme variables
         availableConfigOptions: [
@@ -435,11 +471,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'mindmap':
       return {
         supportsClassDef: false,
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: [
@@ -455,11 +493,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'pie':
       return {
         supportsClassDef: false,
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: ['textPosition', 'useMaxWidth'],
@@ -468,11 +508,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'timeline':
       return {
         supportsClassDef: false,
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: ['disableMulticolor', 'htmlLabels', 'useMaxWidth'],
@@ -481,11 +523,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'quadrantChart':
       return {
         supportsClassDef: false,
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: ['chartWidth', 'chartHeight', 'quadrantPadding', 'useMaxWidth'],
@@ -494,11 +538,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'xyChart':
       return {
         supportsClassDef: false,
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: [
@@ -514,11 +560,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'requirementDiagram':
       return {
         supportsClassDef: true, // Requirement diagrams DO support classDef
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
         availableConfigOptions: [],
@@ -527,11 +575,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'gitGraph':
       return {
         supportsClassDef: false,
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: [],
@@ -540,11 +590,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'sankey':
       return {
         supportsClassDef: false,
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: [
@@ -562,11 +614,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'packetDiagram':
       return {
         supportsClassDef: false,
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: ['showBits'],
@@ -575,11 +629,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'kanban':
       return {
         supportsClassDef: false,
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: ['ticketBaseUrl'],
@@ -588,11 +644,13 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'usecaseDiagram':
       return {
         supportsClassDef: true, // classDef token verified in the v12 usecase grammar
+        supportsVisualEditing: false,
         supportsStyleKeyword: true, // style token verified in the v12 usecase grammar
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
         availableConfigOptions: ['direction'], // TD/TB/BT/LR/RL verified in the grammar
@@ -601,25 +659,67 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
     case 'zenuml':
       return {
         supportsClassDef: false,
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: true, // Theme variables only
         availableConfigOptions: [],
       };
 
-    case 'unknown':
-    default:
+    case 'treemap':
       return {
-        supportsClassDef: false,
+        supportsClassDef: true, // treemap grammar supports classDef/class statements
+        supportsVisualEditing: false,
         supportsStyleKeyword: false,
         supportsRectBlocks: false,
         supportsFlowchartConfig: false,
         supportsSequenceConfig: false,
         supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
+        supportsC4Style: false,
+        supportsThemeVariablesOnly: true,
+        availableConfigOptions: [],
+      };
+
+    case 'swimlane':
+      return {
+        supportsClassDef: true, // swimlane supports classDef & style keywords
+        supportsVisualEditing: false,
+        supportsStyleKeyword: true,
+        supportsRectBlocks: false,
+        supportsFlowchartConfig: false,
+        supportsSequenceConfig: false,
+        supportsGanttConfig: false,
+        supportsSwimlaneConfig: true,
+        supportsC4Style: false,
+        supportsThemeVariablesOnly: false,
+        availableConfigOptions: ['lineHops', 'automaticLaneOrdering'],
+      };
+
+    case 'ishikawa':
+    case 'radar':
+    case 'eventmodeling':
+    case 'venn':
+    case 'treeView':
+    case 'wardley':
+    case 'cynefin':
+    case 'railroad':
+    case 'unknown':
+    default:
+      return {
+        supportsClassDef: false,
+        supportsVisualEditing: false,
+        supportsStyleKeyword: false,
+        supportsRectBlocks: false,
+        supportsFlowchartConfig: false,
+        supportsSequenceConfig: false,
+        supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
         supportsC4Style: false,
         supportsThemeVariablesOnly: true, // Default to theme variables
         availableConfigOptions: [],

@@ -1460,3 +1460,131 @@ describe('usecase routing (24-01 DIA-02 — DIAGRAM_TYPE_VARIABLES.usecaseDiagra
     expect(result).not.toContain('secondaryTextColor');
   });
 });
+
+describe('swimlane config frontmatter round-trip (41-01 DIAG-03)', () => {
+  const swimlaneSource = `swimlane-beta
+  subgraph Support
+    A[Triage] --> B[Resolve]
+  end
+`;
+  const flowchartSource = `flowchart TD
+  A --> B
+`;
+
+  it.each(['arc', 'gap', false] as const)(
+    'writes and extracts swimlane.lineHops = %s cleanly',
+    lineHops => {
+      const result = applyStyleToContent(swimlaneSource, { lineHops });
+      expect(result).toContain('swimlane:');
+      expect(result).toContain(`lineHops: ${typeof lineHops === 'string' ? `'${lineHops}'` : lineHops}`);
+      const extracted = extractStyleOptionsFromContent(result);
+      expect(extracted.lineHops).toBe(lineHops);
+    }
+  );
+
+  it('normalizes boolean lineHops: true to arc on write and extraction', () => {
+    const result = applyStyleToContent(swimlaneSource, { lineHops: true });
+    expect(result).toContain("lineHops: 'arc'");
+    expect(extractStyleOptionsFromContent(result).lineHops).toBe('arc');
+  });
+
+  it('writes and extracts swimlane.automaticLaneOrdering booleans cleanly', () => {
+    const enabled = applyStyleToContent(swimlaneSource, { automaticLaneOrdering: true });
+    expect(enabled).toContain('automaticLaneOrdering: true');
+    expect(extractStyleOptionsFromContent(enabled).automaticLaneOrdering).toBe(true);
+
+    const disabled = applyStyleToContent(enabled, { automaticLaneOrdering: false });
+    expect(disabled).toContain('automaticLaneOrdering: false');
+    expect(extractStyleOptionsFromContent(disabled).automaticLaneOrdering).toBe(false);
+  });
+
+  it('does not leak swimlane config keys onto non-swimlane diagrams', () => {
+    const result = applyStyleToContent(flowchartSource, {
+      lineHops: 'gap',
+      automaticLaneOrdering: true,
+    });
+    expect(result).not.toContain('swimlane:');
+    expect(result).not.toContain('lineHops');
+    expect(result).not.toContain('automaticLaneOrdering');
+  });
+});
+
+describe('DIAG-04 family-scoped themeDerivation rules (41-02)', () => {
+  const CORE_COLORS: ThemeCoreColors = {
+    primaryColor: '#ECECFF',
+    background: '#ffffff',
+    lineColor: '#334155',
+    primaryTextColor: '#1f2937',
+  };
+
+  it('returns parsed nested objects (not JSON strings) for radar, xyChart, cynefin, and wardley', () => {
+    const radarVars = deriveThemeVariablesForDiagramType(CORE_COLORS, false, 'radar');
+    expect(typeof radarVars.radar).toBe('object');
+    expect(radarVars.radar).not.toBeNull();
+    expect((radarVars.radar as Record<string, unknown>).axisColor).toBe('#334155');
+
+    const xyVars = deriveThemeVariablesForDiagramType(CORE_COLORS, false, 'xyChart');
+    expect(typeof xyVars.xyChart).toBe('object');
+    expect(xyVars.xyChart).not.toBeNull();
+    expect((xyVars.xyChart as Record<string, unknown>).backgroundColor).toBe('#ffffff');
+
+    const cynefinVars = deriveThemeVariablesForDiagramType(CORE_COLORS, false, 'cynefin');
+    expect(typeof cynefinVars.cynefin).toBe('object');
+    expect((cynefinVars.cynefin as Record<string, unknown>).complexBg).toBe('#E8F5E9');
+
+    const wardleyVars = deriveThemeVariablesForDiagramType(CORE_COLORS, false, 'wardley');
+    expect(typeof wardleyVars.wardley).toBe('object');
+    expect((wardleyVars.wardley as Record<string, unknown>).axisColor).toBe('#334155');
+  });
+
+  it('produces contrast-safe eventmodeling and cynefin tokens in both light and dark modes', () => {
+    const emLight = deriveThemeVariablesForDiagramType(CORE_COLORS, false, 'eventmodeling');
+    const emDark = deriveThemeVariablesForDiagramType(CORE_COLORS, true, 'eventmodeling');
+    expect(emLight.textColor).toBe('#1f2937');
+    expect(emLight.emUiFill).toBe('#ffffff');
+    expect(emDark.textColor).toBe('#f1f5f9');
+    expect(emDark.emUiFill).toBe('#1e293b');
+    expect(emLight.emEventFill).not.toBe(emDark.emEventFill);
+
+    const cynLight = deriveThemeVariablesForDiagramType(CORE_COLORS, false, 'cynefin');
+    const cynDark = deriveThemeVariablesForDiagramType(CORE_COLORS, true, 'cynefin');
+    expect(cynLight.textColor).toBe('#1f2937');
+    expect(cynDark.textColor).toBe('#f1f5f9');
+    expect((cynLight.cynefin as Record<string, unknown>).clearBg).toBe('#FFF8E1');
+    expect((cynDark.cynefin as Record<string, unknown>).clearBg).toBe('#78350F');
+  });
+
+  it('applyThemeToFrontmatter and removeThemeColorsFromFrontmatter handle nested objects cleanly', () => {
+    const theme = {
+      id: 'light-test',
+      name: 'Light Test',
+      description: 'Light test theme',
+      isBuiltin: true,
+      coreColors: CORE_COLORS,
+    };
+    const cynefinContent = 'cynefin-beta\n  complex\n    "Experiment"';
+    const themed = applyThemeToFrontmatter(cynefinContent, theme, false);
+    expect(themed).toContain('cynefin:');
+    expect(themed).toContain("complexBg: '#E8F5E9'");
+    // Re-applying with a dark theme preserves no stale light fills
+    const darkTheme = {
+      id: 'dark-test',
+      name: 'Dark Test',
+      description: 'Dark test theme',
+      isBuiltin: true,
+      coreColors: {
+        primaryColor: '#1e293b',
+        background: '#0f172a',
+        lineColor: '#94a3b8',
+        primaryTextColor: '#f8fafc',
+      },
+    };
+    const rethemed = applyThemeToFrontmatter(themed, darkTheme, true);
+    expect(rethemed).toContain("complexBg: '#1B5E20'");
+    expect(rethemed).not.toContain('#E8F5E9');
+
+    const reset = removeThemeColorsFromFrontmatter(rethemed);
+    expect(reset).toContain('cynefin-beta');
+    expect(reset).not.toContain('complexBg');
+  });
+});

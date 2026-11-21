@@ -681,7 +681,12 @@
     "curveStep": "Step",
     "curveRounded": "Rounded",
     "stepDuration": "Step duration",
-    "markdownAutoWrap": "Markdown auto-wrap"
+    "markdownAutoWrap": "Markdown auto-wrap",
+    "swimlaneLineHops": "Line Hops",
+    "swimlaneLineHopsArc": "Arc",
+    "swimlaneLineHopsGap": "Gap",
+    "swimlaneLineHopsOff": "Off",
+    "swimlaneAutoOrder": "Auto-order lanes"
   },
   "mermaidConfig": {
     "title": "Mermaid Diagram Configuration",

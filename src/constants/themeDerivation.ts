@@ -33,6 +33,13 @@ const RESTRICTED_THEME_VARIABLES = new Set([
   'zenuml',
   'block',
   'c4',
+  'ishikawa',
+  'treemap',
+  'eventmodeling',
+  'venn',
+  'treeView',
+  'railroad',
+  'swimlane',
   'layout',
   'look',
   'theme',
@@ -519,6 +526,212 @@ const DIAGRAM_TYPE_VARIABLES: Record<DiagramType, string[]> = {
     'fontFamily',
     'fontSize',
   ],
+  ishikawa: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'mainBkg',
+    'primaryTextColor',
+    'textColor',
+    'fontFamily',
+    'fontSize',
+  ],
+  radar: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'textColor',
+    'titleColor',
+    'radar',
+    'cScale0',
+    'cScale1',
+    'cScale2',
+    'cScale3',
+    'cScale4',
+    'cScale5',
+    'cScale6',
+    'cScale7',
+    'cScale8',
+    'cScale9',
+    'cScale10',
+    'cScale11',
+    'fontFamily',
+    'fontSize',
+  ],
+  treemap: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'textColor',
+    'titleColor',
+    'cScale0',
+    'cScale1',
+    'cScale2',
+    'cScale3',
+    'cScale4',
+    'cScale5',
+    'cScale6',
+    'cScale7',
+    'cScale8',
+    'cScale9',
+    'cScale10',
+    'cScale11',
+    'cScalePeer0',
+    'cScalePeer1',
+    'cScalePeer2',
+    'cScalePeer3',
+    'cScalePeer4',
+    'cScalePeer5',
+    'cScalePeer6',
+    'cScalePeer7',
+    'cScalePeer8',
+    'cScalePeer9',
+    'cScalePeer10',
+    'cScalePeer11',
+    'cScaleLabel0',
+    'cScaleLabel1',
+    'cScaleLabel2',
+    'cScaleLabel3',
+    'cScaleLabel4',
+    'cScaleLabel5',
+    'cScaleLabel6',
+    'cScaleLabel7',
+    'cScaleLabel8',
+    'cScaleLabel9',
+    'cScaleLabel10',
+    'cScaleLabel11',
+    'fontFamily',
+    'fontSize',
+  ],
+  eventmodeling: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'textColor',
+    'emUiFill',
+    'emUiStroke',
+    'emProcessorFill',
+    'emProcessorStroke',
+    'emReadModelFill',
+    'emReadModelStroke',
+    'emCommandFill',
+    'emCommandStroke',
+    'emEventFill',
+    'emEventStroke',
+    'emRelationStroke',
+    'emSwimlaneBackgroundOdd',
+    'emSwimlaneBackgroundStroke',
+    'emArrowhead',
+    'fontFamily',
+    'fontSize',
+  ],
+  venn: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'primaryTextColor',
+    'textColor',
+    'titleColor',
+    'venn1',
+    'venn2',
+    'venn3',
+    'venn4',
+    'venn5',
+    'venn6',
+    'venn7',
+    'venn8',
+    'vennTitleTextColor',
+    'vennSetTextColor',
+    'fontFamily',
+    'fontSize',
+  ],
+  treeView: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'textColor',
+    'fontFamily',
+    'fontSize',
+  ],
+  wardley: [
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'textColor',
+    'wardley',
+    'fontFamily',
+    'fontSize',
+  ],
+  cynefin: [
+    'background',
+    'lineColor',
+    'primaryTextColor',
+    'textColor',
+    'cynefin',
+    'fontFamily',
+    'fontSize',
+  ],
+  railroad: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'mainBkg',
+    'secondBkg',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'titleColor',
+    'labelBackground',
+    'fontFamily',
+    'fontSize',
+  ],
+  swimlane: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'arrowheadColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'nodeBkg',
+    'mainBkg',
+    'nodeBorder',
+    'clusterBkg',
+    'clusterBorder',
+    'defaultLinkColor',
+    'edgeLabelBackground',
+    'nodeTextColor',
+    'flowContainerStroke',
+    'fontFamily',
+    'fontSize',
+  ],
   unknown: [
     'primaryColor',
     'secondaryColor',
@@ -563,23 +776,109 @@ export function deriveThemeVariablesForDiagramType(
   coreColors: ThemeCoreColors,
   darkMode: boolean,
   diagramType: DiagramType
-): Record<string, string> {
+): Record<string, unknown> {
   const allVars = deriveThemeVariables(coreColors, darkMode);
   const allowedVars = DIAGRAM_TYPE_VARIABLES[diagramType] || DIAGRAM_TYPE_VARIABLES.unknown;
   const allowedSet = new Set(allowedVars);
-  const filtered: Record<string, string> = {};
+  const filtered: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(allVars)) {
-    if (key === 'darkMode' || typeof value !== 'string') continue;
+    if (key === 'darkMode') continue;
+    if ((key === 'radar' || key === 'xyChart') && allowedSet.has(key)) {
+      if (typeof value === 'string') {
+        try {
+          filtered[key] = JSON.parse(value);
+        } catch {
+          filtered[key] = value;
+        }
+      } else if (typeof value === 'object' && value !== null) {
+        filtered[key] = value;
+      }
+      continue;
+    }
+    if (typeof value !== 'string') continue;
     if (allowedSet.has(key)) {
       filtered[key] = value;
     }
-    if ((key === 'radar' || key === 'xyChart') && allowedSet.has(key)) {
-      const objValue = (allVars as Record<string, unknown>)[key];
-      if (typeof objValue === 'object' && objValue !== null) {
-        filtered[key] = JSON.stringify(objValue);
-      }
-    }
   }
+
+  if (diagramType === 'cynefin') {
+    const contrastText = darkMode ? '#f1f5f9' : '#1f2937';
+    const contrastLabel = darkMode ? '#f8fafc' : '#111827';
+    filtered.textColor = contrastText;
+    filtered.primaryTextColor = contrastLabel;
+    filtered.cynefin = {
+      domainFontSize: 16,
+      itemFontSize: 12,
+      boundaryColor: allVars.lineColor,
+      boundaryWidth: 2,
+      cliffColor: darkMode ? '#f87171' : '#8B0000',
+      cliffWidth: 4,
+      arrowColor: allVars.lineColor,
+      arrowWidth: 2,
+      complexBg: darkMode ? '#1B5E20' : '#E8F5E9',
+      complicatedBg: darkMode ? '#0D47A1' : '#E3F2FD',
+      chaoticBg: darkMode ? '#BF360C' : '#FBE9E7',
+      clearBg: darkMode ? '#78350F' : '#FFF8E1',
+      confusionBg: darkMode ? '#4A148C' : '#F3E5F5',
+      textColor: contrastText,
+      labelColor: contrastLabel,
+    };
+  } else if (diagramType === 'wardley') {
+    filtered.wardley = {
+      backgroundColor: allVars.background,
+      axisColor: allVars.lineColor,
+      axisTextColor: allVars.primaryTextColor,
+      gridColor: darkMode ? '#334155' : '#cbd5e1',
+      componentFill: allVars.background,
+      componentStroke: allVars.lineColor,
+      componentLabelColor: allVars.primaryTextColor,
+      linkStroke: allVars.lineColor,
+      evolutionStroke: darkMode ? '#f87171' : '#dc3545',
+      annotationStroke: allVars.secondaryBorderColor ?? allVars.lineColor,
+      annotationTextColor: allVars.primaryTextColor,
+      annotationFill: allVars.primaryColor,
+    };
+  } else if (diagramType === 'eventmodeling') {
+    if (darkMode) {
+      filtered.textColor = '#f1f5f9';
+      filtered.primaryTextColor = '#f1f5f9';
+      filtered.emUiFill = '#1e293b';
+      filtered.emUiStroke = '#64748b';
+      filtered.emProcessorFill = '#4a1d59';
+      filtered.emProcessorStroke = '#c084fc';
+      filtered.emReadModelFill = '#2b4714';
+      filtered.emReadModelStroke = '#84cc16';
+      filtered.emCommandFill = '#1b3559';
+      filtered.emCommandStroke = '#60a5fa';
+      filtered.emEventFill = '#5c2d0c';
+      filtered.emEventStroke = '#fb923c';
+      filtered.emSwimlaneBackgroundOdd = '#161b26';
+      filtered.emSwimlaneBackgroundStroke = '#334155';
+    } else {
+      filtered.textColor = '#1f2937';
+      filtered.primaryTextColor = '#1f2937';
+      filtered.emUiFill = '#ffffff';
+      filtered.emUiStroke = '#cbd5e1';
+      filtered.emProcessorFill = '#edb3f6';
+      filtered.emProcessorStroke = '#b88cbf';
+      filtered.emReadModelFill = '#d3f1a2';
+      filtered.emReadModelStroke = '#a3b732';
+      filtered.emCommandFill = '#bcd6fe';
+      filtered.emCommandStroke = '#679ac3';
+      filtered.emEventFill = '#ffb778';
+      filtered.emEventStroke = '#c19a0f';
+      filtered.emSwimlaneBackgroundOdd = '#f8fafc';
+      filtered.emSwimlaneBackgroundStroke = '#e2e8f0';
+    }
+    filtered.emRelationStroke = allVars.lineColor;
+    filtered.emArrowhead = allVars.lineColor;
+  } else if (diagramType === 'railroad') {
+    filtered.secondBkg = allVars.secondaryColor;
+    filtered.labelBackground = allVars.background;
+  } else if (diagramType === 'swimlane') {
+    filtered.flowContainerStroke = allVars.secondaryBorderColor ?? allVars.lineColor;
+  }
+
   return filtered;
 }
 
@@ -972,7 +1271,8 @@ export function applyThemeToFrontmatter(
           if (key === 'themeVariables') {
             if (typeof value === 'object' && value !== null) {
               for (const [tvKey, tvValue] of Object.entries(value)) {
-                existingThemeVars[tvKey] = String(tvValue);
+                existingThemeVars[tvKey] =
+                  typeof tvValue === 'object' && tvValue !== null ? tvValue : String(tvValue);
               }
             }
           } else if (key !== 'theme') {
@@ -1027,6 +1327,9 @@ export function applyThemeToFrontmatter(
       theme.coreColors.lineColor || themeVariables.lineColor || themeVariables.primaryColor;
   }
 
+  const familyEssentialKeys = new Set<string>();
+  const effectiveDark = _darkMode || isDarkColor(theme.coreColors.background);
+
   if (diagramType === 'sequence') {
     if (!themeVariables.signalColor)
       themeVariables.signalColor = theme.coreColors.lineColor || themeVariables.lineColor;
@@ -1049,6 +1352,28 @@ export function applyThemeToFrontmatter(
         theme.coreColors.primaryBorderColor || themeVariables.primaryBorderColor;
     if (!themeVariables.clusterBkg)
       themeVariables.clusterBkg = theme.coreColors.tertiaryColor || themeVariables.tertiaryColor;
+  } else if (
+    diagramType === 'cynefin' ||
+    diagramType === 'wardley' ||
+    diagramType === 'radar' ||
+    diagramType === 'eventmodeling'
+  ) {
+    const familyVars = deriveThemeVariablesForDiagramType(
+      theme.coreColors,
+      effectiveDark,
+      diagramType
+    );
+    for (const [fk, fv] of Object.entries(familyVars)) {
+      if (
+        fk === diagramType ||
+        fk.startsWith('em') ||
+        ((diagramType === 'cynefin' || diagramType === 'eventmodeling') &&
+          (fk === 'textColor' || fk === 'primaryTextColor'))
+      ) {
+        themeVariables[fk] = fv;
+        familyEssentialKeys.add(fk);
+      }
+    }
   }
 
   // 4. Explicitly preserve/restore typography (safety)
@@ -1067,6 +1392,7 @@ export function applyThemeToFrontmatter(
     'nodeBorder',
     'clusterBkg',
     'clusterBorder',
+    ...familyEssentialKeys,
   ]);
 
   for (const key of Object.keys(themeVariables)) {
@@ -1122,7 +1448,8 @@ export function removeThemeColorsFromFrontmatter(content: string): string {
               typographyKeys.has(tvKey) ||
               (!derivedKeys.has(tvKey) && !RESTRICTED_THEME_VARIABLES.has(tvKey))
             ) {
-              preservedThemeVars[tvKey] = String(tvValue);
+              preservedThemeVars[tvKey] =
+                typeof tvValue === 'object' && tvValue !== null ? tvValue : String(tvValue);
             }
           }
         } else if (key !== 'theme') {
@@ -1476,12 +1803,43 @@ export function applyStyleToContent(
       newConfig.layout = styleOptions.layoutEngine;
       hasChanges = true;
     }
+  } else if (diagramType === 'swimlane') {
+    const swimlaneCfg: any = { ...(newConfig.swimlane || {}) };
+    let hasSwimlaneChanges = false;
+
+    const normalizedLineHops =
+      styleOptions.lineHops === true ? 'arc' : styleOptions.lineHops;
+    if (
+      (normalizedLineHops === 'arc' ||
+        normalizedLineHops === 'gap' ||
+        normalizedLineHops === false) &&
+      swimlaneCfg.lineHops !== normalizedLineHops
+    ) {
+      swimlaneCfg.lineHops = normalizedLineHops;
+      hasSwimlaneChanges = true;
+    }
+    if (
+      typeof styleOptions.automaticLaneOrdering === 'boolean' &&
+      swimlaneCfg.automaticLaneOrdering !== styleOptions.automaticLaneOrdering
+    ) {
+      swimlaneCfg.automaticLaneOrdering = styleOptions.automaticLaneOrdering;
+      hasSwimlaneChanges = true;
+    }
+
+    if (hasSwimlaneChanges) {
+      if (Object.keys(swimlaneCfg).length === 0) {
+        delete newConfig.swimlane;
+      } else {
+        newConfig.swimlane = swimlaneCfg;
+      }
+      hasChanges = true;
+    }
   }
 
   // Only proceed if there are changes
   const themeVars = newConfig.themeVariables;
   const hasThemeVars = themeVars && Object.keys(themeVars).length > 0;
-  if (!hasChanges && !hasThemeVars && !newConfig.flowchart && !newConfig.layout) {
+  if (!hasChanges && !hasThemeVars && !newConfig.flowchart && !newConfig.swimlane && !newConfig.layout) {
     return content;
   }
 
@@ -1545,6 +1903,23 @@ export function extractStyleOptionsFromContent(
             options.markdownAutoWrap = true;
           } else if (fc.markdownAutoWrap === false || fc.markdownAutoWrap === 'false') {
             options.markdownAutoWrap = false;
+          }
+        }
+
+        // Extract swimlane specific options
+        if (config.swimlane && typeof config.swimlane === 'object') {
+          const sw = config.swimlane as Record<string, any>;
+          if (sw.lineHops === false || sw.lineHops === 'false') {
+            options.lineHops = false;
+          } else if (sw.lineHops === 'gap') {
+            options.lineHops = 'gap';
+          } else if (sw.lineHops === 'arc' || sw.lineHops === true || sw.lineHops === 'true') {
+            options.lineHops = 'arc';
+          }
+          if (sw.automaticLaneOrdering === true || sw.automaticLaneOrdering === 'true') {
+            options.automaticLaneOrdering = true;
+          } else if (sw.automaticLaneOrdering === false || sw.automaticLaneOrdering === 'false') {
+            options.automaticLaneOrdering = false;
           }
         }
 

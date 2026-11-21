@@ -79,7 +79,7 @@ describe('TemplateLibrary — official Mermaid examples', () => {
     await screen.findByText(`${TEMPLATES.length + OFFICIAL.length} templates.templates`);
 
     fireEvent.change(screen.getByTestId('search-input'), { target: { value: 'wardley' } });
-    expect(names()).toEqual(['Tea Shop Value Chain']);
+    expect(names()).toEqual(['Tea Shop Strategy Map', 'Tea Shop Value Chain']);
   });
 
   it('passes the selected official example to onSelect and closes', async () => {

@@ -1,19 +1,43 @@
 import mermaid from 'mermaid';
 import { validateDiagramContent } from '@/utils/validation';
-import { deriveThemeVariables, extractThemeIdFromContent } from '@/constants/themeDerivation';
+import {
+  deriveThemeVariables,
+  deriveThemeVariablesForDiagramType,
+  extractThemeIdFromContent,
+} from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
 import { sanitizeMermaidSVG } from '@/utils/sanitization';
+import { detectDiagramType } from './diagramType';
 import { registerFaIconPacks } from './iconPacks';
-import type { MermaidTheme } from '@/types';
+import type { DiagramType, MermaidTheme } from '@/types';
 
 export type MermaidBuiltinTheme = 'default' | 'dark' | 'forest' | 'neutral' | 'base';
+
+const FAMILY_SCOPED_THEME_TYPES: ReadonlySet<DiagramType> = new Set<DiagramType>([
+  'ishikawa',
+  'radar',
+  'treemap',
+  'eventmodeling',
+  'venn',
+  'treeView',
+  'wardley',
+  'cynefin',
+  'railroad',
+  'swimlane',
+  'xyChart',
+]);
 
 let currentTheme: 'dark' | 'light' = 'light';
 let currentMermaidTheme: MermaidBuiltinTheme = 'base';
 let defaultTheme: MermaidTheme | null = null;
 let diagramTheme: MermaidTheme | null = null;
 
-function doInit(theme: 'dark' | 'light', useBase: boolean, mermaidTheme?: MermaidBuiltinTheme) {
+function doInit(
+  theme: 'dark' | 'light',
+  useBase: boolean,
+  mermaidTheme?: MermaidBuiltinTheme,
+  diagramType?: DiagramType
+) {
   // 39-02 (ICON-02): register the lazy FA6 icon packs on the single init
   // path. iconPacks.ts carries no heavy static import — it rides this lazy
   // mermaid chunk, its pack JSONs live only inside dynamic-import loader
@@ -24,13 +48,16 @@ function doInit(theme: 'dark' | 'light', useBase: boolean, mermaidTheme?: Mermai
     mermaidTheme ?? (useBase ? 'base' : theme === 'dark' ? 'dark' : 'default');
   const isDark = theme === 'dark';
 
-  let themeVars: Record<string, string> | undefined;
-  if (!useBase && diagramTheme) {
-    // Use the diagram-specific theme (render-time theming)
-    themeVars = deriveThemeVariables(diagramTheme.coreColors, isDark);
-  } else if (!useBase && defaultTheme) {
-    // Use the user's default theme for app-level theming
-    themeVars = deriveThemeVariables(defaultTheme.coreColors, isDark);
+  const activeTheme = diagramTheme ?? defaultTheme;
+  let themeVars: Record<string, unknown> | undefined;
+  if (!useBase && activeTheme) {
+    // Use family-scoped derivation (preserving nested objects & contrast-safe
+    // overrides) for the 10 new families + radar/xyChart while keeping the
+    // legacy 8 theme-matrix families bound directly to deriveThemeVariables.
+    themeVars =
+      diagramType && FAMILY_SCOPED_THEME_TYPES.has(diagramType)
+        ? deriveThemeVariablesForDiagramType(activeTheme.coreColors, isDark, diagramType)
+        : deriveThemeVariables(activeTheme.coreColors, isDark);
   } else if (!useBase) {
     // Fallback: use Mermaid's built-in theme (no custom themeVariables)
     themeVars = undefined;
@@ -47,6 +74,7 @@ function doInit(theme: 'dark' | 'light', useBase: boolean, mermaidTheme?: Mermai
     fontSize: 14,
     flowchart: { curve: 'basis', padding: 20, htmlLabels: true, useMaxWidth: false, wrappingWidth: 200 }, // v11-default pin — v12 lowers wrappingWidth to 120, freezing node width so bigger fonts grow node height instead of width
     sequence: { useMaxWidth: true, actorMargin: 50 },
+    swimlane: { layout: 'swimlane' },
     ...(themeVars && { themeVariables: themeVars }),
   });
 }
@@ -168,7 +196,8 @@ export async function renderDiagram(
     setDiagramTheme(null);
   }
 
-  doInit(currentTheme, hasCustomTheme, currentMermaidTheme);
+  const diagramType = detectDiagramType(content);
+  doInit(currentTheme, hasCustomTheme, currentMermaidTheme, diagramType);
 
   const safeId = id.replace(/[^a-zA-Z0-9_]/g, '_');
   try {

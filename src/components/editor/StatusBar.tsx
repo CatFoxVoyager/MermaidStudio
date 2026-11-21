@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { detectDiagramType } from '@/lib/mermaid/diagramType';
+import { DIAGRAM_LABELS } from '@/constants/diagramLabels';
 
 function GitHubIcon({ size = 12 }: { size?: number }) {
   return (
@@ -9,13 +10,6 @@ function GitHubIcon({ size = 12 }: { size?: number }) {
     </svg>
   );
 }
-
-const TYPE_LABELS: Record<string, string> = {
-  flowchart: 'Flowchart', sequence: 'Sequence', classDiagram: 'Class',
-  stateDiagram: 'State', erDiagram: 'ER', gantt: 'Gantt',
-  pie: 'Pie', mindmap: 'Mindmap', gitGraph: 'Git Graph', unknown: 'Diagram',
-  usecaseDiagram: 'Use Case',
-};
 
 interface Props {
   content: string;
@@ -56,7 +50,7 @@ export function StatusBar({ content, lastSaved, renderTimeMs, isDirty }: Props) 
     <div data-testid="status" className="flex items-center justify-between px-3 h-6 shrink-0 border-t text-[12px]"
       style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
       <div className="flex items-center gap-3">
-        <span className="font-medium" style={{ color: 'var(--accent)' }}>{TYPE_LABELS[type]}</span>
+        <span className="font-medium" style={{ color: 'var(--accent)' }}>{DIAGRAM_LABELS[type]}</span>
         <span>{t('status.lines', { count: lines })}</span>
         <span>{t('status.chars', { count: chars.toLocaleString() })}</span>
       </div>

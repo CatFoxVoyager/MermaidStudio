@@ -1933,9 +1933,9 @@ describe('NodeStylePanel media wiring (39-04 ICON-03)', () => {
     vi.mocked(parseDiagram).mockReset();
     vi.mocked(parseDiagram).mockReturnValue(WIRING_PARSED as Awaited<ReturnType<typeof parseDiagram>>);
     vi.mocked(detectDiagramType).mockReset();
-    // treemap: getStylingCapabilities('treemap').supportsClassDef === false —
-    // the existing flowchart gate that keeps the media tools off
-    // non-flowchart diagrams (UI-SPEC Surface 4 preserved invariant).
+    // treemap: getStylingCapabilities('treemap').supportsVisualEditing === false —
+    // visual editing tools must never mount on non-flowchart diagrams even when
+    // supportsClassDef is true (DIAG-03).
     vi.mocked(detectDiagramType).mockReturnValue('treemap' as ReturnType<typeof detectDiagramType>);
 
     const { container } = render(
@@ -1946,6 +1946,26 @@ describe('NodeStylePanel media wiring (39-04 ICON-03)', () => {
     });
     // No overlays -> no selection path -> the panel (and the tabs) never mount.
     expect(container.querySelectorAll('.node-overlay').length).toBe(0);
+    expect(screen.queryByTestId('node-style-panel')).not.toBeInTheDocument();
+  });
+
+  it('gating pin: swimlane (supportsClassDef=true, supportsVisualEditing=false) never mounts flowchart visual tools', async () => {
+    const { parseDiagram } = await import('@/lib/mermaid/codeUtils');
+    const { renderDiagram, detectDiagramType } = await import('@/lib/mermaid/core');
+    vi.mocked(renderDiagram).mockReset();
+    vi.mocked(renderDiagram).mockResolvedValue({ svg: WIRING_SVG, error: null });
+    vi.mocked(parseDiagram).mockReset();
+    vi.mocked(parseDiagram).mockReturnValue(WIRING_PARSED as Awaited<ReturnType<typeof parseDiagram>>);
+    vi.mocked(detectDiagramType).mockReset();
+    vi.mocked(detectDiagramType).mockReturnValue('swimlane' as ReturnType<typeof detectDiagramType>);
+
+    const { container } = render(
+      <PreviewPanel content={'swimlane-beta LR\n  subgraph A\n    N1[Step]\n  end'} theme="light" onChange={vi.fn()} />,
+    );
+    await waitFor(() => {
+      expect(container.querySelector('svg')).not.toBeNull();
+    });
+    expect(screen.queryByTestId('add-subgraph-button')).not.toBeInTheDocument();
     expect(screen.queryByTestId('node-style-panel')).not.toBeInTheDocument();
   });
 });

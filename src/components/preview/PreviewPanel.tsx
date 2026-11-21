@@ -16,12 +16,7 @@ import { EdgeStylePanel } from './EdgeStylePanel';
 import { SubgraphStylePanel } from './SubgraphStylePanel';
 import { ShapeToolbar } from '../visual/ShapeToolbar';
 import { getStylingCapabilities } from '@/types';
-
-const TYPE_LABELS: Record<string, string> = {
-  flowchart: 'Flowchart', sequence: 'Sequence', classDiagram: 'Class',
-  stateDiagram: 'State', erDiagram: 'ER', gantt: 'Gantt',
-  pie: 'Pie', mindmap: 'Mindmap', gitGraph: 'Git Graph', unknown: 'Diagram',
-};
+import { DIAGRAM_LABELS } from '@/constants/diagramLabels';
 
 interface NodeOverlay {
   id: string;
@@ -487,7 +482,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
 
   const type = detectDiagramType(content);
   const stylingCapabilities = getStylingCapabilities(type);
-  const supportsClassDef = stylingCapabilities.supportsClassDef;
+  const supportsVisualEditing = stylingCapabilities.supportsVisualEditing;
 
   // Keep zoomRef in sync with zoom state
   useEffect(() => {
@@ -568,7 +563,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // (Re)create the edge hit-target layer, releasing the previous one first so
   // effect re-runs never stack stale overlays.
   const syncEdgeTargets = useCallback(() => {
-    if (!supportsClassDef || !shadowHostRef.current || !relativeContainerRef.current) return;
+    if (!supportsVisualEditing || !shadowHostRef.current || !relativeContainerRef.current) return;
     edgeCleanupRef.current?.();
     edgeCleanupRef.current = addEdgeClickTargets(shadowHostRef.current, relativeContainerRef.current, (index) => {
       if (toolModeRef.current === 'connect') return;
@@ -586,7 +581,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         requestAnimationFrame(() => onSelectionOpenRef.current?.());
       }
     }, parsedEdges, () => toolModeRef.current === 'connect');
-  }, [supportsClassDef, parsedEdges]);
+  }, [supportsVisualEditing, parsedEdges]);
 
   // Setup Shadow DOM for SVG isolation
   useEffect(() => {
@@ -869,7 +864,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
 
   // Parse diagram and initialize node/label/style data
   useEffect(() => {
-    if (!supportsClassDef) return;
+    if (!supportsVisualEditing) return;
     const parsed = parsedDiagram;
     const labels = new Map<string, string>();
     const styles = new Map<string, NodeStyle>();
@@ -886,11 +881,11 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     setNodeSubgraphIds(subgraphIds);
     setSubgraphList(parsed.subgraphs.map(sg => ({ id: sg.id, label: sg.label })));
     setParsedStyles(parsed.styles);
-  }, [parsedDiagram, supportsClassDef]);
+  }, [parsedDiagram, supportsVisualEditing]);
 
   // Auto-resync: update panel styles when content changes from code editor
   useEffect(() => {
-    if (!supportsClassDef || selectedNodeIds.size === 0 || skipResyncRef.current) {
+    if (!supportsVisualEditing || selectedNodeIds.size === 0 || skipResyncRef.current) {
       skipResyncRef.current = false;
       return;
     }
@@ -901,7 +896,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       updatedStyles.set(nodeId, nodeStyle);
     }
     setPanelStyles(updatedStyles);
-  }, [parsedDiagram, supportsClassDef, selectedNodeIds]);
+  }, [parsedDiagram, supportsVisualEditing, selectedNodeIds]);
 
   // Node click handler with multi-node selection (shift+click)
   // SyntheticEvent: reached from both the pointer click and the node
@@ -916,7 +911,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // sibling idiom). Both event families carry shiftKey.
   const handleNodeClick = useCallback((e: React.MouseEvent | React.KeyboardEvent, nodeId: string) => {
     e.stopPropagation();
-    if (!supportsClassDef) return;
+    if (!supportsVisualEditing) return;
     setSelectedEdgeIndex(null);
     setSelectedSubgraphId(null);
     if (toolMode === 'connect') {
@@ -954,7 +949,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       }
       onNodeSelect?.(nodeId);
     }
-  }, [supportsClassDef, onNodeSelect, onSelectionOpen, toolMode, connectFirst, onChange, content, selectedNodeIds]);
+  }, [supportsVisualEditing, onNodeSelect, onSelectionOpen, toolMode, connectFirst, onChange, content, selectedNodeIds]);
 
   const handleAddSubgraph = useCallback(() => {
     if (!onChange) return;
@@ -965,7 +960,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
 
   const handleSubgraphClick = useCallback((e: React.MouseEvent, subgraphId: string) => {
     e.stopPropagation();
-    if (!supportsClassDef) return;
+    if (!supportsVisualEditing) return;
 
     // Handle connect mode for subgraphs (connect subgraph-to-node or subgraph-to-subgraph)
     if (toolMode === 'connect') {
@@ -996,7 +991,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       }
       return willSelect ? subgraphId : null;
     });
-  }, [supportsClassDef, onSelectionOpen, toolMode, connectFirst, onChange, content, bodyHasMetadata]);
+  }, [supportsVisualEditing, onSelectionOpen, toolMode, connectFirst, onChange, content, bodyHasMetadata]);
 
   const handleSubgraphStyleChange = useCallback((subgraphId: string, styleUpdate: Partial<NodeStyle>) => {
     if (!onChange) return;
@@ -1558,7 +1553,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           <span className="hidden md:inline text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{t('preview.title')}</span>
           <span className="px-1.5 py-0.5 rounded-sm text-xs font-semibold border shrink-0 max-md:hidden"
             style={{ background: 'var(--accent-dim)', color: 'var(--accent)', borderColor: 'rgba(var(--accent-rgb),0.2)' }}>
-            {TYPE_LABELS[type] ?? 'Diagram'}
+            {DIAGRAM_LABELS[type]}
           </span>
           {loading && <RefreshCw size={11} style={{ color: 'var(--text-tertiary)' }} className="animate-spin" />}
         </div>
@@ -1596,7 +1591,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
               <Maximize2 size={16} />
             </button>
           )}
-          {onChange && supportsClassDef && (
+          {onChange && supportsVisualEditing && (
             <button
               data-testid="add-subgraph-button"
               onClick={handleAddSubgraph}
@@ -1627,7 +1622,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         </div>
       </div>
 
-      {supportsClassDef && (
+      {supportsVisualEditing && (
         <ShapeToolbar
           toolMode={toolMode}
           onToolMode={setToolMode}
@@ -1726,14 +1721,14 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
               return (
                 <div
                   key={overlay.id}
-                  role={toolMode === 'select' && supportsClassDef ? 'button' : undefined}
-                  tabIndex={toolMode === 'select' && supportsClassDef ? 0 : undefined}
+                  role={toolMode === 'select' && supportsVisualEditing ? 'button' : undefined}
+                  tabIndex={toolMode === 'select' && supportsVisualEditing ? 0 : undefined}
                   aria-label={t('preview.clickToEdit', { id: overlay.id })}
                   onKeyDown={e => {
                     // Keyboard parity for node selection (iter-12 P1: a
                     // 26-stop Tab walk found ZERO canvas stops — selecting,
                     // styling, deleting a node was pointer-only).
-                    if ((e.key === 'Enter' || e.key === ' ') && toolMode === 'select' && supportsClassDef) {
+                    if ((e.key === 'Enter' || e.key === ' ') && toolMode === 'select' && supportsVisualEditing) {
                       e.preventDefault();
                       e.stopPropagation();
                       handleNodeClick(e, overlay.id);
@@ -1744,9 +1739,9 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
                     // Prevent canvas drag when clicking on nodes
                     e.stopPropagation();
                   }}
-                  draggable={toolMode === 'select' && supportsClassDef ? true : undefined}
+                  draggable={toolMode === 'select' && supportsVisualEditing ? true : undefined}
                   onDragStart={e => {
-                    if (!supportsClassDef) return;
+                    if (!supportsVisualEditing) return;
                     console.log('DRAG START - Node:', overlay.id);
                     setDragNodeId(overlay.id);
                     // Explicitly check for dataTransfer presence
@@ -1767,7 +1762,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
                     top: overlay.y,
                     width: overlay.width,
                     height: overlay.height,
-                    cursor: toolMode === 'connect' ? 'crosshair' : (supportsClassDef ? 'pointer' : 'default'),
+                    cursor: toolMode === 'connect' ? 'crosshair' : (supportsVisualEditing ? 'pointer' : 'default'),
                     zIndex: isDragging ? 10 : 5,
                     border: isSelected ? '2px solid var(--accent)' : isConnectSource ? '2px dashed var(--accent)' : '2px solid transparent',
                     borderRadius: '4px',
@@ -1776,7 +1771,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
                     opacity: isDragging ? 0.5 : undefined,
                     pointerEvents: shouldBlockClicks ? 'none' : 'auto',
                   }}
-                  title={supportsClassDef ? t('preview.clickToEdit', { id: overlay.id }) : overlay.id}
+                  title={supportsVisualEditing ? t('preview.clickToEdit', { id: overlay.id }) : overlay.id}
                 />
               );
             })}
@@ -1788,7 +1783,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
               );
               const isDropTarget = !isCollapsedSubgraph && dragOverSubgraphId === sg.id;
               const isConnectSource = connectFirst === sg.id;
-              const title = supportsClassDef ? (toolMode === 'connect' ? `Click to connect from/to ${sg.id}` : t('preview.clickToEditSubgraph')) : sg.label;
+              const title = supportsVisualEditing ? (toolMode === 'connect' ? `Click to connect from/to ${sg.id}` : t('preview.clickToEditSubgraph')) : sg.label;
               return (
                 <React.Fragment key={`sg-${sg.id}`}>
                   {/* Full-cluster outline: visual state only. pointerEvents is
@@ -1859,7 +1854,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
                       top: sg.y,
                       width: sg.width,
                       height: sg.height,
-                      cursor: toolMode === 'connect' ? 'crosshair' : (supportsClassDef ? 'pointer' : 'default'),
+                      cursor: toolMode === 'connect' ? 'crosshair' : (supportsVisualEditing ? 'pointer' : 'default'),
                       zIndex: toolMode === 'connect' ? 16 : 7,
                       borderRadius: '4px 4px 0 0',
                     }}
@@ -1872,7 +1867,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         )}
       </div>
 
-      {selectedEdgeIndex !== null && parsedEdges[selectedEdgeIndex] && supportsClassDef && (
+      {selectedEdgeIndex !== null && parsedEdges[selectedEdgeIndex] && supportsVisualEditing && (
         <EdgeStylePanel
           edge={parsedEdges[selectedEdgeIndex]}
           edgeIndex={selectedEdgeIndex}
@@ -1892,7 +1887,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         />
       )}
 
-      {selectedSubgraphId !== null && supportsClassDef && (
+      {selectedSubgraphId !== null && supportsVisualEditing && (
         <SubgraphStylePanel
           subgraphId={selectedSubgraphId}
           subgraphLabel={subgraphList.find(sg => sg.id === selectedSubgraphId)?.label ?? ''}
@@ -1907,7 +1902,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         />
       )}
 
-      {selectedNodeIds.size > 0 && (
+      {selectedNodeIds.size > 0 && supportsVisualEditing && (
         <NodeStylePanel
           selectedNodeIds={Array.from(selectedNodeIds)}
           nodeStyles={Array.from(selectedNodeIds).map(id => panelStyles.get(id) ?? {})}

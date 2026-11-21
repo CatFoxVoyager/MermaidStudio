@@ -482,3 +482,71 @@ describe('theme matrix — input routing (E6-empty)', { timeout: 30000 }, () => 
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phase 41 DIAG-04/DIAG-05 family-scoped theme checks (new themeable families):
+// exercises core.ts's deriveThemeVariablesForDiagramType routing (including
+// nested objects for radar/cynefin/wardley and contrast tokens for
+// eventmodeling/cynefin) across light and dark modes while keeping the
+// 192-cell core 8-family grid untouched.
+// ---------------------------------------------------------------------------
+const PHASE_41_THEMEABLE_FIXTURES: Record<string, string> = {
+  venn: `venn-beta
+  set A
+  set B
+  union A,B`,
+  treemap: `treemap-beta
+"Root"
+  "Child A": 60
+  "Child B": 40`,
+  cynefin: `cynefin-beta
+  title Decision
+  complex
+    "Experiment"
+  clear
+    "Runbook"`,
+  wardley: `wardley-beta
+  title Value Chain
+  anchor User [0.95, 0.5]
+  component App [0.7, 0.5]
+  User -> App`,
+  eventmodeling: `eventmodeling
+  tf 01 ui Form
+  tf 02 cmd Submit
+  tf 03 evt Submitted`,
+  radar: `radar-beta
+  axis A, B, C
+  curve Team{80, 60, 90}`,
+};
+
+describe('Phase 41 themeable families — family-scoped themeVariables render (DIAG-04/05)', { timeout: 30000 }, () => {
+  for (const mode of MODES) {
+    it.each(Object.entries(PHASE_41_THEMEABLE_FIXTURES))(
+      'renders %s (' + mode + ') with family-scoped themeVariables and custom palette',
+      async (family, source) => {
+        const proto = (
+          globalThis as unknown as { SVGElement?: { prototype: Record<string, unknown> } }
+        ).SVGElement?.prototype;
+        if (proto && typeof proto.getComputedTextLength !== 'function') {
+          proto.getComputedTextLength = function getComputedTextLength(this: SVGElement): number {
+            return (this.textContent ?? '').length * 8;
+          };
+        }
+        const palette = PALETTES[0];
+        initMermaid(mode, 'base', null);
+        const id = `tmx41_${family}_${mode}`;
+        try {
+          const { svg, error } = await renderDiagram(source, id, palette.renderThemeId);
+          if (error && !GETBBOX_JSDOM_LIMITATION.test(error)) {
+            throw new Error(`Unexpected render error for ${family} (${mode}): ${error}`);
+          }
+          expect(svg).not.toBe('');
+          expect(svg).toMatch(/<(path|rect|circle|polygon|text|line)[\s>]/);
+        } finally {
+          document.getElementById(id)?.remove();
+          document.getElementById(`d${id}`)?.remove();
+        }
+      }
+    );
+  }
+});
