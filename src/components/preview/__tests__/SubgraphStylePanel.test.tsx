@@ -25,6 +25,9 @@ vi.mock('react-i18next', () => ({
         'subgraphStyle.solid': 'Solid',
         'subgraphStyle.dashed': 'Dashed',
         'subgraphStyle.dotted': 'Dotted',
+        'subgraphStyle.collapse': 'Collapse',
+        'subgraphStyle.expand': 'Expand',
+        'subgraphStyle.viewHint': 'Toggles view',
       };
       return map[key] ?? key;
     },
@@ -195,6 +198,51 @@ describe('SubgraphStylePanel Component', () => {
       const { container } = render(<SubgraphStylePanel {...defaultProps} />);
       const panel = container.querySelector('.animate-slide-in-right');
       expect(panel).toBeInTheDocument();
+    });
+  });
+
+  describe('View Toggle (40-04 EDGE-05)', () => {
+    it('renders no view row without onViewChange (existing callers byte-identical)', () => {
+      render(<SubgraphStylePanel {...defaultProps} />);
+      expect(screen.queryByText('Collapse')).not.toBeInTheDocument();
+      expect(screen.queryByText('Expand')).not.toBeInTheDocument();
+      expect(screen.queryByRole('group')).not.toBeInTheDocument();
+    });
+
+    it('renders the two-segment row when onViewChange is threaded', () => {
+      render(<SubgraphStylePanel {...defaultProps} subgraphView="collapsed" onViewChange={vi.fn()} />);
+      expect(screen.getByRole('group', { name: 'Toggles view' })).toBeInTheDocument();
+      expect(screen.getByText('Collapse')).toBeInTheDocument();
+      expect(screen.getByText('Expand')).toBeInTheDocument();
+    });
+
+    it('with subgraphView collapsed the Collapse segment is active', () => {
+      render(<SubgraphStylePanel {...defaultProps} subgraphView="collapsed" onViewChange={vi.fn()} />);
+      expect(screen.getByRole('button', { name: 'Collapse' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('button', { name: 'Expand' })).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('with subgraphView undefined the Expand segment is active (absent = expanded)', () => {
+      render(<SubgraphStylePanel {...defaultProps} onViewChange={vi.fn()} />);
+      expect(screen.getByRole('button', { name: 'Expand' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('button', { name: 'Collapse' })).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('with subgraphView expanded the Expand segment is active', () => {
+      render(<SubgraphStylePanel {...defaultProps} subgraphView="expanded" onViewChange={vi.fn()} />);
+      expect(screen.getByRole('button', { name: 'Expand' })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByRole('button', { name: 'Collapse' })).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('clicking segments fires onViewChange with exactly collapsed or expanded', () => {
+      const onViewChange = vi.fn();
+      render(<SubgraphStylePanel {...defaultProps} subgraphView="collapsed" onViewChange={onViewChange} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Expand' }));
+      expect(onViewChange).toHaveBeenCalledTimes(1);
+      expect(onViewChange).toHaveBeenCalledWith('expanded');
+      fireEvent.click(screen.getByRole('button', { name: 'Collapse' }));
+      expect(onViewChange).toHaveBeenCalledTimes(2);
+      expect(onViewChange).toHaveBeenCalledWith('collapsed');
     });
   });
 

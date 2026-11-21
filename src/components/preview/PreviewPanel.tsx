@@ -9,7 +9,7 @@ import { getThemeById } from '@/constants/themes';
 import { sanitizeCssValue } from '@/utils/sanitization';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import { buildSvgToParsedEdgeMap } from '@/utils/svgEdgeMatching';
-import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, updateEdgeMetadata, updateEdgeId, applyEdgeAnimatePreset, parseLinkStyles, edgeStyleToString, updateNodeStyle, updateNodeShape, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg } from '@/lib/mermaid/codeUtils';
+import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, updateEdgeMetadata, updateEdgeId, applyEdgeAnimatePreset, parseLinkStyles, edgeStyleToString, updateNodeStyle, updateNodeShape, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, updateSubgraphView, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, EdgeMetadata, ParsedEdge, NodeShape, PresetType, PresetColors, IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
 import { EdgeStylePanel } from './EdgeStylePanel';
@@ -42,6 +42,7 @@ interface SubgraphOverlay {
   clusterY: number;
   clusterWidth: number;
   clusterHeight: number;
+  isCollapsed?: boolean;
 }
 
 function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElement): NodeOverlay[] {
@@ -71,6 +72,12 @@ function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElem
     const flowchartMatch = idAttr.match(/flowchart-([A-Za-z0-9_-]+)-\d+$/);
     const nodeId = flowchartMatch ? flowchartMatch[1] : null;
     if (!nodeId || seen.has(nodeId)) {return;}
+    // 40-04 (EDGE-05, UI-SPEC Grey Area 7): a collapsed subgraph wears a
+    // node shape inside g.nodes (mermaid's `.collapsed-group` route) — it
+    // IS the subgraph, never a node. Excluded here so no node overlay (and
+    // therefore no NodeStylePanel, no node drag) can ever attach to it;
+    // extractSubgraphOverlays owns its click target.
+    if (/\bcollapsed-group\b/.test(el.getAttribute('class') ?? '')) {return;}
     seen.add(nodeId);
 
     try {
@@ -115,10 +122,31 @@ function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTM
 
     if (match && match.querySelector('rect')) {
       candidates.set(sgId, match);
+      continue;
+    }
+
+    // 40-04 (EDGE-05, UI-SPEC Grey Area 7): a collapsed subgraph renders as
+    // a NODE-shaped group carrying `.collapsed-group` with the
+    // flowchart-<id>-<n> id family — classified as a SUBGRAPH hit here (the
+    // same id-regex family extractSvgNodes uses), so its click target routes
+    // to the subgraph panel and the Expand toggle stays reachable.
+    const collapsedMatch = allGs.find(g => {
+      if (!/\bcollapsed-group\b/.test(g.getAttribute('class') ?? '')) {return false;}
+      const id = g.id || '';
+      const flowchartMatch = id.match(/flowchart-([A-Za-z0-9_-]+)-\d+$/);
+      return (flowchartMatch !== null && flowchartMatch[1] === sgId) || id === sgId || id.endsWith(`-${sgId}`);
+    });
+
+    if (collapsedMatch && collapsedMatch.querySelector('rect')) {
+      candidates.set(sgId, collapsedMatch);
     }
   }
 
   for (const [sgId, el] of candidates) {
+    // 40-04 (EDGE-05): a collapsed-group hit covers the WHOLE shape — the
+    // top-30px label-strip strategy has no separate label area on the
+    // node-shaped collapsed form.
+    const isCollapsed = /\bcollapsed-group\b/.test(el.getAttribute('class') ?? '');
     // Try different selectors for label text depending on Mermaid version
     const labelText = el.querySelector('.cluster-label text, .nodeLabel text, .label text, text');
     const label = labelText?.textContent ?? sgId;
@@ -130,7 +158,7 @@ function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTM
     try {
       const containerRect = outerContainer.getBoundingClientRect();
       const rect = el.getBoundingClientRect();
-      
+
       const clusterX = rect.left - containerRect.left + scrollLeft;
       const clusterY = rect.top - containerRect.top + scrollTop;
       const clusterWidth = rect.width;
@@ -140,9 +168,9 @@ function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTM
       const x = clusterX;
       const y = clusterY;
       const width = clusterWidth;
-      const height = Math.min(clusterHeight, 30); // Use top 30px as label area
+      const height = isCollapsed ? clusterHeight : Math.min(clusterHeight, 30); // Use top 30px as label area
 
-      overlays.push({ id: sgId, label, x, y, width, height, clusterX, clusterY, clusterWidth, clusterHeight });
+      overlays.push({ id: sgId, label, x, y, width, height, clusterX, clusterY, clusterWidth, clusterHeight, isCollapsed });
     } catch {
       // skip
     }
@@ -991,6 +1019,23 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     setSelectedSubgraphId(null);
   }, [onChange, content, bodyHasMetadata]);
 
+  // 40-04 (EDGE-05): the selected subgraph's parsed view — read-only
+  // derivation from the parseDiagram result (components never re-parse code
+  // strings); absent directive = undefined (Expand active in the panel).
+  const selectedSubgraphView = selectedSubgraphId !== null
+    ? parsedDiagram.subgraphs.find(s => s.id === selectedSubgraphId)?.view
+    : undefined;
+
+  // 40-04 (EDGE-05): view writes route ONLY through the updateSubgraphView
+  // mutator, D6-gated like every other subgraph handler (the view directive
+  // line is fully consumed by the parser, so the fence stays lifted on
+  // well-formed view documents).
+  const handleSubgraphViewChange = useCallback((view: 'collapsed' | 'expanded') => {
+    if (selectedSubgraphId === null || !onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
+    onChange(updateSubgraphView(content, selectedSubgraphId, view));
+  }, [onChange, content, selectedSubgraphId, bodyHasMetadata]);
+
   const handleCanvasClick = useCallback(() => {
     if (toolMode === 'connect') {
       setConnectFirst(null);
@@ -1735,7 +1780,10 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
 
             {subgraphOverlays.map(sg => {
               const isSelected = selectedSubgraphId === sg.id;
-              const isDropTarget = dragOverSubgraphId === sg.id;
+              const isCollapsedSubgraph = Boolean(
+                sg.isCollapsed || parsedDiagram.subgraphs.find(s => s.id === sg.id)?.view === 'collapsed',
+              );
+              const isDropTarget = !isCollapsedSubgraph && dragOverSubgraphId === sg.id;
               const isConnectSource = connectFirst === sg.id;
               const title = supportsClassDef ? (toolMode === 'connect' ? `Click to connect from/to ${sg.id}` : t('preview.clickToEditSubgraph')) : sg.label;
               return (
@@ -1748,6 +1796,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
                   <div
                     className="subgraph-overlay"
                     onDragOver={e => {
+                      if (isCollapsedSubgraph) {return;}
                       e.preventDefault();
                       if (e.dataTransfer) {
                         e.dataTransfer.dropEffect = 'move';
@@ -1758,6 +1807,11 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
                     onDrop={e => {
                       e.preventDefault();
                       e.stopPropagation();
+                      if (isCollapsedSubgraph) {
+                        setDragNodeId(null);
+                        setDragOverSubgraphId(null);
+                        return;
+                      }
                       // Fallback to dataTransfer if dragNodeId state is lost
                       const droppedId = dragNodeId || e.dataTransfer.getData('text/plain');
                       console.log('SUBGRAPH DROP - state dragNodeId:', dragNodeId, 'dt droppedId:', droppedId, 'target sgId:', sg.id);
@@ -1777,7 +1831,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
                       height: sg.clusterHeight,
                       // Subgraphs must be above nodes for drag-drop, but below dragging nodes
                       zIndex: dragNodeId ? 8 : 6,
-                      pointerEvents: dragNodeId ? 'auto' : 'none',
+                      pointerEvents: dragNodeId && !isCollapsedSubgraph ? 'auto' : 'none',
                       border: isSelected ? '2px solid var(--accent)' : (isConnectSource || isDropTarget) ? '2px dashed var(--accent)' : '2px solid transparent',
                       borderRadius: '4px',
                       background: isConnectSource ? 'rgba(var(--accent-rgb), 0.1)' : (isDropTarget ? 'rgba(var(--accent-rgb), 0.08)' : undefined),
@@ -1845,6 +1899,8 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           onLabelChange={handleSubgraphLabelChange}
           onReset={handleSubgraphReset}
           onDelete={handleDeleteSelectedSubgraph}
+          subgraphView={selectedSubgraphView}
+          onViewChange={handleSubgraphViewChange}
         />
       )}
 

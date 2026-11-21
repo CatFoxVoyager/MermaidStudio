@@ -2,11 +2,13 @@
  * Tests for PreviewPanel component
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { fireEvent } from '@testing-library/react';
 import { useState } from 'react';
 import { PreviewPanel, highlightSelectedEdge } from '../PreviewPanel';
+import { parseDiagram } from '@/lib/mermaid/codeUtils';
+import { renderDiagram } from '@/lib/mermaid/core';
 
 // Mock i18n
 vi.mock('react-i18next', async () => {
@@ -139,7 +141,29 @@ vi.mock('@/components/preview/EdgeStylePanel', () => ({
 
 // Mock SubgraphStylePanel
 vi.mock('@/components/preview/SubgraphStylePanel', () => ({
-  SubgraphStylePanel: () => <div data-testid="subgraph-style-panel">SubgraphStylePanel</div>,
+  SubgraphStylePanel: (props: {
+    subgraphId?: string;
+    subgraphView?: 'collapsed' | 'expanded';
+    onViewChange?: (view: 'collapsed' | 'expanded') => void;
+  }) => (
+    <div
+      data-testid="subgraph-style-panel"
+      data-subgraph-id={props.subgraphId ?? ''}
+      data-subgraph-view={props.subgraphView ?? 'undefined'}
+    >
+      SubgraphStylePanel
+      {props.onViewChange && (
+        <>
+          <button type="button" data-testid="mock-sg-expand" onClick={() => props.onViewChange!('expanded')}>
+            Expand
+          </button>
+          <button type="button" data-testid="mock-sg-collapse" onClick={() => props.onViewChange!('collapsed')}>
+            Collapse
+          </button>
+        </>
+      )}
+    </div>
+  ),
 }));
 
 vi.mock('@/components/visual/ColorPicker', () => ({
@@ -1925,3 +1949,118 @@ describe('NodeStylePanel media wiring (39-04 ICON-03)', () => {
     expect(screen.queryByTestId('node-style-panel')).not.toBeInTheDocument();
   });
 });
+
+describe('collapsed-group subgraph selection & view toggle (40-04 EDGE-05)', () => {
+  const COLLAPSED_CONTENT = [
+    'flowchart TD',
+    '  A[Alpha]',
+    '  subgraph sg1 [Box]',
+    '    B[Beta]',
+    '  end',
+    '  sg1@{ view: collapsed }',
+  ].join('\n');
+
+  const COLLAPSED_SVG = [
+    '<svg id="test-svg" viewBox="0 0 400 300">',
+    '<g class="node default" id="flowchart-A-0"><rect/><text class="nodeLabel">Alpha</text></g>',
+    '<g class="node default collapsed-group" id="flowchart-sg1-1"><rect/><text class="nodeLabel">Box</text></g>',
+    '</svg>',
+  ].join('');
+
+  const COLLAPSED_PARSED = {
+    nodes: [
+      { id: 'A', label: 'Alpha', shape: 'rect' as const, raw: 'A[Alpha]', parentSubgraphId: null },
+      { id: 'B', label: 'Beta', shape: 'rect' as const, raw: 'B[Beta]', parentSubgraphId: 'sg1' },
+    ],
+    edges: [],
+    styles: new Map(),
+    classDefs: new Map(),
+    nodeClasses: new Map(),
+    linkStyles: new Map(),
+    subgraphs: [{ id: 'sg1', label: 'Box', parentSubgraphId: null, view: 'collapsed' as const }],
+    linkedDirectives: new Map([['sg1', ['sg1@{ view: collapsed }']]]),
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function renderCollapsed(onChange = vi.fn(), svg = COLLAPSED_SVG) {
+    const { detectDiagramType } = await import('@/lib/mermaid/core');
+    vi.mocked(renderDiagram).mockReset();
+    vi.mocked(renderDiagram).mockResolvedValue({ svg, error: null });
+    vi.mocked(parseDiagram).mockReset();
+    vi.mocked(parseDiagram).mockReturnValue(COLLAPSED_PARSED as Awaited<ReturnType<typeof parseDiagram>>);
+    vi.mocked(detectDiagramType).mockReset();
+    vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+
+    const utils = render(<PreviewPanel content={COLLAPSED_CONTENT} theme="light" onChange={onChange} />);
+    await waitFor(() => {
+      expect(utils.container.querySelectorAll('[data-testid="subgraph-label-hit"]').length).toBe(1);
+    }, { timeout: 3000 });
+    return utils;
+  }
+
+  it('excludes .collapsed-group from node overlays and routes its click to SubgraphStylePanel (never NodeStylePanel)', async () => {
+    const { container } = await renderCollapsed();
+
+    // Only node A gets a .node-overlay — sg1 wears .collapsed-group and is
+    // owned solely by extractSubgraphOverlays.
+    expect(container.querySelectorAll('.node-overlay').length).toBe(1);
+
+    const sgHit = container.querySelector('[data-testid="subgraph-label-hit"]') as HTMLElement;
+    fireEvent.click(sgHit);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('subgraph-style-panel')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('subgraph-style-panel')).toHaveAttribute('data-subgraph-id', 'sg1');
+    expect(screen.getByTestId('subgraph-style-panel')).toHaveAttribute('data-subgraph-view', 'collapsed');
+    expect(screen.queryByTestId('node-style-panel')).not.toBeInTheDocument();
+  });
+
+  it('matches prefixed preview_<n>_<ts>-flowchart-<sgId>-<n> collapsed-group ids too', async () => {
+    const prefixedSvg = COLLAPSED_SVG.replace('id="flowchart-sg1-1"', 'id="preview_1_1795233-flowchart-sg1-1"');
+    const { container } = await renderCollapsed(vi.fn(), prefixedSvg);
+
+    expect(container.querySelectorAll('.node-overlay').length).toBe(1);
+    fireEvent.click(container.querySelector('[data-testid="subgraph-label-hit"]')!);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('subgraph-style-panel')).toHaveAttribute('data-subgraph-id', 'sg1');
+    });
+    expect(screen.queryByTestId('node-style-panel')).not.toBeInTheDocument();
+  });
+
+  it('clicking Expand in SubgraphStylePanel routes through updateSubgraphView and strips the collapsed directive', async () => {
+    const onChange = vi.fn();
+    const { container } = await renderCollapsed(onChange);
+
+    fireEvent.click(container.querySelector('[data-testid="subgraph-label-hit"]')!);
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-sg-expand')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('mock-sg-expand'));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const nextCode = onChange.mock.calls[0][0] as string;
+    expect(nextCode).not.toContain('view: collapsed');
+    expect(nextCode).toContain('subgraph sg1 [Box]');
+  });
+
+  it('dropping a dragged node onto a collapsed subgraph overlay is a no-op', async () => {
+    const { moveNodeToSubgraph } = await import('@/lib/mermaid/codeUtils');
+    vi.mocked(moveNodeToSubgraph).mockClear();
+    const onChange = vi.fn();
+    const { container } = await renderCollapsed(onChange);
+
+    const nodeOverlay = container.querySelector('.node-overlay') as HTMLElement;
+    const sgOutline = container.querySelector('.subgraph-overlay') as HTMLElement;
+    fireEvent.dragStart(nodeOverlay, { dataTransfer: { setData: vi.fn(), getData: () => 'A' } });
+    fireEvent.drop(sgOutline, { dataTransfer: { getData: () => 'A' } });
+
+    expect(moveNodeToSubgraph).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+

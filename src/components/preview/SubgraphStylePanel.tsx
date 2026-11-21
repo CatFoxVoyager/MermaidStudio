@@ -14,6 +14,18 @@ interface SubgraphStylePanelProps {
   onReset: (subgraphId: string) => void;
   /** Callback when the subgraph is deleted (hides the button if absent) */
   onDelete?: () => void;
+  /**
+   * 40-04 (EDGE-05): the parsed view from the standalone `SG@{ view: ...
+   * }` directive (absent or 'expanded' = Expand segment active). Read-only
+   * derivation — the panel never re-parses code strings.
+   */
+  subgraphView?: 'collapsed' | 'expanded';
+  /**
+   * 40-04 (EDGE-05): view writes route ONLY through the codeUtils
+   * view mutator. Absent = the Collapse/Expand row does not render at all
+   * (existing callers stay byte-identical).
+   */
+  onViewChange?: (view: 'collapsed' | 'expanded') => void;
 }
 
 export function SubgraphStylePanel({
@@ -25,6 +37,8 @@ export function SubgraphStylePanel({
   onLabelChange,
   onReset,
   onDelete,
+  subgraphView,
+  onViewChange,
 }: SubgraphStylePanelProps) {
   const { t } = useTranslation();
   const [label, setLabel] = useState(subgraphLabel);
@@ -52,6 +66,14 @@ export function SubgraphStylePanel({
     { value: '', label: t('subgraphStyle.solid'), dasharray: '' },
     { value: '5 5', label: t('subgraphStyle.dashed'), dasharray: '5 5' },
     { value: '2 2', label: t('subgraphStyle.dotted'), dasharray: '2 2' },
+  ] as const;
+
+  // 40-04 (EDGE-05): the two fixed view segments (UI-SPEC E7 — 8-char
+  // labels, no truncation path). Active derives from the parsed view:
+  // absent or expanded = Expand, collapsed = Collapse.
+  const VIEW_OPTIONS = [
+    { value: 'collapsed', label: t('subgraphStyle.collapse') },
+    { value: 'expanded', label: t('subgraphStyle.expand') },
   ] as const;
 
   const FONT_WEIGHT_OPTIONS = [
@@ -159,6 +181,44 @@ export function SubgraphStylePanel({
             }}
           />
         </div>
+
+        {/* View (40-04 EDGE-05): Collapse/Expand segmented control. Renders
+            ONLY when onViewChange is threaded — absent props keep existing
+            callers byte-identical. Writes route through the codeUtils view
+            mutator upstream; the panel holds no inline state (reversible per
+            the copywriting contract, no confirmation). */}
+        {onViewChange && (
+          <div className="flex flex-col gap-1">
+            <div
+              className="flex gap-1"
+              role="group"
+              aria-label={t('subgraphStyle.viewHint')}
+              title={t('subgraphStyle.viewHint')}
+            >
+              {VIEW_OPTIONS.map(opt => {
+                const isActive = opt.value === 'collapsed'
+                  ? subgraphView === 'collapsed'
+                  : subgraphView !== 'collapsed';
+                return (
+                  <button
+                    key={opt.value}
+                    aria-pressed={isActive}
+                    onClick={() => onViewChange(opt.value)}
+                    className="flex-1 py-1.5 rounded-md border text-[11px] font-medium transition-all"
+                    style={{
+                      borderColor: isActive ? 'var(--accent)' : 'var(--border-subtle)',
+                      background: isActive ? 'var(--accent-dim)' : 'var(--surface-base)',
+                      color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                      borderWidth: isActive ? '2px' : '1px',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Fill Color */}
         <ColorPicker
