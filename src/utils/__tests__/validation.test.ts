@@ -90,6 +90,44 @@ describe('Validation Utilities', () => {
       expect(validateDiagramContent(content)).toEqual({ valid: true });
     });
 
+    // ICON-04 (39-03): the narrowed event-handler pattern must still flag real
+    // handler payloads (tag context AND executable values) while accepting the
+    // false-positive classes that img: URLs, ABNF/EBNF rule text, and plain
+    // labels carry. Plan case matrix, both directions.
+    describe('ICON-04 event-handler narrowing (39-03)', () => {
+      it.each([
+        ['svg tag onload', 'flowchart TD\n  A[<svg onload=alert(1)>]'],
+        ['img tag onerror', '<img src=x onerror=alert(1)>'],
+        ['a tag onclick', '<a xlink:href="#" onclick=steal()>'],
+        ['animate tag onbegin', '<animate onbegin=alert(1)>'],
+      ])('rejects a tag-context handler (%s)', (_label, content) => {
+        const result = validateDiagramContent(content);
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain('potentially malicious');
+      });
+
+      it.each([
+        ['img URL query', 'img: https://example.com/a.png?onerror=1'],
+        ['second URL param', 'https://cdn/img?width=10&onload=x'],
+        ['ABNF rule text', 'expression onload = combination'],
+        ['quoted ABNF literal', 'rule = "onload = x"'],
+        ['plain label, unquoted value', 'flowchart TD\n  A[System onload=manual]'],
+      ])('accepts a false-positive class (%s)', (_label, content) => {
+        expect(validateDiagramContent(content)).toEqual({ valid: true });
+      });
+
+      it('still rejects a quoted-value handler in a plain label (core render-path contract)', () => {
+        // core.test.ts pins renderDiagram rejecting A[onclick="alert('xss')"]:
+        // a label with NO tag but an executable (quoted) value stays flagged,
+        // so the narrowing must keep the executable-value arm.
+        const result = validateDiagramContent(
+          'flowchart TD\n  A[onclick="alert(\'xss\')"] --> B'
+        );
+        expect(result.valid).toBe(false);
+        expect(result.error).toContain('potentially malicious');
+      });
+    });
+
     it('should reject content with iframe tags', () => {
       const iframeContent = 'graph TD\n  A[<iframe src="evil.com"></iframe>]';
       const result = validateDiagramContent(iframeContent);
