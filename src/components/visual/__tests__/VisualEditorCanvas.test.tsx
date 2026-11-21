@@ -1799,5 +1799,38 @@ describe('subgraph hit-target band & collapsed drop guard (40-04 EDGE-05)', () =
     fireEvent.pointerUp(nodeA, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 250, clientY: 240 });
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('recognizes Mermaid 12.3 DOM where .collapsed-group sits on child rect (full band height + drop guard)', async () => {
+    const COLLAPSED_CODE = [
+      'flowchart TD',
+      '  subgraph sg1 [Box]',
+      '    A[Start]',
+      '  end',
+      '  sg1@{ view: collapsed }',
+    ].join('\n');
+    mockSvg = '<svg><g class="node" id="visual_1_1795-sg1"><rect class="basic label-container collapsed-group" width="80" height="68" /></g></svg>';
+    Element.prototype.getBoundingClientRect = vi.fn(function (this: Element) {
+      if (this.classList.contains('mermaid-container')) {return rect(0, 0, 800, 600);}
+      if (this.id === 'visual_1_1795-sg1' || this.classList.contains('collapsed-group')) {return rect(200, 200, 80, 68);}
+      return rect(0, 0, 800, 600);
+    });
+
+    const onChange = vi.fn();
+    const { container } = render(
+      <VisualEditorCanvas content={COLLAPSED_CODE} theme="light" onChange={onChange} />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('.visual-subgraph-overlay').length).toBe(1);
+    });
+    const band = container.querySelector('.visual-subgraph-overlay[data-subgraph-id="sg1"]') as HTMLElement;
+    expect(band.style.height).toBe('68px');
+
+    const canvasArea = container.querySelector('.preview-grid') as HTMLElement;
+    const shapeBtn = container.querySelector('button[draggable="true"]') as HTMLElement;
+    fireEvent.dragStart(shapeBtn);
+    fireEvent(canvasArea, new MouseEvent('drop', { bubbles: true, cancelable: true, clientX: 240, clientY: 230 }));
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });
 

@@ -2062,5 +2062,29 @@ describe('collapsed-group subgraph selection & view toggle (40-04 EDGE-05)', () 
     expect(moveNodeToSubgraph).not.toHaveBeenCalled();
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('recognizes Mermaid 12.3 DOM where .collapsed-group sits on the child rect (full hit height, not clamped 30px)', async () => {
+    const liveMermaidSvg = [
+      '<svg id="test-svg" viewBox="0 0 400 300">',
+      '<g class="node default" id="flowchart-A-0"><rect/><text class="nodeLabel">Alpha</text></g>',
+      '<g class="node" id="preview_2_179528-sg1" data-look="neo"><rect class="basic label-container collapsed-group" width="80" height="68"/><text class="nodeLabel">Box</text></g>',
+      '</svg>',
+    ].join('');
+    const origGetRect = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = function (this: Element) {
+      if (this.id === 'preview_2_179528-sg1') {
+        return { x: 20, y: 20, left: 20, top: 20, right: 100, bottom: 88, width: 80, height: 68, toJSON: () => ({}) } as DOMRect;
+      }
+      return origGetRect.call(this);
+    };
+    try {
+      const { container } = await renderCollapsed(vi.fn(), liveMermaidSvg);
+      const sgHit = container.querySelector('[data-testid="subgraph-label-hit"]') as HTMLElement;
+      expect(sgHit.style.height).toBe('68px');
+      expect(sgHit.style.width).toBe('80px');
+    } finally {
+      Element.prototype.getBoundingClientRect = origGetRect;
+    }
+  });
 });
 

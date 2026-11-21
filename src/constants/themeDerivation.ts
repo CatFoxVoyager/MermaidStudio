@@ -965,7 +965,7 @@ export function applyThemeToFrontmatter(
   if (frontmatterMatch) {
     try {
       const yamlContent = frontmatterMatch[1];
-      const configMatch = yamlContent.match(/config:\s*([\s\S]*)$/);
+      const configMatch = yamlContent.match(/config:[ \t]*(?:\r?\n)?([\s\S]*)$/);
       if (configMatch) {
         const parsed = parseYamlConfig(configMatch[1]);
         for (const [key, value] of Object.entries(parsed)) {
@@ -1105,7 +1105,7 @@ export function removeThemeColorsFromFrontmatter(content: string): string {
 
   try {
     const yamlContent = frontmatterMatch[1];
-    const configMatch = yamlContent.match(/config:\s*([\s\S]*)$/);
+    const configMatch = yamlContent.match(/config:[ \t]*(?:\r?\n)?([\s\S]*)$/);
     if (configMatch) {
       const parsed = parseYamlConfig(configMatch[1]);
       const diagramType = detectDiagramType(stripped);
@@ -1351,7 +1351,7 @@ export function applyStyleToContent(
   if (frontmatterMatch) {
     try {
       const yamlContent = frontmatterMatch[1];
-      const configMatch = yamlContent.match(/config:\s*([\s\S]*)$/);
+      const configMatch = yamlContent.match(/config:[ \t]*(?:\r?\n)?([\s\S]*)$/);
       if (configMatch) existingConfig = parseYamlConfig(configMatch[1]);
     } catch {
       // Silently ignore parsing errors
@@ -1511,7 +1511,7 @@ export function extractStyleOptionsFromContent(
   if (frontmatterMatch) {
     try {
       const yamlContent = frontmatterMatch[1];
-      const configMatch = yamlContent.match(/config:\s*([\s\S]*)$/);
+      const configMatch = yamlContent.match(/config:[ \t]*(?:\r?\n)?([\s\S]*)$/);
       if (configMatch) {
         const config = parseYamlConfig(configMatch[1]);
 

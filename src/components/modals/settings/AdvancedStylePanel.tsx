@@ -126,6 +126,10 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   const previousContentRef = useRef<string>('');
   const applyingRef = useRef(false); // Prevents init effect from re-triggering apply loop
   const userHasChangedStyles = useRef(false); // Track if user made any changes
+  const onContentChangeRef = useRef(onContentChange);
+  useEffect(() => {
+    onContentChangeRef.current = onContentChange;
+  }, [onContentChange]);
 
   const isDefault = JSON.stringify(styleOptions) === JSON.stringify(DEFAULT_STYLE_OPTIONS);
 
@@ -180,12 +184,13 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   // Define applyStyles function
   const applyStyles = useCallback((opts: DiagramStyleOptions) => {
     if (!baseContentRef.current) {return;}
-    applyingRef.current = true;
     const isDark = theme === 'dark';
     const newContent = applyStyleToContent(baseContentRef.current, opts, isDark);
+    if (newContent === previousContentRef.current) {return;}
+    applyingRef.current = true;
     previousContentRef.current = newContent;
-    onContentChange(newContent);
-  }, [onContentChange, theme]);
+    onContentChangeRef.current(newContent);
+  }, [theme]);
 
   // Apply styles in real-time when styleOptions change (but only when panel is open)
   useEffect(() => {

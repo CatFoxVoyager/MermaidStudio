@@ -35,6 +35,10 @@ export interface SubgraphOverlay {
   isCollapsed?: boolean;
 }
 
+function isCollapsedSubgraphGroup(el: Element): boolean {
+  return /\bcollapsed-group\b/.test(el.getAttribute('class') ?? '') || el.querySelector('.collapsed-group') !== null;
+}
+
 // Node overlays live INSIDE the zoom-scaled wrapper, while getBoundingClientRect()
 // returns screen coordinates that the wrapper's `scale(zoom)` has already
 // multiplied. Dividing deltas and dimensions by zoom recovers the local
@@ -62,10 +66,9 @@ export function extractSvgNodes(container: HTMLDivElement, zoom: number): NodeOv
     const nodeId = flowchartMatch ? flowchartMatch[1] : null;
     if (!nodeId || seen.has(nodeId)) {return;}
     // 40-04 (EDGE-05, UI-SPEC Grey Area 7): a collapsed subgraph wears a
-    // node shape inside g.nodes (mermaid's `.collapsed-group` route) — it
-    // IS the subgraph, never a node. Excluded here so no node overlay attaches;
-    // extractSvgSubgraphs owns its hit-target band.
-    if (/\bcollapsed-group\b/.test(el.getAttribute('class') ?? '')) {return;}
+    // node shape inside g.nodes (mermaid places `.collapsed-group` on its
+    // child <rect>/<path>, or on the group in mocks) — it IS the subgraph.
+    if (isCollapsedSubgraphGroup(el)) {return;}
     seen.add(nodeId);
 
     try {
@@ -115,7 +118,7 @@ export function extractSvgSubgraphs(
     }
 
     const collapsedMatch = allGs.find(g => {
-      if (!/\bcollapsed-group\b/.test(g.getAttribute('class') ?? '')) {return false;}
+      if (!isCollapsedSubgraphGroup(g)) {return false;}
       const id = g.id || '';
       const flowchartMatch = id.match(/flowchart-([A-Za-z0-9_-]+)-\d+$/);
       return (flowchartMatch !== null && flowchartMatch[1] === sgId) || id === sgId || id.endsWith(`-${sgId}`);
@@ -128,7 +131,7 @@ export function extractSvgSubgraphs(
   const overlays: SubgraphOverlay[] = [];
   const containerRect = container.getBoundingClientRect();
   for (const [sgId, el] of candidates) {
-    const isCollapsed = /\bcollapsed-group\b/.test(el.getAttribute('class') ?? '');
+    const isCollapsed = isCollapsedSubgraphGroup(el);
     const labelText = el.querySelector('.cluster-label text, .nodeLabel text, .label text, text');
     const label = labelText?.textContent ?? sgId;
     try {
@@ -153,8 +156,8 @@ export function extractSvgSubgraphs(
 
 /**
  * 40-04 (EDGE-05): true when viewport coordinates (clientX, clientY) land
- * inside any rendered `.collapsed-group` group's bounding box. Drops inside
- * collapsed bounds are no-ops (collapsed internals are hidden from SVG DOM).
+ * inside any rendered `.collapsed-group` group's or rect's bounding box. Drops
+ * inside collapsed bounds are no-ops (collapsed internals are hidden from SVG DOM).
  */
 function isPointInCollapsedGroup(
   container: HTMLDivElement | null,
@@ -162,7 +165,7 @@ function isPointInCollapsedGroup(
   clientY: number,
 ): boolean {
   if (!container) {return false;}
-  const groups = container.querySelectorAll('svg g.collapsed-group');
+  const groups = container.querySelectorAll('svg g.collapsed-group, svg .collapsed-group');
   for (const group of groups) {
     const r = group.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) {continue;}

@@ -45,6 +45,10 @@ interface SubgraphOverlay {
   isCollapsed?: boolean;
 }
 
+function isCollapsedSubgraphGroup(el: Element): boolean {
+  return /\bcollapsed-group\b/.test(el.getAttribute('class') ?? '') || el.querySelector('.collapsed-group') !== null;
+}
+
 function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElement): NodeOverlay[] {
   // Find SVG in Shadow DOM
   const shadowRoot = shadowHost.shadowRoot;
@@ -73,11 +77,10 @@ function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElem
     const nodeId = flowchartMatch ? flowchartMatch[1] : null;
     if (!nodeId || seen.has(nodeId)) {return;}
     // 40-04 (EDGE-05, UI-SPEC Grey Area 7): a collapsed subgraph wears a
-    // node shape inside g.nodes (mermaid's `.collapsed-group` route) — it
-    // IS the subgraph, never a node. Excluded here so no node overlay (and
-    // therefore no NodeStylePanel, no node drag) can ever attach to it;
-    // extractSubgraphOverlays owns its click target.
-    if (/\bcollapsed-group\b/.test(el.getAttribute('class') ?? '')) {return;}
+    // node shape inside g.nodes (mermaid puts `.collapsed-group` on its
+    // child <rect>/<path>, or on the group itself in mocks) — it IS the
+    // subgraph, never a node. Excluded here so no node overlay can attach.
+    if (isCollapsedSubgraphGroup(el)) {return;}
     seen.add(nodeId);
 
     try {
@@ -126,12 +129,12 @@ function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTM
     }
 
     // 40-04 (EDGE-05, UI-SPEC Grey Area 7): a collapsed subgraph renders as
-    // a NODE-shaped group carrying `.collapsed-group` with the
-    // flowchart-<id>-<n> id family — classified as a SUBGRAPH hit here (the
-    // same id-regex family extractSvgNodes uses), so its click target routes
-    // to the subgraph panel and the Expand toggle stays reachable.
+    // a NODE-shaped group carrying `.collapsed-group` (on the group or its
+    // container rect/path) with the flowchart-<id>-<n> id family —
+    // classified as a SUBGRAPH hit here so its click target routes to the
+    // subgraph panel and the Expand toggle stays reachable.
     const collapsedMatch = allGs.find(g => {
-      if (!/\bcollapsed-group\b/.test(g.getAttribute('class') ?? '')) {return false;}
+      if (!isCollapsedSubgraphGroup(g)) {return false;}
       const id = g.id || '';
       const flowchartMatch = id.match(/flowchart-([A-Za-z0-9_-]+)-\d+$/);
       return (flowchartMatch !== null && flowchartMatch[1] === sgId) || id === sgId || id.endsWith(`-${sgId}`);
@@ -146,7 +149,7 @@ function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTM
     // 40-04 (EDGE-05): a collapsed-group hit covers the WHOLE shape — the
     // top-30px label-strip strategy has no separate label area on the
     // node-shaped collapsed form.
-    const isCollapsed = /\bcollapsed-group\b/.test(el.getAttribute('class') ?? '');
+    const isCollapsed = isCollapsedSubgraphGroup(el);
     // Try different selectors for label text depending on Mermaid version
     const labelText = el.querySelector('.cluster-label text, .nodeLabel text, .label text, text');
     const label = labelText?.textContent ?? sgId;

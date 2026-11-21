@@ -3,6 +3,7 @@ import { X, RotateCcw, Settings2, ChevronDown, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 import type { NodeStyle } from '@/lib/mermaid/codeUtils';
+import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
 
 interface SubgraphStylePanelProps {
   subgraphId: string;
@@ -202,9 +203,10 @@ export function SubgraphStylePanel({
                 return (
                   <button
                     key={opt.value}
+                    data-subgraph-view={opt.value}
                     aria-pressed={isActive}
                     onClick={() => onViewChange(opt.value)}
-                    className="flex-1 py-1.5 rounded-md border text-[11px] font-medium transition-all"
+                    className={`flex-1 py-1.5 max-md:min-h-[44px] rounded-md border text-[11px] font-medium transition-all ${FOCUS_RING_CLASSES}`}
                     style={{
                       borderColor: isActive ? 'var(--accent)' : 'var(--border-subtle)',
                       background: isActive ? 'var(--accent-dim)' : 'var(--surface-base)',
