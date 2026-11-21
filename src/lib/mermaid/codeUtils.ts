@@ -1741,6 +1741,48 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
   return source;
 }
 
+/**
+ * Split `rest` (everything after a node id on its line) into the node's own
+ * balanced bracket span and the verbatim remainder of the line — an edge tail
+ * like ` --> B{x}`. Returns null when the rest is unbalanced (no closing
+ * bracket), so callers keep their previous whole-rest behavior.
+ * Depth-aware per bracket family and quote-aware: labels may carry their own
+ * brackets and quotes. The opener's own families seed at depth 1, so a nested
+ * closer cannot close the span early (a `}` inside `{[("x")]}` stays open).
+ * 38 UAT walk: updateNodeShape's legacy branch matched `[^\n]+` after the
+ * opener and wrapped the whole edge line into the new shape delimiters — the
+ * reproduced corruption `A{([Start]) --> B{Is it working?}}`. Only the node's
+ * span may be re-wrapped; the tail is the user's syntax and is preserved
+ * byte-for-byte.
+ */
+function splitNodeSpan(rest: string): { span: string; tail: string } | null {
+  const openerMatch = rest.match(/^(?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[)/);
+  if (!openerMatch) {return null;}
+  const depth = new Map<string, number>();
+  const pairOf = (ch: string): string | null => (ch === '(' ? ')' : ch === '[' ? ']' : ch === '{' ? '}' : null);
+  for (const ch of openerMatch[0]) {
+    if (pairOf(ch)) {depth.set(ch, (depth.get(ch) || 0) + 1);}
+  }
+  let quote: string | null = null;
+  for (let i = openerMatch[0].length; i < rest.length; i++) {
+    const ch = rest[i];
+    if (quote) {
+      if (ch === quote) {quote = null;}
+      continue;
+    }
+    if (ch === '"' || ch === "'") {quote = ch; continue;}
+    if (pairOf(ch)) {depth.set(ch, (depth.get(ch) || 0) + 1); continue;}
+    if (ch === ')' || ch === ']' || ch === '}') {
+      const open = ch === ')' ? '(' : ch === ']' ? '[' : '{';
+      depth.set(open, (depth.get(open) || 0) - 1);
+      if ([...depth.values()].every(v => v <= 0)) {
+        return { span: rest.slice(0, i + 1), tail: rest.slice(i + 1) };
+      }
+    }
+  }
+  return null;
+}
+
 export function updateNodeShape(source: string, nodeId: string, newShape: NodeShape): string {
   const lines = source.split('\n');
   for (let i = 0; i < lines.length; i++) {
@@ -1764,8 +1806,14 @@ export function updateNodeShape(source: string, nodeId: string, newShape: NodeSh
         lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${shapeWrap(label, newShape, true, extras)}`;
         return lines.join('\n');
       }
-      const { label, quoted } = parseNodeLabel(nodeMatch[4].trim());
-      lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${shapeWrap(label, newShape, quoted)}`;
+      // 38 UAT walk: the rest may carry an edge tail (` --> B{x}`). Rewrite
+      // only the node's balanced span and append the tail verbatim — the
+      // previous whole-rest wrap corrupted multi-node edge lines.
+      const restTrimmed = nodeMatch[4].trim();
+      const split = splitNodeSpan(restTrimmed);
+      const parsed = parseNodeLabel(split ? split.span : restTrimmed);
+      const tail = split ? split.tail : '';
+      lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${shapeWrap(parsed.label, newShape, parsed.quoted)}${tail}`;
       return lines.join('\n');
     }
   }

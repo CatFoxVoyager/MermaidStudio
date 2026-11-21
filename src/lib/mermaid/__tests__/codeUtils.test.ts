@@ -822,6 +822,26 @@ describe('Mermaid Code Utilities', () => {
     // contract). The label stays quoted — the directive context always
     // quotes, and the quoted bracket form round-trips labels containing
     // special characters.
+    // 38 UAT walk: the legacy branch matched the whole line after the opener
+    // (`[^\n]+`), so rewriting a node that opens an EDGE line wrapped the
+    // arrow and the target into the new shape delimiters — the reproduced
+    // corruption `A{([Start]) --> B{Is it working?}}`. The rewrite must be
+    // span-aware: only the node's balanced bracket span is re-wrapped, the
+    // edge tail is preserved verbatim.
+    it('rewrites only the node span on an edge line, preserving the tail verbatim', () => {
+      const source = 'flowchart TD\nA([Start]) --> B{Is it working?}';
+      const result = updateNodeShape(source, 'A', 'diam');
+
+      expect(result).toBe('flowchart TD\nA{Start} --> B{Is it working?}');
+    });
+
+    it('preserves quoted labels with brackets and the edge tail on rewrite', () => {
+      const source = 'flowchart TD\nA(["Call (x)"]) --> B[End]';
+      const result = updateNodeShape(source, 'A', 'diam');
+
+      expect(result).toBe('flowchart TD\nA{"Call (x)"} --> B[End]');
+    });
+
     it('drops unknown params when converting a directive node to a bracket shape', () => {
       const source = 'flowchart TD\nA@{ shape: "doc", label: "D", w: 100 }';
       // 38-06: 'round' left the union — the canonical 'rounded' twin emits
