@@ -42,6 +42,7 @@ export interface VisualEdge {
 export interface SelectionState {
   nodeIds: string[];
   edgeKey: string | null;
+  subgraphId?: string | null;
 }
 
 export type ToolMode = 'select' | 'connect';

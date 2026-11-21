@@ -24,6 +24,8 @@ vi.mock('react-i18next', async () => {
     visual: { shapes: Record<string, string>; shapeChangeHint: string };
     nodeStyle: { mixed: string };
     edgeStyle: Record<string, string>;
+    subgraphStyle: Record<string, string>;
+    preview: { subgraph: string };
   };
   const shapeLabels: Record<string, string> = Object.fromEntries(
     CANONICAL_SHAPES.map((s) => [`visual.shapes.${s.shortName}`, en.visual.shapes[s.shortName] ?? s.shortName]),
@@ -33,6 +35,9 @@ vi.mock('react-i18next', async () => {
   // registry-derived mock pattern; no hand-typed key blocks).
   const edgeStyleLabels: Record<string, string> = Object.fromEntries(
     Object.entries(en.edgeStyle).map(([k, v]) => [`edgeStyle.${k}`, v]),
+  );
+  const subgraphStyleLabels: Record<string, string> = Object.fromEntries(
+    Object.entries(en.subgraphStyle).map(([k, v]) => [`subgraphStyle.${k}`, v]),
   );
   return {
     useTranslation: () => ({
@@ -80,8 +85,10 @@ vi.mock('react-i18next', async () => {
           'visual.iconPacks.solid': 'Solid',
           'visual.iconPacks.regular': 'Regular',
           'visual.iconPacks.brands': 'Brands',
+          'preview.subgraph': en.preview.subgraph,
           ...shapeLabels,
           ...edgeStyleLabels,
+          ...subgraphStyleLabels,
         };
         return (map[key] ?? key).replace(/\{\{(\w+)\}\}/g, (_, k: string) => String(args?.[k] ?? `{{${k}}}`));
       },
@@ -844,3 +851,127 @@ describe('selector contract source pins (40-02 Surface 7)', () => {
     ).toContain("'.edgePaths path.flowchart-link'");
   });
 });
+
+// ===== 40-04 (EDGE-05, Grey Area #2): visual-side SubgraphPanel + Collapse/Expand
+// segmented row. Absent props keep existing callers byte-identical; when
+// selectedSubgraphId + onViewChange are threaded, the panel renders Subgraph ID/Label
+// and the Collapse/Expand toggle with max-md:min-h-[44px] touch floors.
+describe('PropertiesPanel SubgraphPanel — Collapse/Expand (40-04 EDGE-05)', () => {
+  const enMod = enJson as unknown as {
+    default?: { subgraphStyle: Record<string, string>; preview: { subgraph: string } };
+    subgraphStyle?: Record<string, string>;
+    preview?: { subgraph: string };
+  };
+  const sgCopy = enMod.default?.subgraphStyle ?? enMod.subgraphStyle!;
+  const subgraphTitle = enMod.default?.preview.subgraph ?? enMod.preview!.subgraph;
+
+  function renderSubgraphPanel(opts?: {
+    selectedSubgraphId?: string | null;
+    selectedSubgraphLabel?: string;
+    subgraphView?: 'collapsed' | 'expanded';
+    onViewChange?: (view: 'collapsed' | 'expanded') => void;
+  }) {
+    return render(
+      <PropertiesPanel
+        selectedNodes={[]}
+        selectedEdge={null}
+        onLabelChange={vi.fn()}
+        onShapeChange={vi.fn()}
+        onStyleChange={vi.fn()}
+        onArrowChange={vi.fn()}
+        onEdgeLabelChange={vi.fn()}
+        onDeleteEdge={vi.fn()}
+        selectedSubgraphId={opts?.selectedSubgraphId}
+        selectedSubgraphLabel={opts?.selectedSubgraphLabel}
+        subgraphView={opts?.subgraphView}
+        onViewChange={opts?.onViewChange}
+      />,
+    );
+  }
+
+  it('renders no subgraph section when selectedSubgraphId or onViewChange is absent (39-04 contract)', () => {
+    const absent = renderSubgraphPanel();
+    expect(absent.container.querySelector('[data-testid="visual-subgraph-panel"]')).toBeNull();
+    absent.unmount();
+
+    const idOnly = renderSubgraphPanel({ selectedSubgraphId: 'sg1' });
+    expect(idOnly.container.querySelector('[data-testid="visual-subgraph-panel"]')).toBeNull();
+  });
+
+  it('renders Subgraph ID, Label, and Expand active when subgraphView is undefined or expanded', () => {
+    const onViewChange = vi.fn();
+    const { container, rerender } = renderSubgraphPanel({
+      selectedSubgraphId: 'sg1',
+      selectedSubgraphLabel: 'Box',
+      onViewChange,
+    });
+    expect(container.textContent).toContain(subgraphTitle);
+    expect(container.querySelector('[data-testid="visual-subgraph-panel"]')).not.toBeNull();
+    expect(container.querySelector('[data-subgraph-panel-id]')?.textContent).toBe('sg1');
+    expect(container.querySelector('[data-subgraph-panel-label]')?.textContent).toBe('Box');
+
+    const expandBtn = container.querySelector('[data-subgraph-view="expanded"]') as HTMLElement;
+    const collapseBtn = container.querySelector('[data-subgraph-view="collapsed"]') as HTMLElement;
+    expect(expandBtn.getAttribute('aria-pressed')).toBe('true');
+    expect(collapseBtn.getAttribute('aria-pressed')).toBe('false');
+    expect(expandBtn.textContent).toBe(sgCopy.expand);
+    expect(collapseBtn.textContent).toBe(sgCopy.collapse);
+
+    rerender(
+      <PropertiesPanel
+        selectedNodes={[]}
+        selectedEdge={null}
+        onLabelChange={vi.fn()}
+        onShapeChange={vi.fn()}
+        onStyleChange={vi.fn()}
+        onArrowChange={vi.fn()}
+        onEdgeLabelChange={vi.fn()}
+        onDeleteEdge={vi.fn()}
+        selectedSubgraphId="sg1"
+        selectedSubgraphLabel="Box"
+        subgraphView="expanded"
+        onViewChange={onViewChange}
+      />,
+    );
+    expect(container.querySelector('[data-subgraph-view="expanded"]')?.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelector('[data-subgraph-view="collapsed"]')?.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('lights Collapse when subgraphView is collapsed and fires onViewChange on segment clicks', () => {
+    const onViewChange = vi.fn();
+    const { container } = renderSubgraphPanel({
+      selectedSubgraphId: 'sg1',
+      subgraphView: 'collapsed',
+      onViewChange,
+    });
+    // Label falls back to subgraphId when selectedSubgraphLabel is omitted.
+    expect(container.querySelector('[data-subgraph-panel-label]')?.textContent).toBe('sg1');
+
+    const collapseBtn = container.querySelector('[data-subgraph-view="collapsed"]') as HTMLElement;
+    const expandBtn = container.querySelector('[data-subgraph-view="expanded"]') as HTMLElement;
+    expect(collapseBtn.getAttribute('aria-pressed')).toBe('true');
+    expect(expandBtn.getAttribute('aria-pressed')).toBe('false');
+
+    fireEvent.click(expandBtn);
+    expect(onViewChange).toHaveBeenCalledWith('expanded');
+
+    fireEvent.click(collapseBtn);
+    expect(onViewChange).toHaveBeenLastCalledWith('collapsed');
+  });
+
+  it('carries max-md:min-h-[44px] touch floors and viewHint group label', () => {
+    const { container } = renderSubgraphPanel({
+      selectedSubgraphId: 'sg1',
+      onViewChange: vi.fn(),
+    });
+    const group = container.querySelector('[role="group"]') as HTMLElement;
+    expect(group.getAttribute('aria-label')).toBe(sgCopy.viewHint);
+    expect(group.getAttribute('title')).toBe(sgCopy.viewHint);
+
+    for (const sel of ['[data-subgraph-view="collapsed"]', '[data-subgraph-view="expanded"]']) {
+      const btn = container.querySelector(sel) as HTMLElement;
+      expect(btn.className).toContain('max-md:min-h-[44px]');
+    }
+  });
+});
+

@@ -1088,6 +1088,94 @@ function EdgePanel({
   );
 }
 
+/**
+ * 40-04 (EDGE-05, Grey Area #2): Visual-side subgraph section — carries the
+ * readonly Subgraph ID/Label rows and the same Collapse/Expand segmented row
+ * idiom as SubgraphStylePanel (same i18n keys, same accent active treatment,
+ * explicit max-md:min-h-[44px] touch floor). Renders ONLY when selectedSubgraphId
+ * and onViewChange are both present (39-04 contract).
+ */
+function SubgraphPanel({
+  subgraphId,
+  subgraphLabel,
+  subgraphView,
+  onViewChange,
+}: {
+  subgraphId: string;
+  subgraphLabel?: string;
+  subgraphView?: 'collapsed' | 'expanded';
+  onViewChange: (view: 'collapsed' | 'expanded') => void;
+}) {
+  const { t } = useTranslation();
+  const VIEW_OPTIONS = [
+    { value: 'collapsed', label: t('subgraphStyle.collapse') },
+    { value: 'expanded', label: t('subgraphStyle.expand') },
+  ] as const;
+
+  return (
+    <div className="flex flex-col gap-4" data-testid="visual-subgraph-panel">
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+          {t('subgraphStyle.subgraphId')}
+        </span>
+        <div
+          className="text-xs px-2.5 py-2 rounded-md border font-mono truncate"
+          style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+          data-subgraph-panel-id
+        >
+          {subgraphId}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+          {t('subgraphStyle.label')}
+        </span>
+        <div
+          className="text-xs px-2.5 py-2 rounded-md border truncate"
+          style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+          data-subgraph-panel-label
+        >
+          {subgraphLabel || subgraphId}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <div
+          className="flex gap-1"
+          role="group"
+          aria-label={t('subgraphStyle.viewHint')}
+          title={t('subgraphStyle.viewHint')}
+        >
+          {VIEW_OPTIONS.map(opt => {
+            const isActive = opt.value === 'collapsed'
+              ? subgraphView === 'collapsed'
+              : subgraphView !== 'collapsed';
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                aria-pressed={isActive}
+                onClick={() => onViewChange(opt.value)}
+                data-subgraph-view={opt.value}
+                className={`flex-1 py-1.5 rounded-md border text-[11px] font-medium transition-all max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                style={{
+                  borderColor: isActive ? 'var(--accent)' : 'var(--border-subtle)',
+                  background: isActive ? 'var(--accent-dim)' : 'var(--surface-base)',
+                  color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                  borderWidth: isActive ? '2px' : '1px',
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   selectedNodes: VisualNode[];
   selectedEdge: VisualEdge | null;
@@ -1107,6 +1195,11 @@ interface Props {
   onEdgeIdChange?: (newId: string) => void;
   onEdgeLengthChange?: (token: string, length: number) => void;
   onAnimatePreset?: () => void;
+  /** 40-04 (EDGE-05): absent props hide the subgraph section (39-04 contract). */
+  selectedSubgraphId?: string | null;
+  selectedSubgraphLabel?: string;
+  subgraphView?: 'collapsed' | 'expanded';
+  onViewChange?: (view: 'collapsed' | 'expanded') => void;
 }
 
 export function PropertiesPanel({
@@ -1115,8 +1208,11 @@ export function PropertiesPanel({
   nodeIcon, nodeImage, onIconChange, onImageChange,
   onArrowChange, onEdgeLabelChange, onDeleteEdge,
   edgeMeta, onEdgeMetaChange, onEdgeIdChange, onEdgeLengthChange, onAnimatePreset,
+  selectedSubgraphId, selectedSubgraphLabel, subgraphView, onViewChange,
 }: Props) {
+  const { t } = useTranslation();
   const hasNode = selectedNodes.length > 0;
+  const hasSubgraph = Boolean(selectedSubgraphId && onViewChange);
   const hasEdge = !!selectedEdge;
 
   return (
@@ -1128,12 +1224,14 @@ export function PropertiesPanel({
         <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
           {hasNode
             ? selectedNodes.length === 1 ? 'Node Properties' : `${selectedNodes.length} Nodes`
-            : hasEdge ? 'Edge Properties' : 'Properties'}
+            : hasSubgraph
+              ? t('preview.subgraph')
+              : hasEdge ? 'Edge Properties' : 'Properties'}
         </span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3">
-        {!hasNode && !hasEdge ? (
+        {!hasNode && !hasSubgraph && !hasEdge ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4 gap-3 py-8">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center opacity-30"
               style={{ background: 'var(--surface-floating)' }}>
@@ -1153,6 +1251,13 @@ export function PropertiesPanel({
             nodeImage={nodeImage}
             onIconChange={onIconChange}
             onImageChange={onImageChange}
+          />
+        ) : hasSubgraph && selectedSubgraphId && onViewChange ? (
+          <SubgraphPanel
+            subgraphId={selectedSubgraphId}
+            subgraphLabel={selectedSubgraphLabel}
+            subgraphView={subgraphView}
+            onViewChange={onViewChange}
           />
         ) : selectedEdge ? (
           <EdgePanel

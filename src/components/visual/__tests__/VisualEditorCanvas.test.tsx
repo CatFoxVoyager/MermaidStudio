@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import { VisualEditorCanvas, extractSvgNodes, extractSvgEdges } from '../VisualEditorCanvas';
+import { VisualEditorCanvas, extractSvgNodes, extractSvgEdges, extractSvgSubgraphs } from '../VisualEditorCanvas';
 
 // Mock the Mermaid rendering library. The returned SVG is a mutable module
 // variable so individual tests can swap in a richer diagram (e.g. edges);
@@ -1578,3 +1578,226 @@ describe('media threading and readOnly fence (39-04 ICON-03)', () => {
     expect(container.querySelector('[data-icon-trigger]')).toBeNull();
   });
 });
+
+// ===== 40-04 (EDGE-05, Grey Area #2): minimal subgraph hit-target band +
+// PropertiesPanel SubgraphPanel + collapsed-group selection & drop guard.
+describe('subgraph hit-target band & collapsed drop guard (40-04 EDGE-05)', () => {
+  const DEFAULT_SVG = '<svg><g class="node" id="flowchart-A-1"><rect width="100" height="50" /></g></svg>';
+  const origGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+
+  function rect(x: number, y: number, w: number, h: number): DOMRect {
+    return {
+      left: x, top: y, width: w, height: h, right: x + w, bottom: y + h, x, y,
+      toJSON: () => ({ left: x, top: y, width: w, height: h, right: x + w, bottom: y + h, x, y }),
+    } as DOMRect;
+  }
+
+  beforeEach(() => {
+    if (!Element.prototype.setPointerCapture) {
+      Element.prototype.setPointerCapture = vi.fn();
+    }
+    if (!Element.prototype.releasePointerCapture) {
+      Element.prototype.releasePointerCapture = vi.fn();
+    }
+    if (!Element.prototype.hasPointerCapture) {
+      Element.prototype.hasPointerCapture = vi.fn(() => false);
+    }
+  });
+
+  afterEach(() => {
+    mockSvg = DEFAULT_SVG;
+    Element.prototype.getBoundingClientRect = origGetBoundingClientRect;
+  });
+
+  it('extractSvgSubgraphs divides local coordinates by zoom and uses top-30px strip for expanded vs full box for collapsed', () => {
+    const container = document.createElement('div');
+    container.innerHTML = [
+      '<svg>',
+      '<g class="cluster" id="sg1"><rect width="200" height="160" /></g>',
+      '<g class="node default collapsed-group" id="flowchart-sg2-5"><rect width="120" height="60" /></g>',
+      '</svg>',
+    ].join('');
+    container.getBoundingClientRect = () => rect(10, 20, 800, 600);
+    const sg1 = container.querySelector('#sg1') as Element;
+    const sg2 = container.querySelector('#flowchart-sg2-5') as Element;
+    sg1.getBoundingClientRect = () => rect(50, 60, 400, 320);
+    sg2.getBoundingClientRect = () => rect(500, 60, 240, 120);
+
+    // .collapsed-group must never become a node overlay
+    expect(extractSvgNodes(container as HTMLDivElement, 2).map(n => n.id)).toEqual([]);
+
+    const bands = extractSvgSubgraphs(container as HTMLDivElement, 2, ['sg1', 'sg2']);
+    expect(bands).toHaveLength(2);
+    expect(bands[0]).toMatchObject({ id: 'sg1', x: 20, y: 20, width: 200, height: 30, isCollapsed: false });
+    expect(bands[1]).toMatchObject({ id: 'sg2', x: 245, y: 20, width: 120, height: 60, isCollapsed: true });
+  });
+
+  it('two-subgraph fixture: band click selects, clicking second band switches, empty canvas clears, and Collapse writes via updateSubgraphView', async () => {
+    const TWO_SG_CODE = [
+      'flowchart TD',
+      '  subgraph sg1 [Box 1]',
+      '    A[Start]',
+      '  end',
+      '  subgraph sg2 [Box 2]',
+      '    B[End]',
+      '  end',
+    ].join('\n');
+    mockSvg = [
+      '<svg>',
+      '<g class="cluster" id="sg1"><rect width="200" height="120" /></g>',
+      '<g class="cluster" id="sg2"><rect width="200" height="120" /></g>',
+      '<g class="node" id="flowchart-A-1"><rect width="80" height="40" /></g>',
+      '<g class="node" id="flowchart-B-2"><rect width="80" height="40" /></g>',
+      '</svg>',
+    ].join('');
+    Element.prototype.getBoundingClientRect = vi.fn(function (this: Element) {
+      if (this.classList.contains('mermaid-container')) {return rect(0, 0, 800, 600);}
+      if (this.id === 'sg1') {return rect(20, 20, 200, 120);}
+      if (this.id === 'sg2') {return rect(260, 20, 200, 120);}
+      return rect(40, 60, 80, 40);
+    });
+
+    const onChange = vi.fn();
+    const { container } = render(
+      <VisualEditorCanvas content={TWO_SG_CODE} theme="light" onChange={onChange} />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('.visual-subgraph-overlay').length).toBe(2);
+    });
+
+    const band1 = container.querySelector('.visual-subgraph-overlay[data-subgraph-id="sg1"]') as HTMLElement;
+    const band2 = container.querySelector('.visual-subgraph-overlay[data-subgraph-id="sg2"]') as HTMLElement;
+
+    // Click band 1 -> opens SubgraphPanel with Expand active
+    fireEvent.pointerDown(band1, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 50, clientY: 30 });
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="visual-subgraph-panel"]')).not.toBeNull();
+      expect(container.querySelector('[data-subgraph-panel-id]')?.textContent).toBe('sg1');
+      expect(container.querySelector('[data-subgraph-view="expanded"]')?.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    // Click Collapse -> emits sg1@{ view: collapsed } via updateSubgraphView
+    fireEvent.click(container.querySelector('[data-subgraph-view="collapsed"]') as HTMLElement);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const updated = onChange.mock.calls[0][0] as string;
+    expect(updated).toContain('sg1@{ view: collapsed }');
+    expect(updated.indexOf('sg1@{ view: collapsed }')).toBeGreaterThan(updated.indexOf('end'));
+
+    // Click band 2 -> switches selection to sg2
+    fireEvent.pointerDown(band2, { pointerId: 2, pointerType: 'mouse', button: 0, clientX: 280, clientY: 30 });
+    await waitFor(() => {
+      expect(container.querySelector('[data-subgraph-panel-id]')?.textContent).toBe('sg2');
+    });
+
+    // Click empty canvas -> clears subgraph selection
+    const canvasArea = container.querySelector('.preview-grid') as HTMLElement;
+    fireEvent.pointerDown(canvasArea, { pointerId: 3, pointerType: 'mouse', button: 0, clientX: 10, clientY: 10 });
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="visual-subgraph-panel"]')).toBeNull();
+    });
+  });
+
+  it('collapsed-group renders NO node overlay, routes band click to SubgraphPanel with Collapse active', async () => {
+    const COLLAPSED_CODE = [
+      'flowchart TD',
+      '  subgraph sg1 [Box]',
+      '    A[Start]',
+      '  end',
+      '  sg1@{ view: collapsed }',
+    ].join('\n');
+    mockSvg = '<svg><g class="node default collapsed-group" id="flowchart-sg1-2"><rect width="120" height="60" /></g></svg>';
+    Element.prototype.getBoundingClientRect = vi.fn(function (this: Element) {
+      if (this.classList.contains('mermaid-container')) {return rect(0, 0, 800, 600);}
+      return rect(100, 100, 120, 60);
+    });
+
+    const { container } = render(
+      <VisualEditorCanvas content={COLLAPSED_CODE} theme="light" onChange={vi.fn()} />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('.visual-subgraph-overlay').length).toBe(1);
+    });
+    expect(container.querySelectorAll('.visual-node-overlay')).toHaveLength(0);
+
+    const band = container.querySelector('.visual-subgraph-overlay[data-subgraph-id="sg1"]') as HTMLElement;
+    fireEvent.pointerDown(band, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 120, clientY: 120 });
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="visual-subgraph-panel"]')).not.toBeNull();
+      expect(container.querySelector('[data-subgraph-view="collapsed"]')?.getAttribute('aria-pressed')).toBe('true');
+    });
+  });
+
+  it('non-flowchart diagrams render no .visual-subgraph-overlay bands', async () => {
+    mockSvg = '<svg><g class="cluster" id="sg1"><rect width="100" height="50" /></g></svg>';
+    const { container } = render(
+      <VisualEditorCanvas content={'sequenceDiagram\n  Alice->>Bob: Hi'} theme="light" onChange={vi.fn()} />,
+    );
+    await waitFor(() => {
+      expect(container.querySelector('svg')).not.toBeNull();
+    });
+    // Wait past the 80ms overlay extraction timer
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 100));
+    });
+    expect(container.querySelectorAll('.visual-subgraph-overlay')).toHaveLength(0);
+  });
+
+  it('shape drops and drag-to-connect drops inside .collapsed-group bounds are no-ops; outside drops work', async () => {
+    const COLLAPSED_CODE = [
+      'flowchart TD',
+      '  A[Start]',
+      '  subgraph sg1 [Box]',
+      '    B[Hidden]',
+      '  end',
+      '  sg1@{ view: collapsed }',
+    ].join('\n');
+    mockSvg = [
+      '<svg>',
+      '<g class="node" id="flowchart-A-1"><rect width="80" height="40" /></g>',
+      '<g class="node default collapsed-group" id="flowchart-sg1-2"><rect width="120" height="80" /></g>',
+      '</svg>',
+    ].join('');
+    Element.prototype.getBoundingClientRect = vi.fn(function (this: Element) {
+      if (this.classList.contains('mermaid-container')) {return rect(0, 0, 800, 600);}
+      if (this.id === 'flowchart-sg1-2') {return rect(200, 200, 120, 80);}
+      if (this.id === 'flowchart-A-1') {return rect(20, 20, 80, 40);}
+      if (this.getAttribute('title') === 'A') {return rect(20, 20, 80, 40);}
+      return rect(0, 0, 800, 600);
+    });
+
+    const onChange = vi.fn();
+    const { container } = render(
+      <VisualEditorCanvas content={COLLAPSED_CODE} theme="light" onChange={onChange} />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('.visual-node-overlay').length).toBe(1);
+      expect(container.querySelectorAll('.visual-subgraph-overlay').length).toBe(1);
+    });
+
+    const canvasArea = container.querySelector('.preview-grid') as HTMLElement;
+    const shapeBtn = container.querySelector('button[draggable="true"]') as HTMLElement;
+    expect(shapeBtn).not.toBeNull();
+
+    // Drop shape INSIDE .collapsed-group bounds (250, 240) -> no-op
+    fireEvent.dragStart(shapeBtn);
+    fireEvent(canvasArea, new MouseEvent('drop', { bubbles: true, cancelable: true, clientX: 250, clientY: 240 }));
+    expect(onChange).not.toHaveBeenCalled();
+
+    // Drop shape OUTSIDE .collapsed-group bounds (50, 400) -> adds node
+    fireEvent.dragStart(shapeBtn);
+    fireEvent(canvasArea, new MouseEvent('drop', { bubbles: true, cancelable: true, clientX: 50, clientY: 400 }));
+    expect(onChange).toHaveBeenCalledTimes(1);
+    onChange.mockClear();
+
+    // Drag-to-connect ending INSIDE .collapsed-group bounds (250, 240) -> no-op
+    const nodeA = container.querySelector('.visual-node-overlay[title="A"]') as HTMLElement;
+    fireEvent.pointerDown(nodeA, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 50, clientY: 40 });
+    fireEvent.pointerMove(nodeA, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 250, clientY: 240 });
+    fireEvent.pointerUp(nodeA, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 250, clientY: 240 });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+

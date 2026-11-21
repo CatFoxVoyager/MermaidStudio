@@ -8,9 +8,11 @@ import {
   addNode, removeNode, addEdge, generateNodeId, getNodeStyle,
   updateEdgeArrowType, updateEdgeLabel, removeEdge,
   updateEdgeMetadata, updateEdgeId, applyEdgeAnimatePreset,
+  updateSubgraphView,
   bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg,
 } from '@/lib/mermaid/codeUtils';
 import type { ParsedDiagram, ParsedEdge, IconConfig, ImgConfig, EdgeMetadata } from '@/lib/mermaid/codeUtils';
+import { detectDiagramType } from '@/lib/mermaid/diagramType';
 import { ShapeToolbar } from './ShapeToolbar';
 import { PropertiesPanel } from './PropertiesPanel';
 import type { NodeShape, NodeStyle, VisualNode, VisualEdge, SelectionState, ToolMode } from './types';
@@ -21,6 +23,16 @@ interface NodeOverlay {
   y: number;
   width: number;
   height: number;
+}
+
+export interface SubgraphOverlay {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isCollapsed?: boolean;
 }
 
 // Node overlays live INSIDE the zoom-scaled wrapper, while getBoundingClientRect()
@@ -49,6 +61,11 @@ export function extractSvgNodes(container: HTMLDivElement, zoom: number): NodeOv
     const flowchartMatch = idAttr.match(/flowchart-([A-Za-z0-9_-]+)-\d+$/);
     const nodeId = flowchartMatch ? flowchartMatch[1] : null;
     if (!nodeId || seen.has(nodeId)) {return;}
+    // 40-04 (EDGE-05, UI-SPEC Grey Area 7): a collapsed subgraph wears a
+    // node shape inside g.nodes (mermaid's `.collapsed-group` route) — it
+    // IS the subgraph, never a node. Excluded here so no node overlay attaches;
+    // extractSvgSubgraphs owns its hit-target band.
+    if (/\bcollapsed-group\b/.test(el.getAttribute('class') ?? '')) {return;}
     seen.add(nodeId);
 
     try {
@@ -67,6 +84,93 @@ export function extractSvgNodes(container: HTMLDivElement, zoom: number): NodeOv
   });
 
   return overlays;
+}
+
+/**
+ * 40-04 (EDGE-05, Grey Area #2): extract minimal subgraph hit-target bands
+ * (top-30px label strip for expanded clusters so inner nodes stay clickable;
+ * full collapsed box for `.collapsed-group` groups). Bounds stay local to
+ * the zoom-scaled SVG wrapper so bands remain viewport/canvas-bounded.
+ */
+export function extractSvgSubgraphs(
+  container: HTMLDivElement,
+  zoom: number,
+  knownSubgraphIds: string[],
+): SubgraphOverlay[] {
+  if (knownSubgraphIds.length === 0) {return [];}
+  const svg = container.querySelector('svg');
+  if (!svg) {return [];}
+
+  const allGs = Array.from(svg.querySelectorAll('g'));
+  const candidates = new Map<string, SVGElement>();
+
+  for (const sgId of knownSubgraphIds) {
+    const match = allGs.find(g => {
+      const id = g.id || '';
+      return id === sgId || id.endsWith(`-${sgId}`);
+    });
+    if (match && match.querySelector('rect')) {
+      candidates.set(sgId, match);
+      continue;
+    }
+
+    const collapsedMatch = allGs.find(g => {
+      if (!/\bcollapsed-group\b/.test(g.getAttribute('class') ?? '')) {return false;}
+      const id = g.id || '';
+      const flowchartMatch = id.match(/flowchart-([A-Za-z0-9_-]+)-\d+$/);
+      return (flowchartMatch !== null && flowchartMatch[1] === sgId) || id === sgId || id.endsWith(`-${sgId}`);
+    });
+    if (collapsedMatch && collapsedMatch.querySelector('rect')) {
+      candidates.set(sgId, collapsedMatch);
+    }
+  }
+
+  const overlays: SubgraphOverlay[] = [];
+  const containerRect = container.getBoundingClientRect();
+  for (const [sgId, el] of candidates) {
+    const isCollapsed = /\bcollapsed-group\b/.test(el.getAttribute('class') ?? '');
+    const labelText = el.querySelector('.cluster-label text, .nodeLabel text, .label text, text');
+    const label = labelText?.textContent ?? sgId;
+    try {
+      const rect = el.getBoundingClientRect();
+      const clusterWidth = rect.width / zoom;
+      const clusterHeight = rect.height / zoom;
+      overlays.push({
+        id: sgId,
+        label,
+        x: (rect.left - containerRect.left) / zoom,
+        y: (rect.top - containerRect.top) / zoom,
+        width: clusterWidth,
+        height: isCollapsed ? clusterHeight : Math.min(clusterHeight, 30),
+        isCollapsed,
+      });
+    } catch {
+      // skip
+    }
+  }
+  return overlays;
+}
+
+/**
+ * 40-04 (EDGE-05): true when viewport coordinates (clientX, clientY) land
+ * inside any rendered `.collapsed-group` group's bounding box. Drops inside
+ * collapsed bounds are no-ops (collapsed internals are hidden from SVG DOM).
+ */
+function isPointInCollapsedGroup(
+  container: HTMLDivElement | null,
+  clientX: number,
+  clientY: number,
+): boolean {
+  if (!container) {return false;}
+  const groups = container.querySelectorAll('svg g.collapsed-group');
+  for (const group of groups) {
+    const r = group.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) {continue;}
+    if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export interface EdgeOverlay {
@@ -176,12 +280,13 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const [loading, setLoading] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [overlays, setOverlays] = useState<NodeOverlay[]>([]);
+  const [subgraphOverlays, setSubgraphOverlays] = useState<SubgraphOverlay[]>([]);
   const [edgeLayer, setEdgeLayer] = useState<EdgeLayer>({ edges: [], svgBox: null, viewBox: null });
   // Bumped whenever the SVG container becomes visible or changes size, so the
   // overlay-positioning effect re-runs even when the canvas was hidden (e.g.
   // display:none) at mount time — see the container-observer effect below.
   const [visibilityTick, setVisibilityTick] = useState(0);
-  const [selection, setSelection] = useState<SelectionState>({ nodeIds: [], edgeKey: null });
+  const [selection, setSelection] = useState<SelectionState>({ nodeIds: [], edgeKey: null, subgraphId: null });
   const [toolMode, setToolMode] = useState<ToolMode>('select');
   const [connectFirst, setConnectFirst] = useState<string | null>(null);
   const [dragShape, setDragShape] = useState<NodeShape | null>(null);
@@ -219,6 +324,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   // edit would then corrupt the diagram. Well-formed directive content is
   // editable end-to-end.
   const readOnly = useMemo(() => bodyHasUnparsedAtDirective(content), [content]);
+  const isFlowchart = useMemo(() => detectDiagramType(content) === 'flowchart', [content]);
 
   // Parse once per content change (previously re-parsed on every render, i.e.
   // on every drag/selection state update). Shared with the render pipeline
@@ -260,9 +366,14 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     const timer = setTimeout(() => {
       setOverlays(extractSvgNodes(container, zoom));
       setEdgeLayer(extractSvgEdges(container, zoom, parsed.edges));
+      if (isFlowchart && parsed.subgraphs.length > 0) {
+        setSubgraphOverlays(extractSvgSubgraphs(container, zoom, parsed.subgraphs.map(s => s.id)));
+      } else {
+        setSubgraphOverlays([]);
+      }
     }, 80);
     return () => clearTimeout(timer);
-  }, [svg, zoom, visibilityTick, parsed]);
+  }, [svg, zoom, visibilityTick, parsed, isFlowchart]);
 
   // Observe the SVG container for visibility/size changes. When the canvas is
   // mounted inside a hidden (display:none) pane — as MobileWorkspace does for
@@ -362,6 +473,10 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     };
   })();
 
+  const selectedSubgraph = selection.subgraphId
+    ? parsed.subgraphs.find(s => s.id === selection.subgraphId) ?? null
+    : null;
+
   function handleNodePointerDown(e: React.PointerEvent, nodeId: string) {
     e.stopPropagation();
 
@@ -379,7 +494,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
         const adjustedEdgeKey = edgeKeyAtPoint(e.clientX, e.clientY);
         if (adjustedEdgeKey) {
           adjustedPointerIdsRef.current.add(e.pointerId);
-          setSelection({ nodeIds: [], edgeKey: adjustedEdgeKey });
+          setSelection({ nodeIds: [], edgeKey: adjustedEdgeKey, subgraphId: null });
           return;
         }
       }
@@ -415,6 +530,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
         setSelection(s => ({
           nodeIds: s.nodeIds.includes(nodeId) ? s.nodeIds.filter(id => id !== nodeId) : [...s.nodeIds, nodeId],
           edgeKey: null,
+          subgraphId: null,
         }));
       }, 500);
       setLongPressTimer(timer);
@@ -425,9 +541,10 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
       setSelection(s => ({
         nodeIds: s.nodeIds.includes(nodeId) ? s.nodeIds.filter(id => id !== nodeId) : [...s.nodeIds, nodeId],
         edgeKey: null,
+        subgraphId: null,
       }));
     } else if (e.pointerType === 'mouse') {
-      setSelection({ nodeIds: [nodeId], edgeKey: null });
+      setSelection({ nodeIds: [nodeId], edgeKey: null, subgraphId: null });
     }
     // For touch, wait to see if it becomes a long-press (multi-select) or tap (single-select)
   }
@@ -516,6 +633,10 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     // overlay, so the coordinates are plain viewport clientX/Y). A completed
     // drag never re-selects — early return skips the tap flow below.
     if (dragConnectRef.current) {
+      if (isPointInCollapsedGroup(svgContainerRef.current, e.clientX, e.clientY)) {
+        resetDragConnect();
+        return;
+      }
       const sourceId = dragConnectRef.current;
       let targetId: string | null = null;
       for (const [id, el] of overlayElsRef.current) {
@@ -542,7 +663,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
 
       // For touch, if timer was cleared it means it was a short tap - single select
       if (e.pointerType === 'touch') {
-        setSelection({ nodeIds: [nodeId], edgeKey: null });
+        setSelection({ nodeIds: [nodeId], edgeKey: null, subgraphId: null });
       }
     }
   }
@@ -580,7 +701,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
       setConnectFirst(null);
       return;
     }
-    setSelection({ nodeIds: [], edgeKey: null });
+    setSelection({ nodeIds: [], edgeKey: null, subgraphId: null });
   }
 
   function handleCanvasPointerMove(e: React.PointerEvent) {
@@ -655,12 +776,16 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     if (readOnly) {return;}
     const id = generateNodeId(parsed.nodes.map(n => n.id));
     onChange(addNode(content, id, 'New Node', shape));
-    setSelection({ nodeIds: [id], edgeKey: null });
+    setSelection({ nodeIds: [id], edgeKey: null, subgraphId: null });
   }
 
   function handleDropOnCanvas(e: React.DragEvent) {
     e.preventDefault();
     if (readOnly || !dragShape) {return;}
+    if (isPointInCollapsedGroup(svgContainerRef.current, e.clientX, e.clientY)) {
+      setDragShape(null);
+      return;
+    }
     handleAddShape(dragShape);
     setDragShape(null);
   }
@@ -669,7 +794,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     if (readOnly) {return;}
     let updated = content;
     selection.nodeIds.forEach(id => { updated = removeNode(updated, id); });
-    setSelection({ nodeIds: [], edgeKey: null });
+    setSelection({ nodeIds: [], edgeKey: null, subgraphId: null });
     onChange(updated);
   }
 
@@ -772,7 +897,12 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   function handleDeleteEdge(source: string, target: string) {
     if (readOnly) {return;}
     onChange(removeEdge(content, source, target));
-    setSelection({ nodeIds: [], edgeKey: null });
+    setSelection({ nodeIds: [], edgeKey: null, subgraphId: null });
+  }
+
+  function handleSubgraphViewChange(view: 'collapsed' | 'expanded') {
+    if (readOnly || !selection.subgraphId) {return;}
+    onChange(updateSubgraphView(content, selection.subgraphId, view));
   }
 
   useEffect(() => {
@@ -898,6 +1028,47 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
                   dangerouslySetInnerHTML={{ __html: svg }}
                 />
 
+                {!readOnly && isFlowchart && subgraphOverlays.map(sg => {
+                  const isSelected = selection.subgraphId === sg.id;
+                  const isConnectSource = sg.id === connectFirst;
+                  return (
+                    <div
+                      key={`sg-${sg.id}`}
+                      data-subgraph-id={sg.id}
+                      onPointerDown={e => {
+                        e.stopPropagation();
+                        if (toolMode === 'connect') {
+                          if (!connectFirst) {
+                            setConnectFirst(sg.id);
+                            return;
+                          }
+                          if (!readOnly && connectFirst !== sg.id) {
+                            onChange(addEdge(content, connectFirst, sg.id));
+                          }
+                          setConnectFirst(null);
+                          setToolMode('select');
+                          return;
+                        }
+                        setSelection({ nodeIds: [], edgeKey: null, subgraphId: sg.id });
+                      }}
+                      className={`visual-subgraph-overlay ${isSelected ? 'selected' : ''} ${isConnectSource ? 'connect-source' : ''}`}
+                      style={{
+                        position: 'absolute',
+                        left: sg.x,
+                        top: sg.y,
+                        width: sg.width,
+                        height: sg.height,
+                        cursor: toolMode === 'connect' ? 'crosshair' : 'pointer',
+                        zIndex: 9,
+                        background: isConnectSource ? 'rgba(var(--accent-rgb), 0.1)' : 'transparent',
+                        border: isSelected ? '2px solid var(--accent)' : isConnectSource ? '2px dashed var(--accent)' : '2px solid transparent',
+                        borderRadius: '4px',
+                      }}
+                      title={sg.label}
+                    />
+                  );
+                })}
+
                 {!readOnly && overlays.map(overlay => {
                   const isSelected = selection.nodeIds.includes(overlay.id);
                   const isConnectSource = overlay.id === connectFirst;
@@ -979,7 +1150,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
                               // the PreviewPanel edge targets).
                               if (toolMode === 'connect') {return;}
                               e.stopPropagation();
-                              setSelection({ nodeIds: [], edgeKey: edgeKey });
+                              setSelection({ nodeIds: [], edgeKey: edgeKey, subgraphId: null });
                             }}
                           />
                         </g>
@@ -1012,6 +1183,10 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
               onEdgeIdChange={handleEdgeIdChange}
               onEdgeLengthChange={handleEdgeLengthChange}
               onAnimatePreset={handleAnimatePreset}
+              selectedSubgraphId={selectedSubgraph?.id ?? null}
+              selectedSubgraphLabel={selectedSubgraph?.label}
+              subgraphView={selectedSubgraph?.view}
+              onViewChange={selectedSubgraph ? handleSubgraphViewChange : undefined}
             />
           </div>
         )}
