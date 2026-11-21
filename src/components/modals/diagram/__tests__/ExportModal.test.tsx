@@ -75,6 +75,10 @@ interface FetchDouble {
   ok: boolean;
   status: number;
   blob?: () => Promise<Blob>;
+  // 39-REVIEW WR-02: the inliner reads headers + arrayBuffer (the validated
+  // bytes path) instead of blob — a successful image double must carry both.
+  headers?: { get: (name: string) => string | null };
+  arrayBuffer?: () => Promise<ArrayBuffer>;
   text?: () => Promise<string>;
 }
 
@@ -84,6 +88,20 @@ let revokeObjectURLMock: ReturnType<typeof vi.fn>;
 
 function pngBlob(): Blob {
   return new Blob([PNG_BYTES], { type: 'image/png' });
+}
+
+function pngResponse(): FetchDouble {
+  const blob = pngBlob();
+  return {
+    ok: true,
+    status: 200,
+    blob: async () => blob,
+    headers: {
+      get: (name: string) =>
+        name.toLowerCase() === 'content-type' ? 'image/png' : null,
+    },
+    arrayBuffer: async () => blob.arrayBuffer(),
+  };
 }
 
 function setupDomStubs() {
@@ -178,7 +196,7 @@ describe('ExportModal PNG CORS inlining (ICON-04, 39-03)', () => {
   it('renders the _one plural form verbatim for a single blocked image', async () => {
     fetchBehavior = async url => {
       if (url === URL_1) return { ok: false, status: 403 };
-      return { ok: true, status: 200, blob: async () => pngBlob() };
+      return pngResponse();
     };
     cleanupStubs = setupDomStubs();
     renderModal();
@@ -198,7 +216,7 @@ describe('ExportModal PNG CORS inlining (ICON-04, 39-03)', () => {
   });
 
   it('substitutes data URIs and renders no warning when every fetch succeeds', async () => {
-    fetchBehavior = async () => ({ ok: true, status: 200, blob: async () => pngBlob() });
+    fetchBehavior = async () => pngResponse();
     cleanupStubs = setupDomStubs();
     renderModal();
 
