@@ -5,34 +5,51 @@ import { CANONICAL_SHAPES } from '../../../../src/lib/mermaid/shapes';
 import { TEMPLATES } from '../../../../src/constants/templates';
 import { DIAGRAM_LABELS } from '../../../../src/constants/diagramLabels';
 
-const V18_TEMPLATES: ReadonlyArray<{
-  id: string;
-  marker: string;
-  checkExtra?: (info: NonNullable<Awaited<ReturnType<typeof getShadowSvgInfo>>>) => boolean;
-}> = [
-  { id: 'flowchart-v12-shapes', marker: 'Event Queue' },
-  {
-    id: 'flowchart-v12-icons',
-    marker: 'Client App',
-    checkExtra: (info) => info.iconNodes > 0 && info.imageNodes > 0,
-  },
-  { id: 'flowchart-v12-edges', marker: 'API Ingress' },
-  {
-    id: 'flowchart-v12-collapsed',
-    marker: 'Platform Services',
-    checkExtra: (info) => info.collapsedGroups > 0,
-  },
-  { id: 'ishikawa-root-cause', marker: 'Blurry Photo' },
-  { id: 'radar-skills', marker: 'Team Alpha' },
-  { id: 'treemap-budget', marker: 'Engineering' },
-  { id: 'eventmodeling-checkout', marker: 'ShopUI' },
-  { id: 'venn-product-fit', marker: 'Desirable' },
-  { id: 'treeview-repo', marker: 'PreviewPanel.tsx' },
-  { id: 'wardley-tea-shop', marker: 'Cup of Tea' },
-  { id: 'cynefin-incident', marker: 'Restart service' },
-  { id: 'railroad-grammar', marker: 'expression' },
-  { id: 'swimlane-support', marker: 'Request service' },
-];
+const TEMPLATE_MARKERS: Record<string, string> = {
+  'flowchart-basic': 'Process',
+  'flowchart-cicd': 'Docker Build',
+  'sequence-api': 'API Gateway',
+  'sequence-oauth': 'Resource Server',
+  'class-ecommerce': 'OrderItem',
+  'er-blog': 'COMMENT',
+  'state-order': 'Fulfillment',
+  'gantt-sprint': 'UI Wireframes',
+  'pie-market': 'Chrome',
+  'mindmap-product': 'Auth System',
+  'git-feature': 'Initial commit',
+  'journey-onboarding': 'Email verification',
+  'quadrant-priorities': 'Crisis Management',
+  'requirement-system': 'Authenticate every API request',
+  'timeline-product': 'MVP Release',
+  'sankey-traffic': 'Landing',
+  'xy-scatter': 'Performance vs Load',
+  'kanban-sprint': 'Implement login',
+  'architecture-system': 'API Gateway',
+  'block-network': 'Load Balancer',
+  'class-animals': 'Manufacturer',
+  'c4-system-context': 'Online Store',
+  'packet-udp': 'Destination Port',
+  'requirement-auth': 'user_service',
+  'usecase-system': 'View dashboard',
+  'flowchart-v12-shapes': 'Event Queue',
+  'flowchart-v12-icons': 'Client App',
+  'flowchart-v12-edges': 'API Ingress',
+  'flowchart-v12-collapsed': 'Platform Services',
+  'ishikawa-root-cause': 'Blurry Photo',
+  'radar-skills': 'Team Alpha',
+  'treemap-budget': 'Engineering',
+  'eventmodeling-checkout': 'ShopUI',
+  'venn-product-fit': 'Desirable',
+  'treeview-repo': 'PreviewPanel.tsx',
+  'wardley-tea-shop': 'Cup of Tea',
+  'cynefin-incident': 'Restart service',
+  'railroad-grammar': 'expression',
+  'swimlane-support': 'Request service',
+};
+
+function escapeRegExp(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 async function dismissWelcomeIfOpen(page: Page) {
   const modalClose = page.locator('button[aria-label="Close modal"]');
@@ -62,8 +79,8 @@ async function getShadowSvgInfo(page: Page) {
 }
 
 test.describe('v1.8 Shapes & Templates Live Verification', () => {
-  test('renders all 53 canonical shapes and supports ShapePicker shape switching', async ({ page }) => {
-    test.setTimeout(60_000);
+  test('renders all 53 canonical shapes and switches through all 53 shapes in Visual Editor', async ({ page }) => {
+    test.setTimeout(120_000);
     const pageErrors: string[] = [];
     page.on('pageerror', (err) => pageErrors.push(err.message));
 
@@ -106,8 +123,8 @@ test.describe('v1.8 Shapes & Templates Live Verification', () => {
     await expect(picker.locator('[data-shape-cell="stadium"]')).toBeVisible();
     await page.keyboard.press('Escape');
 
-    // 3. Switch to Visual Editor, select node A, and change its shape to "hex" via PropertiesPanel
-    await appLayout.workspace.editor.setCode('flowchart LR\n  A[Start] --> B[End]');
+    // 3. Switch to Visual Editor, select standalone node A, and interactively switch through ALL 53 shapes via PropertiesPanel
+    await appLayout.workspace.editor.setCode('flowchart LR\n  A[Start]\n  B[End]\n  A --> B');
     await expect
       .poll(async () => (await getShadowSvgInfo(page))?.nodeCount ?? 0, { timeout: 15_000 })
       .toBe(2);
@@ -119,28 +136,55 @@ test.describe('v1.8 Shapes & Templates Live Verification', () => {
 
     const shapeTrigger = page.locator('[data-shape-trigger]').first();
     await expect(shapeTrigger).toBeVisible({ timeout: 5_000 });
+
+    // Order so 'rect' is tested too by starting from 'rounded' -> ... -> 'rect' at the end
+    const shapeOrder = [
+      ...CANONICAL_SHAPES.filter((s) => s.shortName !== 'rect'),
+      ...CANONICAL_SHAPES.filter((s) => s.shortName === 'rect'),
+    ];
+
+    for (const shape of shapeOrder) {
+      const prevTriggerLabel = (await shapeTrigger.innerText()).trim();
+      await shapeTrigger.click();
+      const panelPicker = page.locator('[data-shape-picker]').first();
+      await expect(panelPicker).toBeVisible({ timeout: 5_000 });
+
+      const cell = panelPicker.locator(`[data-shape-cell="${shape.shortName}"]`);
+      await cell.scrollIntoViewIfNeeded();
+      await cell.click();
+      await expect(panelPicker).not.toBeVisible({ timeout: 5_000 });
+      await expect
+        .poll(async () => (await shapeTrigger.innerText()).trim(), {
+          timeout: 5_000,
+          message: `Trigger label did not change after picking shape: ${shape.shortName}`,
+        })
+        .not.toBe(prevTriggerLabel);
+
+      // Ensure VisualEditorCanvas re-renders without Parse Error and keeps 2 nodes
+      await expect
+        .poll(
+          async () => page.locator('.mermaid-container svg g.node').count(),
+          { timeout: 10_000, message: `Visual Editor failed to render shape: ${shape.shortName}` }
+        )
+        .toBe(2);
+      await expect(page.getByText('Parse Error')).toHaveCount(0);
+    }
+
+    // Verify classic delimiter emission ('hex') and v12 directive emission ('hourglass') in code
     await shapeTrigger.click();
-
-    const panelPicker = page.locator('[data-shape-picker]').first();
-    await expect(panelPicker).toBeVisible();
-    await panelPicker.locator('input[type="text"]').first().fill('hex');
-    await panelPicker.locator('[data-shape-cell="hex"]').click();
-
+    await page.locator(`[data-shape-picker] [data-shape-cell="hex"]`).scrollIntoViewIfNeeded();
+    await page.locator(`[data-shape-picker] [data-shape-cell="hex"]`).click();
     await page.locator('[data-testid="workspace-view-split"]').click();
     await expect
       .poll(() => appLayout.workspace.editor.getCode(), { timeout: 5_000 })
-      .toContain('A{{Start}}');
+      .toContain('A{{"Start"}}');
 
-    // Switch back to Visual Editor and pick a v12-only shape ("hourglass") to verify @{ shape: ... } emission
     await page.locator('[data-testid="workspace-view-visual"]').click();
     await visualNode.waitFor({ state: 'visible', timeout: 10_000 });
     await visualNode.click();
     await shapeTrigger.click();
-
-    const hourglassPicker = page.locator('[data-shape-picker]').first();
-    await expect(hourglassPicker).toBeVisible();
-    await hourglassPicker.locator('input[type="text"]').first().fill('hourglass');
-    await hourglassPicker.locator('[data-shape-cell="hourglass"]').click();
+    await page.locator(`[data-shape-picker] [data-shape-cell="hourglass"]`).scrollIntoViewIfNeeded();
+    await page.locator(`[data-shape-picker] [data-shape-cell="hourglass"]`).click();
 
     await page.locator('[data-testid="workspace-view-split"]').click();
     await expect
@@ -154,8 +198,8 @@ test.describe('v1.8 Shapes & Templates Live Verification', () => {
     expect(pageErrors).toEqual([]);
   });
 
-  test('loads and renders all 14 curated v1.8 templates via TemplateLibrary without errors', async ({ page }) => {
-    test.setTimeout(120_000);
+  test('loads and renders ALL 39 templates via TemplateLibrary without errors', async ({ page }) => {
+    test.setTimeout(180_000);
     const pageErrors: string[] = [];
     page.on('pageerror', (err) => pageErrors.push(err.message));
 
@@ -168,21 +212,22 @@ test.describe('v1.8 Shapes & Templates Live Verification', () => {
     await appLayout.newDiagram();
     await page.waitForSelector('.cm-editor', { timeout: 10_000 });
 
-    const v18Templates = V18_TEMPLATES.map((spec) => {
-      const tpl = TEMPLATES.find((t) => t.id === spec.id);
-      if (!tpl) throw new Error(`Missing template fixture: ${spec.id}`);
-      return { ...spec, tpl };
-    });
+    for (const tpl of TEMPLATES) {
+      const marker = TEMPLATE_MARKERS[tpl.id];
+      expect(marker, `Missing marker mapping for template ${tpl.id}`).toBeTruthy();
 
-    for (const { tpl, marker, checkExtra } of v18Templates) {
       await appLayout.openTemplates();
       await templatesPage.waitForVisible();
 
       const modal = templatesPage.modal;
       await modal.locator('[data-testid="search-input"]').fill(tpl.title);
 
-      const card = modal.locator('[data-testid="template-item"]').filter({ hasText: tpl.title }).first();
-      await expect(card).toBeVisible({ timeout: 5_000 });
+      const exactTitle = new RegExp(`^${escapeRegExp(tpl.title)}$`);
+      const card = modal
+        .locator('[data-testid="template-item"]')
+        .filter({ has: page.locator('[data-testid="template-name"]', { hasText: exactTitle }) })
+        .first();
+      await expect(card, `Template card not found: ${tpl.title}`).toBeVisible({ timeout: 5_000 });
       await card.click();
       await expect(modal).not.toBeVisible({ timeout: 5_000 });
 
@@ -195,13 +240,19 @@ test.describe('v1.8 Shapes & Templates Live Verification', () => {
       await expect(appLayout.workspace.statusbar.status).toContainText(expectedLabel, { timeout: 5_000 });
 
       // Wait for real SVG inside [data-shadow-host] shadowRoot containing this template's rendered text & features
+      const normalizedMarker = marker.replace(/\s+/g, '');
       await expect
         .poll(
           async () => {
             const info = await getShadowSvgInfo(page);
             if (!info || info.width <= 30 || info.height <= 30) return false;
-            if (!info.text.includes(marker)) return false;
-            if (checkExtra && !checkExtra(info)) return false;
+            if (!info.text.replace(/\s+/g, '').includes(normalizedMarker)) return false;
+            if (tpl.id === 'flowchart-v12-icons') {
+              return info.iconNodes > 0 && info.imageNodes > 0;
+            }
+            if (tpl.id === 'flowchart-v12-collapsed') {
+              return info.collapsedGroups > 0;
+            }
             return true;
           },
           { timeout: 25_000, message: `Waiting for SVG render of template ${tpl.id} (marker: "${marker}")` }
@@ -209,16 +260,6 @@ test.describe('v1.8 Shapes & Templates Live Verification', () => {
         .toBe(true);
 
       await expect(page.locator('[data-testid="error-message"]')).toHaveCount(0);
-
-      // Extra explicit v1.8 feature assertions for Showcase templates
-      const info = await getShadowSvgInfo(page);
-      expect(info, `Missing shadow SVG for ${tpl.id}`).not.toBeNull();
-      if (tpl.id === 'flowchart-v12-icons') {
-        expect(info!.iconNodes).toBeGreaterThan(0);
-        expect(info!.imageNodes).toBeGreaterThan(0);
-      } else if (tpl.id === 'flowchart-v12-collapsed') {
-        expect(info!.collapsedGroups).toBeGreaterThan(0);
-      }
 
       // Keep tab bar tidy
       const closeBtn = page.locator('[data-testid="close-tab"]').last();
