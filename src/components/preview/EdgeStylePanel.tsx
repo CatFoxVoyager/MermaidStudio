@@ -3,6 +3,10 @@ import { X, RotateCcw, ChevronDown, Settings2, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
+// 40-02 (EDGE-01, UI-SPEC Surface 1): the ONE shared 16-token picker list —
+// this panel and PropertiesPanel's EdgePanel consume the same const (Grey
+// Area 9; no per-panel duplicate).
+import { EDGE_ARROW_OPTIONS, extraArrowOption } from '@/components/shared/edgeArrowOptions';
 import type { EdgeStyle, EdgeMetadata, ParsedEdge } from '@/lib/mermaid/codeUtils';
 
 interface EdgeStylePanelProps {
@@ -64,16 +68,6 @@ export function EdgeStylePanel({
     },
     [edge.source, edge.target, onLabelChange],
   );
-
-  const ARROW_OPTIONS = [
-    { value: '-->',   label: t('edgeStyle.arrowArrow') },
-    { value: '---',   label: t('edgeStyle.arrowLine') },
-    { value: '-.->',  label: t('edgeStyle.arrowDotted') },
-    { value: '==>',   label: t('edgeStyle.arrowThick') },
-    { value: 'o--o',  label: t('edgeStyle.arrowCircle') },
-    { value: 'x--x',  label: t('edgeStyle.arrowCross') },
-    { value: '<-->',  label: t('edgeStyle.arrowBidirectional') },
-  ] as const;
 
   const BORDER_STYLE_OPTIONS = [
     { value: '', label: t('edgeStyle.solid'), dasharray: '' },
@@ -179,11 +173,20 @@ export function EdgeStylePanel({
                 outline: 'none',
               }}
             >
-              {ARROW_OPTIONS.map(opt => (
+              {EDGE_ARROW_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value}>
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </option>
               ))}
+              {/* Truthfulness (UI-SPEC Surface 1): an authored combo or the
+                  legacy token matches no shared entry — one extra DISABLED
+                  option carries the authored token so the select never
+                  displays a lie. */}
+              {extraArrowOption(edge.arrowType) && (
+                <option value={edge.arrowType} disabled>
+                  {edge.arrowType}
+                </option>
+              )}
             </select>
             <ChevronDown
               size={11}

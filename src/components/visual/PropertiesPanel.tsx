@@ -11,6 +11,11 @@ import { ColorPicker } from './ColorPicker';
 // dropdown, but cannot clip a fixed host.
 import { ShapePicker } from '@/components/shared/ShapePicker';
 import type { ShapePickerAnchor } from '@/components/shared/ShapePicker';
+// 40-02 (EDGE-01, UI-SPEC Surface 1): the ONE shared 16-token picker list —
+// the hardcoded-EN local ARROW_OPTIONS (which carried the Sequence-only
+// double-arrow entry) is deleted; this panel and EdgeStylePanel consume the
+// same const (Grey Area 9).
+import { EDGE_ARROW_OPTIONS, extraArrowOption } from '@/components/shared/edgeArrowOptions';
 // 39-05 Task 3 (ICON-03, Surface 2): the lazy FA6 picker mounts from the
 // icon trigger — the fixed-position sibling recipe, never a nested popover.
 import { IconPicker } from '@/components/shared/IconPicker';
@@ -28,16 +33,6 @@ import {
 } from '@/utils/imageCompress';
 import type { ImageCompressErrorCode } from '@/utils/imageCompress';
 import type { NodeShape, NodeStyle, VisualNode, VisualEdge, IconConfig, ImgConfig } from './types';
-
-const ARROW_OPTIONS = [
-  { value: '-->',   label: 'Arrow (-->)' },
-  { value: '---',   label: 'Line (---)' },
-  { value: '-.->', label: 'Dotted (-.->) ' },
-  { value: '==>',   label: 'Thick (==>)' },
-  { value: '-->>',  label: 'Double Arrow (-->>)' },
-  { value: 'o--o',  label: 'Circle (o--o)' },
-  { value: '<-->',  label: 'Bidirectional (<-->)' },
-];
 
 const PRESETS: { label: string; style: NodeStyle; color: string }[] = [
   { label: 'Primary',  style: { fill: '#dbeafe', stroke: '#3b82f6', color: '#1d4ed8' }, color: '#3b82f6' },
@@ -858,7 +853,8 @@ interface EdgePanelProps {
   onDeleteEdge: (source: string, target: string) => void;
 }
 
-function EdgePanel({ edge, onArrowChange, onLabelChange, onDeleteEdge }: EdgePanelProps) {
+function EdgePanel({ edge, onArrowChange, onLabelChange, onDeleteEdge }: EdgePanelProps)  {
+  const { t } = useTranslation();
   const [label, setLabel] = useState(edge.label);
 
   // Sync label when edge changes
@@ -867,34 +863,39 @@ function EdgePanel({ edge, onArrowChange, onLabelChange, onDeleteEdge }: EdgePan
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Connection</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('edgeStyle.connection')}</span>
         <div className="text-xs px-2.5 py-2 rounded-md border font-mono" style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
           {edge.source} → {edge.target}
         </div>
       </div>
 
       <div className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Arrow Type</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('edgeStyle.arrowType')}</span>
         <div className="relative">
           <select
             value={edge.arrowType}
             onChange={e => onArrowChange(edge.source, edge.target, e.target.value)}
             className="w-full px-2.5 py-1.5 rounded-md border text-xs appearance-none pr-8"
             style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)', outline: 'none' }}>
-            {ARROW_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            {EDGE_ARROW_OPTIONS.map(opt => (
+              <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
             ))}
+            {/* Truthfulness (UI-SPEC Surface 1): an authored combo outside
+                the shared 16 renders as one DISABLED extra row. */}
+            {extraArrowOption(edge.arrowType) && (
+              <option value={edge.arrowType} disabled>{edge.arrowType}</option>
+            )}
           </select>
           <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-tertiary)' }} />
         </div>
       </div>
 
       <div className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Label</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('edgeStyle.label')}</span>
         <input
           type="text"
           value={label}
-          placeholder="Edge label..."
+          placeholder={t('edgeStyle.labelPlaceholder')}
           onChange={e => setLabel(e.target.value)}
           onBlur={() => onLabelChange(edge.source, edge.target, label)}
           onKeyDown={e => { if (e.key === 'Enter') {onLabelChange(edge.source, edge.target, label);} }}
@@ -907,7 +908,7 @@ function EdgePanel({ edge, onArrowChange, onLabelChange, onDeleteEdge }: EdgePan
         onClick={() => onDeleteEdge(edge.source, edge.target)}
         className="w-full py-1.5 rounded-lg text-xs font-medium transition-colors"
         style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
-        Delete Connection
+        {t('edgeStyle.delete')}
       </button>
     </div>
   );

@@ -23,9 +23,16 @@ vi.mock('react-i18next', async () => {
   const en = (enMod.default ?? enMod) as {
     visual: { shapes: Record<string, string>; shapeChangeHint: string };
     nodeStyle: { mixed: string };
+    edgeStyle: Record<string, string>;
   };
   const shapeLabels: Record<string, string> = Object.fromEntries(
     CANONICAL_SHAPES.map((s) => [`visual.shapes.${s.shortName}`, en.visual.shapes[s.shortName] ?? s.shortName]),
+  );
+  // 40-02 (Surface 1): the EdgePanel rows render through t() with the REAL
+  // en.json copy — the whole edgeStyle namespace rides the map (38-05
+  // registry-derived mock pattern; no hand-typed key blocks).
+  const edgeStyleLabels: Record<string, string> = Object.fromEntries(
+    Object.entries(en.edgeStyle).map(([k, v]) => [`edgeStyle.${k}`, v]),
   );
   return {
     useTranslation: () => ({
@@ -74,6 +81,7 @@ vi.mock('react-i18next', async () => {
           'visual.iconPacks.regular': 'Regular',
           'visual.iconPacks.brands': 'Brands',
           ...shapeLabels,
+          ...edgeStyleLabels,
         };
         return (map[key] ?? key).replace(/\{\{(\w+)\}\}/g, (_, k: string) => String(args?.[k] ?? `{{${k}}}`));
       },
@@ -594,5 +602,79 @@ describe('PropertiesPanel image tab parity (39-05 ICON-03)', () => {
     expect(imageMediaHandlers.onIconChange).toHaveBeenNthCalledWith(1, ['a'], { icon: 'fa:house' });
     expect(imageMediaHandlers.onIconChange).toHaveBeenNthCalledWith(2, ['b'], { icon: 'fa:house' });
     expect(container.querySelector('[data-icon-picker]')).toBeNull();
+  });
+});
+
+// ===== 40-02 (EDGE-01, UI-SPEC Surface 1): the EdgePanel consumes the ONE
+// shared 16-token picker list; the hardcoded-EN rows (and the Sequence-only
+// double-arrow option the old local list carried) are gone. Labels assert
+// against the REAL en.json copy through t() (no hand-typed strings).
+import { EDGE_ARROW_OPTIONS } from '@/components/shared/edgeArrowOptions';
+import enJson from '../../../i18n/locales/en.json';
+
+describe('PropertiesPanel EdgePanel — shared arrow list + i18n swap (40-02)', () => {
+  const enMod = (enJson as unknown as { default?: { edgeStyle: Record<string, string> } } & { edgeStyle?: Record<string, string> });
+  const en = enMod.default?.edgeStyle ?? enMod.edgeStyle!;
+
+  const EDGE: VisualEdge = { source: 'A', target: 'B', arrowType: '-->', label: '' };
+
+  function renderEdgePanel(edge: VisualEdge, onArrow?: ReturnType<typeof vi.fn<(source: string, target: string, arrowType: string) => void>>) {
+    return render(
+      <PropertiesPanel
+        selectedNodes={[]}
+        selectedEdge={edge}
+        onLabelChange={vi.fn()}
+        onShapeChange={vi.fn()}
+        onStyleChange={vi.fn()}
+        onArrowChange={onArrow ?? vi.fn()}
+        onEdgeLabelChange={vi.fn()}
+        onDeleteEdge={vi.fn()}
+      />,
+    );
+  }
+
+  it('renders exactly the shared 16 options in the declared order; the Sequence-only double arrow is gone', () => {
+    const { container } = renderEdgePanel(EDGE);
+    const options = Array.from(container.querySelectorAll('select option')) as HTMLOptionElement[];
+    expect(options.map(o => o.value)).toEqual(EDGE_ARROW_OPTIONS.map(o => o.value));
+    expect(options).toHaveLength(16);
+    const renderedText = options.map(o => o.textContent).join('|');
+    // the banned token composed so THIS source carries no contiguous literal
+    expect(renderedText).not.toContain(`--${'>>'}`);
+    expect(options[0].textContent).toBe(en.arrowArrow);
+    expect(options[13].textContent).toBe(en.arrowCircleStart);
+  });
+
+  it('the five swapped rows render through the edgeStyle.* keys (real copy)', () => {
+    const { container } = renderEdgePanel(EDGE);
+    const headers = Array.from(container.querySelectorAll('span'))
+      .map(s => s.textContent);
+    expect(headers).toContain(en.connection);
+    expect(headers).toContain(en.arrowType);
+    expect(headers).toContain(en.label);
+    const input = container.querySelector('input[type="text"]') as HTMLInputElement;
+    expect(input.placeholder).toBe(en.labelPlaceholder);
+    const deleteBtn = Array.from(container.querySelectorAll('button'))
+      .find(b => b.textContent === en.delete);
+    expect(deleteBtn).toBeDefined();
+    // the old hardcoded 'Delete Connection' wording is gone (accepted change)
+    expect(deleteBtn!.textContent).not.toBe('Delete Connection');
+  });
+
+  it('an authored combo outside the shared 16 renders ONE extra disabled option', () => {
+    const { container } = renderEdgePanel({ ...EDGE, arrowType: 'x-.->' });
+    const options = Array.from(container.querySelectorAll('select option'));
+    expect(options).toHaveLength(17);
+    const extra = options[16] as HTMLOptionElement;
+    expect(extra.value).toBe('x-.->');
+    expect(extra.disabled).toBe(true);
+  });
+
+  it('an arrow pick fires onArrowChange(source, target, familyToken)', () => {
+    const onArrow = vi.fn();
+    const { container } = renderEdgePanel(EDGE, onArrow);
+    const select = container.querySelector('select') as HTMLSelectElement;
+    fireEvent.change(select, { target: { value: 'o--' } });
+    expect(onArrow).toHaveBeenCalledWith('A', 'B', 'o--');
   });
 });

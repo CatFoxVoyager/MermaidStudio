@@ -28,6 +28,17 @@ vi.mock('react-i18next', () => ({
         'edgeStyle.arrowCircle': 'Circle (o--o)',
         'edgeStyle.arrowCross': 'Cross (x--x)',
         'edgeStyle.arrowBidirectional': 'Bidirectional (<-->)',
+        // 40-02 (Surface 1): the 9 grown picker labels — the shared
+        // EDGE_ARROW_OPTIONS const maps every row through t(labelKey).
+        'edgeStyle.arrowDottedOpen': 'Dotted line (-.-)',
+        'edgeStyle.arrowThickOpen': 'Thick line (===)',
+        'edgeStyle.arrowInvisible': 'Invisible (~~~)',
+        'edgeStyle.arrowBidirectionalDotted': 'Bidirectional dotted (<-.->)',
+        'edgeStyle.arrowBidirectionalThick': 'Bidirectional thick (<==>)',
+        'edgeStyle.arrowCircleEnd': 'Circle end (--o)',
+        'edgeStyle.arrowCircleStart': 'Circle start (o--)',
+        'edgeStyle.arrowCrossEnd': 'Cross end (--x)',
+        'edgeStyle.arrowCrossStart': 'Cross start (x--)',
         'edgeStyle.solid': 'Solid',
         'edgeStyle.dashed': 'Dashed',
         'edgeStyle.dotted': 'Dotted',
@@ -236,6 +247,32 @@ describe('EdgeStylePanel', () => {
       render(<EdgeStylePanel {...defaultProps} onAnimateChange={onAnimateChange} />);
       fireEvent.click(screen.getByRole('checkbox'));
       expect(onAnimateChange).toHaveBeenCalledWith(true);
+    });
+  });
+
+  describe('shared 16-token arrow list (40-02 EDGE-01 Surface 1)', () => {
+    it('renders exactly the shared 16 options mapped through t(labelKey)', () => {
+      const { container } = render(<EdgeStylePanel {...defaultProps} />);
+      const options = Array.from(container.querySelectorAll('select option')) as HTMLOptionElement[];
+      expect(options).toHaveLength(16);
+      expect(options.map(o => o.value)).toEqual([
+        '-->', '---', '-.->', '==>', 'o--o', 'x--x', '<-->',
+        '-.-', '===', '~~~', '<-.->', '<==>', '--o', 'o--', '--x', 'x--',
+      ]);
+      expect(options[0].textContent).toBe('Arrow (-->)');
+      expect(options[13].textContent).toBe('Circle start (o--)');
+    });
+
+    it('an authored combo outside the shared 16 renders ONE extra disabled option (truthfulness)', () => {
+      const comboEdge = { ...mockEdge, arrowType: 'o-.->' };
+      const { container } = render(<EdgeStylePanel {...defaultProps} edge={comboEdge} />);
+      const options = Array.from(container.querySelectorAll('select option'));
+      expect(options).toHaveLength(17);
+      const extra = options[16] as HTMLOptionElement;
+      expect(extra.value).toBe('o-.->');
+      expect(extra.disabled).toBe(true);
+      // the select still displays the authored token truthfully
+      expect((container.querySelector('select') as HTMLSelectElement).value).toBe('o-.->');
     });
   });
 
