@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { AdvancedStylePanel } from '../AdvancedStylePanel';
@@ -167,5 +168,32 @@ describe('AdvancedStylePanel (40-03 EDGE-04)', () => {
     if (onContentChange.mock.calls.length > 0) {
       expect(lastAppliedContent(onContentChange)).not.toContain('flowchart:');
     }
+  });
+
+  it('clearing stepDuration in a controlled parent removes stepDuration from frontmatter (CR fix)', () => {
+    let latestContent = FLOWCHART_CONTENT;
+    function ControlledHost() {
+      const [content, setContent] = useState(FLOWCHART_CONTENT);
+      return (
+        <AdvancedStylePanel
+          isOpen={true}
+          onClose={() => {}}
+          currentContent={content}
+          onContentChange={next => {
+            latestContent = next;
+            setContent(next);
+          }}
+          theme="light"
+        />
+      );
+    }
+
+    render(<ControlledHost />);
+    const input = screen.getByLabelText('Step duration');
+    fireEvent.change(input, { target: { value: '400' } });
+    expect(latestContent).toMatch(/stepDuration: 400/);
+
+    fireEvent.change(input, { target: { value: '' } });
+    expect(latestContent).not.toContain('stepDuration');
   });
 });

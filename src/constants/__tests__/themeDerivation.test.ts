@@ -499,6 +499,20 @@ graph TD
       expect(result).not.toContain('stepDuration');
     });
 
+    it('clearing stepDuration removes an existing stepDuration while unrelated updates preserve it', () => {
+      const withStep = applyStyleToContent(flowchartSource, { stepDuration: 400 });
+      expect(withStep).toMatch(/stepDuration: 400/);
+
+      // Unrelated update without stepDuration property preserves it
+      const unrelated = applyStyleToContent(withStep, { nodePadding: 20 });
+      expect(unrelated).toMatch(/stepDuration: '?400'?/);
+
+      // Explicit clear removes it
+      const cleared = applyStyleToContent(withStep, { stepDuration: undefined });
+      expect(cleared).not.toContain('stepDuration');
+      expect(extractStyleOptionsFromContent(cleared).stepDuration).toBeUndefined();
+    });
+
     it('markdownAutoWrap true writes and extracts the boolean back', () => {
       const result = applyStyleToContent(flowchartSource, { markdownAutoWrap: true });
       expect(result).toMatch(/markdownAutoWrap: true/);

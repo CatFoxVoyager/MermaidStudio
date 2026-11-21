@@ -2515,7 +2515,7 @@ export function updateSubgraphView(source: string, subgraphId: string, view: 'co
   if (view !== 'collapsed') {return source;}
   // Locate the subgraph block: the removeSubgraph open/end scan idiom,
   // depth-matched so a nested target emits after ITS OWN end.
-  const openRe = new RegExp(`^subgraph\\s+${escapeRegex(subgraphId)}\\b`);
+  const openRe = new RegExp(`^subgraph\\s+${escapeRegex(subgraphId)}(?=$|[\\s\\[])`);
   const startIdx = lines.findIndex(line => openRe.test(line.trim()));
   if (startIdx === -1) {return source;}
   // Inline ONE-LINE form (`subgraph id[label] N1[x] end`): there is no

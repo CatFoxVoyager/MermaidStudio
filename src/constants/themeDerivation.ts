@@ -1426,6 +1426,13 @@ export function applyStyleToContent(
     ) {
       flowchartCfg.stepDuration = styleOptions.stepDuration;
       hasFlowchartChanges = true;
+    } else if (
+      'stepDuration' in styleOptions &&
+      styleOptions.stepDuration === undefined &&
+      'stepDuration' in flowchartCfg
+    ) {
+      delete flowchartCfg.stepDuration;
+      hasFlowchartChanges = true;
     }
     if (
       typeof styleOptions.markdownAutoWrap === 'boolean' &&
@@ -1457,7 +1464,11 @@ export function applyStyleToContent(
     }
 
     if (hasFlowchartChanges) {
-      newConfig.flowchart = flowchartCfg;
+      if (Object.keys(flowchartCfg).length === 0) {
+        delete newConfig.flowchart;
+      } else {
+        newConfig.flowchart = flowchartCfg;
+      }
       hasChanges = true;
     }
 
@@ -1472,6 +1483,10 @@ export function applyStyleToContent(
   const hasThemeVars = themeVars && Object.keys(themeVars).length > 0;
   if (!hasChanges && !hasThemeVars && !newConfig.flowchart && !newConfig.layout) {
     return content;
+  }
+
+  if (Object.keys(newConfig).length === 0) {
+    return stripped;
   }
 
   if (hasThemeVars) newConfig.theme = 'base';

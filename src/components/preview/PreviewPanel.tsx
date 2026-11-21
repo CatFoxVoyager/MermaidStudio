@@ -993,7 +993,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       }
       return willSelect ? subgraphId : null;
     });
-  }, [supportsClassDef, onSelectionOpen, toolMode, connectFirst, onChange, content]);
+  }, [supportsClassDef, onSelectionOpen, toolMode, connectFirst, onChange, content, bodyHasMetadata]);
 
   const handleSubgraphStyleChange = useCallback((subgraphId: string, styleUpdate: Partial<NodeStyle>) => {
     if (!onChange) return;

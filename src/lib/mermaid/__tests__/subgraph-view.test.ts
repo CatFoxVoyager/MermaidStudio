@@ -165,4 +165,10 @@ describe('view directive cascade + fence interplay', () => {
     // The edge family itself keeps typing.
     expect(parseEdgeDirectiveSpan('@{ animate: true }')?.animate).toBe(true);
   });
+
+  it('updateSubgraphView skips hyphenated prefix siblings like sg1-box when targeting sg1', () => {
+    const src = 'flowchart LR\n  subgraph sg1-box [Other]\n    A[a]\n  end\n  subgraph sg1 [Target]\n    B[b]\n  end';
+    const out = updateSubgraphView(src, 'sg1', 'collapsed');
+    expect(out).toBe('flowchart LR\n  subgraph sg1-box [Other]\n    A[a]\n  end\n  subgraph sg1 [Target]\n    B[b]\n  end\n  sg1@{ view: collapsed }');
+  });
 });
