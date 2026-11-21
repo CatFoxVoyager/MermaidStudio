@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import en from '../../../../i18n/locales/en.json';
 import fr from '../../../../i18n/locales/fr.json';
 import { ExportModal } from '../ExportModal';
+import { renderDiagram } from '@/lib/mermaid/core';
 
 // 39-03 copy pins: byte-verbatim from the UI-SPEC copywriting table
 // (transplanted mechanically — the em-dashes and FR accents are exact).
@@ -263,5 +264,156 @@ describe('pngImageWarning copy parity (39-03)', () => {
     expect(enExport.pngImageWarning_other).toBe(EXPECTED_EN_OTHER);
     expect(frExport.pngImageWarning_one).toBe(EXPECTED_FR_ONE);
     expect(frExport.pngImageWarning_other).toBe(EXPECTED_FR_OTHER);
+  });
+});
+
+// 40-03 EDGE-04 (Surface 5, Grey Area 6): the PNG-only stepNumbers badge
+// toggle. The override is export-scoped — a render-scoped content clone
+// carries flowchart.stepNumbers: true; saved state is never written, and
+// SVG export ignores the toggle entirely.
+describe('stepNumbers PNG badge toggle (40-03 EDGE-04)', () => {
+  let cleanupStubs: () => void;
+
+  beforeEach(() => {
+    FakeImage.instances.length = 0;
+  });
+
+  afterEach(() => {
+    cleanupStubs?.();
+  });
+
+  // Frontmatter fixture with an existing config block: the clone must
+  // preserve every pre-existing key while merging the override in.
+  const FRONTMATTER_CONTENT = [
+    '---',
+    'config:',
+    '  themeVariables:',
+    "    primaryColor: '#daeaf2'",
+    '  flowchart:',
+    "    curve: 'linear'",
+    '---',
+    'flowchart TD',
+    '  A --> B',
+  ].join('\n');
+
+  function renderModalWith(content: string) {
+    return render(
+      <ExportModal
+        diagramTitle="Test Diagram"
+        diagramContent={content}
+        onClose={() => {}}
+        onCopyLink={() => {}}
+      />
+    );
+  }
+
+  /** The wrapping row label carries title + desc text, so the checkbox is
+   * reached through the row found by its title text. */
+  function stepNumbersToggle(): HTMLInputElement {
+    const row = screen.getByText('Step numbers').closest('label');
+    expect(row).not.toBeNull();
+    return row!.querySelector('input[type="checkbox"]') as HTMLInputElement;
+  }
+
+  const lastRenderArg = (): string => {
+    const calls = vi.mocked(renderDiagram).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    return calls[calls.length - 1][0] as string;
+  };
+
+  it('renders the row with the declared copy, trailing the transparentBackground row, and defaults off', () => {
+    renderModal();
+
+    expect(screen.getByText('Step numbers')).toBeInTheDocument();
+    expect(
+      screen.getByText('Freeze step-number badges into the exported PNG')
+    ).toBeInTheDocument();
+    // Trailing position: the stepNumbers row comes after the
+    // transparentBackground row (same labeled-switch idiom, same slot).
+    const snRow = screen.getByText('Step numbers').closest('label');
+    const rows = Array.from(snRow?.parentElement?.children ?? []);
+    const tbIndex = rows.findIndex(r => r.textContent?.includes('Transparent background'));
+    const snIndex = rows.findIndex(r => r.textContent?.includes('Step numbers'));
+    expect(tbIndex).toBeGreaterThan(-1);
+    expect(snIndex).toBeGreaterThan(tbIndex);
+    expect(stepNumbersToggle().checked).toBe(false);
+  });
+
+  it('checked PNG export passes a clone carrying flowchart.stepNumbers: true with every pre-existing key preserved', async () => {
+    fetchBehavior = async () => pngResponse();
+    cleanupStubs = setupDomStubs();
+    renderModalWith(FRONTMATTER_CONTENT);
+
+    fireEvent.click(stepNumbersToggle());
+    expect(stepNumbersToggle().checked).toBe(true);
+    fireEvent.click(screen.getByText('Export PNG'));
+
+    await waitFor(() => {
+      expect(vi.mocked(renderDiagram).mock.calls.length).toBeGreaterThan(0);
+    });
+    const renderArg = lastRenderArg();
+    // A render-scoped CLONE, not the prop itself.
+    expect(renderArg).not.toBe(FRONTMATTER_CONTENT);
+    expect(renderArg).toMatch(/flowchart:\n(?:.*\n)*?\s+stepNumbers: true/);
+    // Every pre-existing frontmatter key survives the round-trip.
+    expect(renderArg).toMatch(/curve: 'linear'/);
+    expect(renderArg).toMatch(/primaryColor: '#daeaf2'/);
+    // The saved diagram content prop is byte-untouched (T-40-06: no store
+    // write path exists; the prop string never mutates).
+    expect(FRONTMATTER_CONTENT).not.toContain('stepNumbers');
+
+    await waitFor(() => {
+      expect(FakeImage.instances.length).toBe(1);
+    });
+    act(() => {
+      FakeImage.instances[0].onload?.();
+    });
+  });
+
+  it('creates the flowchart config block when the content has no frontmatter', async () => {
+    fetchBehavior = async () => pngResponse();
+    cleanupStubs = setupDomStubs();
+    renderModal();
+
+    fireEvent.click(stepNumbersToggle());
+    fireEvent.click(screen.getByText('Export PNG'));
+
+    await waitFor(() => {
+      expect(vi.mocked(renderDiagram).mock.calls.length).toBeGreaterThan(0);
+    });
+    const renderArg = lastRenderArg();
+    expect(renderArg).toMatch(/config:\n(?:.*\n)*?\s+flowchart:\n(?:.*\n)*?\s+stepNumbers: true/);
+    expect(renderArg).toContain('flowchart TD');
+  });
+
+  it('toggle off passes the content unchanged to renderDiagram', async () => {
+    fetchBehavior = async () => pngResponse();
+    cleanupStubs = setupDomStubs();
+    renderModal();
+
+    fireEvent.click(screen.getByText('Export PNG'));
+
+    await waitFor(() => {
+      expect(vi.mocked(renderDiagram).mock.calls.length).toBeGreaterThan(0);
+    });
+    expect(lastRenderArg()).toBe('flowchart TD\n  A --> B');
+  });
+
+  it('SVG export ignores the toggle entirely (no effect, no warning)', async () => {
+    fetchBehavior = async () => pngResponse();
+    cleanupStubs = setupDomStubs();
+    renderModal();
+
+    fireEvent.click(stepNumbersToggle());
+    fireEvent.click(screen.getByText('Export SVG'));
+
+    await waitFor(() => {
+      expect(createObjectURLMock).toHaveBeenCalled();
+    });
+    // The SVG render received the ORIGINAL content — no override clone.
+    expect(lastRenderArg()).toBe('flowchart TD\n  A --> B');
+    expect(lastRenderArg()).not.toContain('stepNumbers');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 });

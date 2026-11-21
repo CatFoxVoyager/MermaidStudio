@@ -12,7 +12,7 @@ import {
 import { SUPPORTED_GOOGLE_FONTS, findGoogleFont } from '@/constants/fonts';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import { renderDiagram } from '@/lib/mermaid/core';
-import { parseFrontmatter, parseDiagram } from '@/lib/mermaid/codeUtils';
+import { parseFrontmatter, parseDiagram, generateFrontmatter } from '@/lib/mermaid/codeUtils';
 import { sanitizeCssValue } from '@/utils/sanitization';
 import { oklchToHex } from '@/utils/oklch';
 import {
@@ -32,6 +32,30 @@ function extractFontFamilyFromContent(content: string): string | null {
     return themeVars?.fontFamily || null;
   } catch {
     return null;
+  }
+}
+
+/** Build the RENDER-SCOPED stepNumbers clone (EDGE-04, Surface 5, Grey Area
+ *  6): merge flowchart.stepNumbers: true into the frontmatter config so the
+ *  static badge layer freezes into the exported PNG. Every other frontmatter
+ *  key is preserved through the parse/emit round-trip, an absent flowchart
+ *  block is created, and the result exists ONLY inside the export call — the
+ *  saved diagram content and the user's AdvancedStylePanel config are never
+ *  written. */
+function buildStepNumbersRenderContent(content: string): string {
+  try {
+    const { frontmatter, body } = parseFrontmatter(content);
+    const config: Record<string, unknown> = {
+      ...((frontmatter.config as Record<string, unknown> | undefined) ?? {}),
+    };
+    config.flowchart = {
+      ...((config.flowchart as Record<string, unknown> | undefined) ?? {}),
+      stepNumbers: true,
+    };
+    return `${generateFrontmatter(config)}\n\n${body}`;
+  } catch {
+    // Never break the export over an unparseable frontmatter — render as-is.
+    return content;
   }
 }
 
@@ -128,6 +152,9 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
   // be fetched during the last PNG export. 0 = no warning rendered.
   const [inlineFailedCount, setInlineFailedCount] = useState(0);
   const [transparentBg, setTransparentBg] = useState(false);
+  // PNG-only stepNumbers badge toggle (EDGE-04, Surface 5): export-scoped —
+  // defaults off and never mutates the saved global config (Grey Area 6).
+  const [stepNumbers, setStepNumbers] = useState(false);
   // Same parse as the preview, passed to the shared post-processing pipeline.
   const parsedDiagram = useMemo(() => parseDiagram(diagramContent), [diagramContent]);
 
@@ -145,8 +172,8 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
     setExportError(t('export.downloadFailed'));
   }
 
-  async function getSvgString(): Promise<string | null> {
-    const { svg, error } = await renderDiagram(diagramContent, `export_${Date.now()}`);
+  async function getSvgString(contentOverride?: string): Promise<string | null> {
+    const { svg, error } = await renderDiagram(contentOverride ?? diagramContent, `export_${Date.now()}`);
     if (error || !svg) return null;
     // Same post-processing as the preview (label fixes + edge style cleanup),
     // so exports match what the user sees — e.g. linkStyle fill must not be
@@ -194,7 +221,12 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
   // src/utils/__tests__/oklch.test.ts.
 
   async function exportPng() {
-    const svgStr = await getSvgString();
+    // Export-scoped override (Surface 5): with the stepNumbers toggle checked,
+    // the PNG run renders a content clone carrying flowchart.stepNumbers: true
+    // so step-number badges freeze into the bitmap. The override lives only in
+    // this function call — SVG export and copy actions ignore the toggle
+    // entirely (no effect, no warning).
+    const svgStr = await getSvgString(stepNumbers ? buildStepNumbersRenderContent(diagramContent) : undefined);
     if (!svgStr) { markExportError(); return; }
 
     try {
@@ -447,6 +479,32 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
             </p>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
               {t('export.transparentBackgroundDesc')}
+            </p>
+          </div>
+        </label>
+
+        {/* Step numbers is PNG-only like the row above — it trails the
+            actions it serves, defaults off, and its override is scoped to
+            the PNG render call only (EDGE-04, Surface 5). SVG export and
+            the copy actions ignore it entirely: no effect, no warning. */}
+        <label className="flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition-all"
+          style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
+          <input
+            type="checkbox"
+            checked={stepNumbers}
+            onChange={e => setStepNumbers(e.target.checked)}
+            className="peer sr-only"
+          />
+          <div aria-hidden="true"
+            className={`relative w-9 h-5 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--accent)] peer-focus-visible:ring-offset-2 ${stepNumbers ? 'bg-[var(--accent)]' : 'bg-[var(--text-tertiary)]'}`}>
+            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${stepNumbers ? 'left-[18px]' : 'left-0.5'}`} />
+          </div>
+          <div>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              {t('export.stepNumbers')}
+            </p>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              {t('export.stepNumbersDesc')}
             </p>
           </div>
         </label>
