@@ -200,6 +200,8 @@
     "exportPng": "Exporter en PNG",
     "exportPngDesc": "Image raster haute résolution",
     "downloadFailed": "Échec du téléchargement — réessayez, ou utilisez une action de copie ci-dessous.",
+    "pngImageWarning_one": "1 image externe n'a pas pu être intégrée (bloquée par le serveur distant) — elle peut être absente du PNG.",
+    "pngImageWarning_other": "{{count}} images externes n'ont pas pu être intégrées (bloquées par le serveur distant) — elles peuvent être absentes du PNG.",
     "transparentBackground": "Arrière-plan transparent",
     "transparentBackgroundDesc": "Exporter en PNG sans couleur d'arrière-plan",
     "copyMarkdown": "Copier en Markdown",

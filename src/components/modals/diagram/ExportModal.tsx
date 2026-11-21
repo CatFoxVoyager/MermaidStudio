@@ -1,12 +1,24 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Image as ImageIcon, FileText, Code, Share2, Check, Braces } from 'lucide-react';
+import {
+  Image as ImageIcon,
+  FileText,
+  Code,
+  Share2,
+  Check,
+  Braces,
+  TriangleAlert,
+} from 'lucide-react';
 import { SUPPORTED_GOOGLE_FONTS, findGoogleFont } from '@/constants/fonts';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import { renderDiagram } from '@/lib/mermaid/core';
 import { parseFrontmatter, parseDiagram } from '@/lib/mermaid/codeUtils';
 import { sanitizeCssValue } from '@/utils/sanitization';
 import { oklchToHex } from '@/utils/oklch';
+import {
+  collectExternalImageHrefs,
+  fetchImagesAsDataUris,
+} from '@/utils/exportMedia';
 import { buildMermaidEmbedSnippet } from '@/constants/cdnEmbed';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { Modal } from '@/components/shared/Modal';
@@ -112,6 +124,9 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
   const { t } = useTranslation();
   const [done, setDone] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  // Sibling advisory notice (Surface 5): how many external images could not
+  // be fetched during the last PNG export. 0 = no warning rendered.
+  const [inlineFailedCount, setInlineFailedCount] = useState(0);
   const [transparentBg, setTransparentBg] = useState(false);
   // Same parse as the preview, passed to the shared post-processing pipeline.
   const parsedDiagram = useMemo(() => parseDiagram(diagramContent), [diagramContent]);
@@ -222,6 +237,23 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
         const styleTag = `<style>${styleParts.join('\n')}</style>`;
         cleanSvg = cleanSvg.replace(/(<svg[^>]*>)/, `$1\n${styleTag}`);
       }
+
+      // ICON-04: best-effort CORS inlining for external <image> hrefs (PNG
+      // only). SVG-as-<img> rasterization forbids network subresources, so an
+      // unfetched external image renders blank in the PNG. Failures are
+      // counted, never fatal (T-39-08) — the modal warns with the count.
+      // Zero changes to exportSvg: the SVG file stays inline-free so external
+      // refs resolve when the file is opened online.
+      const externalUrls = collectExternalImageHrefs(cleanSvg);
+      let inlineFailed = 0;
+      if (externalUrls.length > 0) {
+        const { replacements, failed } = await fetchImagesAsDataUris(externalUrls);
+        for (const [url, dataUri] of replacements) {
+          cleanSvg = cleanSvg.split(`"${url}"`).join(`"${dataUri}"`);
+        }
+        inlineFailed = failed;
+      }
+      setInlineFailedCount(inlineFailed);
 
       // Extract dimensions
       const vbMatch = cleanSvg.match(/viewBox="([^"]+)"/);
@@ -367,6 +399,15 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
         {exportError && (
           <p className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium" role="alert" style={{ background: 'var(--danger-dim)', color: 'var(--danger)' }}>
             {exportError}
+          </p>
+        )}
+        {/* Advisory CORS-inlining notice (Surface 5, PNG-only): N external
+            images could not be embedded. Sits in the same notice channel as
+            exportError but is a status (not an alert) — the export succeeded. */}
+        {inlineFailedCount > 0 && (
+          <p className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs" role="status" style={{ background: 'var(--surface-floating)', color: 'var(--text-secondary)' }}>
+            <TriangleAlert size={14} aria-hidden="true" className="shrink-0" />
+            <span>{t('export.pngImageWarning', { count: inlineFailedCount })}</span>
           </p>
         )}
         {/* Actions first, options after (iter-22 P2: the PNG-only transparent

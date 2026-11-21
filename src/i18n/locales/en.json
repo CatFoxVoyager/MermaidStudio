@@ -200,6 +200,8 @@
     "exportPng": "Export PNG",
     "exportPngDesc": "High-resolution raster image",
     "downloadFailed": "Download failed — try again, or use a copy action below.",
+    "pngImageWarning_one": "1 external image could not be embedded (blocked by the remote server) — it may be missing from the PNG.",
+    "pngImageWarning_other": "{{count}} external images could not be embedded (blocked by the remote server) — they may be missing from the PNG.",
     "transparentBackground": "Transparent background",
     "transparentBackgroundDesc": "Export PNG without background color",
     "copyMarkdown": "Copy as Markdown",
