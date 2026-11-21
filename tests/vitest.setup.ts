@@ -84,6 +84,17 @@ if (typeof window !== 'undefined') {
     };
   }
 
+  // 39-01 (ICON-04 item): jsdom has no Image.prototype.decode, and mermaid's
+  // img: render path awaits it — "img.decode is not a function" killed every
+  // img-node render in vitest (measured at planning HEAD, probe-39-result.json
+  // img_alone/shape_plus_img). An async no-op satisfies the await; the render
+  // oracle (directive-shape-render.test.ts) pins the .image-shape output.
+  if (typeof window.Image !== 'undefined' && typeof window.Image.prototype.decode !== 'function') {
+    window.Image.prototype.decode = function decode(): Promise<void> {
+      return Promise.resolve();
+    };
+  }
+
   // Minimal 2D-context stub (mermaid's architecture diagram measures its
   // icons on a canvas — "Could not create canvas of type 2d" without this).
   // This replaces vitest-canvas-mock, whose import poisons the global expect

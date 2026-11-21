@@ -98,11 +98,17 @@ const MALFORMED_METADATA_CONTENT =
 const FRONTMATTER_ONLY_CONTENT =
   '---\ntitle: Config diagram\nconfig:\n  metadata: "@{ view: collapsed }"\n---\nflowchart TD\n  A[Start] --> B[End]';
 
-// 38-03: an img:-bearing span — the payload has no mutation writer, so an
-// edit would silently drop it. Fenced read-only superset-safe (Phase 39
-// narrows deliberately when img write-back ships).
+// 39-01 (ICON-01): a well-formed img:-bearing span — the params now parse
+// TYPED and the write-back preserves them, so the span is EDITABLE (the
+// 38-03 superset-safe fence is deliberately narrowed; the inverted pins
+// below carry both directions).
 const IMG_METADATA_CONTENT =
   'flowchart TD\n  A[Start] --> B\n  B@{ img: "data:image/png;base64,AAAA", label: "Pic" }';
+
+// The residual img: fence: an UNTERMINATED img value — a span the parser
+// cannot fully consume keeps the whole-document read-only behavior (T-39-01).
+const IMG_MALFORMED_METADATA_CONTENT =
+  'flowchart TD\n  A[Start] --> B\n  B@{ img: "data:image/png;base64,AAA';
 
 describe('bodyHasUnparsedAtDirective — D6 parse-completeness helper (via codeUtils)', () => {
   it('keeps the space-separated form fenced (invalid mermaid 12.1.0)', async () => {
@@ -115,11 +121,18 @@ describe('bodyHasUnparsedAtDirective — D6 parse-completeness helper (via codeU
     expect(bodyHasUnparsedAtDirective(MALFORMED_METADATA_CONTENT)).toBe(true);
   });
 
-  // 38-03: img: joins icon: in the fence — no Visual or Preview edit path
-  // may silently drop an img payload (superset-safe; Phase 39 narrows).
-  it('fences an img:-bearing span read-only (38-03 superset-safe widening)', async () => {
+  // 39-01 (ICON-01): the deliberate narrowing of the 38-03 img: fence — a
+  // well-formed img span parses TYPED so it is editable now; the fence
+  // fires on the malformed img value below (the 38-03 pins asserted the
+  // exact inverse).
+  it('opens a well-formed img:-bearing span (typed parse; write-back preserves it)', async () => {
     const { bodyHasUnparsedAtDirective } = await import('@/lib/mermaid/codeUtils');
-    expect(bodyHasUnparsedAtDirective(IMG_METADATA_CONTENT)).toBe(true);
+    expect(bodyHasUnparsedAtDirective(IMG_METADATA_CONTENT)).toBe(false);
+  });
+
+  it('still fences an unterminated img value (malformed span)', async () => {
+    const { bodyHasUnparsedAtDirective } = await import('@/lib/mermaid/codeUtils');
+    expect(bodyHasUnparsedAtDirective(IMG_MALFORMED_METADATA_CONTENT)).toBe(true);
   });
 
   it('control: the same span without img stays editable (fence only widened for img)', async () => {
@@ -349,11 +362,14 @@ describe('VisualEditorCanvas — D6 body-metadata read-only gate', () => {
     expect(container.querySelector('button[title="Select tool (V)"]')).toBeInTheDocument();
   });
 
-  // ===== 38-03: the img: fence — the read-only pill opens for an img:
-  // payload exactly like a malformed span (Surface 4: pill copy unchanged). =====
+  // ===== 39-01 (ICON-01): the img: fence narrows — a well-formed img span
+  // opens EDITABLE (typed parse, write-back preserves it), the malformed
+  // img span keeps the exact 38-03 read-only UX (pill, parse short-circuit,
+  // Surface 4 copy unchanged). =====
 
-  it('img:-bearing span opens the editor read-only (pill present, parse short-circuited)', async () => {
+  it('well-formed img:-bearing span is EDITABLE: parser runs, no pill', async () => {
     const { parseDiagram } = await import('@/lib/mermaid/codeUtils');
+    const { postProcessDiagramSvg } = await import('@/utils/svgPostProcessing');
     const onChange = vi.fn();
     const { container } = render(
       <VisualEditorCanvas content={IMG_METADATA_CONTENT} theme="light" onChange={onChange} />,
@@ -363,7 +379,34 @@ describe('VisualEditorCanvas — D6 body-metadata read-only gate', () => {
       expect(container.querySelector('svg')).toBeInTheDocument();
     });
 
-    // The same D6 read-only UX as a malformed span — pill visible...
+    // The parse runs (no short-circuit) and the post-parse pipeline follows —
+    // the exact inverse of the read-only assertions below.
+    expect(vi.mocked(parseDiagram)).toHaveBeenCalledWith(IMG_METADATA_CONTENT);
+    await waitFor(() => {
+      expect(vi.mocked(postProcessDiagramSvg)).toHaveBeenCalled();
+    });
+
+    expect(screen.queryByTestId('visual-editor-readonly')).not.toBeInTheDocument();
+    expect(container.querySelector('button[title="Select tool (V)"]')).toBeInTheDocument();
+    // The node overlay exists — the img node is selectable like any other.
+    await waitFor(() => {
+      expect(container.querySelectorAll('.visual-node-overlay').length).toBeGreaterThanOrEqual(1);
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('malformed img:-bearing span opens the editor read-only (pill present, parse short-circuited)', async () => {
+    const { parseDiagram } = await import('@/lib/mermaid/codeUtils');
+    const onChange = vi.fn();
+    const { container } = render(
+      <VisualEditorCanvas content={IMG_MALFORMED_METADATA_CONTENT} theme="light" onChange={onChange} />,
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector('svg')).toBeInTheDocument();
+    });
+
+    // The same D6 read-only UX as any malformed span — pill visible...
     expect(screen.getByTestId('visual-editor-readonly')).toBeInTheDocument();
     // ...the parse memo short-circuits (gate sits before the parse)...
     expect(vi.mocked(parseDiagram)).not.toHaveBeenCalled();

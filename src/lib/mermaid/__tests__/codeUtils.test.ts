@@ -153,6 +153,44 @@ describe('Mermaid Code Utilities', () => {
       expect(result.nodes[0].icon?.h).toBe(60);
     });
 
+    // ===== 39-01 (ICON-01): directive-span media typing — icon:/img: params
+    // land as typed IconConfig/ImgConfig on ParsedNode.icon/img. =====
+
+    it('parses a standalone directive icon span to typed ParsedNode.icon', () => {
+      const source = 'flowchart TD\nA@{ shape: "doc", label: "D", icon: "fa:user", form: "square", pos: "t", w: 24, h: 60 }';
+      const result = parseDiagram(source);
+
+      expect(result.nodes).toHaveLength(1);
+      expect(result.nodes[0].icon).toEqual({ icon: 'fa:user', form: 'square', pos: 't', w: 24, h: 60 });
+      // Typed params leave unknownParams — the span is fully consumed.
+      expect(result.nodes[0].unknownParams).toHaveLength(0);
+    });
+
+    it('parses a bare icon span (no shape key) to a rect node with typed icon', () => {
+      const result = parseDiagram('flowchart TD\nA@{ icon: "fa:user", form: "square", label: "U" }');
+      expect(result.nodes).toHaveLength(1);
+      expect(result.nodes[0].shape).toBe('rect');
+      expect(result.nodes[0].label).toBe('U');
+      expect(result.nodes[0].icon).toEqual({ icon: 'fa:user', form: 'square', label: 'U' });
+      expect(result.nodes[0].directiveRaw).toBe('@{ icon: "fa:user", form: "square", label: "U" }');
+    });
+
+    it('parses img params to typed ParsedNode.img beside icon', () => {
+      const uri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
+      const result = parseDiagram(`flowchart TD\nA@{ img: "${uri}", constraint: "on", pos: "b", w: 120.5, h: 80 }`);
+      expect(result.nodes[0].img).toEqual({ img: uri, pos: 'b', w: 120.5, h: 80, constraint: 'on' });
+      expect(result.nodes[0].icon).toBeUndefined();
+      expect(result.nodes[0].unknownParams).toHaveLength(0);
+    });
+
+    it('parses icon params on edge-line source and target spans', () => {
+      const result = parseDiagram('flowchart TD\nA@{ icon: "fa:user", form: "circle" } --> B@{ img: "data:image/png;base64,AA" }');
+      const a = result.nodes.find(n => n.id === 'A');
+      const b = result.nodes.find(n => n.id === 'B');
+      expect(a?.icon).toEqual({ icon: 'fa:user', form: 'circle' });
+      expect(b?.img).toEqual({ img: 'data:image/png;base64,AA' });
+    });
+
     it('should parse markdown-style labels', () => {
       const source = 'flowchart TD\nA[`**bold**`]';
       const result = parseDiagram(source);
@@ -384,11 +422,34 @@ describe('Mermaid Code Utilities', () => {
       expect(bodyHasUnparsedAtDirective('flowchart TD\nsubgraph S1 @{ view: collapsed }\nA --> B\nend')).toBe(true);
     });
 
-    it('returns true for icon-param lines (no icon write-back)', () => {
-      // The standalone icon form, and an icon param riding on a shape span —
-      // a rename would silently lose the icon config either way (A5).
-      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ icon: "fa:user", form: "square", label: "U" }')).toBe(true);
-      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: "doc", label: "D", icon: "fa:user" }')).toBe(true);
+    // ===== 39-01 (ICON-01): the deliberate NARROWING of the 38-03 fence.
+    // Well-formed icon:/img: params parse TYPED (the mutator write-back
+    // preserves them), so their spans are EDITABLE now — the fence fires
+    // only on media params that failed their enum/shape checks, and on
+    // typed media beside unparsed siblings (mixed spans would re-order on
+    // re-emission). The pre-narrowing pins asserted exactly the inverse. =====
+    it('opens well-formed icon-param lines (typed parse; media survives renames)', () => {
+      // The bare icon form, and an icon param riding on a shape span — both
+      // fully consumed, both editable (the A5 drop concern is closed by the
+      // media-preserving rebuilds, pinned below).
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ icon: "fa:user", form: "square", label: "U" }')).toBe(false);
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: "doc", label: "D", icon: "fa:user" }')).toBe(false);
+    });
+
+    it('opens well-formed img-param lines (typed parse)', () => {
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ img: "data:image/png;base64,AAAA", constraint: "on", label: "Pic" }')).toBe(false);
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ shape: "doc", label: "D", img: "https://example.com/pic.png" }')).toBe(false);
+    });
+
+    it('still fences media params that failed their enum/shape checks', () => {
+      // Out-of-enum form (the pre-38 spelling) and a non-numeric w stay
+      // unparsed verbatim — never silently typed (T-39-01).
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ icon: "fa:user", form: "squircle" }')).toBe(true);
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ icon: "fa:user", w: 1e3 }')).toBe(true);
+      // An unterminated img value is a malformed span.
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ img: "data:image/png;base64,AAA }')).toBe(true);
+      // Typed media beside an unparsed sibling: re-emission would reorder.
+      expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ img: "https://example.com/p.png", bogus: 1 }')).toBe(true);
     });
 
     // Phase 27 review WR-04: the space-separated directive form is invalid
@@ -872,6 +933,70 @@ describe('Mermaid Code Utilities', () => {
       const result = updateNodeShape(source, 'A', 'person');
 
       expect(result).toBe('flowchart TD\nA@{ shape: "person", label: "D", w: 100 }');
+    });
+  });
+
+  // ===== 39-01 (ICON-01): media spans round-trip through the writers —
+  // renames and shape changes re-emit the typed params through the
+  // directiveWrap choke point (canonical order, unknowns verbatim after),
+  // so a well-formed span round-trips byte-stably and no write path can
+  // silently drop the icon/img config (the A5 concern the 38-03 fence used
+  // to mask). =====
+  describe('directive media round-trip (39-01)', () => {
+    const ICON_SPAN = 'A@{ shape: "doc", label: "D", icon: "fa:user", form: "square", pos: "t", w: 24, h: 60 }';
+    const URI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+    it('re-labels a shaped icon span byte-stably (only the label changes)', () => {
+      const source = `flowchart TD\n${ICON_SPAN}`;
+      const relabeled = updateNodeLabel(source, 'A', 'New');
+      expect(relabeled).toBe('flowchart TD\nA@{ shape: "doc", label: "New", icon: "fa:user", form: "square", pos: "t", w: 24, h: 60 }');
+      // Identity round-trip: the same label re-emits the original bytes.
+      expect(updateNodeLabel(relabeled, 'A', 'D')).toBe(source);
+    });
+
+    it('re-labels a shaped img span byte-stably and re-parses to the same config', () => {
+      const source = `flowchart TD\nA@{ shape: "rect", label: "P", img: "${URI}", constraint: "on" }`;
+      const relabeled = updateNodeLabel(source, 'A', 'Pic');
+      expect(relabeled).toBe(`flowchart TD\nA@{ shape: "rect", label: "Pic", img: "${URI}", constraint: "on" }`);
+      expect(parseDiagram(relabeled).nodes[0].img).toEqual({ img: URI, constraint: 'on' });
+    });
+
+    it('re-labels a bare media span keeping the bare form (no shape key inserted)', () => {
+      const source = 'flowchart TD\nA@{ icon: "fa:user", form: "square", label: "U" }';
+      const relabeled = updateNodeLabel(source, 'A', 'Z');
+      expect(relabeled).toBe('flowchart TD\nA@{ icon: "fa:user", form: "square", label: "Z" }');
+      // No label param in source + same effective label → still no label param.
+      expect(updateNodeLabel('flowchart TD\nA@{ icon: "fa:user" }', 'A', 'A')).toBe('flowchart TD\nA@{ icon: "fa:user" }');
+    });
+
+    it('renames a bare img node on an edge line without inserting a shape key', () => {
+      const source = `flowchart TD\nA@{ img: "${URI}" } --> B`;
+      const relabeled = updateNodeLabel(source, 'A', 'Photo');
+      // The edge-source rebuild keeps the writer's established compact
+      // arrow spacing (`}-->B`) — pre-existing 27-01 output contract.
+      expect(relabeled).toBe(`flowchart TD\nA@{ img: "${URI}", label: "Photo" }-->B`);
+      expect(parseDiagram(relabeled).nodes.find(n => n.id === 'A')?.img).toEqual({ img: URI, label: 'Photo' });
+    });
+
+    it('shape change on a media span re-emits the directive form with media preserved', () => {
+      const source = `flowchart TD\n${ICON_SPAN}`;
+      const reshaped = updateNodeShape(source, 'A', 'hex');
+      expect(reshaped).toBe('flowchart TD\nA@{ shape: "hex", label: "D", icon: "fa:user", form: "square", pos: "t", w: 24, h: 60 }');
+      expect(parseDiagram(reshaped).nodes[0].icon).toEqual({ icon: 'fa:user', form: 'square', pos: 't', w: 24, h: 60 });
+    });
+
+    it('escapes a label containing a double quote through the media rebuild (CR-01)', () => {
+      const source = `flowchart TD\n${ICON_SPAN}`;
+      const relabeled = updateNodeLabel(source, 'A', 'Say "hi"');
+      expect(relabeled).toBe('flowchart TD\nA@{ shape: "doc", label: "Say \\"hi\\"", icon: "fa:user", form: "square", pos: "t", w: 24, h: 60 }');
+      // Re-parse round-trips the escaped label back to the original value.
+      expect(parseDiagram(relabeled).nodes[0].label).toBe('Say "hi"');
+    });
+
+    it('edge-line rename preserves media on both endpoint spans', () => {
+      const source = `flowchart TD\nA@{ shape: "doc", label: "S", icon: "fa:user" } --> B@{ shape: "rect", label: "T", img: "${URI}" }`;
+      const relabeled = updateNodeLabel(source, 'B', 'Target2');
+      expect(relabeled).toBe(`flowchart TD\nA@{ shape: "doc", label: "S", icon: "fa:user" } --> B@{ shape: "rect", label: "Target2", img: "${URI}" }`);
     });
   });
 

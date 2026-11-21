@@ -84,3 +84,71 @@ describe('at-brace directive render canary (27-01 tracer, 27-02 full set, 38-02 
     expect(svg).toContain('Say');
   });
 });
+
+// ===== 39-01 (ICON-01): the media render oracle. The Image.prototype.decode
+// polyfill in tests/vitest.setup.ts is the unblock — at planning HEAD the
+// img render died with "img.decode is not a function" in jsdom
+// (probe-39-result.json, img_alone/shape_plus_img). Assertions run against
+// DOM nodes (document-level querySelector on the returned svg injected into
+// the body), NOT substring checks — the planning probe measured that class
+// substrings over-match. Mermaid removes its own temp host after render, so
+// the oracle mounts the returned svg itself. =====
+describe('media node render oracle (39-01 ICON-01)', { timeout: 30000 }, () => {
+  // 1x1 PNG — the canonical smallest valid data:image/png URI.
+  const TINY_PNG_URI =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+  /** Mount a returned svg into the document and hand back its host (caller cleans up). */
+  function mountSvg(svg: string): HTMLElement {
+    const host = document.createElement('div');
+    host.innerHTML = svg;
+    document.body.appendChild(host);
+    return host;
+  }
+
+  it('renders an img data-URI node with a document-level .image-shape group', async () => {
+    let host: HTMLElement | null = null;
+    try {
+      const { svg, error } = await renderDiagram(
+        `flowchart TD\nA@{ img: "${TINY_PNG_URI}", constraint: "on" }`,
+        'p39_img_oracle',
+      );
+
+      expect(error).toBeNull();
+      expect(svg).not.toBe('');
+      host = mountSvg(svg);
+      // The architectural premise: mermaid 12.3 emits the .image-shape group
+      // for img nodes. Class-bearer querySelector — no substring matching.
+      expect(document.querySelector('.image-shape')).not.toBeNull();
+    } finally {
+      host?.remove();
+      document.getElementById('p39_img_oracle')?.remove();
+      document.getElementById('dp39_img_oracle')?.remove();
+    }
+  });
+
+  it('renders an unregistered icon node via the unknownIcon fallback (render resolves, no throw)', async () => {
+    let host: HTMLElement | null = null;
+    try {
+      // Packs are NOT registered in the vitest environment
+      // (mermaid.registerIconPacks never runs here), so the icon path takes
+      // the unknownIcon fallback — the blue question-mark box (#087ebf).
+      const { svg, error } = await renderDiagram(
+        'flowchart TD\nA@{ icon: "fa:user", form: "square" }',
+        'p39_icon_oracle',
+      );
+
+      expect(error).toBeNull();
+      expect(svg).not.toBe('');
+      host = mountSvg(svg);
+      // The icon node carries the .icon-shape class-bearer group...
+      expect(document.querySelector('.icon-shape')).not.toBeNull();
+      // ...and the unknownIcon fallback body renders (blue ? box fill).
+      expect(document.body.innerHTML).toContain('#087ebf');
+    } finally {
+      host?.remove();
+      document.getElementById('p39_icon_oracle')?.remove();
+      document.getElementById('dp39_icon_oracle')?.remove();
+    }
+  });
+});

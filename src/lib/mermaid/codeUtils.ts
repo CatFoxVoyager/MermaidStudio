@@ -37,6 +37,8 @@ export interface ParsedNode {
   raw: string;
   parentSubgraphId?: string | null;
   icon?: IconConfig;
+  /** 39-01 (ICON-01): typed img params when the node's span carries a well-formed `img:` key. */
+  img?: ImgConfig;
   /** Full original at-brace span, verbatim, when the node was defined by one. */
   directiveRaw?: string;
   /** Verbatim unknown key/value slices from the span, in original order. */
@@ -51,12 +53,34 @@ export interface ParsedNode {
   authoredShape?: string;
 }
 
+/**
+ * 39-01 (ICON-01): completed to the mermaid 12.3 icon param set. The pre-38
+ * extras (`squircle`, `l`/`r`/`c`) are MIGRATED OFF the type, not kept
+ * alongside — the directive parser contract is the canonical set; spans
+ * carrying the legacy spellings parse as unparsed params and fence (the
+ * migration path is the phase-39-04 UI re-pick, never a silent rewrite).
+ */
 export interface IconConfig {
   icon: string;
-  form?: 'square' | 'circle' | 'rounded' | 'squircle';
+  form?: 'square' | 'circle' | 'rounded';
   label?: string;
-  pos?: 't' | 'b' | 'l' | 'r' | 'c';
+  pos?: 't' | 'b';
+  w?: number;
   h?: number;
+}
+
+/**
+ * 39-01 (ICON-01): the mermaid 12.3 img param set. `img` is the image src
+ * (local compressed `data:image/*` URI or HTTPS URL); `constraint: on`
+ * keeps the image's aspect ratio inside the node bounds.
+ */
+export interface ImgConfig {
+  img: string;
+  pos?: 't' | 'b';
+  w?: number;
+  h?: number;
+  constraint?: 'on' | 'off';
+  label?: string;
 }
 
 export interface ParsedEdge {
@@ -252,6 +276,19 @@ export interface ParsedAtDirective {
   /** Null when the span carries no label key — callers default to the node id. */
   label: string | null;
   unknownParams: string[];
+  /**
+   * 39-01 (ICON-01): typed media configs when the span carries well-formed
+   * `icon:` / `img:` params. Malformed or out-of-enum media params stay in
+   * `unknownParams` verbatim and keep the span fenced.
+   */
+  icon?: IconConfig;
+  img?: ImgConfig;
+  /**
+   * True when the span carried NO shape key (the bare `@{ icon: ... }` /
+   * `@{ img: ... }` form): `shape` is the rect render approximation and
+   * re-emission must keep the bare media form (no `shape:` key inserted).
+   */
+  mediaOnly?: boolean;
 }
 
 /**
@@ -342,7 +379,100 @@ function hasUnquotedCloseBrace(body: string): boolean {
  * consumed by the fence: their params parse cleanly and nothing writes back
  * to them.
  */
-function parseDirectiveBody(body: string): { shape: string | null; label: string | null; unknownParams: string[] } | null {
+/**
+ * 39-01 (ICON-01) media-param typing rules. The mermaid 12.3 enums are
+ * EXACT-CASE: `Square` is not `square`, `T` is not `t` — an out-of-enum
+ * value stays in unknownParams verbatim and fences the span (never silently
+ * typed, never rewritten in source). w/h accept plain integer/decimal
+ * literals only (`12`, `12.5`) so the numeric value round-trips without
+ * precision loss or coercion; anything else (`1e3`, `.5`, negatives) is an
+ * unparsed param.
+ */
+const ICON_FORM_VALUES = new Set(['square', 'circle', 'rounded']);
+const MEDIA_POS_VALUES = new Set(['t', 'b']);
+const IMG_CONSTRAINT_VALUES = new Set(['on', 'off']);
+const DIRECTIVE_NUMERIC_RE = /^\d+(?:\.\d+)?$/;
+
+interface DirectiveBodyParse {
+  shape: string | null;
+  label: string | null;
+  unknownParams: string[];
+  icon?: IconConfig;
+  img?: ImgConfig;
+}
+
+/** One directive param pair, in source order, with its media-typing state. */
+interface DirectiveParamEntry {
+  pair: string;
+  key: string;
+  value: string;
+  consumed: boolean;
+}
+
+/**
+ * Type one enum field for a media config: the key's pairs must be exactly
+ * one unconsumed entry whose value is in the exact-case enum — otherwise
+ * the entries stay unparsed (unknownParams) verbatim.
+ */
+function applyEnumField(
+  entries: DirectiveParamEntry[],
+  key: string,
+  allowed: Set<string>,
+  set: (value: string) => void,
+): void {
+  const unconsumed = entries.filter(e => e.key === key && !e.consumed);
+  if (unconsumed.length === 0) {return;}
+  if (unconsumed.length === 1 && allowed.has(unconsumed[0].value)) {
+    unconsumed[0].consumed = true;
+    set(unconsumed[0].value);
+  }
+}
+
+/** Numeric counterpart of applyEnumField (plain integer/decimal literals only). */
+function applyNumericField(
+  entries: DirectiveParamEntry[],
+  key: string,
+  set: (value: number) => void,
+): void {
+  const unconsumed = entries.filter(e => e.key === key && !e.consumed);
+  if (unconsumed.length === 0) {return;}
+  if (unconsumed.length === 1 && DIRECTIVE_NUMERIC_RE.test(unconsumed[0].value)) {
+    unconsumed[0].consumed = true;
+    set(Number(unconsumed[0].value));
+  }
+}
+
+/**
+ * Build the typed IconConfig from the ordered entries (icon key present and
+ * non-empty), consuming the well-formed form/pos/w/h pairs. With BOTH media
+ * keys present, icon consumes first — hand-authored dual-media spans are a
+ * degenerate form the mutators never emit.
+ */
+function buildTypedIcon(entries: DirectiveParamEntry[]): IconConfig | undefined {
+  const iconEntry = entries.find(e => e.key === 'icon' && !e.consumed && e.value !== '');
+  if (!iconEntry) {return undefined;}
+  iconEntry.consumed = true;
+  const icon: IconConfig = { icon: iconEntry.value };
+  applyEnumField(entries, 'form', ICON_FORM_VALUES, v => { icon.form = v as IconConfig['form']; });
+  applyEnumField(entries, 'pos', MEDIA_POS_VALUES, v => { icon.pos = v as IconConfig['pos']; });
+  applyNumericField(entries, 'w', v => { icon.w = v; });
+  applyNumericField(entries, 'h', v => { icon.h = v; });
+  return icon;
+}
+
+function buildTypedImg(entries: DirectiveParamEntry[]): ImgConfig | undefined {
+  const imgEntry = entries.find(e => e.key === 'img' && !e.consumed && e.value !== '');
+  if (!imgEntry) {return undefined;}
+  imgEntry.consumed = true;
+  const img: ImgConfig = { img: imgEntry.value };
+  applyEnumField(entries, 'pos', MEDIA_POS_VALUES, v => { img.pos = v as ImgConfig['pos']; });
+  applyNumericField(entries, 'w', v => { img.w = v; });
+  applyNumericField(entries, 'h', v => { img.h = v; });
+  applyEnumField(entries, 'constraint', IMG_CONSTRAINT_VALUES, v => { img.constraint = v as ImgConfig['constraint']; });
+  return img;
+}
+
+function parseDirectiveBody(body: string): DirectiveBodyParse | null {
   // WR-03: the greedy capture runs to the LAST `}` — an unquoted `}` before
   // it means the real span closed earlier and the rest is residual line
   // text (e.g. `A@{ shape: person } @{ shape: doc }`). Such a body is never
@@ -351,6 +481,15 @@ function parseDirectiveBody(body: string): { shape: string | null; label: string
   let shape: string | null = null;
   let label: string | null = null;
   const unknownParams: string[] = [];
+  // 39-01 (ICON-01): icon/img params become TYPED fields instead of
+  // unknownParams slices — but only when they pass their enum/shape checks.
+  // Every non-shape/label pair is tracked IN SOURCE ORDER with a consumed
+  // flag: pairs that fail (an out-of-enum form/pos, a non-numeric w/h, an
+  // empty or duplicate icon/img value) or that no media consumed land back
+  // in unknownParams VERBATIM, in their original position, so the fence
+  // fires on them unchanged and nothing the parser cannot fully consume is
+  // ever dropped, reordered, or normalized in source (T-39-01).
+  const paramEntries: DirectiveParamEntry[] = [];
   for (const pair of splitDirectiveParams(body)) {
     const trimmedPair = pair.trim();
     if (!trimmedPair) {return null;}
@@ -368,13 +507,29 @@ function parseDirectiveBody(body: string): { shape: string | null; label: string
         && !/^[A-Za-z_][\w-]*$/.test(value)) {return null;}
     if (key === 'shape') { shape = value; }
     else if (key === 'label') { label = value; }
-    else { unknownParams.push(trimmedPair); }
+    else { paramEntries.push({ pair: trimmedPair, key, value, consumed: false }); }
   }
-  return { shape, label, unknownParams };
+  const icon = buildTypedIcon(paramEntries);
+  const img = buildTypedImg(paramEntries);
+  // unknownParams reassemble in ORIGINAL pair order — typed pairs leave,
+  // everything else (plain unknowns and unparsed media-adjacent pairs
+  // alike) keeps its position.
+  for (const entry of paramEntries) {
+    if (!entry.consumed) {unknownParams.push(entry.pair);}
+  }
+  // Bare-form label: with NO shape key the label param is a MEDIA param
+  // (canonical icon/img order), so it rides the typed config for re-emission
+  // (present-but-empty keeps mermaid's empty-label semantics); shaped spans
+  // keep the label at span level (directiveWrap's label slot).
+  if (shape === null && label !== null) {
+    if (icon) { icon.label = label; }
+    else if (img) { img.label = label; }
+  }
+  return { shape, label, unknownParams, ...(icon ? { icon } : {}), ...(img ? { img } : {}) };
 }
 
-/** LOOSE parse: shape-less (edge) directive spans stay parseable. */
-function parseAtDirectiveLoose(raw: string): { shape: string | null; label: string | null; unknownParams: string[] } | null {
+/** LOOSE parse: shape-less (edge + bare media) directive spans stay parseable. */
+function parseAtDirectiveLoose(raw: string): DirectiveBodyParse | null {
   const spanMatch = raw.match(/^@\{(.*)\}\s*$/);
   if (!spanMatch) {return null;}
   const body = spanMatch[1].trim();
@@ -382,14 +537,27 @@ function parseAtDirectiveLoose(raw: string): { shape: string | null; label: stri
   return parseDirectiveBody(body);
 }
 
+/**
+ * STRICT parse: node directive spans. A span needs a shape key OR typed
+ * media (the bare `@{ icon: ... }` / `@{ img: ... }` form, 39-01) to count
+ * as a node definition; shape-less non-media spans (edge directives) stay
+ * rejected here — the LOOSE path owns them.
+ */
 export function parseAtDirective(raw: string): ParsedAtDirective | null {
   const spanMatch = raw.match(/^@\{(.*)\}\s*$/);
   if (!spanMatch) {return null;}
   const body = spanMatch[1].trim();
   if (!body) {return null;}
   const parsed = parseDirectiveBody(body);
-  if (!parsed || !parsed.shape) {return null;}
-  return { shape: parsed.shape, label: parsed.label, unknownParams: parsed.unknownParams };
+  if (!parsed || (!parsed.shape && !parsed.icon && !parsed.img)) {return null;}
+  return {
+    shape: parsed.shape ?? 'rect',
+    label: parsed.label,
+    unknownParams: parsed.unknownParams,
+    ...(parsed.icon ? { icon: parsed.icon } : {}),
+    ...(parsed.img ? { img: parsed.img } : {}),
+    ...(!parsed.shape ? { mediaOnly: true } : {}),
+  };
 }
 
 /**
@@ -400,7 +568,7 @@ export function parseAtDirective(raw: string): ParsedAtDirective | null {
 function parseNodeRawDirective(
   raw: string,
   nodeId: string,
-): { label: string; shape: NodeShape; directiveRaw?: string; unknownParams?: string[]; authoredShape?: string } {
+): { label: string; shape: NodeShape; directiveRaw?: string; unknownParams?: string[]; authoredShape?: string; icon?: IconConfig; img?: ImgConfig } {
   const trimmed = raw.trim();
   if (trimmed.startsWith('@{')) {
     // WR-04: the directive form attaches directly to its id (`A@{...}`) —
@@ -416,10 +584,35 @@ function parseNodeRawDirective(
         directiveRaw: trimmed,
         unknownParams: parsed.unknownParams,
         authoredShape: authoredShapeFor(parsed.shape),
+        ...(parsed.icon ? { icon: parsed.icon } : {}),
+        ...(parsed.img ? { img: parsed.img } : {}),
       };
     }
   }
   return parseNodeLabel(trimmed);
+}
+
+/**
+ * 39-01 (ICON-01): the bracket-path icon span regex, shared by both
+ * parseNodeLabel sites so the two icon parse paths carry ONE typed
+ * contract — the completed 12.3 enums (square/circle/rounded, t/b) with
+ * exact-case matching, plus the w param; w/h accept integer or decimal
+ * literals. The regex matches only well-formed spans: an out-of-enum
+ * form/pos fails the whole match and the span stays untyped (bracket-
+ * embedded spans are fenced read-only by the D6 line-completeness rule,
+ * so no silent typing can occur there either).
+ */
+const ICON_SPAN_RE = /^@\{\s*icon:\s*["']([^"']+)["']\s*(?:,\s*form:\s*["']?(square|circle|rounded)["']?)?\s*(?:,\s*label:\s*["']([^"']*)["'])?\s*(?:,\s*pos:\s*["']?([tb])["']?)?\s*(?:,\s*w:\s*(\d+(?:\.\d+)?))?\s*(?:,\s*h:\s*(\d+(?:\.\d+)?))?\s*\}/;
+
+function iconConfigFromMatch(m: RegExpMatchArray): IconConfig {
+  return {
+    icon: m[1],
+    ...(m[2] ? { form: m[2] as IconConfig['form'] } : {}),
+    ...(m[3] ? { label: m[3] } : {}),
+    ...(m[4] ? { pos: m[4] as IconConfig['pos'] } : {}),
+    ...(m[5] ? { w: Number(m[5]) } : {}),
+    ...(m[6] ? { h: Number(m[6]) } : {}),
+  };
 }
 
 function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted: boolean; icon?: IconConfig } {
@@ -435,20 +628,14 @@ function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted:
     }
   }
 
-  // Check for v11 @{ icon: "fa:user", form: "square", label: "User", pos: "t", h: 60 } syntax
-  const iconMatch = trimmed.match(/^@\{\s*icon:\s*["']([^"']+)["']\s*(?:,\s*form:\s*["']?(\w+)["']?)?\s*(?:,\s*label:\s*["']([^"']*)["'])?\s*(?:,\s*pos:\s*["']?([tblrc])["']?)?\s*(?:,\s*h:\s*(\d+))?\s*\}/);
+  // Check for v11 @{ icon: "fa:user", form: "square", label: "User", pos: "t", w: 24, h: 60 } syntax
+  const iconMatch = trimmed.match(ICON_SPAN_RE);
   if (iconMatch) {
     return {
       label: iconMatch[3] ?? iconMatch[1],
       shape: 'rect',
       quoted: false,
-      icon: {
-        icon: iconMatch[1],
-        ...(iconMatch[2] ? { form: iconMatch[2] as IconConfig['form'] } : {}),
-        ...(iconMatch[3] ? { label: iconMatch[3] } : {}),
-        ...(iconMatch[4] ? { pos: iconMatch[4] as IconConfig['pos'] } : {}),
-        ...(iconMatch[5] ? { h: parseInt(iconMatch[5], 10) } : {}),
-      },
+      icon: iconConfigFromMatch(iconMatch),
     };
   }
 
@@ -499,19 +686,13 @@ function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted:
           return { label: v11Label, shape: shapeName as NodeShape, quoted: true };
         }
       }
-      const innerIcon = label.match(/^@\{\s*icon:\s*["']([^"']+)["']\s*(?:,\s*form:\s*["']?(\w+)["']?)?\s*(?:,\s*label:\s*["']([^"']*)["'])?\s*(?:,\s*pos:\s*["']?([tblrc])["']?)?\s*(?:,\s*h:\s*(\d+))?\s*\}/);
+      const innerIcon = label.match(ICON_SPAN_RE);
       if (innerIcon) {
         return {
           label: innerIcon[3] ?? innerIcon[1],
           shape: pat.shape,
           quoted,
-          icon: {
-            icon: innerIcon[1],
-            ...(innerIcon[2] ? { form: innerIcon[2] as IconConfig['form'] } : {}),
-            ...(innerIcon[3] ? { label: innerIcon[3] } : {}),
-            ...(innerIcon[4] ? { pos: innerIcon[4] as IconConfig['pos'] } : {}),
-            ...(innerIcon[5] ? { h: parseInt(innerIcon[5], 10) } : {}),
-          },
+          icon: iconConfigFromMatch(innerIcon),
         };
       }
       return { label, shape: pat.shape, quoted };
@@ -525,11 +706,94 @@ function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted:
 // the closing quote would read as an escaped quote on re-parse, quote state
 // would never close, the span would stop parsing, the node would vanish and
 // the document would fence read-only). Unknown params are re-emitted
-// verbatim, in their original order, right after the label.
-function directiveWrap(shapeKey: string, label: string, unknownParams?: string[]): string {
-  const escaped = label.replace(/\\/g, '\\\\').replaceAll('"', '\\"');
-  const extras = unknownParams && unknownParams.length > 0 ? `, ${unknownParams.join(', ')}` : '';
-  return `@{ shape: "${shapeKey}", label: "${escaped}"${extras} }`;
+// verbatim, in their original order, right after the label. 39-01 (ICON-01):
+// typed icon/img params re-emit through the same choke point, in canonical
+// order, BEFORE the unknown params — the media emitters below reuse the
+// CR-01 escape rules so a crafted label or data URI cannot break span
+// quote-state (T-39-02).
+
+/** CR-01 escape order, shared by every directive-value emission. */
+function escapeDirectiveValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replaceAll('"', '\\"');
+}
+
+/**
+ * Canonical icon param serialization (ICON-01): icon, form, label?, pos,
+ * w, h — values quoted, w/h bare numbers, undefined params omitted (no
+ * `w: undefined` junk). The label slot is filled only when the config
+ * carries one; shaped spans keep the label at span level, so the directive
+ * parse leaves `label` undefined there and no duplicate param can emit.
+ */
+function serializeIconParams(icon: IconConfig): string[] {
+  const parts: string[] = [`icon: "${escapeDirectiveValue(icon.icon)}"`];
+  if (icon.form !== undefined) {parts.push(`form: "${icon.form}"`);}
+  if (icon.label !== undefined) {parts.push(`label: "${escapeDirectiveValue(icon.label)}"`);}
+  if (icon.pos !== undefined) {parts.push(`pos: "${icon.pos}"`);}
+  if (icon.w !== undefined) {parts.push(`w: ${icon.w}`);}
+  if (icon.h !== undefined) {parts.push(`h: ${icon.h}`);}
+  return parts;
+}
+
+/** Canonical img param serialization (ICON-01): img, pos, w, h, constraint, label?. */
+function serializeImgParams(img: ImgConfig): string[] {
+  const parts: string[] = [`img: "${escapeDirectiveValue(img.img)}"`];
+  if (img.pos !== undefined) {parts.push(`pos: "${img.pos}"`);}
+  if (img.w !== undefined) {parts.push(`w: ${img.w}`);}
+  if (img.h !== undefined) {parts.push(`h: ${img.h}`);}
+  if (img.constraint !== undefined) {parts.push(`constraint: "${img.constraint}"`);}
+  if (img.label !== undefined) {parts.push(`label: "${escapeDirectiveValue(img.label)}"`);}
+  return parts;
+}
+
+function directiveWrap(
+  shapeKey: string,
+  label: string,
+  unknownParams?: string[],
+  media?: { icon?: IconConfig; img?: ImgConfig },
+): string {
+  const escaped = escapeDirectiveValue(label);
+  const extras = [
+    ...(media?.icon ? serializeIconParams(media.icon) : []),
+    ...(media?.img ? serializeImgParams(media.img) : []),
+    ...(unknownParams ?? []),
+  ];
+  const extraText = extras.length > 0 ? `, ${extras.join(', ')}` : '';
+  return `@{ shape: "${shapeKey}", label: "${escaped}"${extraText} }`;
+}
+
+/**
+ * Bare-media emission (ICON-01): re-emit a span that carried NO shape key
+ * without inserting one. The label rides the first media config's canonical
+ * label slot — included when the original span carried a label param or the
+ * new label differs from the span's effective default, preserving the
+ * absent-label fallback semantics otherwise. Unknown params re-emit
+ * verbatim after the typed params.
+ */
+function bareMediaWrap(parsed: ParsedAtDirective, nodeId: string, newLabel: string): string {
+  const hadLabelParam = parsed.label !== null;
+  const effectiveOld = parsed.label ?? nodeId;
+  const labelOut = hadLabelParam || newLabel !== effectiveOld ? newLabel : null;
+  const parts: string[] = [];
+  if (parsed.icon) {
+    const withLabel = labelOut !== null ? { ...parsed.icon, label: labelOut } : parsed.icon;
+    parts.push(...serializeIconParams(withLabel));
+  } else if (parsed.img) {
+    const withLabel = labelOut !== null ? { ...parsed.img, label: labelOut } : parsed.img;
+    parts.push(...serializeImgParams(withLabel));
+  }
+  parts.push(...parsed.unknownParams);
+  return `@{ ${parts.join(', ')} }`;
+}
+
+/**
+ * Span rebuild routing (ICON-01): a media-only span keeps its bare form, a
+ * shaped span rebuilds through directiveWrap with its typed media re-emitted
+ * ahead of the unknown params. The single helper every label-edit rebuild
+ * site uses, so no writer path can silently drop the icon/img config (A5).
+ */
+function rebuildDirectiveSpan(parsed: ParsedAtDirective, nodeId: string, shapeKey: string, newLabel: string): string {
+  if (parsed.mediaOnly) {return bareMediaWrap(parsed, nodeId, newLabel);}
+  return directiveWrap(shapeKey, newLabel, parsed.unknownParams, { icon: parsed.icon, img: parsed.img });
 }
 
 function shapeWrap(label: string, shape: NodeShape, quoted = false, unknownParams?: string[]): string {
@@ -1449,6 +1713,8 @@ export function parseDiagram(source: string): ParsedDiagram {
             directiveRaw: span,
             unknownParams: parsed.unknownParams,
             authoredShape: authoredShapeFor(parsed.shape),
+            ...(parsed.icon ? { icon: parsed.icon } : {}),
+            ...(parsed.img ? { img: parsed.img } : {}),
           });
         }
         continue;
@@ -1477,6 +1743,8 @@ export function parseDiagram(source: string): ParsedDiagram {
               ...(parsed.directiveRaw
                 ? { directiveRaw: parsed.directiveRaw, unknownParams: parsed.unknownParams, authoredShape: parsed.authoredShape }
                 : {}),
+              ...(parsed.icon ? { icon: parsed.icon } : {}),
+              ...(parsed.img ? { img: parsed.img } : {}),
             });
           } else {
             nodes.push({ id: sourceId, label: sourceId, shape: 'rect', raw: sourceId, parentSubgraphId: parentId });
@@ -1506,6 +1774,8 @@ export function parseDiagram(source: string): ParsedDiagram {
                 ...(parsed.directiveRaw
                   ? { directiveRaw: parsed.directiveRaw, unknownParams: parsed.unknownParams, authoredShape: parsed.authoredShape }
                   : {}),
+                ...(parsed.icon ? { icon: parsed.icon } : {}),
+                ...(parsed.img ? { img: parsed.img } : {}),
               });
             } else {
               nodes.push({ id: targetId, label: targetId, shape: 'rect', raw: targetId, parentSubgraphId: parentId });
@@ -1521,6 +1791,8 @@ export function parseDiagram(source: string): ParsedDiagram {
                 existing.unknownParams = parsed.unknownParams;
                 existing.authoredShape = parsed.authoredShape;
               }
+              if (parsed.icon) {existing.icon = parsed.icon;}
+              if (parsed.img) {existing.img = parsed.img;}
             }
           }
           edges.push({
@@ -1658,7 +1930,10 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
           // 38-02: the emit key goes through the label-edit rule — canonical
           // and mermaid-safe alias tokens keep the authored spelling
           // (authoredShape survives), legacy crash keys translate.
-          lines[i] = `${directiveMatch[1]}${nodeId}${directiveWrap(emitKeyForLabelEdit(parsed.shape), newLabel, parsed.unknownParams)}`;
+          // 39-01 (ICON-01): typed media params re-emit through the choke
+          // point — a rename can no longer silently lose the icon/img
+          // config (the pre-narrowing A5 concern the fence used to mask).
+          lines[i] = `${directiveMatch[1]}${nodeId}${rebuildDirectiveSpan(parsed, nodeId, emitKeyForLabelEdit(parsed.shape), newLabel)}`;
           return lines.join('\n');
         }
       }
@@ -1687,7 +1962,9 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
             // writer so the shape key and unknown params survive (P4).
             const srcDirective = srcRaw.startsWith('@{') ? parseAtDirective(srcRaw) : null;
             if (srcDirective) {
-              lines[i] = `${nodeId}${directiveWrap(emitKeyForLabelEdit(srcDirective.shape), newLabel, srcDirective.unknownParams)}${srcEdgePrefix}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${tailParts.hopPrefix}${tailParts.tail}`;
+              // 39-01 (ICON-01): media params survive the rename (bare media
+              // spans keep the bare form — no shape key inserted).
+              lines[i] = `${nodeId}${rebuildDirectiveSpan(srcDirective, nodeId, emitKeyForLabelEdit(srcDirective.shape), newLabel)}${srcEdgePrefix}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${tailParts.hopPrefix}${tailParts.tail}`;
               return lines.join('\n');
             }
             // Node has explicit shape
@@ -1723,7 +2000,8 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
             // Phase 27: directive target — same directive-writer rebuild.
             const tgtDirective = tgtRaw.startsWith('@{') ? parseAtDirective(tgtRaw) : null;
             if (tgtDirective) {
-              lines[i] = `${beforeTarget}${nodeId}${directiveWrap(emitKeyForLabelEdit(tgtDirective.shape), newLabel, tgtDirective.unknownParams)}${tailParts.hopPrefix}${tailParts.tail}`;
+              // 39-01 (ICON-01): media params survive the target rename.
+              lines[i] = `${beforeTarget}${nodeId}${rebuildDirectiveSpan(tgtDirective, nodeId, emitKeyForLabelEdit(tgtDirective.shape), newLabel)}${tailParts.hopPrefix}${tailParts.tail}`;
               return lines.join('\n');
             }
             // Node has explicit shape
@@ -1802,6 +2080,16 @@ export function updateNodeShape(source: string, nodeId: string, newShape: NodeSh
         const parsed = parseAtDirective(rest);
         if (!parsed) {return source;}
         const label = parsed.label ?? nodeId;
+        // 39-01 (ICON-01): typed media params cannot ride a bracket-form
+        // emission — a media-bearing span always re-emits the directive form
+        // (media-first canonical order, unknowns verbatim after). The bare
+        // media form gains a shape key here: carrying an explicit shape is
+        // inherent to a shape change, and the silent alternative would be
+        // dropping the media config (prohibited).
+        if (parsed.icon || parsed.img) {
+          lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${directiveWrap(toDirectiveShapeName(newShape) ?? newShape, label, parsed.unknownParams, { icon: parsed.icon, img: parsed.img })}`;
+          return lines.join('\n');
+        }
         const extras = DIRECTIVE_EMISSION_SHAPES.includes(newShape) ? parsed.unknownParams : undefined;
         lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${shapeWrap(label, newShape, true, extras)}`;
         return lines.join('\n');
@@ -2209,9 +2497,10 @@ export function parseFrontmatter(content: string): { frontmatter: FrontmatterCon
  * directive rules cannot fully consume keeps the whole-document read-only
  * fence — malformed or unclosed spans, the invalid space-separated form,
  * subgraph-header directives (their rename path would drop the trailing
- * metadata), and icon/img-param lines (no write-back exists for either —
- * the img: fence is the 38-03 superset-safe widening; Phase 39 (ICON-01)
- * deliberately narrows it when img write-back ships). Superset-safe
+ * metadata), and spans whose icon/img params failed their enum/shape checks
+ * or carry typed media beside unparsed siblings (39-01 ICON-01: well-formed
+ * media spans are typed and editable — the deliberate narrowing of the
+ * 38-03 img: fence; malformed media stays fenced per T-39-01). Superset-safe
  * by design: when consumption is uncertain, fence. The body comes from the
  * app's own parseFrontmatter split, so frontmatter-embedded metadata
  * (legitimate mermaid config) and legacy `%%{init:...}%%` directives never
@@ -2236,19 +2525,27 @@ export function bodyHasUnparsedAtDirective(content: string): boolean {
 }
 
 /**
- * A span is editable when it parses AND carries no icon/img param (no
- * icon write-back exists; the img payload has no mutation writer either, so
- * an edit would silently drop it — fenced since 38-03, deliberately
- * narrowed in Phase 39 / ICON-01 when the write-back ships).
+ * 39-01 (ICON-01) — the deliberate narrowing of the 38-03 fence. A span is
+ * editable when its media params parse TYPED: well-formed `icon:`/`img:`
+ * params leave unknownParams and the mutator write-back (updateNodeIcon /
+ * updateNodeImg, plus the media-preserving rebuilds above) keeps them
+ * intact. The guard stays for what did not parse: a media param that failed
+ * its enum/shape checks still sits in unknownParams and fences the span
+ * (T-39-01 — nothing the parser cannot fully consume is ever rewritten),
+ * and a span carrying typed media beside ANY unparsed sibling param fences
+ * too — re-emission would reorder such a span's params, so mixed spans
+ * stay read-only until the source is fixed.
  */
 function directiveSpanEditable(span: string): boolean {
   // LOOSE parse: 12.3 edge directives (`e1@{ step: 1 }`) carry no shape but
   // parse cleanly — they count as consumed (editable) like node spans.
   const parsed = parseAtDirectiveLoose(span);
   if (!parsed) {return false;}
-  // 38-03: img: joins icon: in the fence (superset-safe widening — the
-  // fence regex only ever widens here; narrowing is Phase 39's deliberate
-  // change).
+  if (parsed.icon || parsed.img) {
+    return parsed.unknownParams.length === 0;
+  }
+  // No typed media: only a FAILED media param fences (the 38-03 rule,
+  // unchanged for spans whose icon/img params did not parse).
   return !parsed.unknownParams.some(p => /^icon\s*:/.test(p))
     && !parsed.unknownParams.some(p => /^img\s*:/.test(p));
 }
