@@ -1315,4 +1315,90 @@ describe('VisualEditorCanvas - Pointer Events', () => {
       });
     });
   });
+
+  describe('Keyboard editable-target guard (WR-02)', () => {
+    const defaultProps = {
+      content: 'graph TD\n  A[Start]',
+      theme: 'light' as const,
+      onChange: vi.fn(),
+    };
+
+    // A contenteditable stand-in for the code editor pane: CodeMirror's
+    // editing surface carries contenteditable="true" (@codemirror/view sets
+    // it on the content DOM), and the editor pane stays mounted next to this
+    // canvas — so a visual selection persisting into a typing context must
+    // NOT be deletable by the window-level Delete/Backspace handler.
+    function focusEditableTarget(): HTMLElement {
+      const editor = document.createElement('div');
+      editor.setAttribute('contenteditable', 'true');
+      editor.setAttribute('data-rf-editable-standin', 'true');
+      // tabindex=-1 makes the div programmatically focusable in jsdom.
+      editor.setAttribute('tabindex', '-1');
+      document.body.appendChild(editor);
+      editor.focus();
+      expect(document.activeElement).toBe(editor);
+      // jsdom does not reflect isContentEditable (returns undefined) — the
+      // production guard's closest('[contenteditable]') arm is the one this
+      // harness can exercise; the isContentEditable arm covers real browsers.
+      return editor;
+    }
+
+    async function selectFirstNode(container: HTMLElement) {
+      await waitFor(() => {
+        expect(container.querySelectorAll('.visual-node-overlay').length).toBeGreaterThan(0);
+      });
+      const overlay = container.querySelector('.visual-node-overlay') as HTMLElement;
+      fireEvent.pointerDown(overlay, {
+        pointerId: 1,
+        pointerType: 'mouse',
+        button: 0,
+        buttons: 1,
+        clientX: 150,
+        clientY: 125,
+        shiftKey: false,
+      });
+      fireEvent.pointerUp(overlay, {
+        pointerId: 1,
+        pointerType: 'mouse',
+        button: 0,
+        buttons: 0,
+        clientX: 150,
+        clientY: 125,
+        shiftKey: false,
+      });
+      await waitFor(() => {
+        expect(container.querySelector('.visual-node-overlay.selected')).toBeInTheDocument();
+      });
+    }
+
+    afterEach(() => {
+      document.body
+        .querySelectorAll('[data-rf-editable-standin="true"]')
+        .forEach((el) => el.remove());
+    });
+
+    it('Delete/Backspace with a contenteditable target focused does NOT delete the selected node', async () => {
+      const onChange = vi.fn();
+      const { container } = render(<VisualEditorCanvas {...defaultProps} onChange={onChange} />);
+      await selectFirstNode(container);
+      focusEditableTarget();
+
+      fireEvent.keyDown(window, { key: 'Delete' });
+      fireEvent.keyDown(window, { key: 'Backspace' });
+
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it('Delete with no editable target still deletes the selected node (guard reach control)', async () => {
+      const onChange = vi.fn();
+      const { container } = render(<VisualEditorCanvas {...defaultProps} onChange={onChange} />);
+      await selectFirstNode(container);
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      expect(document.activeElement).toBe(document.body);
+
+      fireEvent.keyDown(window, { key: 'Delete' });
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+    });
+  });
 });

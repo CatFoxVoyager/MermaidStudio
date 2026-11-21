@@ -674,21 +674,31 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   }
 
   useEffect(() => {
+    // Same editable-target fence as useKeyboardShortcuts and the PreviewPanel
+    // handler: INPUT/TEXTAREA/SELECT plus contenteditable targets. The code
+    // pane (CodeMirror) stays mounted next to this canvas and its editing
+    // surface carries contenteditable="true" (@codemirror/view sets it on the
+    // content DOM), so a visual selection persisting into a typing context
+    // must not be mutated by these window-level shortcuts.
+    function isEditableTarget(el: Element | null): boolean {
+      if (!el) {return false;}
+      const t = el as HTMLElement;
+      if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT') {return true;}
+      if (t.isContentEditable) {return true;}
+      return typeof t.closest === 'function' && t.closest('input, textarea, [contenteditable]') !== null;
+    }
     function onKey(e: KeyboardEvent) {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selection.nodeIds.length > 0) {
-        const active = document.activeElement;
-        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {return;}
+        if (isEditableTarget(document.activeElement)) {return;}
         e.preventDefault();
         handleDeleteSelected();
       }
       if (e.key === 'v' || e.key === 'V') {
-        const active = document.activeElement;
-        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {return;}
+        if (isEditableTarget(document.activeElement)) {return;}
         setToolMode('select');
       }
       if (e.key === 'c' || e.key === 'C') {
-        const active = document.activeElement;
-        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {return;}
+        if (isEditableTarget(document.activeElement)) {return;}
         if (e.ctrlKey || e.metaKey) {return;}
         if (!readOnly) {setToolMode('connect');}
       }
