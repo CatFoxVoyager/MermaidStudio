@@ -61,6 +61,12 @@ vi.mock('react-i18next', async () => {
           'nodeStyle.iconSize': 'Size (W × H)',
           'nodeStyle.iconSizeAuto': 'Auto',
           'nodeStyle.iconRemove': 'Remove icon',
+          'nodeStyle.imageUpload': 'Upload image',
+          'nodeStyle.imageEmptyHint': '…or paste an image from the clipboard',
+          'nodeStyle.imageCompressing': 'Compressing…',
+          'nodeStyle.imageSizeReadout': '{{size}} after compression',
+          'nodeStyle.imageReplace': 'Replace',
+          'nodeStyle.imageRemove': 'Remove image',
           'visual.iconChangeHint': 'Set icon: {{icon}}',
           'nodeStyle.mix': 'Mix',
           'nodeStyle.solid': 'Solid',
@@ -865,5 +871,157 @@ describe('NodeStylePanel media tabs (39-04 ICON-03)', () => {
     fireEvent.click(container.querySelector('[data-icon-form="circle"]')!);
     expect(onIconChange).toHaveBeenCalledTimes(1);
     expect(onIconChange).toHaveBeenCalledWith(['A'], { ...ICON_A, form: 'circle' });
+  });
+});
+
+// ===== 39-05 Task 1 (ICON-03, Surface 3): the Image tab body — the
+// upload -> compress -> emit -> thumbnail tracer slice. The compression
+// util is MOCKED here (its own contract matrix lives in
+// imageCompress.test.ts); the panel pins are about routing (every value
+// through onImageChange -> updateNodeImg, never direct text edits) and the
+// declared empty / in-flight / populated states.
+import { act } from '@testing-library/react';
+import { useState } from 'react';
+import { fileToCompressedDataUri, ImageCompressError } from '@/utils/imageCompress';
+
+vi.mock('@/utils/imageCompress', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/imageCompress')>();
+  return {
+    ...actual,
+    fileToCompressedDataUri: vi.fn<(file: File) => Promise<string>>(),
+  };
+});
+
+describe('NodeStylePanel image tab (39-05 Task 1 ICON-03)', () => {
+  const IMG_BIG = 'data:image/png;base64,QUJDREVGRw'; // 7 payload bytes
+  const IMG_COMPRESSED = 'data:image/jpeg;base64,aaBBccDD';
+
+  const mediaProps = {
+    onIconChange: vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>(),
+    onImageChange: vi.fn<(nodeIds: string[], img: ImgConfig | null) => void>(),
+  };
+
+  const makePng = (name = 'photo.png'): File => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' });
+
+  async function upload(container: HTMLElement, file: File): Promise<void> {
+    const input = container.querySelector('[data-image-input]') as HTMLInputElement;
+    Object.defineProperty(input, 'files', { value: [file], configurable: true });
+    await act(async () => {
+      fireEvent.change(input);
+    });
+  }
+
+  beforeEach(() => {
+    vi.mocked(fileToCompressedDataUri).mockReset();
+    mediaProps.onIconChange.mockClear();
+    mediaProps.onImageChange.mockClear();
+    defaultProps.onStyleChange.mockClear();
+  });
+
+  it('empty state on a plain selection: the upload CTA + paste hint pair render — no dropzone chrome, no thumbnail', () => {
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    expect(container.querySelector('[data-image-upload]')).not.toBeNull();
+    expect(container.querySelector('[data-image-hint]')).not.toBeNull();
+    expect(container.querySelector('[data-image-thumbnail]')).toBeNull();
+    expect(container.querySelector('[data-image-busy]')).toBeNull();
+    // The highlight still follows the DATA (the locked switch table).
+    expect(container.querySelector('[data-media-tab="text"]')!.getAttribute('aria-selected')).toBe('true');
+    expect(container.querySelector('[data-media-tab="image"]')!.getAttribute('aria-selected')).toBe('false');
+  });
+
+  it('the hidden file input is limited to the declared four image mimes', () => {
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    const input = container.querySelector('[data-image-input]') as HTMLInputElement;
+    expect(input.accept).toBe('image/png,image/jpeg,image/webp,image/gif');
+  });
+
+  it('populated state: thumbnail + size readout + Replace + Remove (danger, no confirmation)', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={{ img: IMG_BIG }} />,
+    );
+    const thumb = container.querySelector('[data-image-thumbnail]') as HTMLImageElement;
+    expect(thumb).not.toBeNull();
+    expect(thumb.src).toBe(IMG_BIG);
+    expect(thumb.className).toContain('max-h-16');
+    expect(thumb.className).toContain('object-contain');
+    expect(container.querySelector('[data-image-readout]')!.textContent).toBe('7 B after compression');
+    expect(container.querySelector('[data-image-replace]')).not.toBeNull();
+    const remove = container.querySelector('[data-image-remove]') as HTMLElement;
+    expect(remove.style.color).toBe('var(--danger)');
+    fireEvent.click(remove);
+    expect(mediaProps.onImageChange).toHaveBeenCalledTimes(1);
+    expect(mediaProps.onImageChange).toHaveBeenCalledWith(['A'], null);
+    expect(confirmSpy).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('upload flows the file through fileToCompressedDataUri and emits the compressed URI through onImageChange (the mutator route)', async () => {
+    vi.mocked(fileToCompressedDataUri).mockResolvedValue(IMG_COMPRESSED);
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    await upload(container, makePng());
+    expect(fileToCompressedDataUri).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(fileToCompressedDataUri).mock.calls[0][0].type).toBe('image/png');
+    expect(mediaProps.onImageChange).toHaveBeenCalledTimes(1);
+    expect(mediaProps.onImageChange).toHaveBeenCalledWith(['A'], { img: IMG_COMPRESSED });
+    // The emit NEVER touches the style/label routes.
+    expect(mediaProps.onIconChange).not.toHaveBeenCalled();
+    expect(defaultProps.onStyleChange).not.toHaveBeenCalled();
+  });
+
+  it('in-flight compression shows the spinner slot with the compressing copy, then the populated state', async () => {
+    let resolveCompress!: (v: string) => void;
+    vi.mocked(fileToCompressedDataUri).mockImplementation(
+      () => new Promise<string>((res) => { resolveCompress = res; }),
+    );
+    // A stateful host wrapper — the real hosts feed the emitted config back
+    // through parsed props, so the populated thumbnail follows the emit.
+    function Host() {
+      const [img, setImg] = useState<ImgConfig | null>(null);
+      return (
+        <NodeStylePanel
+          {...defaultProps}
+          {...mediaProps}
+          nodeIcon={null}
+          nodeImage={img}
+          onImageChange={(ids, cfg) => {
+            mediaProps.onImageChange(ids, cfg);
+            setImg(cfg);
+          }}
+        />
+      );
+    }
+    const { container } = render(<Host />);
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    await upload(container, makePng());
+    expect(container.querySelector('[data-image-busy]')).not.toBeNull();
+    expect(container.querySelector('[data-image-busy]')!.textContent).toContain('Compressing…');
+    expect(container.querySelector('[data-image-thumbnail]')).toBeNull();
+    await act(async () => {
+      resolveCompress(IMG_COMPRESSED);
+    });
+    expect(container.querySelector('[data-image-busy]')).toBeNull();
+    expect((container.querySelector('[data-image-thumbnail]') as HTMLImageElement).src).toBe(IMG_COMPRESSED);
+    expect(mediaProps.onImageChange).toHaveBeenCalledWith(['A'], { img: IMG_COMPRESSED });
+  });
+
+  it('a typed validation failure holds its code on the interim error marker and emits nothing (declared rows land in Task 3)', async () => {
+    vi.mocked(fileToCompressedDataUri).mockRejectedValue(new ImageCompressError('invalid-type', 'bad mime'));
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    await upload(container, makePng());
+    expect(container.querySelector('[data-image-error="invalid-type"]')).not.toBeNull();
+    expect(mediaProps.onImageChange).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, type CSSProperties } from 'react';
-import { X, RotateCcw, ChevronDown, Settings2, Zap, Trash2, Type, Smile, Image as ImageIcon } from 'lucide-react';
+import { X, RotateCcw, ChevronDown, Settings2, Zap, Trash2, Type, Smile, Image as ImageIcon, LoaderCircle, TriangleAlert, ImagePlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { logger } from '@/utils/logger';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 // 38-06 (SHP-04): shape-change parity with the visual editor's PropertiesPanel
 // — the same unified ShapePicker, mounted as a fixed-position popover so the
@@ -10,6 +11,16 @@ import type { ShapePickerAnchor } from '@/components/shared/ShapePicker';
 import { ShapePreview } from '@/components/shared/ShapePreview';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
 import type { NodeStyle, NodeShape, PresetType, IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
+// 39-05 Task 1 (ICON-03, Surface 3): the upload/paste compression pipeline
+// — the ONLY route an image takes from file picker to node directive.
+import {
+  IMAGE_ACCEPT,
+  ImageCompressError,
+  dataUriByteLength,
+  fileToCompressedDataUri,
+  formatBytes,
+} from '@/utils/imageCompress';
+import type { ImageCompressErrorCode } from '@/utils/imageCompress';
 
 interface NodeStylePreset {
   label: string;
@@ -212,13 +223,24 @@ export function NodeStylePanel({
   // Switching to Icon on a selection that carries no icon opens the tab
   // body in its empty state (CTA row — Surface 1's switch table); the
   // highlight still follows the DATA (Text stays lit until an icon is
-  // picked in 39-05). Disarmed when the selection changes.
+  // picked in 39-05). Disarmed when the selection changes. 39-05 Task 1:
+  // the Image tab carries the identical armed idiom plus the upload
+  // pipeline's busy/error state, all reset when the selection changes.
   const [iconTabArmed, setIconTabArmed] = useState(false);
+  const [imageTabArmed, setImageTabArmed] = useState(false);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [imageError, setImageError] = useState<ImageCompressErrorCode | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     setIconTabArmed(false);
+    setImageTabArmed(false);
+    setImageBusy(false);
+    setImageError(null);
   }, [selectedNodeIds[0], selectedNodeIds.length]);
   const iconBodyVisible =
     activeMedia === 'icon' || (iconTabArmed && mediaWired && !mediaMixed && !nodeIcon && !nodeImage);
+  const imageBodyVisible =
+    activeMedia === 'image' || (imageTabArmed && mediaWired && !mediaMixed && !nodeIcon && !nodeImage);
 
   // Switch semantics (the locked Surface-1 table) route ONLY through the
   // mutator props: a null config clears exactly that media kind on every
@@ -230,17 +252,44 @@ export function NodeStylePanel({
   const switchToIcon = () => {
     if (!onIconChange || !onImageChange) {return;}
     setIconTabArmed(true);
+    setImageTabArmed(false);
     if (nodeImage !== null) {onImageChange(selectedNodeIds, null);}
   };
   const switchToImage = () => {
     if (!onIconChange) {return;}
+    setIconTabArmed(false);
+    setImageTabArmed(true);
     if (nodeIcon !== null) {onIconChange(selectedNodeIds, null);}
   };
   const switchToText = () => {
     if (!onIconChange || !onImageChange) {return;}
     setIconTabArmed(false);
+    setImageTabArmed(false);
     if (nodeIcon !== null) {onIconChange(selectedNodeIds, null);}
     if (nodeImage !== null) {onImageChange(selectedNodeIds, null);}
+  };
+
+  // 39-05 Task 1 (Surface 3): the compression route — file picker (and, in
+  // Task 3, paste) -> fileToCompressedDataUri -> onImageChange -> the 39-01
+  // updateNodeImg mutator. Validation failures hold their typed code for
+  // the inline row (declared copy lands with Task 3's keys); unexpected
+  // failures log and never pretend to have succeeded.
+  const handleImageFile = async (file: File) => {
+    if (!onImageChange) {return;}
+    setImageError(null);
+    setImageBusy(true);
+    try {
+      const dataUri = await fileToCompressedDataUri(file);
+      onImageChange(selectedNodeIds, { img: dataUri });
+    } catch (err) {
+      if (err instanceof ImageCompressError) {
+        setImageError(err.code);
+      } else {
+        logger.warn('Image compression failed', err);
+      }
+    } finally {
+      setImageBusy(false);
+    }
   };
 
   // Icon param rows (Surface 6): every edit composes the next config from
@@ -642,6 +691,131 @@ export function NodeStylePanel({
                       {t('nodeStyle.iconRemove')}
                     </button>
                   </>
+                )}
+              </div>
+            )}
+
+            {/* 39-05 Task 1 (ICON-03, Surface 3): the Image tab body. The
+                empty state IS the upload CTA + paste hint pair — no dropzone
+                chrome; in-flight compression renders the spinner in the
+                thumbnail slot; a compressed result renders the thumbnail +
+                size readout + Replace / Remove. Every value routes through
+                onImageChange -> the 39-01 updateNodeImg mutator. The declared
+                validation rows, paste binding, external-URL advisory and the
+                fit switch complete this body in Task 3. */}
+            {imageBodyVisible && (
+              <div className="flex flex-col gap-2 pt-1">
+                <input
+                  ref={imageInputRef}
+                  type="file"
+                  data-image-input
+                  accept={IMAGE_ACCEPT}
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = ''; // allow re-picking the same file
+                    if (file) {void handleImageFile(file);}
+                  }}
+                />
+
+                {imageBusy ? (
+                  <div
+                    data-image-busy
+                    className="flex items-center gap-1 px-1 py-1.5 text-[11px] leading-[1.5]"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    <LoaderCircle size={14} className="animate-spin shrink-0" aria-hidden="true" />
+                    <span>{t('nodeStyle.imageCompressing')}</span>
+                  </div>
+                ) : nodeImage ? (
+                  <>
+                    {/* Populated state: thumbnail (max-height 64px,
+                        object-contain) with the accent frame (Color item 3),
+                        the compressed size readout, Replace (re-opens the
+                        same file input) and Remove image (danger text, no
+                        confirmation — reversible by re-uploading). */}
+                    <div className="flex flex-col gap-1">
+                      <div
+                        className="flex items-center justify-center rounded-md border p-1"
+                        style={{ borderColor: 'var(--accent)', background: 'var(--surface-floating)' }}
+                      >
+                        <img
+                          src={nodeImage.img}
+                          alt=""
+                          data-image-thumbnail
+                          className="max-h-16 object-contain"
+                        />
+                      </div>
+                      <span
+                        data-image-readout
+                        className="text-[11px] leading-[1.5]"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        {t('nodeStyle.imageSizeReadout', { size: formatBytes(dataUriByteLength(nodeImage.img)) })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        data-image-replace
+                        onClick={() => imageInputRef.current?.click()}
+                        className={`px-2 py-1.5 rounded-md border text-xs ${FOCUS_RING_CLASSES}`}
+                        style={{
+                          background: 'var(--surface-base)',
+                          borderColor: 'var(--border-subtle)',
+                          color: 'var(--text-primary)',
+                          outline: 'none',
+                        }}
+                      >
+                        {t('nodeStyle.imageReplace')}
+                      </button>
+                      <button
+                        type="button"
+                        data-image-remove
+                        onClick={() => onImageChange?.(selectedNodeIds, null)}
+                        className={`text-xs px-1 py-1.5 ${FOCUS_RING_CLASSES}`}
+                        style={{ color: 'var(--danger)', background: 'transparent', border: 'none', outline: 'none' }}
+                      >
+                        {t('nodeStyle.imageRemove')}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Empty state = the CTA + paste hint pair (Surface 3
+                        item 1 — no dropzone chrome). */}
+                    <button
+                      type="button"
+                      data-image-upload
+                      onClick={() => imageInputRef.current?.click()}
+                      className={`w-full flex items-center justify-center gap-1 px-2 py-1.5 rounded-md border text-xs ${FOCUS_RING_CLASSES}`}
+                      style={{
+                        background: 'var(--surface-base)',
+                        borderColor: 'var(--border-subtle)',
+                        color: 'var(--text-primary)',
+                        outline: 'none',
+                      }}
+                    >
+                      <ImagePlus size={14} aria-hidden="true" />
+                      <span>{t('nodeStyle.imageUpload')}</span>
+                    </button>
+                    <span
+                      data-image-hint
+                      className="text-[11px] leading-[1.5]"
+                      style={{ color: 'var(--text-tertiary)' }}
+                    >
+                      {t('nodeStyle.imageEmptyHint')}
+                    </span>
+                  </>
+                )}
+
+                {/* Interim validation marker: the typed code is held (never
+                    swallowed) until Task 3 renders the declared inline danger
+                    rows in both panels. */}
+                {imageError && !imageBusy && (
+                  <div data-image-error={imageError} style={{ color: 'var(--danger)' }}>
+                    <TriangleAlert size={14} aria-hidden="true" />
+                  </div>
                 )}
               </div>
             )}

@@ -526,7 +526,13 @@
     "iconPositionBottom": "Bottom",
     "iconSize": "Size (W × H)",
     "iconSizeAuto": "Auto",
-    "iconRemove": "Remove icon"
+    "iconRemove": "Remove icon",
+    "imageUpload": "Upload image",
+    "imageEmptyHint": "…or paste an image from the clipboard",
+    "imageCompressing": "Compressing…",
+    "imageSizeReadout": "{{size}} after compression",
+    "imageReplace": "Replace",
+    "imageRemove": "Remove image"
   },
   "edgeStyle": {
     "connection": "Connection",

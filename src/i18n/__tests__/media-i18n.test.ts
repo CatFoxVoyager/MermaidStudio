@@ -45,10 +45,16 @@ describe('media i18n parity battery (39-04)', () => {
     // The visual-side key exists exactly once per locale.
     expect(typeof (en.visual as unknown as Record<string, string>).iconChangeHint).toBe('string');
     expect(typeof (fr.visual as unknown as Record<string, string>).iconChangeHint).toBe('string');
-    // The 39-05 Image-tab keys are NOT this plan's surface — their presence
-    // would mean a plan boundary was crossed.
-    expect(enNode['imageUpload']).toBeUndefined();
+    // The remaining 39-05 keys are NOT this plan's surface — their presence
+    // would mean a plan boundary was crossed. (39-05 Task 1 landed the six
+    // upload-state keys it consumes; the validation/advisory/constraint keys
+    // and the visual.icon* picker set land with 39-05 Task 3.)
+    expect(enNode['imageInvalidType']).toBeUndefined();
+    expect(enNode['imageTooLarge']).toBeUndefined();
+    expect(enNode['imageExternalWarning']).toBeUndefined();
     expect(enNode['imageConstraint']).toBeUndefined();
+    expect((en.visual as unknown as Record<string, unknown>).iconSearch).toBeUndefined();
+    expect((en.visual as unknown as Record<string, unknown>).iconPacks).toBeUndefined();
   });
 
   it('keeps EN and FR non-empty for every declared key', () => {

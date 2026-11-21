@@ -529,7 +529,13 @@
     "iconPositionBottom": "Bas",
     "iconSize": "Taille (l × h)",
     "iconSizeAuto": "Auto",
-    "iconRemove": "Retirer l'icône"
+    "iconRemove": "Retirer l'icône",
+    "imageUpload": "Téléverser une image",
+    "imageEmptyHint": "…ou collez une image depuis le presse-papiers",
+    "imageCompressing": "Compression…",
+    "imageSizeReadout": "{{size}} après compression",
+    "imageReplace": "Remplacer",
+    "imageRemove": "Retirer l'image"
   },
   "edgeStyle": {
     "connection": "Connexion",
