@@ -9,6 +9,7 @@ import {
   ACCEPTED_MIME_TYPES,
   IMAGE_ACCEPT,
   ImageCompressError,
+  MAX_DECODED_PIXELS,
   MAX_EDGE_PX,
   OUTPUT_MAX_BYTES,
   SOURCE_MAX_BYTES,
@@ -67,6 +68,7 @@ afterEach(() => {
 describe('imageCompress (39-05 ICON-03)', () => {
   it('declares the planner-owned caps and the exact four-mime allowlist', () => {
     expect(SOURCE_MAX_BYTES).toBe(8 * 1024 * 1024);
+    expect(MAX_DECODED_PIXELS).toBe(32 * 1024 * 1024);
     expect(MAX_EDGE_PX).toBe(512);
     expect(OUTPUT_MAX_BYTES).toBe(300 * 1024);
     expect(ACCEPTED_MIME_TYPES).toEqual(['image/png', 'image/jpeg', 'image/webp', 'image/gif']);
@@ -125,6 +127,21 @@ describe('imageCompress (39-05 ICON-03)', () => {
     });
     expect(createImageBitmapMock).not.toHaveBeenCalled();
     expect(recorded).toHaveLength(0);
+  });
+
+  it('rejects a source whose decoded pixel area exceeds the decoded cap', async () => {
+    // Decompression bomb, decoded-pixel axis (39-REVIEW WR-04): the 8 MiB
+    // source cap bounds compressed bytes; a small hostile PNG still decodes
+    // to a huge surface. 9000x9000 = 81 MP rides well under the byte cap,
+    // so the decoded-area ceiling must catch it BEFORE any canvas
+    // allocation.
+    const bomb = makeFile(1024, 'image/png', 'img 9000x9000');
+    await expect(fileToCompressedDataUri(bomb)).rejects.toMatchObject({
+      name: 'ImageCompressError',
+      code: 'too-large',
+    });
+    expect(recorded).toHaveLength(0); // no canvas work ran
+    expect(createImageBitmapMock).toHaveBeenCalledTimes(1); // decode happened; the cap caught it
   });
 
   it('rejects a wrong-mime source with invalid-type (no decode, no encode)', async () => {

@@ -13,6 +13,10 @@
  * Declared caps (planner-owned constants, pinned by the util test matrix):
  * - SOURCE_MAX_BYTES  8 MiB  — sources over the cap are rejected BEFORE
  *   decode (the decompression-bomb guard, T-39-13);
+ * - MAX_DECODED_PIXELS 32 MP — the decoded-surface ceiling, enforced right
+ *   after decode and BEFORE any canvas allocation (39-REVIEW WR-04: the
+ *   byte cap bounds compressed bytes, not what a hostile image decompresses
+ *   to);
  * - MAX_EDGE_PX       512    — the output's longest edge;
  * - OUTPUT_MAX_BYTES  300 KiB — the encoded output ceiling: quality steps
  *   first, then additional downscale steps; `too-large` when even the
@@ -29,6 +33,8 @@
  */
 
 export const SOURCE_MAX_BYTES = 8 * 1024 * 1024; // 8 MiB
+/** Decoded-surface ceiling enforced before any canvas allocation (WR-04). */
+export const MAX_DECODED_PIXELS = 32 * 1024 * 1024; // 32 MP
 export const MAX_EDGE_PX = 512;
 export const OUTPUT_MAX_BYTES = 300 * 1024; // 300 KiB
 
@@ -132,6 +138,13 @@ export async function fileToCompressedDataUri(file: File | Blob): Promise<string
     throw new ImageCompressError('invalid-type', `Unreadable image data: ${sourceName}`);
   }
   try {
+    // Decompression-bomb guard, decoded-pixel axis (39-REVIEW WR-04): the
+    // source cap bounds compressed bytes; a small hostile PNG can still
+    // decode to hundreds of megapixels. Cap the decoded surface BEFORE any
+    // canvas allocation.
+    if (bitmap.width * bitmap.height > MAX_DECODED_PIXELS) {
+      throw new ImageCompressError('too-large', `Image decodes to ${bitmap.width}x${bitmap.height}`);
+    }
     const longestEdge = Math.max(bitmap.width, bitmap.height);
     // Fit the longest edge to the cap first; never upscale a small source.
     const fitScale = Math.min(1, MAX_EDGE_PX / longestEdge);
