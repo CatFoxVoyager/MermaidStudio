@@ -441,6 +441,7 @@ export function NodeStylePanel({
               </span>
               {mediaMixed && (
                 <span
+                  data-media-mixed
                   className="text-[10px] leading-none px-1.5 py-0.5 rounded-full border shrink-0"
                   style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}
                 >

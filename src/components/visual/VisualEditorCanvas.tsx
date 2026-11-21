@@ -7,9 +7,9 @@ import {
   parseDiagram, updateNodeStyle, updateNodeLabel, updateNodeShape,
   addNode, removeNode, addEdge, generateNodeId, getNodeStyle,
   updateEdgeArrowType, updateEdgeLabel, removeEdge,
-  bodyHasUnparsedAtDirective,
+  bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg,
 } from '@/lib/mermaid/codeUtils';
-import type { ParsedDiagram, ParsedEdge } from '@/lib/mermaid/codeUtils';
+import type { ParsedDiagram, ParsedEdge, IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
 import { ShapeToolbar } from './ShapeToolbar';
 import { PropertiesPanel } from './PropertiesPanel';
 import type { NodeShape, NodeStyle, VisualNode, VisualEdge, SelectionState, ToolMode } from './types';
@@ -319,6 +319,10 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
       y: overlay?.y ?? 0,
       width: overlay?.width ?? 80,
       height: overlay?.height ?? 40,
+      // 39-04 (ICON-03): the parsed media configs ride the visual model so
+      // PropertiesPanel derives the media-tab state from typed data.
+      icon: node.icon,
+      img: node.img,
     };
   }
 
@@ -326,6 +330,18 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     const n = getVisualNode(id);
     return n ? [n] : [];
   });
+
+  // 39-04: the selection's shared media data for the PropertiesPanel tabs —
+  // a config when every selected node carries that kind, null when none
+  // does, undefined when the kinds mix (the panel's mixed idiom). Derived
+  // from the parsed VisualNode data, never from re-parsing code strings.
+  const allIconSel = selectedNodes.length > 0 && selectedNodes.every(n => !!n.icon);
+  const allPlainSel = selectedNodes.length > 0 && selectedNodes.every(n => !n.icon && !n.img);
+  const allImgSel = !allIconSel && selectedNodes.length > 0 && selectedNodes.every(n => !!n.img);
+  const sharedNodeIcon: IconConfig | null | undefined =
+    allIconSel ? selectedNodes[0].icon : (allPlainSel || allImgSel) ? null : undefined;
+  const sharedNodeImage: ImgConfig | null | undefined =
+    allImgSel ? selectedNodes[0].img : (allPlainSel || allIconSel) ? null : undefined;
 
   const selectedEdge: VisualEdge | null = (() => {
     if (!selection.edgeKey) {return null;}
@@ -655,6 +671,36 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     onChange(updateNodeShape(content, id, shape));
   }
 
+  // 39-04 (ICON-03, T-39-09): media mutations route ONLY through the 39-01
+  // mutators, behind the same readOnly guard as every sibling handler — a
+  // fenced document (bodyHasUnparsedAtDirective) can never mutate media.
+  // The media content ref chains SEQUENTIAL mutator calls: the panel's
+  // switch-to-Text on a mixed selection fires onIconChange(null) then
+  // onImageChange(null) synchronously; the second call must mutate the
+  // first call's result, not the stale `content` prop.
+  const mediaContentRef = useRef(content);
+  useEffect(() => {
+    // The ref syncs from the prop here (not during render — refs are
+    // render-off-limits per the correctness lint) and inline inside the
+    // handlers below, so a synchronous second media call always chains on
+    // the first call's result.
+    mediaContentRef.current = content;
+  }, [content]);
+  function handleIconChange(nodeIds: string[], icon: IconConfig | null) {
+    if (readOnly) {return;}
+    let result = mediaContentRef.current;
+    for (const id of nodeIds) {result = updateNodeIcon(result, id, icon);}
+    mediaContentRef.current = result;
+    onChange(result);
+  }
+  function handleImageChange(nodeIds: string[], img: ImgConfig | null) {
+    if (readOnly) {return;}
+    let result = mediaContentRef.current;
+    for (const id of nodeIds) {result = updateNodeImg(result, id, img);}
+    mediaContentRef.current = result;
+    onChange(result);
+  }
+
   function handleStyleChange(id: string, style: NodeStyle) {
     if (readOnly) {return;}
     onChange(updateNodeStyle(content, id, style));
@@ -907,6 +953,10 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
               onLabelChange={handleLabelChange}
               onShapeChange={handleShapeChange}
               onStyleChange={handleStyleChange}
+              nodeIcon={sharedNodeIcon}
+              nodeImage={sharedNodeImage}
+              onIconChange={handleIconChange}
+              onImageChange={handleImageChange}
               onArrowChange={handleArrowChange}
               onEdgeLabelChange={handleEdgeLabelChange}
               onDeleteEdge={handleDeleteEdge}

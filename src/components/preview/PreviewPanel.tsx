@@ -9,8 +9,8 @@ import { getThemeById } from '@/constants/themes';
 import { sanitizeCssValue } from '@/utils/sanitization';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import { buildSvgToParsedEdgeMap } from '@/utils/svgEdgeMatching';
-import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, updateNodeShape, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective } from '@/lib/mermaid/codeUtils';
-import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape, PresetType, PresetColors } from '@/lib/mermaid/codeUtils';
+import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, updateNodeShape, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg } from '@/lib/mermaid/codeUtils';
+import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape, PresetType, PresetColors, IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
 import { EdgeStylePanel } from './EdgeStylePanel';
 import { SubgraphStylePanel } from './SubgraphStylePanel';
@@ -877,7 +877,13 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // overlay's Enter/Space keyboard activation (iter-12 canvas parity).
   // shiftKey is only read on the pointer path (multi-select); the keyboard
   // path never supplies it, which is correct — Enter toggles directly.
-  const handleNodeClick = useCallback((e: React.SyntheticEvent<{ shiftKey?: boolean }>, nodeId: string) => {
+  // 39-04 (Rule 1): the multi-select read is the EVENT's shiftKey — the
+  // previous `e.currentTarget?.shiftKey` read the DOM ELEMENT property,
+  // which never exists, so shift multi-select on preview nodes silently
+  // never engaged (measured: a shift+click replaced the selection instead
+  // of extending it; the visual canvas reads e.shiftKey — its working
+  // sibling idiom). Both event families carry shiftKey.
+  const handleNodeClick = useCallback((e: React.MouseEvent | React.KeyboardEvent, nodeId: string) => {
     e.stopPropagation();
     if (!supportsClassDef) return;
     setSelectedEdgeIndex(null);
@@ -897,7 +903,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       setToolMode('select');
       return;
     }
-    if (e.currentTarget?.shiftKey) {
+    if (e.shiftKey) {
       setSelectedNodeIds(prev => {
         const next = new Set(prev);
         if (next.has(nodeId)) next.delete(nodeId);
@@ -1137,6 +1143,58 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     }
     onChange(result);
   }, [onChange, content, bodyHasMetadata]);
+
+  // 39-04 (ICON-03, T-39-09): media-mutation delegates — the ONLY write
+  // path is the 39-01 updateNodeIcon/updateNodeImg mutators (components
+  // never regex-edit directive spans). The media content ref chains
+  // SEQUENTIAL mutator calls: the panel's switch-to-Text on a mixed
+  // selection fires onIconChange(null) then onImageChange(null)
+  // synchronously, and the second handler must mutate the first call's
+  // result, not the stale `content` prop (a lost-update otherwise).
+  const mediaContentRef = useRef(content);
+  useEffect(() => {
+    // The ref syncs from the prop here (not during render — refs are
+    // render-off-limits per the correctness lint) and inline inside the
+    // handlers below, so a synchronous second media call always chains on
+    // the first call's result.
+    mediaContentRef.current = content;
+  }, [content]);
+  const handleNodeIconChange = useCallback((nodeIds: string[], icon: IconConfig | null) => {
+    if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
+    let result = mediaContentRef.current;
+    for (const id of nodeIds) {
+      result = updateNodeIcon(result, id, icon);
+    }
+    mediaContentRef.current = result;
+    onChange(result);
+  }, [onChange, bodyHasMetadata]);
+  const handleNodeImageChange = useCallback((nodeIds: string[], img: ImgConfig | null) => {
+    if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
+    let result = mediaContentRef.current;
+    for (const id of nodeIds) {
+      result = updateNodeImg(result, id, img);
+    }
+    mediaContentRef.current = result;
+    onChange(result);
+  }, [onChange, bodyHasMetadata]);
+
+  // 39-04: the selection's shared media data for the NodeStylePanel tabs —
+  // a config when every selected node carries that kind, null when none
+  // does, undefined when the kinds mix (the panel's mixed idiom). Derived
+  // from the PARSED node data, never from re-parsing code strings.
+  const selectedNodeList = Array.from(selectedNodeIds);
+  const selectedParsedNodes = selectedNodeList
+    .map(id => parsedDiagram.nodes.find(n => n.id === id))
+    .filter((n): n is NonNullable<ReturnType<typeof parsedDiagram.nodes.find>> => Boolean(n));
+  const allIcon = selectedParsedNodes.length > 0 && selectedParsedNodes.every(n => !!n.icon);
+  const allPlain = selectedParsedNodes.length > 0 && selectedParsedNodes.every(n => !n.icon && !n.img);
+  const allImg = !allIcon && selectedParsedNodes.length > 0 && selectedParsedNodes.every(n => !!n.img);
+  const sharedNodeIcon: IconConfig | null | undefined =
+    allIcon ? selectedParsedNodes[0].icon : (allPlain || allImg) ? null : undefined;
+  const sharedNodeImage: ImgConfig | null | undefined =
+    allImg ? selectedParsedNodes[0].img : (allPlain || allIcon) ? null : undefined;
 
   // Edge label change handler
   const handleEdgeLabelChange = useCallback((source: string, target: string, label: string) => {
@@ -1734,6 +1792,10 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           onClose={() => setSelectedNodeIds(new Set())}
           onStyleChange={handleStyleChange}
           onShapeChange={handleNodeShapeChange}
+          nodeIcon={sharedNodeIcon}
+          nodeImage={sharedNodeImage}
+          onIconChange={handleNodeIconChange}
+          onImageChange={handleNodeImageChange}
           onLabelChange={handleNodeLabelChange}
           onReset={handleResetStyles}
           nodeSubgraphIds={nodeSubgraphIds}

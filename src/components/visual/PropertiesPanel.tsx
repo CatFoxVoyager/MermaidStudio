@@ -1,5 +1,5 @@
-import { useState, useLayoutEffect, useRef } from 'react';
-import { Settings2, ChevronDown, Zap } from 'lucide-react';
+import { useState, useLayoutEffect, useEffect, useRef } from 'react';
+import { Settings2, ChevronDown, Zap, Type, Smile, Image as ImageIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ColorPicker } from './ColorPicker';
 // 38-06 (SHP-04): the flat hardcoded-EN 23-option <select> is replaced by the
@@ -12,7 +12,7 @@ import { ShapePicker } from '@/components/shared/ShapePicker';
 import type { ShapePickerAnchor } from '@/components/shared/ShapePicker';
 import { ShapePreview } from '@/components/shared/ShapePreview';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
-import type { NodeShape, NodeStyle, VisualNode, VisualEdge } from './types';
+import type { NodeShape, NodeStyle, VisualNode, VisualEdge, IconConfig, ImgConfig } from './types';
 
 const ARROW_OPTIONS = [
   { value: '-->',   label: 'Arrow (-->)' },
@@ -38,9 +38,25 @@ interface NodePanelProps {
   onLabelChange: (id: string, label: string) => void;
   onShapeChange: (id: string, shape: NodeShape) => void;
   onStyleChange: (id: string, style: NodeStyle) => void;
+  /**
+   * 39-04 (ICON-03, UI-SPEC Surface 1): the same four optional media props
+   * NodeStylePanel carries — identical three-state contract (config when
+   * every selected node carries the kind, null when none does, undefined
+   * when kinds mix) and identical switch semantics through the 39-01
+   * mutator props. Absent = the section stays hidden (absent-props callers
+   * byte-identical). This panel lacks the .style-panel class, so every new
+   * control carries the explicit `max-md:min-h-[44px]` touch floor.
+   */
+  nodeIcon?: IconConfig | null;
+  nodeImage?: ImgConfig | null;
+  onIconChange?: (nodeIds: string[], icon: IconConfig | null) => void;
+  onImageChange?: (nodeIds: string[], img: ImgConfig | null) => void;
 }
 
-function NodePanel({ nodes, onLabelChange, onShapeChange, onStyleChange }: NodePanelProps) {
+function NodePanel({
+  nodes, onLabelChange, onShapeChange, onStyleChange,
+  nodeIcon, nodeImage, onIconChange, onImageChange,
+}: NodePanelProps) {
   const { t } = useTranslation();
   const single = nodes.length === 1 ? nodes[0] : null;
   const [label, setLabel] = useState(single?.label ?? '');
@@ -85,6 +101,67 @@ function NodePanel({ nodes, onLabelChange, onShapeChange, onStyleChange }: NodeP
     setShapeOpen(false);
     setShapeAnchor(null);
   };
+
+  // ===== 39-04 (ICON-03, Surfaces 1+6): media-mode tabs + icon param rows,
+  // the identical semantics NodeStylePanel ships (Task 2) — same active-state
+  // derivation from the parsed data props, same mutator-only switch routing,
+  // same locked bilingual copy. This 220px panel has no .style-panel class,
+  // so new interactive controls carry the explicit `max-md:min-h-[44px]`
+  // floor (the 38 rule), and the icon trigger uses the fixed-anchor
+  // measurement idiom (never a nested positioned popover).
+  const mediaWired = onIconChange !== undefined && onImageChange !== undefined;
+  const mediaMixed = mediaWired && (nodeIcon === undefined || nodeImage === undefined);
+  type MediaTab = 'text' | 'icon' | 'image';
+  const activeMedia: MediaTab | null = !mediaWired || mediaMixed
+    ? null
+    : nodeIcon
+      ? 'icon'
+      : nodeImage
+        ? 'image'
+        : 'text';
+  const [iconTabArmed, setIconTabArmed] = useState(false);
+  useEffect(() => {
+    setIconTabArmed(false);
+  }, [nodes.map(n => n.id).join(','), nodes.length]);
+  const iconBodyVisible =
+    activeMedia === 'icon' || (iconTabArmed && mediaWired && !mediaMixed && !nodeIcon && !nodeImage);
+
+  const switchToIcon = () => {
+    if (!onIconChange || !onImageChange) {return;}
+    setIconTabArmed(true);
+    const ids = nodes.map(n => n.id);
+    if (nodeImage !== null) {onImageChange(ids, null);}
+  };
+  const switchToImage = () => {
+    if (!onIconChange) {return;}
+    if (nodeIcon !== null) {onIconChange(nodes.map(n => n.id), null);}
+  };
+  const switchToText = () => {
+    if (!onIconChange || !onImageChange) {return;}
+    setIconTabArmed(false);
+    const ids = nodes.map(n => n.id);
+    if (nodeIcon !== null) {onIconChange(ids, null);}
+    if (nodeImage !== null) {onImageChange(ids, null);}
+  };
+
+  const setIconParam = (patch: Partial<Omit<IconConfig, 'icon' | 'label'>>) => {
+    if (!onIconChange || !nodeIcon) {return;}
+    onIconChange(nodes.map(n => n.id), { ...nodeIcon, ...patch });
+  };
+  const setIconSize = (field: 'w' | 'h', raw: string) => {
+    if (!onIconChange || !nodeIcon) {return;}
+    const next: IconConfig = { ...nodeIcon };
+    const trimmed = raw.trim();
+    if (trimmed === '') {
+      delete next[field]; // Auto — param omitted on emit
+    } else {
+      const n = Number(trimmed);
+      if (!Number.isFinite(n) || n < 0) {return;} // clamp/ignore invalid entry
+      next[field] = n;
+    }
+    onIconChange(nodes.map(n => n.id), next);
+  };
+  const sizePlaceholder = mediaMixed ? t('nodeStyle.mixed') : t('nodeStyle.iconSizeAuto');
 
   return (
     <div className="flex flex-col gap-4">
@@ -138,6 +215,218 @@ function NodePanel({ nodes, onLabelChange, onShapeChange, onStyleChange }: NodeP
           />
         )}
       </div>
+
+      {/* 39-04 (ICON-03, Surfaces 1+6): the Text | Icon | Image media tabs —
+          the identical section NodeStylePanel ships, adapted to this 220px
+          panel (explicit max-md touch floors; no .style-panel class here).
+          Shape and media stay orthogonal: this section never hides the
+          shape row. */}
+      {mediaWired && (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {t('nodeStyle.media')}
+            </span>
+            {mediaMixed && (
+              <span
+                data-media-mixed
+                className="text-[10px] leading-none px-1.5 py-0.5 rounded-full border shrink-0"
+                style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}
+              >
+                {t('nodeStyle.mixed')}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-1" role="tablist" aria-label={t('nodeStyle.media')}>
+            {([
+              { tab: 'text' as MediaTab, key: 'nodeStyle.tabText', Glyph: Type, onPick: switchToText },
+              { tab: 'icon' as MediaTab, key: 'nodeStyle.tabIcon', Glyph: Smile, onPick: switchToIcon },
+              { tab: 'image' as MediaTab, key: 'nodeStyle.tabImage', Glyph: ImageIcon, onPick: switchToImage },
+            ]).map(({ tab, key, Glyph, onPick }) => {
+              const active = activeMedia === tab;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  data-media-tab={tab}
+                  onClick={onPick}
+                  className={`flex flex-col items-center justify-center gap-1 rounded-md border px-1 py-1.5 text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                  style={
+                    active
+                      ? { background: 'var(--accent-dim)', borderColor: 'transparent', color: 'var(--accent)' }
+                      : { background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }
+                  }
+                >
+                  <Glyph size={14} />
+                  <span>{t(key)}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Icon tab body — the same trigger/param rows as the preview
+              panel; the fixed-position IconPicker opens from this trigger
+              in 39-05 (fixed-anchor measurement, no nested popover). */}
+          {iconBodyVisible && (
+            <div className="flex flex-col gap-2 pt-1">
+              <button
+                type="button"
+                data-icon-trigger
+                onClick={() => {
+                  /* 39-05 wires the IconPicker here. */
+                }}
+                title={nodeIcon ? t('visual.iconChangeHint', { icon: nodeIcon.icon }) : undefined}
+                aria-label={nodeIcon ? t('visual.iconChangeHint', { icon: nodeIcon.icon }) : t('nodeStyle.iconPickAction')}
+                className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                style={{
+                  background: 'var(--surface-base)',
+                  borderColor: 'var(--border-subtle)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              >
+                <span
+                  className="shrink-0 flex items-center"
+                  style={{ color: nodeIcon ? 'var(--accent)' : 'var(--text-tertiary)' }}
+                >
+                  <Smile size={14} />
+                </span>
+                {nodeIcon ? (
+                  <span className="truncate" title={nodeIcon.icon}>
+                    {nodeIcon.icon}
+                  </span>
+                ) : (
+                  <span className="truncate" style={{ color: 'var(--text-tertiary)' }}>
+                    {t('nodeStyle.iconPickAction')}
+                  </span>
+                )}
+                <ChevronDown
+                  size={11}
+                  className="ml-auto shrink-0 pointer-events-none"
+                  style={{ color: 'var(--text-tertiary)' }}
+                />
+              </button>
+
+              {nodeIcon && (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                      {t('nodeStyle.iconForm')}
+                    </span>
+                    <div className="grid grid-cols-3 gap-1">
+                      {([
+                        { value: 'square' as const, key: 'nodeStyle.iconFormSquare' },
+                        { value: 'circle' as const, key: 'nodeStyle.iconFormCircle' },
+                        { value: 'rounded' as const, key: 'nodeStyle.iconFormRounded' },
+                      ]).map(({ value, key }) => {
+                        const active = nodeIcon!.form === value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            data-icon-form={value}
+                            aria-pressed={active}
+                            onClick={() => setIconParam({ form: value })}
+                            className={`rounded-md border px-1 py-1.5 text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                            style={
+                              active
+                                ? { background: 'var(--accent-dim)', borderColor: 'transparent', color: 'var(--accent)' }
+                                : { background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }
+                            }
+                          >
+                            {t(key)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                      {t('nodeStyle.iconPosition')}
+                    </span>
+                    <div className="grid grid-cols-2 gap-1">
+                      {([
+                        { value: 't' as const, key: 'nodeStyle.iconPositionTop' },
+                        { value: 'b' as const, key: 'nodeStyle.iconPositionBottom' },
+                      ]).map(({ value, key }) => {
+                        const active = nodeIcon!.pos === value;
+                        return (
+                          <button
+                            key={value}
+                            type="button"
+                            data-icon-pos={value}
+                            aria-pressed={active}
+                            onClick={() => setIconParam({ pos: value })}
+                            className={`rounded-md border px-1 py-1.5 text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                            style={
+                              active
+                                ? { background: 'var(--accent-dim)', borderColor: 'transparent', color: 'var(--accent)' }
+                                : { background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }
+                            }
+                          >
+                            {t(key)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                      {t('nodeStyle.iconSize')}
+                    </span>
+                    <div className="grid grid-cols-2 gap-1">
+                      <input
+                        type="number"
+                        data-icon-w
+                        value={nodeIcon!.w ?? ''}
+                        placeholder={sizePlaceholder}
+                        min={0}
+                        onChange={e => setIconSize('w', e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px]"
+                        style={{
+                          background: 'var(--surface-base)',
+                          borderColor: 'var(--border-subtle)',
+                          color: 'var(--text-primary)',
+                          outline: 'none',
+                        }}
+                      />
+                      <input
+                        type="number"
+                        data-icon-h
+                        value={nodeIcon!.h ?? ''}
+                        placeholder={sizePlaceholder}
+                        min={0}
+                        onChange={e => setIconSize('h', e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px]"
+                        style={{
+                          background: 'var(--surface-base)',
+                          borderColor: 'var(--border-subtle)',
+                          color: 'var(--text-primary)',
+                          outline: 'none',
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    data-icon-remove
+                    onClick={() => onIconChange?.(nodes.map(n => n.id), null)}
+                    className={`text-xs px-1 py-1.5 text-left max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                    style={{ color: 'var(--danger)', background: 'transparent', border: 'none', outline: 'none' }}
+                  >
+                    {t('nodeStyle.iconRemove')}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <ColorPicker label="Fill Color" value={sharedStyle.fill ?? ''} onChange={v => handleStyleField('fill', v)} />
       <ColorPicker label="Border Color" value={sharedStyle.stroke ?? ''} onChange={v => handleStyleField('stroke', v)} />
@@ -257,6 +546,10 @@ interface Props {
   onLabelChange: (id: string, label: string) => void;
   onShapeChange: (id: string, shape: NodeShape) => void;
   onStyleChange: (id: string, style: NodeStyle) => void;
+  nodeIcon?: IconConfig | null;
+  nodeImage?: ImgConfig | null;
+  onIconChange?: (nodeIds: string[], icon: IconConfig | null) => void;
+  onImageChange?: (nodeIds: string[], img: ImgConfig | null) => void;
   onArrowChange: (source: string, target: string, arrowType: string) => void;
   onEdgeLabelChange: (source: string, target: string, label: string) => void;
   onDeleteEdge: (source: string, target: string) => void;
@@ -265,6 +558,7 @@ interface Props {
 export function PropertiesPanel({
   selectedNodes, selectedEdge,
   onLabelChange, onShapeChange, onStyleChange,
+  nodeIcon, nodeImage, onIconChange, onImageChange,
   onArrowChange, onEdgeLabelChange, onDeleteEdge,
 }: Props) {
   const hasNode = selectedNodes.length > 0;
@@ -300,6 +594,10 @@ export function PropertiesPanel({
             onLabelChange={onLabelChange}
             onShapeChange={onShapeChange}
             onStyleChange={onStyleChange}
+            nodeIcon={nodeIcon}
+            nodeImage={nodeImage}
+            onIconChange={onIconChange}
+            onImageChange={onImageChange}
           />
         ) : selectedEdge ? (
           <EdgePanel

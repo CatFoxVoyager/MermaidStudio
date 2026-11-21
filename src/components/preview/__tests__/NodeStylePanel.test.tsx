@@ -697,7 +697,7 @@ describe('NodeStylePanel media tabs (39-04 ICON-03)', () => {
     for (const tab of ['text', 'icon', 'image']) {
       expect(container.querySelector(`[data-media-tab="${tab}"]`)!.getAttribute('aria-selected')).toBe('false');
     }
-    expect(screen.getByText('Mixed')).toBeInTheDocument();
+    expect(container.querySelector('[data-media-mixed]')).not.toBeNull();
   });
 
   it('switch to Icon strips the img params through the img mutator (onImageChange(ids, null))', () => {

@@ -37,6 +37,22 @@ vi.mock('react-i18next', async () => {
           'visual.shapeSearchEmpty': 'No matching shape',
           'visual.shapeSearchEmptyHint': 'No shape matches “{{query}}”.',
           'nodeStyle.mixed': en.nodeStyle.mixed,
+          'nodeStyle.media': 'Content',
+          'nodeStyle.tabText': 'Text',
+          'nodeStyle.tabIcon': 'Icon',
+          'nodeStyle.tabImage': 'Image',
+          'nodeStyle.iconPickAction': 'Choose an icon…',
+          'nodeStyle.iconForm': 'Form',
+          'nodeStyle.iconFormSquare': 'Square',
+          'nodeStyle.iconFormCircle': 'Circle',
+          'nodeStyle.iconFormRounded': 'Rounded',
+          'nodeStyle.iconPosition': 'Position',
+          'nodeStyle.iconPositionTop': 'Top',
+          'nodeStyle.iconPositionBottom': 'Bottom',
+          'nodeStyle.iconSize': 'Size (W × H)',
+          'nodeStyle.iconSizeAuto': 'Auto',
+          'nodeStyle.iconRemove': 'Remove icon',
+          'visual.iconChangeHint': 'Set icon: {{icon}}',
           ...shapeLabels,
         };
         return (map[key] ?? key).replace(/\{\{(\w+)\}\}/g, (_, k: string) => String(args?.[k] ?? `{{${k}}}`));
@@ -172,5 +188,166 @@ describe('PropertiesPanel — unified ShapePicker (38-06 SHP-04)', () => {
     fireEvent.blur(input);
     expect(onLabel).toHaveBeenCalledTimes(2);
     expect(onLabel).toHaveBeenLastCalledWith('a', 'Renamed');
+  });
+});
+
+// ===== 39-04 (ICON-03, Surfaces 1+6): the visual panel's media tabs — the
+// identical semantics the preview panel's NodeStylePanel ships, adapted to
+// the 220px fixed-position panel. Switch parity is asserted through the
+// mutator props (never regex emission); the explicit max-md:min-h-[44px]
+// floor is pinned on the new controls (this panel has no .style-panel class).
+import type { IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
+
+describe('PropertiesPanel media tabs (39-04 ICON-03)', () => {
+  const ICON_A: IconConfig = { icon: 'fa:user', form: 'square', pos: 't', w: 80 };
+  const IMG_A: ImgConfig = { img: 'data:image/png;base64,x', pos: 'b' };
+
+  const mediaHandlers = {
+    onIconChange: vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>(),
+    onImageChange: vi.fn<(nodeIds: string[], img: ImgConfig | null) => void>(),
+  };
+
+  function renderWithMedia(
+    nodes: VisualNode[],
+    overrides?: { nodeIcon?: IconConfig | null; nodeImage?: ImgConfig | null },
+  ) {
+    return render(
+      <PropertiesPanel
+        selectedNodes={nodes}
+        selectedEdge={NO_EDGE}
+        onLabelChange={vi.fn()}
+        onShapeChange={vi.fn()}
+        onStyleChange={vi.fn()}
+        nodeIcon={overrides?.nodeIcon ?? null}
+        nodeImage={overrides?.nodeImage ?? null}
+        onIconChange={mediaHandlers.onIconChange}
+        onImageChange={mediaHandlers.onImageChange}
+        onArrowChange={vi.fn()}
+        onEdgeLabelChange={vi.fn()}
+        onDeleteEdge={vi.fn()}
+      />,
+    );
+  }
+
+  beforeEach(() => {
+    mediaHandlers.onIconChange.mockClear();
+    mediaHandlers.onImageChange.mockClear();
+  });
+
+  it('hides the media section when the mutator props are absent (absent-props callers unchanged)', () => {
+    const { container } = renderPanel([mkNode('a', 'rect', 'Start')]);
+    expect(container.querySelector('[data-media-tab]')).toBeNull();
+  });
+
+  it('renders the three segments and lights Text for an all-plain selection', () => {
+    const { container } = renderWithMedia([mkNode('a', 'rect', 'Start')]);
+    expect(container.querySelector('[data-media-tab="text"]')).not.toBeNull();
+    expect(container.querySelector('[data-media-tab="icon"]')).not.toBeNull();
+    expect(container.querySelector('[data-media-tab="image"]')).not.toBeNull();
+    expect(container.querySelector('[data-media-tab="text"]')!.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('active state parity: all-icon lights Icon, all-img lights Image, mixed shows the chip and no segment', () => {
+    const iconOnly = renderWithMedia([mkNode('a', 'rect', 'A')], { nodeIcon: ICON_A, nodeImage: null });
+    expect(iconOnly.container.querySelector('[data-media-tab="icon"]')!.getAttribute('aria-selected')).toBe('true');
+    iconOnly.unmount();
+
+    const imgOnly = renderWithMedia([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: IMG_A });
+    expect(imgOnly.container.querySelector('[data-media-tab="image"]')!.getAttribute('aria-selected')).toBe('true');
+    imgOnly.unmount();
+
+    const { container } = render(
+      <PropertiesPanel
+        selectedNodes={[mkNode('a', 'rect', 'A'), mkNode('b', 'circle', 'B')]}
+        selectedEdge={NO_EDGE}
+        onLabelChange={vi.fn()}
+        onShapeChange={vi.fn()}
+        onStyleChange={vi.fn()}
+        nodeIcon={undefined}
+        nodeImage={undefined}
+        onIconChange={mediaHandlers.onIconChange}
+        onImageChange={mediaHandlers.onImageChange}
+        onArrowChange={vi.fn()}
+        onEdgeLabelChange={vi.fn()}
+        onDeleteEdge={vi.fn()}
+      />,
+    );
+    for (const tab of ['text', 'icon', 'image']) {
+      expect(container.querySelector(`[data-media-tab="${tab}"]`)!.getAttribute('aria-selected')).toBe('false');
+    }
+    expect(container.querySelector('[data-media-mixed]')).not.toBeNull();
+  });
+
+  it('switch parity with the preview panel: Icon strips img via onImageChange(null)', () => {
+    const { container } = renderWithMedia([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: IMG_A });
+    fireEvent.click(container.querySelector('[data-media-tab="icon"]')!);
+    expect(mediaHandlers.onImageChange).toHaveBeenCalledTimes(1);
+    expect(mediaHandlers.onImageChange).toHaveBeenCalledWith(['a'], null);
+    expect(mediaHandlers.onIconChange).not.toHaveBeenCalled();
+  });
+
+  it('switch parity: Image strips icon via onIconChange(null); Text clears both on a mixed selection', () => {
+    const { container } = renderWithMedia([mkNode('a', 'rect', 'A')], { nodeIcon: ICON_A, nodeImage: null });
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    expect(mediaHandlers.onIconChange).toHaveBeenCalledWith(['a'], null);
+    expect(mediaHandlers.onImageChange).not.toHaveBeenCalled();
+
+    mediaHandlers.onIconChange.mockClear();
+    mediaHandlers.onImageChange.mockClear();
+    const mixed = render(
+      <PropertiesPanel
+        selectedNodes={[mkNode('a', 'rect', 'A'), mkNode('b', 'circle', 'B')]}
+        selectedEdge={NO_EDGE}
+        onLabelChange={vi.fn()}
+        onShapeChange={vi.fn()}
+        onStyleChange={vi.fn()}
+        nodeIcon={undefined}
+        nodeImage={undefined}
+        onIconChange={mediaHandlers.onIconChange}
+        onImageChange={mediaHandlers.onImageChange}
+        onArrowChange={vi.fn()}
+        onEdgeLabelChange={vi.fn()}
+        onDeleteEdge={vi.fn()}
+      />,
+    );
+    fireEvent.click(mixed.container.querySelector('[data-media-tab="text"]')!);
+    expect(mediaHandlers.onIconChange).toHaveBeenCalledWith(['a', 'b'], null);
+    expect(mediaHandlers.onImageChange).toHaveBeenCalledWith(['a', 'b'], null);
+  });
+
+  it('icon param rows render with the 12.3 enum Form control and the Auto placeholder on empty H', () => {
+    const { container } = renderWithMedia([mkNode('a', 'rect', 'A')], { nodeIcon: ICON_A, nodeImage: null });
+    expect(container.querySelector('[data-icon-form="square"]')).not.toBeNull();
+    expect(container.querySelector('[data-icon-form="circle"]')).not.toBeNull();
+    expect(container.querySelector('[data-icon-form="rounded"]')).not.toBeNull();
+    const h = container.querySelector('[data-icon-h]') as HTMLInputElement;
+    expect(h.value).toBe('');
+    expect(h.placeholder).toBe('Auto');
+    const w = container.querySelector('[data-icon-w]') as HTMLInputElement;
+    expect(w.value).toBe('80');
+  });
+
+  it('Remove icon emits onIconChange(ids, null) with danger styling; no confirmation dialog exists', () => {
+    const { container } = renderWithMedia([mkNode('a', 'rect', 'A')], { nodeIcon: ICON_A, nodeImage: null });
+    const remove = container.querySelector('[data-icon-remove]') as HTMLElement;
+    expect(remove.style.color).toBe('var(--danger)');
+    fireEvent.click(remove);
+    expect(mediaHandlers.onIconChange).toHaveBeenCalledWith(['a'], null);
+  });
+
+  it('the new interactive controls carry the explicit max-md:min-h-[44px] touch floor (no .style-panel class here)', () => {
+    const { container } = renderWithMedia([mkNode('a', 'rect', 'A')], { nodeIcon: ICON_A, nodeImage: null });
+    for (const selector of ['[data-media-tab="text"]', '[data-icon-trigger]', '[data-icon-form="square"]', '[data-icon-pos="t"]', '[data-icon-remove]']) {
+      const el = container.querySelector(selector) as HTMLElement;
+      expect(el).not.toBeNull();
+      expect(el.className).toContain('max-md:min-h-[44px]');
+    }
+  });
+
+  it('the icon trigger uses the fixed-anchor recipe (data-icon-trigger present; no nested popover machinery)', () => {
+    const { container } = renderWithMedia([mkNode('a', 'rect', 'A')], { nodeIcon: ICON_A, nodeImage: null });
+    const trigger = container.querySelector('[data-icon-trigger]') as HTMLElement;
+    expect(trigger.getAttribute('title')).toBe('Set icon: fa:user');
+    expect(trigger.getAttribute('aria-label')).toBe('Set icon: fa:user');
   });
 });

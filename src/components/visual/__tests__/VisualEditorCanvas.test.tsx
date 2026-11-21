@@ -1499,3 +1499,82 @@ describe('special-shape node selection parity (39-04 ICON-03)', () => {
     }
   });
 });
+
+// ===== 39-04 (ICON-03): canvas-side threading pins. The media handlers are
+// wired into the PropertiesPanel call site behind the readOnly guard; these
+// pins prove the parsed media data reaches the panel (its media section
+// renders only when both mutator props AND parsed data arrive) and that a
+// fenced document cannot mutate media at all (the panel — the only media
+// UI — is absent under readOnly).
+describe('media threading and readOnly fence (39-04 ICON-03)', () => {
+  // The renderDiagram mock returns the module-level mockSvg - this block
+  // swaps in a fixture mirroring the measured live DOM (rect + image-shape
+  // group) so the two parsed nodes have SVG counterparts to enumerate.
+  const IMG_NODES_SVG = [
+    '<svg viewBox="0 0 400 300">',
+    '<g class="node default" id="flowchart-A-1"><rect width="100" height="50" /></g>',
+    '<g class="image-shape default" id="flowchart-IMG-2"><rect width="100" height="50" /><image /></g>',
+  ].join('');
+
+  const imgProps = {
+    content:
+      'flowchart TD\n  A[Start]\n  IMG@{ img: "data:image/png;base64,iVBORw0KGgo=", label: "Photo" }',
+    theme: 'light' as const,
+    onChange: vi.fn(),
+  };
+
+  it('selecting an img node surfaces the media tabs with Image active (parsed data reaches the panel)', async () => {
+    mockSvg = IMG_NODES_SVG;
+    try {
+    const { container } = render(<VisualEditorCanvas {...imgProps} onChange={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('.visual-node-overlay').length).toBe(2);
+    });
+
+    const imgOverlay = Array.from(container.querySelectorAll('.visual-node-overlay')).find(
+      el => el.getAttribute('title') === 'IMG',
+    ) as HTMLElement;
+    expect(imgOverlay).toBeDefined();
+
+    fireEvent.pointerDown(imgOverlay, {
+      pointerId: 1, pointerType: 'mouse', button: 0, buttons: 1, clientX: 150, clientY: 125, shiftKey: false,
+    });
+    fireEvent.pointerUp(imgOverlay, {
+      pointerId: 1, pointerType: 'mouse', button: 0, buttons: 0, clientX: 150, clientY: 125, shiftKey: false,
+    });
+
+    // The properties panel mounts with the media section wired; the Image
+    // segment is the active one (the selection carries a parsed img config).
+    await waitFor(() => {
+      const imageTab = container.querySelector('[data-media-tab="image"]');
+      expect(imageTab).not.toBeNull();
+      expect(imageTab!.getAttribute('aria-selected')).toBe('true');
+    });
+    // The icon rows do NOT render (no icon config on the img node).
+    expect(container.querySelector('[data-icon-w]')).toBeNull();
+    } finally {
+      mockSvg = '<svg><g class="node" id="flowchart-A-1"><rect width="100" height="50" /></g></svg>';
+    }
+  });
+
+  it('a fenced/read-only document refuses media edits: no properties panel, hence no media tabs', async () => {
+    // The malformed directive trips bodyHasUnparsedAtDirective -> readOnly;
+    // the D6 fence contract from 39-01 holds on the canvas side too.
+    const { container } = render(
+      <VisualEditorCanvas
+        {...imgProps}
+        content={'flowchart TD\n  A@{ img: "unterminated'}
+        onChange={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      // The canvas still renders (the read-only banner path), but the
+      // editable panel — and with it every media control — never mounts.
+      expect(container.querySelector('svg')).not.toBeNull();
+    });
+    expect(container.querySelector('[data-media-tab]')).toBeNull();
+    expect(container.querySelector('[data-icon-trigger]')).toBeNull();
+  });
+});

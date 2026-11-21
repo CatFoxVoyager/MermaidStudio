@@ -111,9 +111,25 @@ vi.mock('@/lib/mermaid/codeUtils', async (importOriginal) => {
   };
 });
 
-// Mock NodeStylePanel (has ColorPicker dependency that may have DOM requirements)
+// Mock NodeStylePanel (has ColorPicker dependency that may have DOM requirements).
+// 39-04: the mock surfaces the media props as data attributes so the wiring
+// pins can prove parsed icon/img data flows down through the call site.
 vi.mock('@/components/preview/NodeStylePanel', () => ({
-  NodeStylePanel: () => <div data-testid="node-style-panel">NodeStylePanel</div>,
+  NodeStylePanel: (props: {
+    nodeIcon?: unknown;
+    nodeImage?: unknown;
+    onIconChange?: unknown;
+    onImageChange?: unknown;
+  }) => (
+    <div
+      data-testid="node-style-panel"
+      data-media-wired={props.onIconChange && props.onImageChange ? 'yes' : 'no'}
+      data-node-icon={props.nodeIcon ? 'set' : props.nodeIcon === null ? 'none' : 'mixed'}
+      data-node-img={props.nodeImage ? 'set' : props.nodeImage === null ? 'none' : 'mixed'}
+    >
+      NodeStylePanel
+    </div>
+  ),
 }));
 
 // Mock EdgeStylePanel
@@ -1794,5 +1810,118 @@ describe('special-shape node selection parity (39-04 ICON-03)', () => {
     expect(overlays[2].className).toContain('selected');
     expect(overlays[2].className).not.toContain('icon');
     expect(overlays[2].className).not.toContain('image');
+  });
+});
+
+// ===== 39-04 (ICON-03): preview-side wiring pins. The NodeStylePanel mock
+// is upgraded (this describe's companion edit at the mock site) to surface
+// the media props as data attributes, so these pins prove the parsed
+// icon/img data flows down and the mutator handlers are threaded — without
+// rendering the real panel here.
+describe('NodeStylePanel media wiring (39-04 ICON-03)', () => {
+  const WIRING_PARSED = {
+    nodes: [
+      { id: 'A', label: 'A', shape: 'rect', raw: 'A' },
+      { id: 'IMG', label: 'Photo', shape: 'rect', raw: 'IMG@{ img: "data:image/png;base64,x" }', img: { img: 'data:image/png;base64,x', pos: 'b' } },
+      { id: 'ICO', label: 'User', shape: 'rect', raw: 'ICO@{ icon: "fa:user" }', icon: { icon: 'fa:user', form: 'square' } },
+    ],
+    edges: [],
+    styles: new Map(),
+    classDefs: new Map(),
+    nodeClasses: new Map(),
+    linkStyles: new Map(),
+    subgraphs: [],
+    linkedDirectives: new Map(),
+  };
+
+  const WIRING_SVG = [
+    '<svg id="test-svg" viewBox="0 0 400 300">',
+    '<g class="node default" id="flowchart-A-1"><rect/><text class="nodeLabel">A</text></g>',
+    '<g class="image-shape default" id="flowchart-IMG-2"><rect/><image /><text class="nodeLabel">Photo</text></g>',
+    '<g class="icon-shape default" id="flowchart-ICO-3"><rect/><path /><text class="nodeLabel">User</text></g>',
+    '</svg>',
+  ].join('');
+
+  async function renderWiring(onChange = vi.fn()) {
+    const { parseDiagram } = await import('@/lib/mermaid/codeUtils');
+    const { renderDiagram, detectDiagramType } = await import('@/lib/mermaid/core');
+    vi.mocked(renderDiagram).mockReset();
+    vi.mocked(renderDiagram).mockResolvedValue({ svg: WIRING_SVG, error: null });
+    vi.mocked(parseDiagram).mockReset();
+    vi.mocked(parseDiagram).mockReturnValue(WIRING_PARSED as Awaited<ReturnType<typeof parseDiagram>>);
+    vi.mocked(detectDiagramType).mockReset();
+    vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+
+    const utils = render(
+      <PreviewPanel content={'flowchart TD\nA\nIMG@{ img: "x" }\nICO@{ icon: "fa:user" }'} theme="light" onChange={onChange} />,
+    );
+    await waitFor(() => {
+      expect(utils.container.querySelectorAll('.node-overlay').length).toBe(3);
+    }, { timeout: 3000 });
+    return utils;
+  }
+
+  it('parsed img data reaches the panel props when the img node is selected', async () => {
+    const { container } = await renderWiring();
+    fireEvent.click(container.querySelectorAll('.node-overlay')[1]); // IMG
+
+    await waitFor(() => {
+      expect(screen.getByTestId('node-style-panel')).toBeInTheDocument();
+    });
+    const panel = screen.getByTestId('node-style-panel');
+    expect(panel.getAttribute('data-media-wired')).toBe('yes');
+    expect(panel.getAttribute('data-node-img')).toBe('set');
+    expect(panel.getAttribute('data-node-icon')).toBe('none');
+  });
+
+  it('parsed icon data reaches the panel props when the icon node is selected', async () => {
+    const { container } = await renderWiring();
+    fireEvent.click(container.querySelectorAll('.node-overlay')[2]); // ICO
+
+    await waitFor(() => {
+      expect(screen.getByTestId('node-style-panel')).toBeInTheDocument();
+    });
+    const panel = screen.getByTestId('node-style-panel');
+    expect(panel.getAttribute('data-media-wired')).toBe('yes');
+    expect(panel.getAttribute('data-node-icon')).toBe('set');
+    expect(panel.getAttribute('data-node-img')).toBe('none');
+  });
+
+  it('shift multi-select across media kinds signals the mixed state to the panel', async () => {
+    const { container } = await renderWiring();
+    const overlays = container.querySelectorAll('.node-overlay');
+    fireEvent.click(overlays[1]); // IMG (plain click selects)
+    fireEvent.click(overlays[2], { shiftKey: true }); // ICO added
+
+    await waitFor(() => {
+      expect(screen.getByTestId('node-style-panel')).toBeInTheDocument();
+    });
+    const panel = screen.getByTestId('node-style-panel');
+    expect(panel.getAttribute('data-node-icon')).toBe('mixed');
+    expect(panel.getAttribute('data-node-img')).toBe('mixed');
+  });
+
+  it('gating pin: a non-flowchart diagram never mounts the panel, so no media tabs exist', async () => {
+    const { parseDiagram } = await import('@/lib/mermaid/codeUtils');
+    const { renderDiagram, detectDiagramType } = await import('@/lib/mermaid/core');
+    vi.mocked(renderDiagram).mockReset();
+    vi.mocked(renderDiagram).mockResolvedValue({ svg: WIRING_SVG, error: null });
+    vi.mocked(parseDiagram).mockReset();
+    vi.mocked(parseDiagram).mockReturnValue(WIRING_PARSED as Awaited<ReturnType<typeof parseDiagram>>);
+    vi.mocked(detectDiagramType).mockReset();
+    // treemap: getStylingCapabilities('treemap').supportsClassDef === false —
+    // the existing flowchart gate that keeps the media tools off
+    // non-flowchart diagrams (UI-SPEC Surface 4 preserved invariant).
+    vi.mocked(detectDiagramType).mockReturnValue('treemap' as ReturnType<typeof detectDiagramType>);
+
+    const { container } = render(
+      <PreviewPanel content={'flowchart TD\nA\nIMG@{ img: "x" }\nICO@{ icon: "fa:user" }'} theme="light" onChange={vi.fn()} />,
+    );
+    await waitFor(() => {
+      expect(container.querySelector('svg')).not.toBeNull();
+    });
+    // No overlays -> no selection path -> the panel (and the tabs) never mount.
+    expect(container.querySelectorAll('.node-overlay').length).toBe(0);
+    expect(screen.queryByTestId('node-style-panel')).not.toBeInTheDocument();
   });
 });
