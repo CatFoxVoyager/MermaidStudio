@@ -115,7 +115,8 @@ export function validateBackupData(raw: unknown): BackupData {
 // document, script-bearing), a data:text/html URI, or a relative ref all
 // survive sanitization today (measured at phase 39 planning HEAD). The
 // allowlist admits exactly: https URLs and raster data:image/(png|jpeg|webp|gif)
-// URIs — everything else on href/xlink:href of an <image> is removed.
+// URIs — everything else on href/xlink:href of an <image>, or on the src of
+// the HTML <img> mermaid renders inside foreignObject labels, is removed.
 //
 // DOMPurify hooks are INSTANCE-GLOBAL (they run for every sanitize call on the
 // instance, both sanitizeMermaidSVG passes and the sanitizeSVG preview path),
@@ -139,10 +140,20 @@ function installImageHrefAllowlist(): void {
   imageHrefHookInstalled = true;
   DOMPurify.addHook('afterSanitizeAttributes', node => {
     const el = node as Element;
-    if (!el.tagName || el.tagName.toLowerCase() !== 'image') return;
+    if (!el.tagName) return;
+    const tag = el.tagName.toLowerCase();
+    // Both carriers of the invariant: the SVG <image> (mermaid img: nodes,
+    // href/xlink:href) and the HTML <img> mermaid's htmlLabels render inside
+    // foreignObject labels (src — e.g. markdown image labels). The
+    // foreignObject extraction pass restores its HTML content after an
+    // HTML-profile sanitize whose data-URI policy is broader than this
+    // allowlist, so the <img> carrier needs the same gate on its src
+    // (39-REVIEW WR-01).
+    if (tag !== 'image' && tag !== 'img') return;
+    const srcAttrs = tag === 'img' ? ['src'] : ['href', 'xlink:href'];
     for (const attr of Array.from(el.attributes)) {
       const name = attr.name.toLowerCase();
-      if (name !== 'href' && name !== 'xlink:href') continue;
+      if (!srcAttrs.includes(name)) continue;
       if (!isAllowedImageHref(attr.value)) {
         el.removeAttribute(attr.name);
       }

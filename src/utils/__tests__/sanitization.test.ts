@@ -375,4 +375,49 @@ describe('sanitizeMermaidSVG', () => {
       expect(bad).not.toContain('data:image/svg+xml');
     });
   });
+
+  describe('HTML <img> src allowlist (39-REVIEW WR-01)', () => {
+    // Mermaid's htmlLabels render <img> (markdown image labels) inside
+    // foreignObject, and the extraction pass restores that HTML content after
+    // an HTML-profile sanitize whose data-URI policy is broader than the
+    // image-href contract. The allowlist hook must gate the HTML <img>
+    // carrier on `src` exactly like the SVG <image> carrier on href — same
+    // invariant, same adversarial forms.
+    const PNG_DATA_URI =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+    it('strips a data:image/svg+xml src from an <img> inside foreignObject', () => {
+      const svg =
+        '<svg><foreignObject><div><img src="data:image/svg+xml;base64,PHN2Zy8+"></div></foreignObject></svg>';
+      const out = sanitizeMermaidSVG(svg);
+      expect(out).not.toContain('data:image/svg+xml');
+      expect(out).not.toContain('PHN2Zy8+');
+    });
+
+    it('strips a relative src from an <img> inside foreignObject', () => {
+      const svg =
+        '<svg><foreignObject><div><img src="/relative/x.png"></div></foreignObject></svg>';
+      const out = sanitizeMermaidSVG(svg);
+      expect(out).not.toContain('/relative/x.png');
+    });
+
+    it('strips a data:image/svg+xml src from a bare <img> (sanitizeSVG path)', () => {
+      const out = sanitizeSVG('<img src="data:image/svg+xml;base64,PHN2Zy8+">');
+      expect(out).not.toContain('data:image/svg+xml');
+      expect(out).not.toContain('PHN2Zy8+');
+    });
+
+    it('keeps a raster data:image/png src on <img> (green control)', () => {
+      const svg = `<svg><foreignObject><div><img src="${PNG_DATA_URI}"></div></foreignObject></svg>`;
+      const out = sanitizeMermaidSVG(svg);
+      expect(out).toContain(PNG_DATA_URI);
+    });
+
+    it('keeps an https src on <img> (green control)', () => {
+      const svg =
+        '<svg><foreignObject><div><img src="https://example.com/pic.png"></div></foreignObject></svg>';
+      const out = sanitizeMermaidSVG(svg);
+      expect(out).toContain('https://example.com/pic.png');
+    });
+  });
 });
