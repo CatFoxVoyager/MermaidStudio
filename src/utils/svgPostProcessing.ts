@@ -440,12 +440,24 @@ function fixDiagramLabelsInDoc(doc: Document, source: string): boolean {
     el => el.classList.contains('edgePaths') || el.classList.contains('edges')
   );
   const edgeLabels = Array.from(root.children).filter(el => el.classList.contains('edgeLabels'));
+  // Mermaid appends g.edge-step-badges to the flowchart root as a sibling of
+  // the edge groups (EDGE-04, Surface 7 item 3) — without collecting it here,
+  // the re-appends below would strand the step-number badges UNDER the layers
+  // they manage. Badge content, placement, aria attributes, and mermaid's
+  // reduced-motion style are never touched — z-order is the only mutation.
+  const edgeStepBadges = Array.from(root.children).filter(el =>
+    el.classList.contains('edge-step-badges')
+  );
 
-  if (nodes.length || edgePaths.length || edgeLabels.length) {
+  if (nodes.length || edgePaths.length || edgeLabels.length || edgeStepBadges.length) {
     const parent = root;
     nodes.forEach(node => parent.appendChild(node));
     edgePaths.forEach(edge => parent.appendChild(edge)); // Paths FIRST (bottom)
     edgeLabels.forEach(label => parent.appendChild(label)); // Labels LAST (on top)
+    // Step-number badges re-appended LAST — above nodes, edge paths, and edge
+    // labels (the UI-SPEC badges-z-order contract; a missing badges layer
+    // renders nothing — no crash surface).
+    edgeStepBadges.forEach(badges => parent.appendChild(badges));
     changed = true;
   }
 

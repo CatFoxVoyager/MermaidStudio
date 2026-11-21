@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'fs';
 import { fixDiagramLabels, applyEdgeFontStyles, applyNodeFontStyles } from '../svgPostProcessing';
 
 // Mock DOMParser and XMLSerializer for the test environment
@@ -501,5 +502,92 @@ describe('39-04 special-shape label parity', () => {
       document.getElementById('p39_04_postproc_oracle')?.remove();
       document.getElementById('dp39_04_postproc_oracle')?.remove();
     }
+  });
+});
+
+// ===== 40-03 EDGE-04 (UI-SPEC Surface 7 item 3): the z-order re-append block
+// keeps g.edge-step-badges LAST — above node groups, edge paths, and edge
+// labels. Mermaid appends the badges layer to the flowchart root as a sibling
+// of the edge groups (research-verified dist contract), so without the
+// extension the block's re-appends strand the badges beneath the layers it
+// manages. The E8 error row rides the same fixture: a missing badges layer
+// renders nothing — no crash surface, no new container.
+describe('badges z-order (40-03 EDGE-04 Surface 7 backstop)', () => {
+  /** Adversarial DOM order: badges FIRST, so the re-append must actively move
+   * them after every layer it manages (a no-op extension would leave them
+   * stranded at index 0, under nodes/edgePaths/edgeLabels). */
+  const BADGES_FIRST_FIXTURE = `<svg xmlns="http://www.w3.org/2000/svg" aria-roledescription="flowchart">
+    <g class="root">
+      <g class="edge-step-badges"><g class="edge-step-badge" data-step="1">1</g></g>
+      <g class="edgeLabels"><g class="edgeLabel"><text>label</text></g></g>
+      <g class="edgePaths"><path class="flowchart-link" id="L_A_B_0" d="M0,0L10,10"/></g>
+      <g class="nodes"><g class="node" id="flowchart-A-0"><rect width="10" height="10"/></g></g>
+    </g>
+  </svg>`.replace(/>\s+</g, '><');
+
+  const NO_BADGES_FIXTURE = `<svg xmlns="http://www.w3.org/2000/svg" aria-roledescription="flowchart">
+    <g class="root">
+      <g class="edgeLabels"><g class="edgeLabel"><text>label</text></g></g>
+      <g class="edgePaths"><path class="flowchart-link" id="L_A_B_0" d="M0,0L10,10"/></g>
+      <g class="nodes"><g class="node" id="flowchart-A-0"><rect width="10" height="10"/></g></g>
+    </g>
+  </svg>`.replace(/>\s+</g, '><');
+
+  it('the root child order ends nodes, edgePaths, edgeLabels, g.edge-step-badges LAST', () => {
+    const result = fixDiagramLabels(BADGES_FIRST_FIXTURE);
+    const doc = new DOMParser().parseFromString(result, 'image/svg+xml');
+    const root = doc.querySelector('g.root');
+    expect(root).not.toBeNull();
+    const order = Array.from(root!.children).map(el => el.getAttribute('class'));
+    expect(order).toEqual(['nodes', 'edgePaths', 'edgeLabels', 'edge-step-badges']);
+    // The badges layer survives verbatim — content is never touched.
+    expect(doc.querySelector('g.edge-step-badge')?.textContent).toBe('1');
+  });
+
+  it('a fixture with no badges layer processes unchanged (no error, no new container)', () => {
+    const result = fixDiagramLabels(NO_BADGES_FIXTURE);
+    const doc = new DOMParser().parseFromString(result, 'image/svg+xml');
+    // The absent layer renders nothing: no badges container is fabricated.
+    expect(doc.querySelector('g.edge-step-badges')).toBeNull();
+    // The block's original consumers still applied (re-append ran).
+    const order = Array.from(doc.querySelector('g.root')!.children).map(el =>
+      el.getAttribute('class')
+    );
+    expect(order).toEqual(['nodes', 'edgePaths', 'edgeLabels']);
+  });
+});
+
+// ===== 40-03 EDGE-03/04 (UI-SPEC Surface 7, source-pin pattern from 40-02):
+// byte-level source pins over the file text — NOT DOM probes.
+// 1. No edge-path selector of the shape `.edgePaths path` WITHOUT the
+//    flowchart-link class, EXCEPT the documented cross-family marker-color
+//    sync (the :487 selector that must also cover sequence message lines —
+//    the 40-02 refinement of this same contract; the step-decoration hazard
+//    it fences only exists for edge IDENTITY/selection selectors).
+// 2. `.edge-step-highlight` appears nowhere as a re-styling target — the app
+//    never restyles step decorations (mermaid owns placement, pointer-events,
+//    and reduced-motion).
+describe('selector-scope source pins (40-03 Surface 7)', () => {
+  const SOURCE = readFileSync('src/utils/svgPostProcessing.ts', 'utf8');
+
+  it('zero bare .edgePaths path selectors outside the messageLine-bearing marker-sync context', () => {
+    const re = /\.edgePaths\s+path(?!\.flowchart-link)/g;
+    let m: RegExpExecArray | null;
+    let hits = 0;
+    while ((m = re.exec(SOURCE)) !== null) {
+      hits++;
+      const context = SOURCE.slice(Math.max(0, m.index - 160), m.index + 160);
+      expect(
+        context.includes('messageLine'),
+        `bare .edgePaths path selector outside the marker-color sync at index ${m.index}`,
+      ).toBe(true);
+    }
+    // The instrument saw the population: the marker-sync selector exists.
+    expect(hits).toBeGreaterThanOrEqual(1);
+  });
+
+  it('zero .edge-step-highlight style writes (the app never restyles step decorations)', () => {
+    expect(SOURCE).not.toContain('edge-step-highlight');
+    expect(SOURCE).not.toContain('edge-step-dot');
   });
 });
