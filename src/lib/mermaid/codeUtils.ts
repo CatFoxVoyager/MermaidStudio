@@ -28,6 +28,19 @@ export interface ParsedSubgraph {
   id: string;
   label: string;
   parentSubgraphId: string | null;
+  /**
+   * 40-04 (EDGE-05): typed view linked from the pass-2 `linkedDirectives`
+   * registry (the standalone `SG@{ view: collapsed }` line). Absent means
+   * expanded by convention — the directive is only ever emitted for the
+   * non-default state; writes route through `updateSubgraphView`.
+   */
+  view?: 'collapsed' | 'expanded';
+  /**
+   * 40-04 (EDGE-05): verbatim unconsumed param slices from the subgraph's
+   * directive line(s) — an unknown `view` value or an unknown sibling key
+   * lands here and fences the subgraph against view mutation (D6).
+   */
+  unknownViewParams?: string[];
 }
 
 export interface ParsedNode {
@@ -443,6 +456,13 @@ interface DirectiveBodyParse {
    * in `unknownParams` verbatim.
    */
   edge?: EdgeMetadata;
+  /**
+   * 40-04 (EDGE-05): the typed SUBGRAPH-family param. `view` consumes ONLY
+   * when its value is exactly `collapsed` or `expanded` (quoted or bare) —
+   * any other value stays unconsumed, lands in `unknownParams` verbatim, and
+   * fences the span (the media-param rule, mirrored).
+   */
+  view?: 'collapsed' | 'expanded';
 }
 
 /** One directive param pair, in source order, with its media-typing state. */
@@ -571,6 +591,26 @@ function buildTypedEdge(entries: DirectiveParamEntry[]): EdgeMetadata | undefine
   return meta;
 }
 
+/**
+ * 40-04 (EDGE-05): type the SUBGRAPH-family `view` param. Consumes ONLY an
+ * exactly-one unconsumed `view:` entry whose value is exactly `collapsed` or
+ * `expanded` (parseDirectiveValue already unwrapped quotes) — any other
+ * value (or a duplicate key) stays unconsumed so it lands back in
+ * unknownParams verbatim and fences the span. No parallel parser: the SAME
+ * parseDirectiveBody pair walk feeds this builder, the media builders, and
+ * buildTypedEdge.
+ */
+const SUBGRAPH_VIEW_VALUES = new Set(['collapsed', 'expanded']);
+
+function buildTypedSubgraphView(entries: DirectiveParamEntry[]): 'collapsed' | 'expanded' | undefined {
+  const viewEntries = entries.filter(e => !e.consumed && e.key === 'view');
+  if (viewEntries.length === 1 && SUBGRAPH_VIEW_VALUES.has(viewEntries[0].value)) {
+    viewEntries[0].consumed = true;
+    return viewEntries[0].value as 'collapsed' | 'expanded';
+  }
+  return undefined;
+}
+
 function parseDirectiveBody(body: string): DirectiveBodyParse | null {
   // WR-03: the greedy capture runs to the LAST `}` — an unquoted `}` before
   // it means the real span closed earlier and the rest is residual line
@@ -616,6 +656,11 @@ function parseDirectiveBody(body: string): DirectiveBodyParse | null {
   // it stays unconsumed so it lands in unknownParams and fences the span,
   // never silently vanishing through a re-emission that cannot speak it.
   const edge = (shape === null && !icon && !img) ? buildTypedEdge(paramEntries) : undefined;
+  // 40-04 (EDGE-05): the subgraph view family types on ANY body — `view` is
+  // mermaid's own subgraph-metadata key (flowDb gate `metadata?.view ===
+  // "collapsed"`), so a span typed by another family keeps its view while
+  // the whole span stays foreign to the view MUTATOR (decline-don't-rewrite).
+  const view = buildTypedSubgraphView(paramEntries);
   // unknownParams reassemble in ORIGINAL pair order — typed pairs leave,
   // everything else (plain unknowns and unparsed media-adjacent pairs
   // alike) keeps its position.
@@ -630,7 +675,7 @@ function parseDirectiveBody(body: string): DirectiveBodyParse | null {
     if (icon) { icon.label = label; }
     else if (img) { img.label = label; }
   }
-  return { shape, label, unknownParams, ...(icon ? { icon } : {}), ...(img ? { img } : {}), ...(edge ? { edge } : {}) };
+  return { shape, label, unknownParams, ...(icon ? { icon } : {}), ...(img ? { img } : {}), ...(edge ? { edge } : {}), ...(view ? { view } : {}) };
 }
 
 /** LOOSE parse: shape-less (edge + bare media) directive spans stay parseable. */
@@ -683,9 +728,47 @@ export function parseEdgeDirectiveSpan(span: string): EdgeMetadata | null {
   const parsed = parseDirectiveBody(body);
   if (!parsed || parsed.shape !== null || parsed.label !== null) {return null;}
   if (!parsed.edge) {return null;}
+  // 40-04 (EDGE-05) cross-family guard: a span the SUBGRAPH view family
+  // typed is not a pure edge-metadata span — buildEdgeMetadataSpan cannot
+  // speak `view`, so re-emission would silently drop it. The span fences
+  // (the mutator declines) exactly like an unknownParams span.
+  if (parsed.view !== undefined) {return null;}
   return parsed.unknownParams.length > 0
     ? { ...parsed.edge, unknownParams: [...parsed.unknownParams] }
     : { ...parsed.edge };
+}
+
+/**
+ * 40-04 (EDGE-05): typed parse of a SUBGRAPH view directive span (`@{ view:
+ * collapsed }`). The PROMOTED span grammar — the same `parseDirectiveBody`
+ * the node/media/edge families use, with the subgraph view builder as the
+ * interpreter (no parallel parser). Returns the typed view when exactly one
+ * `view:` param carried `collapsed`/`expanded`; every unconsumed param
+ * (an unknown view value, an unknown sibling key) rides `unknownViewParams`
+ * verbatim; a span another family typed (node shape/label, media, edge
+ * params) reports `foreignFamily` so the view MUTATOR can decline it while
+ * parseDiagram still types mermaid's own `metadata.view` reading.
+ * Null when the span is not a directive at all (malformed or empty body).
+ */
+export interface SubgraphViewParse {
+  view?: 'collapsed' | 'expanded';
+  unknownViewParams: string[];
+  foreignFamily: boolean;
+}
+
+export function parseSubgraphViewSpan(span: string): SubgraphViewParse | null {
+  const spanMatch = span.match(/^@\{(.*)\}\s*$/);
+  if (!spanMatch) {return null;}
+  const body = spanMatch[1].trim();
+  if (!body) {return null;}
+  const parsed = parseDirectiveBody(body);
+  if (!parsed) {return null;}
+  return {
+    ...(parsed.view ? { view: parsed.view } : {}),
+    unknownViewParams: [...parsed.unknownParams],
+    foreignFamily: parsed.shape !== null || parsed.label !== null
+      || parsed.icon !== undefined || parsed.img !== undefined || parsed.edge !== undefined,
+  };
 }
 
 /**
@@ -2378,6 +2461,88 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+/**
+ * 40-04 (EDGE-05): emit / replace / remove the standalone
+ * `subgraphId@{ view: ... }` directive line for one subgraph. Contract:
+ * - `view: 'collapsed'` emits `subgraphId@{ view: collapsed }` as its own
+ *   line immediately AFTER the block's depth-matched `end` — NEVER inline
+ *   on the `subgraph` header (the inline `subgraph id@{...}` form is a
+ *   mermaid parse error, probe-verified). An existing fully-consumed
+ *   directive line REPLACES in place (never a duplicate; degenerate
+ *   duplicates collapse to one).
+ * - `view: 'expanded' | null` on a subgraph with NO directive line returns
+ *   source unchanged (the empty resolution — expanding an already-expanded
+ *   subgraph emits nothing); an existing directive line is REMOVED
+ *   (expand-to-default: absent = expanded).
+ * - D6 decline: an existing line the subgraph family cannot fully consume
+ *   (unknown view value, unknown sibling param, another family's keys,
+ *   empty span) is returned unchanged — nothing the parser cannot fully
+ *   consume is ever rewritten. Same for the inline ONE-LINE subgraph form
+ *   (no isolated `end` to emit after), an unterminated block, an unknown
+ *   id, or an id-less request (no valid mermaid id / no such block).
+ */
+export function updateSubgraphView(source: string, subgraphId: string, view: 'collapsed' | 'expanded' | null): string {
+  // The id re-enters source text — only a valid mermaid id may (T-40-01).
+  if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(subgraphId)) {return source;}
+  const lines = source.split('\n');
+  const lineRe = new RegExp(`^${escapeRegex(subgraphId)}(@\\{.*\\})$`);
+  const existing: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (lineRe.test(lines[i].trim())) {existing.push(i);}
+  }
+  // D6 decline: a line is rewritten ONLY when the subgraph family fully
+  // consumes it — a typed view and nothing else (removal included).
+  for (const idx of existing) {
+    const m = lines[idx].trim().match(lineRe);
+    const parsed = m ? parseSubgraphViewSpan(m[1]) : null;
+    if (!parsed || parsed.view === undefined || parsed.foreignFamily || parsed.unknownViewParams.length > 0) {
+      return source;
+    }
+  }
+  if (existing.length > 0) {
+    if (view === 'collapsed') {
+      // Replace the first line in place (indent preserved); collapse any
+      // degenerate duplicates so exactly one directive line survives.
+      const indent = lines[existing[0]].match(/^\s*/)?.[0] ?? '';
+      lines[existing[0]] = `${indent}${subgraphId}@{ view: collapsed }`;
+      const doomed = new Set(existing.slice(1));
+      return lines.filter((_, i) => !doomed.has(i)).join('\n');
+    }
+    // expanded | null: expand-to-default REMOVES the line(s).
+    const doomed = new Set(existing);
+    return lines.filter((_, i) => !doomed.has(i)).join('\n');
+  }
+  if (view !== 'collapsed') {return source;}
+  // Locate the subgraph block: the removeSubgraph open/end scan idiom,
+  // depth-matched so a nested target emits after ITS OWN end.
+  const openRe = new RegExp(`^subgraph\\s+${escapeRegex(subgraphId)}\\b`);
+  const startIdx = lines.findIndex(line => openRe.test(line.trim()));
+  if (startIdx === -1) {return source;}
+  // Inline ONE-LINE form (`subgraph id[label] N1[x] end`): there is no
+  // isolated end to emit after — decline mutation entirely.
+  if (/\bend\s*$/.test(lines[startIdx].trim())) {return source;}
+  let depth = 1;
+  let endIdx = -1;
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    // A one-line nested subgraph carries its own end on the same line — it
+    // neither opens nor closes a depth level of the multi-line scan.
+    if (/^subgraph\s+\S/.test(trimmed) && !/\bend\s*$/.test(trimmed)) {
+      depth++;
+    } else if (trimmed === 'end') {
+      depth--;
+      if (depth === 0) {
+        endIdx = i;
+        break;
+      }
+    }
+  }
+  if (endIdx === -1) {return source;}
+  const indent = lines[startIdx].match(/^\s*/)?.[0] ?? '';
+  lines.splice(endIdx + 1, 0, `${indent}${subgraphId}@{ view: collapsed }`);
+  return lines.join('\n');
+}
+
 export function parseDiagram(source: string): ParsedDiagram {
   const lines = source.split('\n');
   const nodes: ParsedNode[] = [];
@@ -2695,6 +2860,30 @@ export function parseDiagram(source: string): ParsedDiagram {
           ...parsed,
           unknownParams: [...(existing.unknownParams ?? []), ...(parsed.unknownParams ?? [])],
         };
+      }
+    }
+  }
+  // 40-04 (EDGE-05): interpret the SUBGRAPH half of the registry — a linked
+  // `id@{...}` line whose id equals a parsed subgraph id types `view` onto
+  // that subgraph (absent directive = expanded by convention). Unknown view
+  // values and unknown sibling params land verbatim in `unknownViewParams`
+  // (the subgraph stays fenced against view mutation — D6); a span another
+  // directive family typed leaves the view untouched here and stays
+  // mutator-declined. The registry lines stay VERBATIM — read-only
+  // interpretation; writes route through updateSubgraphView.
+  for (const sg of subgraphs) {
+    const linkedLines = linkedDirectives.get(sg.id);
+    if (!linkedLines) {continue;}
+    for (const linkedLine of linkedLines) {
+      const m = linkedLine.match(/^([A-Za-z_][A-Za-z0-9_-]*)(@\{.*\})$/);
+      if (!m) {continue;}
+      const parsed = parseSubgraphViewSpan(m[2]);
+      if (!parsed) {continue;}
+      if (parsed.view !== undefined) {
+        sg.view = parsed.view;
+      }
+      if (parsed.unknownViewParams.length > 0) {
+        sg.unknownViewParams = [...(sg.unknownViewParams ?? []), ...parsed.unknownViewParams];
       }
     }
   }
@@ -3521,9 +3710,13 @@ function directiveSpanEditable(span: string): boolean {
     return parsed.unknownParams.length === 0;
   }
   // No typed media: only a FAILED media param fences (the 38-03 rule,
-  // unchanged for spans whose icon/img params did not parse).
+  // unchanged for spans whose icon/img params did not parse). 40-04: a
+  // FAILED subgraph view param fences the same way — a `view:` value the
+  // subgraph family cannot consume sits in unknownParams and the D6 pill
+  // guards the line (a well-formed view span stays consumed/editable).
   return !parsed.unknownParams.some(p => /^icon\s*:/.test(p))
-    && !parsed.unknownParams.some(p => /^img\s*:/.test(p));
+    && !parsed.unknownParams.some(p => /^img\s*:/.test(p))
+    && !parsed.unknownParams.some(p => /^view\s*:/.test(p));
 }
 
 /**
