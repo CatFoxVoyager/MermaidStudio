@@ -107,6 +107,51 @@ export function validateBackupData(raw: unknown): BackupData {
   return data as unknown as BackupData;
 }
 
+// ---------------------------------------------------------------------------
+// <image> href protocol allowlist (ICON-04 / T-39-05)
+//
+// Mermaid 12 renders img: nodes as <image href="...">. DOMPurify's defaults
+// allow data: URIs on image tags, so a data:image/svg+xml payload (nested SVG
+// document, script-bearing), a data:text/html URI, or a relative ref all
+// survive sanitization today (measured at phase 39 planning HEAD). The
+// allowlist admits exactly: https URLs and raster data:image/(png|jpeg|webp|gif)
+// URIs — everything else on href/xlink:href of an <image> is removed.
+//
+// DOMPurify hooks are INSTANCE-GLOBAL (they run for every sanitize call on the
+// instance, both sanitizeMermaidSVG passes and the sanitizeSVG preview path),
+// so the hook registers ONCE at module load; the flag guards double
+// registration if the module ever re-executes (HMR) — addHook appends, so a
+// second registration would run the check twice per attribute.
+// ---------------------------------------------------------------------------
+
+const IMAGE_HREF_DATA_TYPE = /^data:image\/(png|jpeg|webp|gif)\s*[;,]/i;
+const HTTPS_URL = /^https:\/\//i;
+
+function isAllowedImageHref(value: string): boolean {
+  const href = value.trim();
+  return HTTPS_URL.test(href) || IMAGE_HREF_DATA_TYPE.test(href);
+}
+
+let imageHrefHookInstalled = false;
+
+function installImageHrefAllowlist(): void {
+  if (imageHrefHookInstalled) return;
+  imageHrefHookInstalled = true;
+  DOMPurify.addHook('afterSanitizeAttributes', node => {
+    const el = node as Element;
+    if (!el.tagName || el.tagName.toLowerCase() !== 'image') return;
+    for (const attr of Array.from(el.attributes)) {
+      const name = attr.name.toLowerCase();
+      if (name !== 'href' && name !== 'xlink:href') continue;
+      if (!isAllowedImageHref(attr.value)) {
+        el.removeAttribute(attr.name);
+      }
+    }
+  });
+}
+
+installImageHrefAllowlist();
+
 /**
  * Sanitize Mermaid SVG output while preserving foreignObject HTML content.
  * DOMPurify strips HTML content inside foreignObject because it doesn't
@@ -131,7 +176,18 @@ export function sanitizeMermaidSVG(svg: string): string {
     'embed',
     'applet',
   ];
-  const forbiddenAttrs = ['onerror', 'onload', 'onclick', 'onmouseover'];
+  const forbiddenAttrs = [
+    'onerror',
+    'onload',
+    'onclick',
+    'onmouseover',
+    // SMIL animation event handlers (ICON-04 / T-39-06): the array feeds BOTH
+    // DOMPurify passes (foreignObject inner + main SVG), so these can no longer
+    // survive sanitization on animateTransform/animateMotion carriers.
+    'onbegin',
+    'onend',
+    'onrepeat',
+  ];
 
   const foContents: string[] = [];
   const placeholder = '%%MMPRESERVE';

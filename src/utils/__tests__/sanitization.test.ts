@@ -253,4 +253,126 @@ describe('sanitizeMermaidSVG', () => {
       expect(out).toContain('<p>Label</p>');
     });
   });
+
+  describe('image href protocol allowlist (ICON-04, 39-03)', () => {
+    // The canonical smallest valid 1x1 data:image/png URI (same fixture the
+    // 39-01 render oracle uses — the allowlist must not fight it).
+    const PNG_DATA_URI =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+    const imageSvg = (attrs: string) =>
+      `<svg><image ${attrs} width="10" height="10"/></svg>`;
+
+    it('strips a data:image/svg+xml href from <image>', () => {
+      const out = sanitizeMermaidSVG(
+        imageSvg('href="data:image/svg+xml;base64,PHN2Zy8+"')
+      );
+      expect(out).not.toContain('data:image/svg+xml');
+      expect(out).not.toContain('PHN2Zy8+');
+    });
+
+    it('strips a relative href from <image>', () => {
+      const out = sanitizeMermaidSVG(imageSvg('href="images/pic.png"'));
+      expect(out).not.toContain('images/pic.png');
+    });
+
+    it('strips a data:text/html href from <image>', () => {
+      const out = sanitizeMermaidSVG(
+        imageSvg('href="data:text/html;base64,PGI+PHA+aGk8L3A+PC9i+"')
+      );
+      expect(out).not.toContain('data:text/html');
+    });
+
+    it('strips a javascript: xlink:href from <image>', () => {
+      const out = sanitizeMermaidSVG(
+        imageSvg('xlink:href="javascript:alert(1)"')
+      );
+      expect(out).not.toContain('javascript:');
+    });
+
+    it('keeps an allowed data:image/png href', () => {
+      const out = sanitizeMermaidSVG(imageSvg(`href="${PNG_DATA_URI}"`));
+      expect(out).toContain(PNG_DATA_URI);
+    });
+
+    it('keeps an https href', () => {
+      const out = sanitizeMermaidSVG(
+        imageSvg('href="https://example.com/pic.png"')
+      );
+      expect(out).toContain('https://example.com/pic.png');
+    });
+
+    it('adjudicates href and xlink:href independently on the same element', () => {
+      const out = sanitizeMermaidSVG(
+        imageSvg(
+          `href="${PNG_DATA_URI}" xlink:href="data:image/svg+xml;base64,PHN2Zy8+"`
+        )
+      );
+      expect(out).toContain(PNG_DATA_URI);
+      expect(out).not.toContain('data:image/svg+xml');
+    });
+  });
+
+  describe('SMIL event-handler forbid list (ICON-04, 39-03)', () => {
+    it('forbids onbegin/onend/onrepeat in BOTH DOMPurify passes', () => {
+      const svg =
+        '<svg><foreignObject><div>label</div></foreignObject><animate attributeName="x"/></svg>';
+
+      sanitizeMermaidSVG(svg);
+
+      // Call 1: the extracted foreignObject inner pass (HTML profile); call 2:
+      // the main SVG-profile pass. The forbiddenAttrs array feeds both.
+      expect(sanitizeCalls.length).toBe(2);
+      for (const call of [1, 2]) {
+        expect(configOfCall(call)).toEqual(
+          expect.objectContaining({
+            FORBID_ATTR: expect.arrayContaining([
+              'onbegin',
+              'onend',
+              'onrepeat',
+            ]),
+          })
+        );
+      }
+    });
+
+    it('strips onbegin/onend/onrepeat from a surviving animateTransform element', () => {
+      // Carrier is animateTransform, NOT animate: DOMPurify 3.4.17's defaults
+      // strip plain <animate> outright (measured at 39-03 HEAD), so an animate
+      // carrier would make these attribute assertions pass vacuously — the
+      // element must SURVIVE the pipeline for an attribute-strip pin to prove
+      // anything. animateTransform/animateMotion are the SMIL carriers
+      // mermaid's step: edges actually emit and they survive (measured).
+      const out = sanitizeMermaidSVG(
+        '<svg><animateTransform attributeName="transform" onbegin="alert(1)" onend="alert(2)" onrepeat="alert(3)"/></svg>'
+      );
+      expect(out).toContain('<animateTransform');
+      expect(out).toContain('attributeName="transform"');
+      expect(out).not.toContain('onbegin');
+      expect(out).not.toContain('onend');
+      expect(out).not.toContain('onrepeat');
+    });
+
+    it('keeps benign SMIL carriers (step: edges) intact', () => {
+      const out = sanitizeMermaidSVG(
+        '<svg><animateTransform attributeName="transform"/><animateMotion path="M0,0 L10,10"/></svg>'
+      );
+      expect(out).toContain('<animateTransform');
+      expect(out).toContain('<animateMotion');
+      expect(out).toContain('attributeName="transform"');
+    });
+  });
+
+  describe('allowlist hook registration guard (39-03)', () => {
+    it('stays effective across repeated sanitize calls (no double-registration drift)', () => {
+      const good = sanitizeMermaidSVG(
+        '<svg><image href="https://example.com/a.png"/></svg>'
+      );
+      const bad = sanitizeMermaidSVG(
+        '<svg><image href="data:image/svg+xml;base64,PHN2Zy8+"/></svg>'
+      );
+      expect(good).toContain('https://example.com/a.png');
+      expect(bad).not.toContain('data:image/svg+xml');
+    });
+  });
 });
