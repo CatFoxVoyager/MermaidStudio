@@ -120,7 +120,17 @@ export async function fileToCompressedDataUri(file: File | Blob): Promise<string
   // 4. Decode -> downscale -> re-encode. Every emitted byte passes through
   //    the canvas, so original metadata and payload structure never survive
   //    (T-39-11 / T-39-12 by construction).
-  const bitmap = await createImageBitmap(file);
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    // A mime-valid, size-valid file whose bytes are not a decodable image
+    // (truncated download, renamed text file) must reach the panels' typed
+    // inline-error row like any other validation failure — a raw DOMException
+    // would end the spinner with no user-visible error (39-REVIEW WR-03).
+    const sourceName = file instanceof File ? file.name || 'clipboard' : 'clipboard';
+    throw new ImageCompressError('invalid-type', `Unreadable image data: ${sourceName}`);
+  }
   try {
     const longestEdge = Math.max(bitmap.width, bitmap.height);
     // Fit the longest edge to the cap first; never upscale a small source.

@@ -137,6 +137,21 @@ describe('imageCompress (39-05 ICON-03)', () => {
     expect(recorded).toHaveLength(0);
   });
 
+  it('maps a decode failure (corrupt bytes) onto the typed invalid-type code', async () => {
+    // A mime-valid, size-valid file whose bytes are not a decodable image
+    // (truncated download, renamed text file) must reach the panels' typed
+    // inline-error row like any other validation failure — a raw DOMException
+    // would end the spinner with no user-visible error (39-REVIEW WR-03).
+    createImageBitmapMock.mockRejectedValueOnce(
+      new DOMException('Underlying decoder refused the bytes', 'InvalidStateError')
+    );
+    await expect(fileToCompressedDataUri(makeFile(512, 'image/png', 'corrupt'))).rejects.toMatchObject({
+      name: 'ImageCompressError',
+      code: 'invalid-type',
+    });
+    expect(recorded).toHaveLength(0); // no canvas work ran
+  });
+
   it('passes an under-cap GIF through unmodified (no decode, no re-encode)', async () => {
     const gif = makeFile(1024, 'image/gif', 'anim');
     const uri = await fileToCompressedDataUri(gif);
