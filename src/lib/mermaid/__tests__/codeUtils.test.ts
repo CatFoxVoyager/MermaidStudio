@@ -606,15 +606,19 @@ describe('Mermaid Code Utilities', () => {
       expect(result.edges.map(e => [e.source, e.target])).toEqual([['ab1', 'B']]);
     });
 
-    it('keeps the divider-in-label winner the fence mirrors (mangled split stays fenced)', () => {
+    it('arrow-like text inside a quoted directive label never splits (40-01 markdown survival)', () => {
       const line = 'A@{ shape: "rect", label: "aa----bb" } --> B';
       const result = parseDiagram('flowchart TD\n' + line);
 
-      // The winner is the `---` inside the label (target `bb`), exactly as
-      // the old engine chose it — the truncated span then fails
-      // parseAtDirective and the fence keeps the document read-only.
-      expect(result.edges.map(e => [e.arrowType, e.target])).toEqual([['---', 'bb']]);
-      expect(bodyHasUnparsedAtDirective('flowchart TD\n' + line)).toBe(true);
+      // 40-01: matchArrowLine shares findNextHopArrow's depth/quote state,
+      // so the `----` inside the quoted label no longer wins the first-hop
+      // split (the old flat matcher chose it and mangled the span, which the
+      // fence then masked). The line parses as ONE edge A to B and the
+      // directive source keeps its full span — the writers survive it, so
+      // the fence narrows (the landed 38-03/39-01 narrowing pattern).
+      expect(result.edges.map(e => [e.arrowType, e.target])).toEqual([['-->', 'B']]);
+      expect(result.nodes.find(n => n.id === 'A')?.label).toBe('aa----bb');
+      expect(bodyHasUnparsedAtDirective('flowchart TD\n' + line)).toBe(false);
     });
 
     it('parses a 16KB divider-in-label line with the same verdict (scale guard)', () => {
@@ -623,9 +627,10 @@ describe('Mermaid Code Utilities', () => {
       const result = parseDiagram('flowchart TD\n' + line);
 
       expect(result.edges).toHaveLength(1);
-      expect(result.edges[0]?.arrowType).toBe('---');
-      expect(result.edges[0]?.target).toBe(filler);
-      expect(bodyHasUnparsedAtDirective('flowchart TD\n' + line)).toBe(true);
+      expect(result.edges[0]?.arrowType).toBe('-->');
+      expect(result.edges[0]?.target).toBe('B');
+      expect(result.nodes.find(n => n.id === 'A')?.label).toBe(filler + '----' + filler);
+      expect(bodyHasUnparsedAtDirective('flowchart TD\n' + line)).toBe(false);
     });
 
     it('parses a 16KB well-formed directive edge line cleanly (scale guard)', () => {

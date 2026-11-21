@@ -107,3 +107,60 @@ describe('chain survival — mutation writers keep untouched hops', () => {
     expectSameGraph(out, LABEL_CHAIN);
   });
 });
+
+// 40-01 (EDGE-02 markdown survival): an arrow-like token inside a
+// bracketed/quoted node label never splits the edge match — matchArrowLine
+// and splitEdgeLine share findNextHopArrow's depth/quote state (plus the
+// backtick Markdown-string channel), so the span survives parse and
+// mutations verbatim.
+describe('markdown survival — arrow-like text inside labels never splits', () => {
+  // "A[`x --> y`]" with the Markdown-string span on the SOURCE.
+  const MD_SOURCE = 'flowchart LR\n  A["`x --> y`"] --> B';
+  // The same span on a hop TARGET (its raw is the target shape raw).
+  const MD_TARGET = 'flowchart LR\n  A --> B["`x --> y`"]';
+
+  it('a backtick Markdown label containing --> parses as one edge A to B', () => {
+    const g = parseDiagram(MD_SOURCE);
+    expect(g.edges.map(e => [e.source, e.target])).toEqual([['A', 'B']]);
+    // The bracket span survives verbatim on the shape raw (the label model
+    // strips markdown backticks — landed parseNodeLabel behavior).
+    expect(g.nodes.find(n => n.id === 'A')?.raw).toBe('["`x --> y`"]');
+    expect(g.nodes.find(n => n.id === 'A')?.label).toBe('x --> y');
+  });
+
+  it('a target-side Markdown span keeps its target shape raw verbatim', () => {
+    const g = parseDiagram(MD_TARGET);
+    expect(g.edges).toHaveLength(1);
+    expect(g.nodes.find(n => n.id === 'B')?.raw).toBe('["`x --> y`"]');
+  });
+
+  it('updateEdgeArrowType on a Markdown-span line re-emits the span unchanged', () => {
+    const out = updateEdgeArrowType(MD_SOURCE, 'A', 'B', '-.->');
+    expect(out).toContain('["`x --> y`"]');
+    expect(out).toContain('-.->');
+    expectSameGraph(out, MD_SOURCE);
+    const out2 = updateEdgeArrowType(MD_TARGET, 'A', 'B', '==>');
+    expect(out2).toContain('["`x --> y`"]');
+    expect(out2).toContain('==>');
+    expectSameGraph(out2, MD_TARGET);
+  });
+
+  it('a chain through a Markdown-span hop keeps the trailing hop', () => {
+    const chained = 'flowchart LR\n  A --> B["`x --> y`"] --> C';
+    const g = parseDiagram(chained);
+    expect(g.edges.map(e => [e.source, e.target])).toEqual([['A', 'B'], ['B', 'C']]);
+    expect(g.nodes.find(n => n.id === 'B')?.raw).toBe('["`x --> y`"]');
+  });
+
+  it('a --- token inside a quoted label never splits the edge', () => {
+    const g = parseDiagram('flowchart LR\n  A["a --- b"] --> B');
+    expect(g.edges.map(e => [e.source, e.target])).toEqual([['A', 'B']]);
+    expect(g.nodes.find(n => n.id === 'A')?.raw).toBe('["a --- b"]');
+  });
+
+  it('an arrow inside an unquoted bracket label never wins the first-hop split', () => {
+    const g = parseDiagram('flowchart LR\n  A[x --> y] --> B');
+    expect(g.edges.map(e => [e.source, e.target])).toEqual([['A', 'B']]);
+    expect(g.nodes.find(n => n.id === 'A')?.raw).toBe('[x --> y]');
+  });
+});

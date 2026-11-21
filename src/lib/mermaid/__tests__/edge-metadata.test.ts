@@ -1,10 +1,10 @@
 // EDGE-02 battery (40-01): typed edge metadata parse through the PROMOTED
 // 39-01 span grammar, strictly-after emission, in-place replace idempotency,
-// the D6 unknown-param fence, and the empty-span / no-reordering round-trip
-// pins. Task 2 extends this battery to the full param set + the 13-curve
-// round-trip backstop.
+// the D6 unknown-param fence, the full param set (animation/step/curve),
+// backslash-comma style values, and the 13-curve round-trip backstop +
+// empty-span / no-reordering pins.
 import { describe, it, expect } from 'vitest';
-import { parseDiagram, updateEdgeMetadata, updateEdgeArrowType } from '@/lib/mermaid/codeUtils';
+import { parseDiagram, updateEdgeMetadata, updateEdgeArrowType, parseStyleValue, styleToString, updateNodeStyle } from '@/lib/mermaid/codeUtils';
 
 const BASE = 'flowchart LR\n  A e1@--> B\n  e1@{ animate: true }';
 const META_BEFORE = 'flowchart LR\n  e1@{ animate: true }\n  A e1@--> B';
@@ -145,5 +145,102 @@ describe('updateEdgeMetadata — emit / replace / remove', () => {
     // A second edit on a different edge keeps the order stable too.
     const out2 = updateEdgeArrowType(out, 'B', 'C', '-.->');
     expect(parseDiagram(out2).edges.map(e => e.edgeId)).toEqual(['e1', 'e2', 'e3']);
+  });
+});
+
+describe('full EDGE-02 param set (Task 2 expansion)', () => {
+  it('animation fast and slow type to the enum', () => {
+    expect(parseDiagram('flowchart LR\n  A e1@--> B\n  e1@{ animation: fast }').edges[0].metadata?.animation).toBe('fast');
+    expect(parseDiagram('flowchart LR\n  A e1@--> B\n  e1@{ animation: slow }').edges[0].metadata?.animation).toBe('slow');
+  });
+
+  it('animation turbo stays in unknownParams and fences mutation (never silently typed)', () => {
+    const src = 'flowchart LR\n  A e1@--> B\n  e1@{ animation: turbo }';
+    const meta = parseDiagram(src).edges[0].metadata;
+    expect(meta?.animation).toBeUndefined();
+    expect(meta?.unknownParams).toEqual(['animation: turbo']);
+    expect(updateEdgeMetadata(src, 'e1', { animate: true })).toBe(src);
+    expect(updateEdgeMetadata(src, 'e1', { animation: 'slow' })).toBe(src);
+    expect(updateEdgeMetadata(src, 'e1', null)).toBe(src);
+  });
+
+  it('step 5 types as number 5; non-integer and zero values fence via unknownParams', () => {
+    expect(parseDiagram('flowchart LR\n  A e1@--> B\n  e1@{ step: 5 }').edges[0].metadata?.step).toBe(5);
+    const fracSrc = 'flowchart LR\n  A e1@--> B\n  e1@{ step: 2.5 }';
+    const frac = parseDiagram(fracSrc).edges[0].metadata;
+    expect(frac?.step).toBeUndefined();
+    expect(frac?.unknownParams).toEqual(['step: 2.5']);
+    expect(updateEdgeMetadata(fracSrc, 'e1', { step: 3 })).toBe(fracSrc);
+    const zeroSrc = 'flowchart LR\n  A e1@--> B\n  e1@{ step: 0 }';
+    expect(parseDiagram(zeroSrc).edges[0].metadata?.step).toBeUndefined();
+    expect(updateEdgeMetadata(zeroSrc, 'e1', { step: 1 })).toBe(zeroSrc);
+  });
+
+  it('quoted value forms parse with quotes stripped on typed params', () => {
+    const meta = parseDiagram('flowchart LR\n  A e1@--> B\n  e1@{ animation: "fast", animate: "true" }').edges[0].metadata;
+    expect(meta?.animation).toBe('fast');
+    expect(meta?.animate).toBe(true);
+    expect(meta?.unknownParams ?? []).toHaveLength(0);
+  });
+});
+
+describe('backslash-comma style values (EDGE-02 classDef/class clause)', () => {
+  it('classDef stroke-dasharray: 5\\,5 splits as ONE declaration storing 5,5', () => {
+    const src = 'flowchart LR\n  A --> B\n  classDef a stroke-dasharray: 5\\,5, color: red';
+    const g = parseDiagram(src);
+    expect(g.classDefs.get('a')?.strokeDasharray).toBe('5,5');
+    expect(g.classDefs.get('a')?.color).toBe('red');
+  });
+
+  it('parseStyleValue unescapes and styleToString re-escapes (round-trip)', () => {
+    const style = parseStyleValue('stroke-dasharray: 5\\,5');
+    expect(style.strokeDasharray).toBe('5,5');
+    expect(styleToString(style)).toBe('stroke-dasharray:5\\,5');
+  });
+
+  it('a style mutation round-trip re-emits the escaped form', () => {
+    // Canonical unindented style line (updateNodeStyle's merge regex anchors
+    // on `^style` — the landed writer emit form).
+    const src = 'flowchart LR\n  A --> B\nstyle A stroke-dasharray: 5\\,5';
+    const out = updateNodeStyle(src, 'A', { fill: 'red' });
+    expect(out).toContain('stroke-dasharray:5\\,5');
+    // Re-parsing the emitted line keeps the merged value intact.
+    const line = out.split('\n').find(l => l.startsWith('style A'));
+    expect(parseStyleValue(line!.replace(/^style A\s+/, '')).strokeDasharray).toBe('5,5');
+  });
+
+  it('quoted values with commas keep their authored bytes (quote-aware escape)', () => {
+    const style = parseStyleValue('font-family: "Arial, sans-serif"');
+    expect(styleToString(style)).toBe('font-family:"Arial, sans-serif"');
+  });
+});
+
+describe('13-curve round-trip backstop (mermaid config union order)', () => {
+  const CURVES = [
+    'basis', 'bumpX', 'bumpY', 'cardinal', 'catmullRom', 'linear',
+    'monotoneX', 'monotoneY', 'natural', 'step', 'stepAfter', 'stepBefore',
+    'rounded',
+  ] as const;
+
+  it('every curve value emits and re-parses parse-identically', () => {
+    for (const curve of CURVES) {
+      const src = 'flowchart LR\n  A e1@--> B';
+      const out = updateEdgeMetadata(src, 'e1', { curve });
+      expect(out).toContain(`e1@{ curve: ${curve} }`);
+      expect(parseDiagram(out).edges[0].metadata?.curve).toBe(curve);
+    }
+  });
+
+  it('an unknown curve value still round-trips verbatim (mermaid owns its meaning)', () => {
+    const out = updateEdgeMetadata('flowchart LR\n  A e1@--> B', 'e1', { curve: 'futureCurve' });
+    expect(parseDiagram(out).edges[0].metadata?.curve).toBe('futureCurve');
+  });
+
+  it('a curve replace rewrites the existing line in place with the new value', () => {
+    const src = 'flowchart LR\n  A e1@--> B\n  e1@{ curve: linear }';
+    const out = updateEdgeMetadata(src, 'e1', { curve: 'basis' });
+    expect(out.split('\n')).toHaveLength(src.split('\n').length);
+    expect(out).toContain('e1@{ curve: basis }');
+    expect(out).not.toContain('curve: linear');
   });
 });

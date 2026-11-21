@@ -1043,30 +1043,78 @@ const ID_CHAR_RE = /[A-Za-z0-9_-]/;
  * arrow: the old lazy capture truncated multi-char ids to their first
  * letter (`node1 --> node2` parsed as node `n` labeled "ode1").
  */
+/**
+ * 40-01 (EDGE-02 markdown survival): depth/quote/backtick scan state shared
+ * by the edge-line scanners. `(`, `[`, `{` open depth; straight single and
+ * double quotes AND backtick-delimited Markdown-string spans are quote
+ * state — an arrow-like token inside any of them never opens a hop. The
+ * backtick channel is independent of the straight-quote channel (mermaid
+ * Markdown strings are backtick-delimited INSIDE straight quotes, so a `"`
+ * met while the straight quote is open stays content, and a `"` met inside
+ * a backtick span stays content too).
+ */
+interface EdgeScanState {
+  depth: number;
+  quote: string | null;
+  inBackticks: boolean;
+}
+
+/** True when an arrow tested at the current position may open a hop. */
+function edgeScanAtHopLevel(st: EdgeScanState): boolean {
+  return st.depth === 0 && st.quote === null && !st.inBackticks;
+}
+
+/** Consume one character into the scanner state (order: backtick, quote, depth). */
+function edgeScanUpdate(st: EdgeScanState, ch: string): void {
+  if (st.inBackticks) {
+    if (ch === '`') {st.inBackticks = false;}
+    return;
+  }
+  if (st.quote) {
+    if (ch === st.quote) {st.quote = null;}
+    return;
+  }
+  if (ch === '`') {st.inBackticks = true; return;}
+  if (ch === '"' || ch === "'") {st.quote = ch; return;}
+  if (ch === '(' || ch === '[' || ch === '{') {st.depth++; return;}
+  if (ch === ')' || ch === ']' || ch === '}') {st.depth = Math.max(0, st.depth - 1);}
+}
+
 function matchArrowLine(trimmed: string): RegExpMatchArray | null {
   const leadingIdLen = trimmed.match(EDGE_HEAD_ID_RE)?.[0].length ?? 0;
   if (leadingIdLen === 0) {return null;}
+  // 40-01 (EDGE-02 markdown survival): the candidate walk carries the same
+  // depth/quote state findNextHopArrow has — an arrow-like token inside a
+  // bracket label (`A["x --> y"]`) or a quoted/backtick Markdown span never
+  // wins the first-hop split. The state is inert on lines with no nesting,
+  // so the winning split for plain lines stays byte-identical to the flat
+  // engine (same per-position alternative order, same first
+  // continuing-tail win; the walk still starts at 1).
+  const st: EdgeScanState = { depth: 0, quote: null, inBackticks: false };
   for (let i = 1; i < trimmed.length; i++) {
-    for (const alt of ARROW_ALT_STRINGS) {
-      if (!trimmed.startsWith(alt, i)) {continue;}
-      const tail = matchEdgeTail(trimmed, i + alt.length);
-      if (tail) {
-        // Group layout mirrors the old regex match so callers keep their
-        // indices: [full, id, sourceRaw, arrow, edgeLabel, targetId,
-        // targetRaw]. edgeLabel stays undefined when no `|label|` is
-        // present, like a non-participating group.
-        const idLen = Math.min(leadingIdLen, i);
-        return [
-          trimmed,
-          trimmed.slice(0, idLen),
-          trimmed.slice(idLen, i),
-          alt,
-          tail[0],
-          tail[1],
-          tail[2],
-        ] as unknown as RegExpMatchArray;
+    if (edgeScanAtHopLevel(st)) {
+      for (const alt of ARROW_ALT_STRINGS) {
+        if (!trimmed.startsWith(alt, i)) {continue;}
+        const tail = matchEdgeTail(trimmed, i + alt.length);
+        if (tail) {
+          // Group layout mirrors the old regex match so callers keep their
+          // indices: [full, id, sourceRaw, arrow, edgeLabel, targetId,
+          // targetRaw]. edgeLabel stays undefined when no `|label|` is
+          // present, like a non-participating group.
+          const idLen = Math.min(leadingIdLen, i);
+          return [
+            trimmed,
+            trimmed.slice(0, idLen),
+            trimmed.slice(idLen, i),
+            alt,
+            tail[0],
+            tail[1],
+            tail[2],
+          ] as unknown as RegExpMatchArray;
+        }
       }
     }
+    edgeScanUpdate(st, trimmed[i] ?? '');
   }
   return null;
 }
@@ -1151,34 +1199,21 @@ function splitHopTail(rest: string): { targetSpan: string; hopPrefix: string; ta
 function findNextHopArrow(
   s: string,
 ): { alt: string; index: number; tail: [string | undefined, string, string] } | null {
-  let depth = 0;
-  let quote: string | null = null;
+  // 40-01: the state machine moved to the shared EdgeScanState helpers —
+  // identical depth/quote semantics, plus the backtick Markdown-string
+  // channel (`` ` ``-delimited spans inside straight quotes).
+  const st: EdgeScanState = { depth: 0, quote: null, inBackticks: false };
   for (let i = 0; i < s.length; i++) {
-    const ch = s[i];
-    if (quote) {
-      if (ch === quote) {quote = null;}
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      quote = ch;
-      continue;
-    }
-    if (ch === '(' || ch === '[' || ch === '{') {
-      depth++;
-      continue;
-    }
-    if (ch === ')' || ch === ']' || ch === '}') {
-      depth = Math.max(0, depth - 1);
-      continue;
-    }
-    if (depth !== 0) {continue;}
-    for (const alt of ARROW_ALT_STRINGS) {
-      if (!s.startsWith(alt, i)) {continue;}
-      const tail = matchEdgeTail(s, i + alt.length);
-      if (tail) {
-        return { alt, index: i, tail };
+    if (edgeScanAtHopLevel(st)) {
+      for (const alt of ARROW_ALT_STRINGS) {
+        if (!s.startsWith(alt, i)) {continue;}
+        const tail = matchEdgeTail(s, i + alt.length);
+        if (tail) {
+          return { alt, index: i, tail };
+        }
       }
     }
+    edgeScanUpdate(st, s[i] ?? '');
   }
   return null;
 }
@@ -1332,9 +1367,22 @@ function splitCssDeclarations(val: string): string[] {
       current += ch;
       continue;
     }
-    if (ch === '"' || ch === "'") {
+    if (ch === '"') {
       quote = ch;
       current += ch;
+    } else if (ch === "'") {
+      quote = ch;
+      current += ch;
+    } else if (ch === '\\') {
+      // 40-01 (EDGE-02): a backslash-escaped byte is LITERAL — keep BOTH
+      // bytes in the value and never let the escaped char split (`5\,5`
+      // stays one declaration). Applies to any escaped byte, so a lone
+      // trailing backslash still passes through verbatim.
+      current += ch;
+      if (i + 1 < cleaned.length) {
+        current += cleaned[i + 1];
+        i++;
+      }
     } else if (ch === '(') {
       parenDepth++;
       current += ch;
@@ -1352,6 +1400,38 @@ function splitCssDeclarations(val: string): string[] {
   return parts;
 }
 
+/**
+ * 40-01 (EDGE-02): the `\,` style-value escape. Parse side: unescape to a
+ * real comma in the stored value. Emit side: re-escape every UNQUOTED
+ * comma (a comma inside quotes already re-parses as a literal, and escaping
+ * it would change the authored bytes — decline-don't-normalize). Every other
+ * byte passes through verbatim in both directions, so backslash-containing
+ * values that never use the escape round-trip byte-identically.
+ */
+function unescapeCssCommas(v: string): string {
+  return v.replace(/\\,/g, ',');
+}
+
+function escapeCssCommas(v: string): string {
+  let out = '';
+  let quote: string | null = null;
+  for (const ch of v) {
+    if (quote) {
+      out += ch;
+      if (ch === quote) {quote = null;}
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      out += ch;
+      continue;
+    }
+    if (ch === ',') {out += '\\,'; continue;}
+    out += ch;
+  }
+  return out;
+}
+
 function splitCssKeyValue(declaration: string): [string, string] | null {
   const colonIdx = declaration.indexOf(':');
   if (colonIdx === -1) {return null;}
@@ -1366,7 +1446,8 @@ export function parseStyleValue(val: string): NodeStyle {
   for (const part of splitCssDeclarations(val)) {
     const kv = splitCssKeyValue(part);
     if (!kv) {continue;}
-    const [k, v] = kv;
+    const [k, vRaw] = kv;
+    const v = unescapeCssCommas(vRaw);
     if (k === 'fill') {style.fill = v;}
     else if (k === 'stroke') {style.stroke = v;}
     else if (k === 'stroke-width') {style.strokeWidth = v;}
@@ -1384,17 +1465,17 @@ export function parseStyleValue(val: string): NodeStyle {
 
 export function styleToString(style: NodeStyle): string {
   const parts: string[] = [];
-  if (style.fill !== undefined) {parts.push(`fill:${style.fill}`);}
-  if (style.stroke !== undefined) {parts.push(`stroke:${style.stroke}`);}
-  if (style.strokeWidth !== undefined) {parts.push(`stroke-width:${style.strokeWidth}`);}
-  if (style.strokeDasharray !== undefined) {parts.push(`stroke-dasharray:${style.strokeDasharray}`);}
-  if (style.color !== undefined) {parts.push(`color:${style.color}`);}
-  if (style.fontWeight !== undefined) {parts.push(`font-weight:${style.fontWeight}`);}
-  if (style.fontSize !== undefined) {parts.push(`font-size:${style.fontSize}`);}
-  if (style.fontFamily !== undefined) {parts.push(`font-family:${style.fontFamily}`);}
-  if (style.rx !== undefined) {parts.push(`rx:${style.rx}`);}
-  if (style.ry !== undefined) {parts.push(`ry:${style.ry}`);}
-  if (style.opacity !== undefined) {parts.push(`opacity:${style.opacity}`);}
+  if (style.fill !== undefined) {parts.push(`fill:${escapeCssCommas(style.fill)}`);}
+  if (style.stroke !== undefined) {parts.push(`stroke:${escapeCssCommas(style.stroke)}`);}
+  if (style.strokeWidth !== undefined) {parts.push(`stroke-width:${escapeCssCommas(style.strokeWidth)}`);}
+  if (style.strokeDasharray !== undefined) {parts.push(`stroke-dasharray:${escapeCssCommas(style.strokeDasharray)}`);}
+  if (style.color !== undefined) {parts.push(`color:${escapeCssCommas(style.color)}`);}
+  if (style.fontWeight !== undefined) {parts.push(`font-weight:${escapeCssCommas(style.fontWeight)}`);}
+  if (style.fontSize !== undefined) {parts.push(`font-size:${escapeCssCommas(style.fontSize)}`);}
+  if (style.fontFamily !== undefined) {parts.push(`font-family:${escapeCssCommas(style.fontFamily)}`);}
+  if (style.rx !== undefined) {parts.push(`rx:${escapeCssCommas(style.rx)}`);}
+  if (style.ry !== undefined) {parts.push(`ry:${escapeCssCommas(style.ry)}`);}
+  if (style.opacity !== undefined) {parts.push(`opacity:${escapeCssCommas(style.opacity)}`);}
   return parts.join(',');
 }
 
@@ -1430,7 +1511,8 @@ function parseEdgeStyleValue(val: string): EdgeStyle {
   for (const part of splitCssDeclarations(val)) {
     const kv = splitCssKeyValue(part);
     if (!kv) {continue;}
-    const [k, v] = kv;
+    const [k, vRaw] = kv;
+    const v = unescapeCssCommas(vRaw);
     // Support both camelCase and kebab-case property names
     if (k === 'stroke') {style.stroke = v;}
     else if (k === 'stroke-width' || k === 'strokeWidth') {style.strokeWidth = v;}
@@ -1447,17 +1529,17 @@ function parseEdgeStyleValue(val: string): EdgeStyle {
 
 export function edgeStyleToString(style: EdgeStyle): string {
   const parts: string[] = [];
-  if (style.stroke !== undefined) {parts.push(`stroke:${style.stroke}`);}
-  if (style.strokeWidth !== undefined) {parts.push(`stroke-width:${style.strokeWidth}`);}
-  if (style.strokeDasharray !== undefined) {parts.push(`stroke-dasharray:${style.strokeDasharray}`);}
-  if (style.opacity !== undefined) {parts.push(`opacity:${style.opacity}`);}
-  if (style.fontSize !== undefined) {parts.push(`font-size:${style.fontSize}`);}
-  if (style.fontWeight !== undefined) {parts.push(`font-weight:${style.fontWeight}`);}
+  if (style.stroke !== undefined) {parts.push(`stroke:${escapeCssCommas(style.stroke)}`);}
+  if (style.strokeWidth !== undefined) {parts.push(`stroke-width:${escapeCssCommas(style.strokeWidth)}`);}
+  if (style.strokeDasharray !== undefined) {parts.push(`stroke-dasharray:${escapeCssCommas(style.strokeDasharray)}`);}
+  if (style.opacity !== undefined) {parts.push(`opacity:${escapeCssCommas(style.opacity)}`);}
+  if (style.fontSize !== undefined) {parts.push(`font-size:${escapeCssCommas(style.fontSize)}`);}
+  if (style.fontWeight !== undefined) {parts.push(`font-weight:${escapeCssCommas(style.fontWeight)}`);}
   // Include fill, fillOpacity, and color in linkStyle syntax so they persist during UI updates.
   // Mermaid incorrectly applies fill to edge paths, so we fix this in SVG post-processing.
-  if (style.fill !== undefined) {parts.push(`fill:${style.fill}`);}
-  if (style.fillOpacity !== undefined) {parts.push(`fill-opacity:${style.fillOpacity}`);}
-  if (style.color !== undefined) {parts.push(`color:${style.color}`);}
+  if (style.fill !== undefined) {parts.push(`fill:${escapeCssCommas(style.fill)}`);}
+  if (style.fillOpacity !== undefined) {parts.push(`fill-opacity:${escapeCssCommas(style.fillOpacity)}`);}
+  if (style.color !== undefined) {parts.push(`color:${escapeCssCommas(style.color)}`);}
   return parts.join(',');
 }
 
@@ -1664,19 +1746,31 @@ export function removeSubgraph(source: string, subgraphId: string): string {
 
 /** Split an edge line into: [beforeArrow, arrowType, edgeLabel, afterArrow] */
 function splitEdgeLine(line: string): [string, string, string, string] | null {
-  const arrowMatch = line.match(/(-->|---|-.->|-\.->|==>|x--x|\.->|<-->|o--o|--o|o--|--\|>|\|>|~~~)/);
-  // `index` is always defined for a non-global match, but the lib types it
-  // optional — guard it so the arithmetic below is sound (repaired gate).
-  if (!arrowMatch || arrowMatch.index === undefined) return null;
-  const beforeArrow = line.substring(0, arrowMatch.index);
-  const arrow = arrowMatch[0];
-  const rest = line.substring(arrowMatch.index + arrow.length);
-  // Extract edge label if present: |label|
-  const labelMatch = rest.match(/^\|([^|]*)\|\s*(.*)/);
-  if (labelMatch) {
-    return [beforeArrow, arrow, labelMatch[1], labelMatch[2]];
+  // 40-01 (EDGE-02 markdown survival): the split point is the FIRST
+  // hop-level arrow — the old flat regex matched arrow-like text inside
+  // bracket/quoted labels, so the arrow/label mutation writers corrupted
+  // the label span. Same scanner state as matchArrowLine; no tail
+  // requirement (the first hop-level arrow is the split point exactly as
+  // the flat engine split it on plain lines — same per-position
+  // alternative order).
+  const st: EdgeScanState = { depth: 0, quote: null, inBackticks: false };
+  for (let i = 0; i < line.length; i++) {
+    if (edgeScanAtHopLevel(st)) {
+      for (const alt of ARROW_ALT_STRINGS) {
+        if (!line.startsWith(alt, i)) {continue;}
+        const beforeArrow = line.substring(0, i);
+        const rest = line.substring(i + alt.length);
+        // Extract edge label if present: |label|
+        const labelMatch = rest.match(/^\|([^|]*)\|\s*(.*)/);
+        if (labelMatch) {
+          return [beforeArrow, alt, labelMatch[1], labelMatch[2]];
+        }
+        return [beforeArrow, alt, '', rest];
+      }
+    }
+    edgeScanUpdate(st, line[i] ?? '');
   }
-  return [beforeArrow, arrow, '', rest];
+  return null;
 }
 
 export function updateEdgeArrowType(source: string, srcId: string, tgtId: string, newType: string): string {
