@@ -3,6 +3,7 @@ import { validateDiagramContent } from '@/utils/validation';
 import { deriveThemeVariables, extractThemeIdFromContent } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
 import { sanitizeMermaidSVG } from '@/utils/sanitization';
+import { registerFaIconPacks } from './iconPacks';
 import type { MermaidTheme } from '@/types';
 
 export type MermaidBuiltinTheme = 'default' | 'dark' | 'forest' | 'neutral' | 'base';
@@ -13,6 +14,12 @@ let defaultTheme: MermaidTheme | null = null;
 let diagramTheme: MermaidTheme | null = null;
 
 function doInit(theme: 'dark' | 'light', useBase: boolean, mermaidTheme?: MermaidBuiltinTheme) {
+  // 39-02 (ICON-02): register the lazy FA6 icon packs on the single init
+  // path. iconPacks.ts carries no heavy static import — it rides this lazy
+  // mermaid chunk, its pack JSONs live only inside dynamic-import loader
+  // closures (PERF-01: 0 B eager boot impact), and its run-once guard makes
+  // the repeated doInit calls below a no-op after the first.
+  registerFaIconPacks(mermaid);
   const resolvedMermaidTheme =
     mermaidTheme ?? (useBase ? 'base' : theme === 'dark' ? 'dark' : 'default');
   const isDark = theme === 'dark';

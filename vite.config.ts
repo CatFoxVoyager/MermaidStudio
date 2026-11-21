@@ -216,6 +216,16 @@ export default defineConfig({
               name: 'parsing-libs',
               test: (id: string) => id.includes('node_modules') && (id.includes('langium') || id.includes('chevrotain')),
             },
+            // Iconify JSON icon packs (LAZY: 39-02, ICON-02 + PERF-01). Only
+            // reached through the dynamic import() inside the loader closures
+            // in src/lib/mermaid/iconPacks.ts. The vendor catch-all below
+            // carries the negative clause excluding `@iconify-json` — without
+            // this group ahead of it, the eager vendor file would inline the
+            // ~1.5 MB of FA6 pack JSON into first paint.
+            {
+              name: 'icon-packs',
+              test: (id: string) => id.includes('node_modules') && id.includes('@iconify-json'),
+            },
             // vendor catch-all. Deliberately NOT capturing elkjs (nor
             // mermaid's elk-*.mjs above): under manualChunks these returned
             // undefined to stay out of every manual chunk, and letting the
@@ -224,13 +234,17 @@ export default defineConfig({
             // katex (29-03): mermaid-only and dynamically imported by it —
             // once the shared-libs claims freed this catch-all from the app's
             // eager deps, katex (~375 kB) would otherwise ride the eagerly
-            // imported vendor file into first paint unused.
+            // imported vendor file into first paint unused. Same for
+            // @iconify-json (39-02): FA6 pack JSON, dynamically imported by
+            // the icon-packs lazy group above — locked by
+            // src/__tests__/bundlePerf.test.ts.
             {
               name: 'vendor',
               test: (id: string) =>
                 id.includes('node_modules') &&
                 !id.includes('elkjs') &&
                 !id.includes('katex') &&
+                !id.includes('@iconify-json') &&
                 !/elk-.+\.mjs(\?|$)/.test(id),
             },
           ],

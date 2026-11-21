@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 // Bare 'fs'/'path' + __dirname: the repo's ambient node shims
 // (src/types/node-builtin-shims.d.ts) declare exactly these — the same
 // convention as crawlableShell.test.ts / buildTarget.test.ts (Phase 28).
-import { readFileSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
 import { relative, resolve } from 'path';
 
 /**
@@ -212,5 +212,84 @@ describe('PERF-01 parser purity', () => {
       code.match(/^\s*(?:import\b|export\s+(?:\*|\{))/m),
       'PERF-01: src/lib/mermaid/shapes.ts must stay import-free — zero imports is the header-documented contract for this eager-boot parser-only module (any import or re-export drags runtime modules onto the boot chain)',
     ).toBeNull();
+  });
+});
+
+// ===== 39-02 (ICON-02 + PERF-01): the lazy icon-pack source contract. The
+// FA6 Iconify JSON packs must reach the browser ONLY through the dynamic
+// import() closures in src/lib/mermaid/iconPacks.ts, and vite.config.ts must
+// keep them out of the eager vendor catch-all (negative clause) while a
+// dedicated `icon-packs` lazy group ahead of it captures them. These pins
+// scan the SOURCE bytes (same contract style as the parser-purity gate
+// above) and landed in the SAME task/commit as iconPacks.ts itself — the
+// lock cannot be decoupled from the code it locks (0 B boot, ever). =====
+
+const viteConfigSrc = stripCommentLines(
+  readFileSync(resolve(__dirname, '../../vite.config.ts'), 'utf8'),
+).replace(/\s+/g, '');
+
+// Static-import specifiers end with `from '<spec>'` (named/default/re-export
+// or type-only) or the side-effect form `import '<spec>'` — quote directly
+// after the keyword. The certified dynamic form is `import('<spec>')`; the
+// `(` between keyword and quote keeps it out of every pattern below.
+const STATIC_ICONIFY_IMPORT_PATTERNS = [
+  /from['"]@iconify-json\//,
+  /import['"]@iconify-json\//,
+] as const;
+
+/** Every .ts/.tsx source file under src/ (recursive walk, .d.ts included). */
+function srcSourceFiles(): string[] {
+  const root = resolve(__dirname, '../../src');
+  const entries = readdirSync(root, { recursive: true }) as Array<
+    string | { name?: string; parentPath?: string }
+  >;
+  const files: string[] = [];
+  for (const entry of entries) {
+    const rel = typeof entry === 'string' ? entry : ((entry.name && entry.parentPath ? `${entry.parentPath}/${entry.name}` : String(entry)));
+    if (/\.tsx?$/.test(rel)) {
+      files.push(rel);
+    }
+  }
+  return files;
+}
+
+describe('PERF-01 icon pack lazy boundary (39-02)', () => {
+  it('the vite vendor catch-all carries the negative clause excluding @iconify-json (pack bytes stay off the eager chunk)', () => {
+    expect(
+      viteConfigSrc,
+      "PERF-01 (39-02): vite.config.ts's vendor catch-all lost its `!id.includes('@iconify-json')` negative clause — the FA6 pack JSON would ride the eagerly imported vendor file into first paint (~1.5 MB of unused icon data on the boot budget)",
+    ).toContain("!id.includes('@iconify-json')");
+  });
+
+  it('an icon-packs lazy group exists BEFORE the vendor catch-all', () => {
+    const packsIdx = viteConfigSrc.indexOf("name:'icon-packs'");
+    const vendorIdx = viteConfigSrc.indexOf("name:'vendor'");
+    expect(
+      packsIdx,
+      'PERF-01 (39-02): the icon-packs chunk group is missing from vite.config.ts — without it the @iconify-json JSON falls to automatic chunking and the vendor clause alone cannot give the packs a stable lazy chunk',
+    ).toBeGreaterThan(-1);
+    expect(
+      packsIdx < vendorIdx,
+      `PERF-01 (39-02): the icon-packs group (idx ${packsIdx}) must precede the vendor catch-all (idx ${vendorIdx}) — at equal priority the earlier group wins, so a group after vendor would never claim the packages`,
+    ).toBe(true);
+  });
+
+  it('src carries zero STATIC iconify import specifiers (dynamic import() is the certified pattern)', () => {
+    const files = srcSourceFiles();
+    expect(
+      files.length,
+      'PERF-01 (39-02): the src walk found no .ts/.tsx files — the scan is silently empty and proves nothing',
+    ).toBeGreaterThan(50);
+    for (const rel of files) {
+      const flat = stripCommentLines(
+        readFileSync(resolve(__dirname, '../../src', rel), 'utf8'),
+      ).replace(/\s+/g, '');
+      for (const pattern of STATIC_ICONIFY_IMPORT_PATTERNS) {
+        expect(
+          flat,
+          `PERF-01 (39-02): ${rel} contains a static iconify import (${pattern}) — pack JSON may only enter through the dynamic import() loader closures in src/lib/mermaid/iconPacks.ts, otherwise the pack bytes join the eager boot chain`,
+        ).not.toMatch(pattern);
+      }
+    }
   });
 });
