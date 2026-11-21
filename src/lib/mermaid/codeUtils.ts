@@ -2130,6 +2130,20 @@ export function updateNodeShape(source: string, nodeId: string, newShape: NodeSh
  * - Long data-URI img values emit as a single quoted value — no wrapping,
  *   no truncation.
  */
+/**
+ * The media param vocabulary the mutators OWN: on any media mutation, pairs
+ * with these keys are replaced by the typed serialization — stale or failed
+ * media params (a pre-38 `form: "squircle"`) never survive a set/clear, or
+ * the documented UI migration (re-pick through 39-04) could never heal the
+ * span's fence. Keys OUTSIDE this family (foo, animate, step, view...)
+ * re-emit verbatim after the typed params — decline-don't-normalize.
+ */
+const MEDIA_PARAM_KEYS = new Set(['icon', 'img', 'form', 'pos', 'w', 'h', 'constraint']);
+
+function stripMediaFamilyParams(unknownParams: string[]): string[] {
+  return unknownParams.filter(p => !MEDIA_PARAM_KEYS.has(p.slice(0, p.indexOf(':')).trim()));
+}
+
 function updateNodeMedia(
   source: string,
   nodeId: string,
@@ -2149,6 +2163,10 @@ function updateNodeMedia(
       if (nodeMatch[3] !== '' || !/^@\{.*\}\s*$/.test(rest)) {return source;}
       const parsed = parseAtDirective(rest);
       if (!parsed) {return source;}
+      // The mutator owns the media param family: stale/failed media pairs
+      // (form: "squircle") are replaced by the typed serialization, while
+      // unrelated unknowns re-emit verbatim after the typed params.
+      const unknownOut = stripMediaFamilyParams(parsed.unknownParams);
       // Cross-strip + keep semantics: SET replaces this media and strips
       // the other; null removes only this media and keeps the other.
       const newIcon = which === 'icon' ? (config as IconConfig | null) : (config === null ? parsed.icon : null);
@@ -2161,7 +2179,7 @@ function updateNodeMedia(
         // No media left: the shaped rect form is the only valid directive
         // form for a bare span; a shaped span keeps its own shape key.
         const shapeKey = parsed.mediaOnly ? 'rect' : (toDirectiveShapeName(parsed.shape) ?? parsed.shape);
-        lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${directiveWrap(shapeKey, newLabel, parsed.unknownParams)}`;
+        lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${directiveWrap(shapeKey, newLabel, unknownOut)}`;
         return lines.join('\n');
       }
       if (parsed.mediaOnly) {
@@ -2176,7 +2194,7 @@ function updateNodeMedia(
         const parts = [
           ...(iconOut ? serializeIconParams(iconOut) : []),
           ...(imgOut ? serializeImgParams(imgOut) : []),
-          ...parsed.unknownParams,
+          ...unknownOut,
         ];
         lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}@{ ${parts.join(', ')} }`;
         return lines.join('\n');
@@ -2185,7 +2203,7 @@ function updateNodeMedia(
       // media serialization so the label param cannot emit twice.
       const iconOut: IconConfig | undefined = newIcon ? { ...newIcon, label: undefined } : undefined;
       const imgOut: ImgConfig | undefined = newImg ? { ...newImg, label: undefined } : undefined;
-      lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${directiveWrap(toDirectiveShapeName(parsed.shape) ?? parsed.shape, newLabel, parsed.unknownParams, { icon: iconOut, img: imgOut })}`;
+      lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${directiveWrap(toDirectiveShapeName(parsed.shape) ?? parsed.shape, newLabel, unknownOut, { icon: iconOut, img: imgOut })}`;
       return lines.join('\n');
     }
     // Bracket/other span — conversion path: only a SET carries media onto a

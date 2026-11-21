@@ -1077,6 +1077,121 @@ describe('Mermaid Code Utilities', () => {
     });
   });
 
+  // ===== 39-01 Task 3: the ICON-01 edge battery — boundary, empty,
+  // encoding, precision, legacy migration, fence-still-fires (the four
+  // edge-coverage probe rows, pinned as executable contracts). =====
+  describe('icon/img edge battery (39-01 Task 3)', () => {
+    describe('boundary — the pre-38 spellings stay unparsed', () => {
+      it('form: squircle lands in unknownParams verbatim; nothing is typed', () => {
+        const source = 'flowchart TD\nA@{ icon: "fa:user", form: "squircle" }';
+        const node = parseDiagram(source).nodes[0];
+        // The icon value is typed; the out-of-enum form is NOT.
+        expect(node.icon).toEqual({ icon: 'fa:user' });
+        expect(node.icon?.form).toBeUndefined();
+        expect(node.unknownParams).toEqual(['form: "squircle"']);
+        expect(bodyHasUnparsedAtDirective(source)).toBe(true);
+      });
+
+      it('pos: l lands in unknownParams verbatim (pre-38 spelling)', () => {
+        const source = 'flowchart TD\nA@{ icon: "fa:user", pos: "l" }';
+        const node = parseDiagram(source).nodes[0];
+        expect(node.icon).toEqual({ icon: 'fa:user' });
+        expect(node.unknownParams).toEqual(['pos: "l"']);
+        expect(bodyHasUnparsedAtDirective(source)).toBe(true);
+      });
+    });
+
+    describe('encoding — the exact-case contract', () => {
+      it('form: "Square" (wrong case) is an unparsed param fencing the span', () => {
+        const source = 'flowchart TD\nA@{ icon: "fa:user", form: "Square" }';
+        const node = parseDiagram(source).nodes[0];
+        expect(node.icon?.form).toBeUndefined();
+        expect(node.unknownParams).toEqual(['form: "Square"']);
+        expect(bodyHasUnparsedAtDirective(source)).toBe(true);
+      });
+
+      it('pos: "T" (wrong case) is an unparsed param fencing the span', () => {
+        const source = 'flowchart TD\nA@{ img: "pic.png", pos: "T" }';
+        const node = parseDiagram(source).nodes[0];
+        expect(node.img?.pos).toBeUndefined();
+        expect(node.unknownParams).toEqual(['pos: "T"']);
+        expect(bodyHasUnparsedAtDirective(source)).toBe(true);
+      });
+    });
+
+    describe('empty — present-but-empty label and absent w/h', () => {
+      it('label: "" keeps the empty-label semantics (node label "") and stays editable', () => {
+        const source = 'flowchart TD\nA@{ icon: "fa:user", label: "" }';
+        const node = parseDiagram(source).nodes[0];
+        expect(node.label).toBe('');
+        // Bare form: the empty label rides the config so re-emission keeps it.
+        expect(node.icon?.label).toBe('');
+        expect(bodyHasUnparsedAtDirective(source)).toBe(false);
+        // Round-trip: the empty label param survives a media re-set.
+        expect(updateNodeIcon(source, 'A', { icon: 'fa:user' })).toBe(source);
+      });
+
+      it('absent w/h omit those params on emit (icon and img alike)', () => {
+        const plain = 'flowchart TD\nA@{ shape: "rect", label: "N" }';
+        const withIcon = updateNodeIcon(plain, 'A', { icon: 'fa:user', form: 'square' });
+        expect(withIcon).toBe('flowchart TD\nA@{ shape: "rect", label: "N", icon: "fa:user", form: "square" }');
+        expect(withIcon).not.toMatch(/[wh]:/);
+        const withImg = updateNodeImg(plain, 'A', { img: 'https://example.com/p.png' });
+        expect(withImg).toBe('flowchart TD\nA@{ shape: "rect", label: "N", img: "https://example.com/p.png" }');
+        expect(withImg).not.toMatch(/[wh]:/);
+      });
+    });
+
+    describe('precision — decimal literals round-trip without coercion', () => {
+      it('w: 12.5 and h: 80.25 re-emit at the same numeric values (icon)', () => {
+        const source = 'flowchart TD\nA@{ shape: "rect", label: "N", icon: "fa:user", w: 12.5, h: 80.25 }';
+        const icon = parseDiagram(source).nodes[0].icon;
+        expect(icon?.w).toBe(12.5);
+        expect(icon?.h).toBe(80.25);
+        // parse -> emit: the same config re-emits the original bytes.
+        expect(updateNodeIcon(source, 'A', icon!)).toBe(source);
+      });
+
+      it('decimal w/h round-trip on the img path too', () => {
+        const source = 'flowchart TD\nA@{ img: "pic.png", w: 12.5, h: 80.25 }';
+        const img = parseDiagram(source).nodes[0].img;
+        expect(img?.w).toBe(12.5);
+        expect(img?.h).toBe(80.25);
+        expect(updateNodeImg(source, 'A', img!)).toBe(source);
+      });
+    });
+
+    describe('legacy migration — the fence is the interim state', () => {
+      it('a pre-38 document with form: squircle FENCES read-only until the UI re-pick', () => {
+        const pre38 = 'flowchart TD\nA@{ icon: "fa:user", form: "squircle", label: "U" }';
+        // Silent migration is prohibited: the span is read-only...
+        expect(bodyHasUnparsedAtDirective(pre38)).toBe(true);
+        // ...and a plain relabel path cannot heal it either (the writer is
+        // unreachable through the fenced UI; the fence is the safe state).
+        // The DOCUMENTED migration is the 39-04 re-pick: updateNodeIcon
+        // replaces the stale media family with the 12.3 enums, keeping the
+        // bare form (no shape key inserted — the bare-span contract).
+        const migrated = updateNodeIcon(pre38, 'A', { icon: 'fa:user', form: 'square' });
+        expect(migrated).toBe('flowchart TD\nA@{ icon: "fa:user", form: "square", label: "U" }');
+        expect(bodyHasUnparsedAtDirective(migrated)).toBe(false);
+      });
+    });
+
+    describe('fence-still-fires — typed parsing never widens past well-formed media', () => {
+      it('an unterminated media value fences the document', () => {
+        expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ img: "data:image/png;base64,AAA }')).toBe(true);
+        expect(bodyHasUnparsedAtDirective('flowchart TD\nA@{ icon: "fa:user }')).toBe(true);
+      });
+
+      it('an unknown sibling param beside a well-formed img fences the span', () => {
+        const source = 'flowchart TD\nA@{ img: "pic.png", bogus: 1 }';
+        expect(bodyHasUnparsedAtDirective(source)).toBe(true);
+        // The typed img config is intact; the unparsed sibling is what fences.
+        expect(parseDiagram(source).nodes[0].img).toEqual({ img: 'pic.png' });
+      });
+    });
+  });
+
   describe('addNode', () => {
     it('should add node to diagram without auto-quoting', () => {
       const source = 'flowchart TD\nA-->B';
