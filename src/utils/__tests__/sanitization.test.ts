@@ -85,11 +85,7 @@ describe('sanitizeSVG', () => {
 
       expect(configOfCall(1)).toEqual(
         expect.objectContaining({
-          ADD_TAGS: expect.arrayContaining([
-            'foreignObject',
-            'div',
-            'span',
-          ]),
+          ADD_TAGS: expect.arrayContaining(['foreignObject', 'div', 'span']),
         })
       );
     });
@@ -101,10 +97,7 @@ describe('sanitizeSVG', () => {
 
       expect(configOfCall(1)).toEqual(
         expect.objectContaining({
-          ADD_ATTR: expect.arrayContaining([
-            'data-rendered',
-            'data-testid',
-          ]),
+          ADD_ATTR: expect.arrayContaining(['data-rendered', 'data-testid']),
         })
       );
     });
@@ -174,6 +167,9 @@ describe('sanitizeMermaidSVG', () => {
             'iframe',
             'form',
             'input',
+            'video',
+            'audio',
+            'source',
           ]),
           FORBID_ATTR: expect.arrayContaining(['onerror', 'onload']),
         })
@@ -181,8 +177,7 @@ describe('sanitizeMermaidSVG', () => {
     });
 
     it('should sanitize the extracted foreignObject content with an HTML profile and the same deny lists', () => {
-      const svg =
-        '<svg><foreignObject><div>label</div></foreignObject></svg>';
+      const svg = '<svg><foreignObject><div>label</div></foreignObject></svg>';
 
       sanitizeMermaidSVG(svg);
 
@@ -216,8 +211,7 @@ describe('sanitizeMermaidSVG', () => {
     });
 
     it('strips event handler attributes inside foreignObject content', () => {
-      const svg =
-        '<svg><foreignObject><div onerror="alert(1)">label</div></foreignObject></svg>';
+      const svg = '<svg><foreignObject><div onerror="alert(1)">label</div></foreignObject></svg>';
 
       const out = sanitizeMermaidSVG(svg);
 
@@ -260,13 +254,10 @@ describe('sanitizeMermaidSVG', () => {
     const PNG_DATA_URI =
       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
-    const imageSvg = (attrs: string) =>
-      `<svg><image ${attrs} width="10" height="10"/></svg>`;
+    const imageSvg = (attrs: string) => `<svg><image ${attrs} width="10" height="10"/></svg>`;
 
     it('strips a data:image/svg+xml href from <image>', () => {
-      const out = sanitizeMermaidSVG(
-        imageSvg('href="data:image/svg+xml;base64,PHN2Zy8+"')
-      );
+      const out = sanitizeMermaidSVG(imageSvg('href="data:image/svg+xml;base64,PHN2Zy8+"'));
       expect(out).not.toContain('data:image/svg+xml');
       expect(out).not.toContain('PHN2Zy8+');
     });
@@ -284,9 +275,7 @@ describe('sanitizeMermaidSVG', () => {
     });
 
     it('strips a javascript: xlink:href from <image>', () => {
-      const out = sanitizeMermaidSVG(
-        imageSvg('xlink:href="javascript:alert(1)"')
-      );
+      const out = sanitizeMermaidSVG(imageSvg('xlink:href="javascript:alert(1)"'));
       expect(out).not.toContain('javascript:');
     });
 
@@ -296,17 +285,13 @@ describe('sanitizeMermaidSVG', () => {
     });
 
     it('keeps an https href', () => {
-      const out = sanitizeMermaidSVG(
-        imageSvg('href="https://example.com/pic.png"')
-      );
+      const out = sanitizeMermaidSVG(imageSvg('href="https://example.com/pic.png"'));
       expect(out).toContain('https://example.com/pic.png');
     });
 
     it('adjudicates href and xlink:href independently on the same element', () => {
       const out = sanitizeMermaidSVG(
-        imageSvg(
-          `href="${PNG_DATA_URI}" xlink:href="data:image/svg+xml;base64,PHN2Zy8+"`
-        )
+        imageSvg(`href="${PNG_DATA_URI}" xlink:href="data:image/svg+xml;base64,PHN2Zy8+"`)
       );
       expect(out).toContain(PNG_DATA_URI);
       expect(out).not.toContain('data:image/svg+xml');
@@ -326,11 +311,7 @@ describe('sanitizeMermaidSVG', () => {
       for (const call of [1, 2]) {
         expect(configOfCall(call)).toEqual(
           expect.objectContaining({
-            FORBID_ATTR: expect.arrayContaining([
-              'onbegin',
-              'onend',
-              'onrepeat',
-            ]),
+            FORBID_ATTR: expect.arrayContaining(['onbegin', 'onend', 'onrepeat']),
           })
         );
       }
@@ -365,9 +346,7 @@ describe('sanitizeMermaidSVG', () => {
 
   describe('allowlist hook registration guard (39-03)', () => {
     it('stays effective across repeated sanitize calls (no double-registration drift)', () => {
-      const good = sanitizeMermaidSVG(
-        '<svg><image href="https://example.com/a.png"/></svg>'
-      );
+      const good = sanitizeMermaidSVG('<svg><image href="https://example.com/a.png"/></svg>');
       const bad = sanitizeMermaidSVG(
         '<svg><image href="data:image/svg+xml;base64,PHN2Zy8+"/></svg>'
       );
@@ -418,6 +397,122 @@ describe('sanitizeMermaidSVG', () => {
         '<svg><foreignObject><div><img src="https://example.com/pic.png"></div></foreignObject></svg>';
       const out = sanitizeMermaidSVG(svg);
       expect(out).toContain('https://example.com/pic.png');
+    });
+  });
+
+  describe('media carrier class (39-REVIEW WR-06)', () => {
+    // WR-01 gated one attribute per element; the review's executed probe
+    // showed sibling image-fetching carriers of the SAME elements still carry
+    // the same payload class through the pipeline:
+    //   - <img srcset>: DOMPurify 3.4.17 URI-validates the WHOLE srcset value
+    //     with a prefix-anchored regex, so one scheme-prefixed candidate
+    //     (https:/http:) admits the value verbatim and a data:image/svg+xml
+    //     candidate rides in a later slot; a value STARTING with data: is
+    //     dropped whole (which is why a payload-only srcset never survives
+    //     and the gap hides from naive probing).
+    //   - <source srcset>, <video>/<audio> src: these elements sit in
+    //     DOMPurify's DATA_URI_TAGS set, so data: URIs are admitted on them.
+    //   - SVG-namespace <image src>: the WR-01 hook checked href/xlink:href
+    //     only, so the html `src` attribute was ungated.
+    // The allowlist hook now gates the whole carrier class, and
+    // sanitizeMermaidSVG additionally forbids the video/audio/source elements
+    // mermaid never emits (same justification as object/embed). That forbid
+    // entry is why element-drop pins run on the mermaid path while the
+    // attribute-strip pins run on the sanitizeSVG path, where those elements
+    // survive and the attribute assertion stays non-vacuous (same doctrine
+    // as the animateTransform SMIL pins above: an attribute-strip pin is only
+    // meaningful against a carrier the pipeline did not already remove).
+    const PAYLOAD = 'data:image/svg+xml;base64,PHN2Zy8+';
+
+    it('strips an <img srcset> whose https-anchored candidate list hides a payload candidate', () => {
+      const svg =
+        '<svg><foreignObject><div><img srcset="https://ok.example/a.png 1x, data:image/svg+xml;base64,PHN2Zy8+ 2x"></div></foreignObject></svg>';
+      const out = sanitizeMermaidSVG(svg);
+      // Whole-attribute drop: no candidate survives when any one fails.
+      expect(out).not.toContain('srcset');
+      expect(out).not.toContain('data:image/svg+xml');
+      expect(out).not.toContain('PHN2Zy8+');
+    });
+
+    it('strips the same mixed srcset on the bare sanitizeSVG path (http: anchor variant)', () => {
+      const out = sanitizeSVG(
+        '<img srcset="http://ok.example/a.png 1x, data:image/svg+xml;base64,PHN2Zy8+ 2x">'
+      );
+      expect(out).not.toContain('srcset');
+      expect(out).not.toContain('data:image/svg+xml');
+      expect(out).not.toContain('PHN2Zy8+');
+    });
+
+    it('drops a payload-only <img srcset> whole (green control: DOMPurify already rejects data:-prefixed srcset values)', () => {
+      const out = sanitizeSVG(`<img srcset="${PAYLOAD} 1x">`);
+      expect(out).not.toContain('data:image/svg+xml');
+      expect(out).not.toContain('PHN2Zy8+');
+    });
+
+    it('keeps an all-https raster <img srcset> (green control: the gate must not over-drop)', () => {
+      const svg =
+        '<svg><foreignObject><div><img srcset="https://ok.example/a.png 1x, https://ok.example/b.png 2x"></div></foreignObject></svg>';
+      const out = sanitizeMermaidSVG(svg);
+      expect(out).toContain('https://ok.example/a.png 1x');
+      expect(out).toContain('https://ok.example/b.png 2x');
+    });
+
+    it('fail-closes a raster data-URI srcset candidate (the base64 payload contains a comma, so the candidate splits apart — attribute dropped)', () => {
+      // Deliberate asymmetry, pinned so a future comma-smarter split cannot
+      // silently weaken the gate: a single-value `src` admits raster data
+      // URIs, but a srcset candidate containing a comma fail-closes because
+      // the candidate list cannot be re-assembled unambiguously. Mermaid
+      // emits no srcset, so the false positive has no in-app cost.
+      const out = sanitizeSVG('<img srcset="data:image/png;base64,iVBORw0KGgo= 1x">');
+      expect(out).not.toContain('srcset');
+    });
+
+    it('strips a mixed srcset from <source> (sanitizeSVG path, where the element survives so the attribute assertion is non-vacuous)', () => {
+      const out = sanitizeSVG(
+        '<video><source srcset="https://ok.example/a.png 1x, data:image/svg+xml;base64,PHN2Zy8+ 2x"></video>'
+      );
+      expect(out).toContain('<video');
+      expect(out).not.toContain('srcset');
+      expect(out).not.toContain('data:image/svg+xml');
+      expect(out).not.toContain('PHN2Zy8+');
+    });
+
+    it('strips a data:image/svg+xml src from <video> (sanitizeSVG path; element survives, attribute gated)', () => {
+      const out = sanitizeSVG(`<video src="${PAYLOAD}"></video>`);
+      expect(out).toContain('<video');
+      expect(out).not.toContain('data:image/svg+xml');
+      expect(out).not.toContain('PHN2Zy8+');
+    });
+
+    it('strips a data:image/svg+xml src from <audio> (sanitizeSVG path; element survives, attribute gated)', () => {
+      const out = sanitizeSVG(`<audio src="${PAYLOAD}"></audio>`);
+      expect(out).toContain('<audio');
+      expect(out).not.toContain('data:image/svg+xml');
+      expect(out).not.toContain('PHN2Zy8+');
+    });
+
+    it('strips a data:image/svg+xml src from an SVG-namespace <image> (the WR-01 srcAttrs list carried href/xlink:href only)', () => {
+      const out = sanitizeMermaidSVG(`<svg><image src="${PAYLOAD}" width="10" height="10"/></svg>`);
+      expect(out).toContain('<image');
+      expect(out).not.toContain('data:image/svg+xml');
+      expect(out).not.toContain('PHN2Zy8+');
+    });
+
+    it('strips a data:image/svg+xml src from an SVG-namespace <image> on the bare sanitizeSVG path', () => {
+      const out = sanitizeSVG(`<svg><image src="${PAYLOAD}"/></svg>`);
+      expect(out).toContain('<image');
+      expect(out).not.toContain('data:image/svg+xml');
+      expect(out).not.toContain('PHN2Zy8+');
+    });
+
+    it('forbids video/audio/source wholesale on the mermaid path (mermaid never emits them — same justification as object/embed)', () => {
+      const svg =
+        '<svg><foreignObject><div><video src="data:image/svg+xml;base64,PHN2Zy8+"></video><audio src="data:image/svg+xml;base64,PHN2Zy8+"></audio><source srcset="https://ok.example/a.png 1x, data:image/svg+xml;base64,PHN2Zy8+ 2x"></source></div></foreignObject></svg>';
+      const out = sanitizeMermaidSVG(svg);
+      expect(out).not.toContain('<video');
+      expect(out).not.toContain('<audio');
+      expect(out).not.toContain('<source');
+      expect(out).not.toContain('PHN2Zy8+');
     });
   });
 });

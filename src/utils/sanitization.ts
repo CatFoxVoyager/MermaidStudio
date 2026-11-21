@@ -115,8 +115,14 @@ export function validateBackupData(raw: unknown): BackupData {
 // document, script-bearing), a data:text/html URI, or a relative ref all
 // survive sanitization today (measured at phase 39 planning HEAD). The
 // allowlist admits exactly: https URLs and raster data:image/(png|jpeg|webp|gif)
-// URIs — everything else on href/xlink:href of an <image>, or on the src of
-// the HTML <img> mermaid renders inside foreignObject labels, is removed.
+// URIs — everything else on ANY media-attribute carrier of the image/video
+// element family is removed (39-REVIEW WR-01 + WR-06). The carrier class:
+// SVG <image> href/xlink:href/src, HTML <img> and <source> src/srcset, and
+// <video>/<audio> src (the latter three sit in DOMPurify's DATA_URI_TAGS
+// set, so their data: URIs are otherwise admitted). srcset values are
+// candidate lists and are checked per candidate: DOMPurify URI-validates a
+// srcset VALUE prefix-anchored against its whole text, so one
+// scheme-prefixed candidate admits a payload riding in a later slot.
 //
 // DOMPurify hooks are INSTANCE-GLOBAL (they run for every sanitize call on the
 // instance, both sanitizeMermaidSVG passes and the sanitizeSVG preview path),
@@ -133,6 +139,35 @@ function isAllowedImageHref(value: string): boolean {
   return HTTPS_URL.test(href) || IMAGE_HREF_DATA_TYPE.test(href);
 }
 
+// A srcset value is a candidate LIST ("url 1x, url 2x"), not a single URI:
+// the browser parses every comma-separated candidate and loads whichever
+// matches, so the whole attribute is admitted only when EVERY candidate's
+// URL token (first whitespace-delimited field) passes the same allowlist as
+// src. Any failing candidate drops the entire attribute — per-candidate
+// filtering would have to re-serialize the list, and fail-closed is the
+// contract here. A candidate whose URL itself contains a comma (e.g. a
+// base64 data URI) splits apart and fails closed; mermaid emits no srcset,
+// so that false positive has no in-app cost.
+function isAllowedSrcset(value: string): boolean {
+  return value
+    .split(',')
+    .map(candidate => candidate.trim())
+    .filter(candidate => candidate !== '')
+    .every(candidate => isAllowedImageHref(candidate.split(/\s+/)[0] || ''));
+}
+
+// Media elements whose resource-fetching attributes must pass the allowlist.
+// Every entry is a carrier of the same payload class the allowlist exists
+// for (39-REVIEW WR-01 + WR-06); <source> carries both src (inside
+// <video>/<audio>) and srcset (inside <picture>).
+const MEDIA_SRC_ATTRS: Readonly<Record<string, readonly string[]>> = {
+  img: ['src', 'srcset'],
+  image: ['href', 'xlink:href', 'src'],
+  source: ['src', 'srcset'],
+  video: ['src'],
+  audio: ['src'],
+};
+
 let imageHrefHookInstalled = false;
 
 function installImageHrefAllowlist(): void {
@@ -142,19 +177,20 @@ function installImageHrefAllowlist(): void {
     const el = node as Element;
     if (!el.tagName) return;
     const tag = el.tagName.toLowerCase();
-    // Both carriers of the invariant: the SVG <image> (mermaid img: nodes,
-    // href/xlink:href) and the HTML <img> mermaid's htmlLabels render inside
-    // foreignObject labels (src — e.g. markdown image labels). The
-    // foreignObject extraction pass restores its HTML content after an
-    // HTML-profile sanitize whose data-URI policy is broader than this
-    // allowlist, so the <img> carrier needs the same gate on its src
-    // (39-REVIEW WR-01).
-    if (tag !== 'image' && tag !== 'img') return;
-    const srcAttrs = tag === 'img' ? ['src'] : ['href', 'xlink:href'];
+    // The hook is instance-global, so this gate covers the mermaid-SVG path,
+    // the foreignObject inner HTML pass (whose restored label content would
+    // otherwise ride an HTML-profile sanitize with a broader data-URI
+    // policy), and the bare sanitizeSVG preview path alike. MEDIA_SRC_ATTRS
+    // enumerates the whole carrier class rather than one attribute per
+    // element (39-REVIEW WR-01 + WR-06); srcset is candidate-checked.
+    const srcAttrs = MEDIA_SRC_ATTRS[tag];
+    if (!srcAttrs) return;
     for (const attr of Array.from(el.attributes)) {
       const name = attr.name.toLowerCase();
       if (!srcAttrs.includes(name)) continue;
-      if (!isAllowedImageHref(attr.value)) {
+      const allowed =
+        name === 'srcset' ? isAllowedSrcset(attr.value) : isAllowedImageHref(attr.value);
+      if (!allowed) {
         el.removeAttribute(attr.name);
       }
     }
@@ -186,6 +222,13 @@ export function sanitizeMermaidSVG(svg: string): string {
     'object',
     'embed',
     'applet',
+    // Media/resource elements mermaid never emits (39-REVIEW WR-06, same
+    // justification as object/embed): the instance-global allowlist hook
+    // already gates their fetching attributes on every path, and forbidding
+    // the elements removes the whole carrier from the mermaid-SVG path too.
+    'video',
+    'audio',
+    'source',
   ];
   const forbiddenAttrs = [
     'onerror',
