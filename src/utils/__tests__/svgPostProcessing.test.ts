@@ -386,3 +386,120 @@ describe('svgPostProcessing', () => {
     });
   });
 });
+
+// ===== 39-04 (ICON-03, UI-SPEC Surface 4, preserved invariant): the
+// label-fix loop must cover mermaid 12.3's special-shape groups exactly like
+// rect nodes — no skip, no double-process. Measured live DOM (39-04 probe):
+// img/icon nodes emit <g class="image-shape default"> / <g class="icon-shape
+// default"> carrying NO `node` class, so the plain .node query skipped them;
+// the widened query also stays single-visit (querySelectorAll dedupes
+// elements matching several alternatives).
+describe('39-04 special-shape label parity', () => {
+  /** One rect + one image-shape + one icon-shape node, SVG-text labels (the
+   * htmlLabels:false form the loop actually transforms). */
+  const MEDIA_FIXTURE = `<svg xmlns="http://www.w3.org/2000/svg" aria-roledescription="flowchart">
+    <g class="node default" id="flowchart-A-1">
+      <rect width="100" height="50" x="0" y="0"/>
+      <g class="label" transform="translate(10, 10)"><text><tspan>Rect</tspan></text></g>
+    </g>
+    <g class="image-shape default" id="flowchart-I-2">
+      <rect width="100" height="50" x="0" y="0"/>
+      <image />
+      <g class="label" transform="translate(12, 14)"><text><tspan>Photo</tspan></text></g>
+    </g>
+    <g class="icon-shape default" id="flowchart-N-3">
+      <rect width="100" height="50" x="0" y="0"/>
+      <path />
+      <g class="label" transform="translate(14, 16)"><text><tspan>IconNode</tspan></text></g>
+    </g>
+  </svg>`.replace(/>\s+</g, '><');
+
+  it('the label-fix loop transforms .image-shape and .icon-shape labels exactly like the rect node', () => {
+    const result = fixDiagramLabels(MEDIA_FIXTURE);
+
+    // The rect node keeps its pre-existing transform...
+    expect(result).toContain('text-anchor="middle"');
+    // ...and the special-shape label groups lost their offsets the same way
+    // (the loop entered them — no skip).
+    expect(result).not.toContain('transform="translate(10, 10)"');
+    expect(result).not.toContain('transform="translate(12, 14)"');
+    expect(result).not.toContain('transform="translate(14, 16)"');
+    // All three label texts survive.
+    expect(result).toContain('Rect');
+    expect(result).toContain('Photo');
+    expect(result).toContain('IconNode');
+    // The special-shape groups themselves survive (no structural damage).
+    expect(result).toContain('image-shape');
+    expect(result).toContain('icon-shape');
+  });
+
+  it('no double-process: a second run is attribute-stable on the mixed fixture', () => {
+    const once = fixDiagramLabels(MEDIA_FIXTURE);
+    const twice = fixDiagramLabels(once);
+    expect(twice).toBe(once);
+  });
+
+  it('the widened query enumerates each special-shape group exactly once', () => {
+    const doc = new DOMParser().parseFromString(MEDIA_FIXTURE, 'image/svg+xml');
+    const groups = doc.querySelectorAll('.node, .icon-shape, .image-shape');
+    // 3 nodes — querySelectorAll dedupes, and the measured classes are
+    // disjoint from `node`, so no element can be visited twice.
+    expect(groups).toHaveLength(3);
+    const ids = Array.from(groups).map(g => g.id);
+    expect(ids).toEqual(['flowchart-A-1', 'flowchart-I-2', 'flowchart-N-3']);
+  });
+
+  it('live render oracle: a data-URI img node enumerates under the production selector form and label-fixes without skipping', async () => {
+    // The 39-01 oracle fixture idiom (decode polyfill lives in the global
+    // vitest setup). This pins the selector against what mermaid 12.3
+    // ACTUALLY emits — never an assumed group form.
+    const proto = (globalThis as unknown as { SVGElement?: { prototype: Record<string, unknown> } }).SVGElement
+      ?.prototype;
+    if (proto && typeof proto.getComputedTextLength !== 'function') {
+      proto.getComputedTextLength = function getComputedTextLength(this: SVGElement): number {
+        return (this.textContent ?? '').length * 8;
+      };
+    }
+    const { initMermaid } = await import('@/lib/mermaid/core');
+    initMermaid('light');
+    const { renderDiagram } = await import('@/lib/mermaid/core');
+    const { parseDiagram } = await import('@/lib/mermaid/codeUtils');
+    const { postProcessDiagramSvg } = await import('../svgPostProcessing');
+
+    const TINY_PNG_URI =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+    const SRC = `flowchart TD\nA@{ img: "${TINY_PNG_URI}", label: "Photo", constraint: "on" }`;
+    let host: HTMLElement | null = null;
+    try {
+      const { svg, error } = await renderDiagram(SRC, 'p39_04_postproc_oracle');
+      expect(error).toBeNull();
+      expect(svg).not.toBe('');
+
+      // The production selector form (identical to both canvas sites) finds
+      // the img group, and the unchanged id regex extracts the node id.
+      host = document.createElement('div');
+      host.innerHTML = svg;
+      document.body.appendChild(host);
+      const svgEl = host.querySelector('svg');
+      expect(svgEl).not.toBeNull();
+      const groups = svgEl!.querySelectorAll('g.node, g.nodeLabel, g.icon-shape, g.image-shape');
+      expect(groups).toHaveLength(1);
+      const idMatch = groups[0].id.match(/flowchart-([A-Za-z0-9_-]+)-\d+$/);
+      expect(idMatch?.[1]).toBe('A');
+
+      // The label-fix pipeline runs the img group through fixNodeLabels
+      // without skipping it: the group and its label content survive.
+      const parsed = parseDiagram(SRC);
+      const processed = postProcessDiagramSvg(svg, parsed);
+      expect(processed).toContain('image-shape');
+      const pDoc = new DOMParser().parseFromString(processed, 'image/svg+xml');
+      const pGroup = pDoc.querySelector('.image-shape');
+      expect(pGroup?.id).toBe(groups[0].id);
+      expect(pGroup?.querySelector('span, div, p, text')?.textContent).toContain('Photo');
+    } finally {
+      host?.remove();
+      document.getElementById('p39_04_postproc_oracle')?.remove();
+      document.getElementById('dp39_04_postproc_oracle')?.remove();
+    }
+  });
+});

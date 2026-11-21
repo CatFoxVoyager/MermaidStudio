@@ -1713,3 +1713,86 @@ describe('PreviewPanel Component', () => {
     });
   });
 });
+
+// ===== 39-04 (ICON-03, UI-SPEC Surface 4): special-shape selection parity
+// at the preview surface. The shadow-DOM extractSvgNodes selector widened to
+// g.icon-shape / g.image-shape (measured live DOM: mermaid 12.3 emits those
+// classes on the flowchart-id group with NO `node` class); these pins assert
+// the img node enumerates like a rect node and the SAME handleNodeClick path
+// selects it — parity means identical, no differentiated visuals.
+describe('special-shape node selection parity (39-04 ICON-03)', () => {
+  const MEDIA_SVG = [
+    '<svg id="test-svg" viewBox="0 0 400 300">',
+    '<g class="node default" id="flowchart-A-1"><rect/><text class="nodeLabel">A</text></g>',
+    '<g class="image-shape default" id="flowchart-IMG-2"><rect/><image /><text class="nodeLabel">IMG</text></g>',
+    '<g class="icon-shape default" id="flowchart-ICO-3"><rect/><path /><text class="nodeLabel">ICO</text></g>',
+    '</svg>',
+  ].join('');
+
+  const MEDIA_PARSED = {
+    nodes: [
+      { id: 'A', label: 'A', shape: 'rect', raw: 'A' },
+      { id: 'IMG', label: 'IMG', shape: 'rect', raw: 'IMG@{ img: "data:image/png;base64,x" }' },
+      { id: 'ICO', label: 'ICO', shape: 'rect', raw: 'ICO@{ icon: "fa:user" }' },
+    ],
+    edges: [],
+    styles: new Map(),
+    classDefs: new Map(),
+    nodeClasses: new Map(),
+    linkStyles: new Map(),
+    subgraphs: [],
+    linkedDirectives: new Map(),
+  };
+
+  async function renderWithMediaNodes(onChange = vi.fn()) {
+    const { parseDiagram } = await import('@/lib/mermaid/codeUtils');
+    const { renderDiagram, detectDiagramType } = await import('@/lib/mermaid/core');
+    vi.mocked(renderDiagram).mockReset();
+    vi.mocked(renderDiagram).mockResolvedValue({ svg: MEDIA_SVG, error: null });
+    vi.mocked(parseDiagram).mockReset();
+    vi.mocked(parseDiagram).mockReturnValue(MEDIA_PARSED as Awaited<ReturnType<typeof parseDiagram>>);
+    vi.mocked(detectDiagramType).mockReset();
+    vi.mocked(detectDiagramType).mockReturnValue('flowchart');
+
+    const utils = render(<PreviewPanel content={'flowchart TD\nA\nIMG@{ img: "x" }\nICO@{ icon: "fa:user" }'} theme="light" onChange={onChange} />);
+    await waitFor(() => {
+      expect(utils.container.querySelectorAll('.node-overlay').length).toBe(3);
+    }, { timeout: 3000 });
+    return utils;
+  }
+
+  it('the img/icon node groups enumerate alongside rect nodes with the same id extraction', async () => {
+    const { container } = await renderWithMediaNodes();
+    const overlays = Array.from(container.querySelectorAll('.node-overlay'));
+    expect(overlays).toHaveLength(3);
+  });
+
+  it('clicking the img node overlay opens the node style panel through the same handler (selection parity)', async () => {
+    const { container } = await renderWithMediaNodes();
+    const overlays = Array.from(container.querySelectorAll('.node-overlay'));
+    // SVG document order: A (rect), IMG (image-shape), ICO (icon-shape).
+    fireEvent.click(overlays[1]);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('node-style-panel')).toBeInTheDocument();
+    });
+  });
+
+  it('the icon node overlay carries no differentiated selection visuals (parity means identical)', async () => {
+    const { container } = await renderWithMediaNodes();
+    const overlays = Array.from(container.querySelectorAll('.node-overlay'));
+    const icoBefore = overlays[2].className;
+    const rectBefore = overlays[0].className;
+    expect(icoBefore).toBe(rectBefore);
+
+    fireEvent.click(overlays[2]);
+    await waitFor(() => {
+      expect(screen.getByTestId('node-style-panel')).toBeInTheDocument();
+    });
+    // Same single .selected class the rect path gains — no icon/img-specific
+    // selection styling exists anywhere on the overlay path.
+    expect(overlays[2].className).toContain('selected');
+    expect(overlays[2].className).not.toContain('icon');
+    expect(overlays[2].className).not.toContain('image');
+  });
+});

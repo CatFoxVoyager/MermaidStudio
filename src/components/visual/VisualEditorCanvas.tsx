@@ -31,7 +31,15 @@ export function extractSvgNodes(container: HTMLDivElement, zoom: number): NodeOv
   const svg = container.querySelector('svg');
   if (!svg) {return [];}
 
-  const nodeElements = svg.querySelectorAll('g.node, g.nodeLabel');
+  // 39-04 (ICON-03, UI-SPEC Surface 4): the selector also matches mermaid
+  // 12.3's special-shape groups — measured live DOM (39-04 dom probe): img
+  // nodes emit <g class="image-shape default" id="flowchart-<id>-<n>"> and
+  // icon nodes <g class="icon-shape default">, carrying NO `node` class, so
+  // the plain g.node query missed them entirely. Class-bearer queries only
+  // (class substrings over-match — the 39-01 oracle lesson). The id regex
+  // below is unchanged: special-shape groups carry the same
+  // flowchart-<id>-<n> ids, so selection parity is selector-widening only.
+  const nodeElements = svg.querySelectorAll('g.node, g.nodeLabel, g.icon-shape, g.image-shape');
   const overlays: NodeOverlay[] = [];
   const seen = new Set<string>();
 

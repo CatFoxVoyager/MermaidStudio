@@ -52,7 +52,13 @@ function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElem
   const svg = shadowRoot.querySelector('svg');
   if (!svg) {return [];}
 
-  const nodeElements = svg.querySelectorAll('g.node, g.nodeLabel');
+  // 39-04 (ICON-03, UI-SPEC Surface 4): widened to mermaid 12.3's
+  // special-shape groups — measured live DOM: img nodes emit
+  // <g class="image-shape default" id="flowchart-<id>-<n>"> and icon nodes
+  // <g class="icon-shape default"> with NO `node` class, so g.node missed
+  // them. Identical widening to VisualEditorCanvas.extractSvgNodes (parity
+  // means identical); the flowchart id regex below is unchanged.
+  const nodeElements = svg.querySelectorAll('g.node, g.nodeLabel, g.icon-shape, g.image-shape');
   const overlays: NodeOverlay[] = [];
   const seen = new Set<string>();
 

@@ -1402,3 +1402,100 @@ describe('VisualEditorCanvas - Pointer Events', () => {
     });
   });
 });
+
+// ===== 39-04 (ICON-03, UI-SPEC Surface 4): special-shape selection parity.
+// Measured live DOM (39-04 dom probe, .planning/tmp/39-04-dom-probe.json):
+// mermaid 12.3 emits img nodes as <g class="image-shape default"
+// id="flowchart-<id>-<n>"> and icon nodes as <g class="icon-shape default">
+// — NO `node` class — so the pre-39-04 g.node selector missed them. These
+// pins use fixtures mirroring that measured shape and assert the selector
+// only WIDENED: rect behavior byte-unchanged, special-shape groups now
+// enumerate with the same id extraction and select exactly like a rect.
+describe('special-shape node selection parity (39-04 ICON-03)', () => {
+  const mediaProps = {
+    content: 'flowchart TD\n  A[Start]\n  IMG@{ img: "data:image/png;base64,iVBORw0KGgo=" }\n  ICO_3@{ icon: "fa:user", form: "square" }',
+    theme: 'light' as const,
+    onChange: vi.fn(),
+  };
+  // Fixture mirrors the measured live DOM classes (image-shape/icon-shape on
+  // the outer flowchart-id group; a plain rect node beside them).
+  const MEDIA_NODES_SVG = [
+    '<svg viewBox="0 0 400 300">',
+    '<g class="node default" id="flowchart-A-1"><rect width="100" height="50" /></g>',
+    '<g class="image-shape default" id="flowchart-IMG-2"><rect width="100" height="50" /><image /></g>',
+    '<g class="icon-shape default" id="flowchart-ICO_3-3"><rect width="100" height="50" /><path /></g>',
+    '</svg>',
+  ].join('');
+
+  it('extractSvgNodes enumerates .image-shape/.icon-shape groups with rect ids unchanged', () => {
+    const container = document.createElement('div');
+    container.innerHTML = MEDIA_NODES_SVG;
+    const overlays = extractSvgNodes(container as HTMLDivElement, 1);
+    const ids = overlays.map(o => o.id);
+    expect(ids).toContain('A');
+    expect(ids).toContain('IMG');
+    expect(ids).toContain('ICO_3');
+    expect(overlays).toHaveLength(3);
+  });
+
+  it('the id-extraction regex is unchanged: an image-shape group yields the same flowchart-id shape as a rect node', () => {
+    const container = document.createElement('div');
+    // Underscore id + trailing render index — the regex form the rect path
+    // has always carried, now asserted on a special-shape group.
+    container.innerHTML =
+      '<svg><g class="image-shape default" id="flowchart-my_node-42"><rect /></g></svg>';
+    const overlays = extractSvgNodes(container as HTMLDivElement, 1);
+    expect(overlays).toHaveLength(1);
+    expect(overlays[0].id).toBe('my_node');
+  });
+
+  it('a click on an img-node overlay selects it exactly like a rect node (same handler, same ring)', async () => {
+    mockSvg = MEDIA_NODES_SVG;
+    try {
+      const onChange = vi.fn();
+      const { container } = render(
+        <VisualEditorCanvas {...mediaProps} onChange={onChange} />,
+      );
+
+      await waitFor(() => {
+        // The img node's overlay exists (enumeration parity).
+        const overlays = Array.from(container.querySelectorAll('.visual-node-overlay'));
+        expect(overlays.length).toBe(3);
+      });
+
+      // Overlays carry their node id as the title (the canvas overlay
+      // contract); IMG is the image-shape group from the fixture.
+      const imgOverlay = Array.from(container.querySelectorAll('.visual-node-overlay')).find(
+        el => el.getAttribute('title') === 'IMG',
+      ) as HTMLElement | undefined;
+      expect(imgOverlay).toBeDefined();
+
+      fireEvent.pointerDown(imgOverlay!, {
+        pointerId: 1,
+        pointerType: 'mouse',
+        button: 0,
+        buttons: 1,
+        clientX: 150,
+        clientY: 125,
+        shiftKey: false,
+      });
+      fireEvent.pointerUp(imgOverlay!, {
+        pointerId: 1,
+        pointerType: 'mouse',
+        button: 0,
+        buttons: 0,
+        clientX: 150,
+        clientY: 125,
+        shiftKey: false,
+      });
+
+      // Selection parity: the same .selected ring a rect node gets, and the
+      // properties panel opens (the selection path is handler-identical).
+      await waitFor(() => {
+        expect(imgOverlay!.classList.contains('selected')).toBe(true);
+      });
+    } finally {
+      mockSvg = '<svg><g class="node" id="flowchart-A-1"><rect width="100" height="50" /></g></svg>';
+    }
+  });
+});

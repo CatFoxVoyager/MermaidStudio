@@ -204,7 +204,14 @@ function fixNodeLabels(doc: Document, svg: SVGSVGElement, fontFamily: string): b
     }
   });
 
-  doc.querySelectorAll('.node').forEach(node => {
+  // 39-04 (ICON-03, UI-SPEC Surface 4): the label-fix loop also covers
+  // mermaid 12.3's special-shape groups — measured live DOM: img/icon nodes
+  // emit <g class="image-shape default"> / <g class="icon-shape default">
+  // carrying NO `node` class, so the plain .node query skipped their labels.
+  // querySelectorAll dedupes elements matching several alternatives, so a
+  // future mermaid that adds `node` alongside these classes cannot
+  // double-process a group.
+  doc.querySelectorAll('.node, .icon-shape, .image-shape').forEach(node => {
     // 1. Find text elements or foreignObjects (Mermaid 11 uses foreignObject for labels)
     const textElements = Array.from(node.querySelectorAll<SVGTextElement>('text'));
     const foreignObjects = Array.from(node.querySelectorAll('foreignObject'));
