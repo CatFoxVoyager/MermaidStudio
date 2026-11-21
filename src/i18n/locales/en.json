@@ -127,7 +127,8 @@
     "shapeSearch": "Search shapes…",
     "shapeSearchClear": "Clear search",
     "shapeSearchEmpty": "No matching shape",
-    "shapeSearchEmptyHint": "No shape matches “{{query}}”. Try a shorter term or browse the categories."
+    "shapeSearchEmptyHint": "No shape matches “{{query}}”. Try a shorter term or browse the categories.",
+    "iconChangeHint": "Set icon: {{icon}}"
   },
   "workspace": {
     "toggle": {
@@ -510,7 +511,22 @@
     "fontNormal": "Normal",
     "fontBold": "Bold",
     "fontLighter": "Lighter",
-    "fontBolder": "Bolder"
+    "fontBolder": "Bolder",
+    "media": "Content",
+    "tabText": "Text",
+    "tabIcon": "Icon",
+    "tabImage": "Image",
+    "iconPickAction": "Choose an icon…",
+    "iconForm": "Form",
+    "iconFormSquare": "Square",
+    "iconFormCircle": "Circle",
+    "iconFormRounded": "Rounded",
+    "iconPosition": "Position",
+    "iconPositionTop": "Top",
+    "iconPositionBottom": "Bottom",
+    "iconSize": "Size (W × H)",
+    "iconSizeAuto": "Auto",
+    "iconRemove": "Remove icon"
   },
   "edgeStyle": {
     "connection": "Connection",

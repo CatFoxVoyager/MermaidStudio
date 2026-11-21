@@ -127,7 +127,8 @@
     "shapeSearch": "Rechercher une forme…",
     "shapeSearchClear": "Effacer la recherche",
     "shapeSearchEmpty": "Aucune forme correspondante",
-    "shapeSearchEmptyHint": "Aucune forme ne correspond à « {{query}} ». Essayez un terme plus court ou parcourez les catégories."
+    "shapeSearchEmptyHint": "Aucune forme ne correspond à « {{query}} ». Essayez un terme plus court ou parcourez les catégories.",
+    "iconChangeHint": "Définir l'icône : {{icon}}"
   },
   "workspace": {
     "toggle": {
@@ -513,7 +514,22 @@
     "fontNormal": "Normal",
     "fontBold": "Gras",
     "fontLighter": "Plus fin",
-    "fontBolder": "Plus gras"
+    "fontBolder": "Plus gras",
+    "media": "Contenu",
+    "tabText": "Texte",
+    "tabIcon": "Icône",
+    "tabImage": "Image",
+    "iconPickAction": "Choisir une icône…",
+    "iconForm": "Forme",
+    "iconFormSquare": "Carré",
+    "iconFormCircle": "Cercle",
+    "iconFormRounded": "Arrondi",
+    "iconPosition": "Position",
+    "iconPositionTop": "Haut",
+    "iconPositionBottom": "Bas",
+    "iconSize": "Taille (l × h)",
+    "iconSizeAuto": "Auto",
+    "iconRemove": "Retirer l'icône"
   },
   "edgeStyle": {
     "connection": "Connexion",

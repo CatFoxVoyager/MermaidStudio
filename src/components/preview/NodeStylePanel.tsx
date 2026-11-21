@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, type CSSProperties } from 'react';
-import { X, RotateCcw, ChevronDown, Settings2, Zap, Trash2 } from 'lucide-react';
+import { X, RotateCcw, ChevronDown, Settings2, Zap, Trash2, Type, Smile, Image as ImageIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 // 38-06 (SHP-04): shape-change parity with the visual editor's PropertiesPanel
@@ -9,7 +9,7 @@ import { ShapePicker } from '@/components/shared/ShapePicker';
 import type { ShapePickerAnchor } from '@/components/shared/ShapePicker';
 import { ShapePreview } from '@/components/shared/ShapePreview';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
-import type { NodeStyle, NodeShape, PresetType } from '@/lib/mermaid/codeUtils';
+import type { NodeStyle, NodeShape, PresetType, IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
 
 interface NodeStylePreset {
   label: string;
@@ -45,6 +45,28 @@ interface NodeStylePanelProps {
   onPresetApply?: (nodeIds: string[], presetType: PresetType) => void;
   /** Callback when the selected nodes are deleted (hides the button if absent) */
   onDelete?: () => void;
+  /**
+   * 39-04 (ICON-03, UI-SPEC Surface 1): the selection's shared media data —
+   * a config when EVERY selected node carries that media kind, `null` when
+   * NO node carries it, and `undefined` when the selection mixes media kinds
+   * (no active tab segment; the `nodeStyle.mixed` chip shows). The active
+   * tab derives from this parsed data synchronously — never from re-parsing
+   * code strings. Absent (with its mutator) = the caller does not wire
+   * media support: the whole section stays hidden and existing callers are
+   * byte-identical (the 38-06 absent-props pattern).
+   */
+  nodeIcon?: IconConfig | null;
+  /** See nodeIcon — same three-state contract for the img kind. */
+  nodeImage?: ImgConfig | null;
+  /**
+   * 39-04: media mutations for the selection — the ONLY write path. Routes
+   * to the 39-01 `updateNodeIcon` mutator (null clears that media kind on
+   * every selected node; a config sets it, stripping the other kind).
+   * Required (with onImageChange) for the media section to render.
+   */
+  onIconChange?: (nodeIds: string[], icon: IconConfig | null) => void;
+  /** See onIconChange — routes to the 39-01 `updateNodeImg` mutator. */
+  onImageChange?: (nodeIds: string[], img: ImgConfig | null) => void;
 }
 
 function getSharedValue(styles: NodeStyle[], field: keyof NodeStyle): string | 'mixed' | undefined {
@@ -72,6 +94,10 @@ export function NodeStylePanel({
   presets,
   onPresetApply,
   onDelete,
+  nodeIcon,
+  nodeImage,
+  onIconChange,
+  onImageChange,
 }: NodeStylePanelProps) {
   const { t } = useTranslation();
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -167,6 +193,78 @@ export function NodeStylePanel({
     setShapeOpen(false);
     setShapeAnchor(null);
   };
+
+  // ===== 39-04 (ICON-03, Surfaces 1+6): media-mode tabs + icon param rows.
+  // All state derives synchronously from the parsed data the host passes —
+  // no loading state, no code re-parsing in the component.
+  const mediaWired = onIconChange !== undefined && onImageChange !== undefined;
+  // Mixed media kinds: the host signals it by passing undefined for either
+  // prop (see the props' contract) — no active segment, mixed chip.
+  const mediaMixed = mediaWired && (nodeIcon === undefined || nodeImage === undefined);
+  type MediaTab = 'text' | 'icon' | 'image';
+  const activeMedia: MediaTab | null = !mediaWired || mediaMixed
+    ? null
+    : nodeIcon
+      ? 'icon'
+      : nodeImage
+        ? 'image'
+        : 'text';
+  // Switching to Icon on a selection that carries no icon opens the tab
+  // body in its empty state (CTA row — Surface 1's switch table); the
+  // highlight still follows the DATA (Text stays lit until an icon is
+  // picked in 39-05). Disarmed when the selection changes.
+  const [iconTabArmed, setIconTabArmed] = useState(false);
+  useEffect(() => {
+    setIconTabArmed(false);
+  }, [selectedNodeIds[0], selectedNodeIds.length]);
+  const iconBodyVisible =
+    activeMedia === 'icon' || (iconTabArmed && mediaWired && !mediaMixed && !nodeIcon && !nodeImage);
+
+  // Switch semantics (the locked Surface-1 table) route ONLY through the
+  // mutator props: a null config clears exactly that media kind on every
+  // selected node (updateNodeImg(null) / updateNodeIcon(null)); no media
+  // scaffolding is written until the user picks a value (39-05's picker /
+  // upload). `!== null` fires on undefined too — a mixed selection must
+  // clear both kinds. Text fires two callbacks; the hosts' handlers chain
+  // through their content refs so the sequential calls compose.
+  const switchToIcon = () => {
+    if (!onIconChange || !onImageChange) {return;}
+    setIconTabArmed(true);
+    if (nodeImage !== null) {onImageChange(selectedNodeIds, null);}
+  };
+  const switchToImage = () => {
+    if (!onIconChange) {return;}
+    if (nodeIcon !== null) {onIconChange(selectedNodeIds, null);}
+  };
+  const switchToText = () => {
+    if (!onIconChange || !onImageChange) {return;}
+    setIconTabArmed(false);
+    if (nodeIcon !== null) {onIconChange(selectedNodeIds, null);}
+    if (nodeImage !== null) {onImageChange(selectedNodeIds, null);}
+  };
+
+  // Icon param rows (Surface 6): every edit composes the next config from
+  // the parsed shared config and emits it through onIconChange. Empty W/H
+  // means Auto — the key is deleted so the mutator omits the param; invalid
+  // numeric entry is ignored (no submit path to fail).
+  const setIconParam = (patch: Partial<Omit<IconConfig, 'icon' | 'label'>>) => {
+    if (!onIconChange || !nodeIcon) {return;}
+    onIconChange(selectedNodeIds, { ...nodeIcon, ...patch });
+  };
+  const setIconSize = (field: 'w' | 'h', raw: string) => {
+    if (!onIconChange || !nodeIcon) {return;}
+    const next: IconConfig = { ...nodeIcon };
+    const trimmed = raw.trim();
+    if (trimmed === '') {
+      delete next[field]; // Auto — param omitted on emit
+    } else {
+      const n = Number(trimmed);
+      if (!Number.isFinite(n) || n < 0) {return;} // clamp/ignore invalid entry
+      next[field] = n;
+    }
+    onIconChange(selectedNodeIds, next);
+  };
+  const sizePlaceholder = mediaMixed ? t('nodeStyle.mixed') : t('nodeStyle.iconSizeAuto');
 
   // Helper to format color values for ColorPicker (mixed -> '' with mixed label)
   const colorValue = (v: string | 'mixed' | undefined): string =>
@@ -321,6 +419,230 @@ export function NodeStylePanel({
                 selected={sharedShape === 'mixed' ? null : sharedShape}
                 triggerRef={shapeBtnRef}
               />
+            )}
+          </div>
+        )}
+
+        {/* 39-04 (ICON-03, Surfaces 1+6): the Text | Icon | Image media-mode
+            tabs under the shape row (shape and media are orthogonal — this
+            section never hides or replaces the shape row). Active state
+            derives synchronously from the parsed media data; every mutation
+            routes through the 39-01 mutator props. Renders only when the
+            host wires both mutator props; the row only exists while a node
+            selection does (the panel itself mounts on selection). */}
+        {mediaWired && (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between gap-2">
+              <span
+                className="text-xs font-medium uppercase tracking-wider"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                {t('nodeStyle.media')}
+              </span>
+              {mediaMixed && (
+                <span
+                  className="text-[10px] leading-none px-1.5 py-0.5 rounded-full border shrink-0"
+                  style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}
+                >
+                  {t('nodeStyle.mixed')}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-1" role="tablist" aria-label={t('nodeStyle.media')}>
+              {([
+                { tab: 'text' as MediaTab, key: 'nodeStyle.tabText', Glyph: Type, onPick: switchToText },
+                { tab: 'icon' as MediaTab, key: 'nodeStyle.tabIcon', Glyph: Smile, onPick: switchToIcon },
+                { tab: 'image' as MediaTab, key: 'nodeStyle.tabImage', Glyph: ImageIcon, onPick: switchToImage },
+              ]).map(({ tab, key, Glyph, onPick }) => {
+                const active = activeMedia === tab;
+                return (
+                  <button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    data-media-tab={tab}
+                    onClick={onPick}
+                    className={`flex flex-col items-center justify-center gap-1 rounded-md border px-1 py-1.5 text-xs ${FOCUS_RING_CLASSES}`}
+                    style={
+                      active
+                        ? { background: 'var(--accent-dim)', borderColor: 'transparent', color: 'var(--accent)' }
+                        : { background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }
+                    }
+                  >
+                    <Glyph size={14} />
+                    <span>{t(key)}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Icon tab body (Surface 6). The trigger row shows the picked
+                name truncating with the full value as its accessible title
+                (empty state: the declared CTA copy). The IconPicker popover
+                cloning the ShapePicker fixed-anchor recipe is 39-05's
+                deliverable — this trigger is its anchor. */}
+            {iconBodyVisible && (
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  type="button"
+                  data-icon-trigger
+                  onClick={() => {
+                    /* 39-05 wires the IconPicker here. */
+                  }}
+                  title={nodeIcon ? t('visual.iconChangeHint', { icon: nodeIcon.icon }) : undefined}
+                  aria-label={nodeIcon ? t('visual.iconChangeHint', { icon: nodeIcon.icon }) : t('nodeStyle.iconPickAction')}
+                  className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs ${FOCUS_RING_CLASSES}`}
+                  style={{
+                    background: 'var(--surface-base)',
+                    borderColor: 'var(--border-subtle)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                  }}
+                >
+                  <span
+                    className="shrink-0 flex items-center"
+                    style={{ color: nodeIcon ? 'var(--accent)' : 'var(--text-tertiary)' }}
+                  >
+                    <Smile size={14} />
+                  </span>
+                  {nodeIcon ? (
+                    <span className="truncate" title={nodeIcon.icon}>
+                      {nodeIcon.icon}
+                    </span>
+                  ) : (
+                    <span className="truncate" style={{ color: 'var(--text-tertiary)' }}>
+                      {t('nodeStyle.iconPickAction')}
+                    </span>
+                  )}
+                  <ChevronDown
+                    size={11}
+                    className="ml-auto shrink-0 pointer-events-none"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  />
+                </button>
+
+                {nodeIcon && (
+                  <>
+                    {/* Form segmented control — exactly the 12.3 enums. */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                        {t('nodeStyle.iconForm')}
+                      </span>
+                      <div className="grid grid-cols-3 gap-1">
+                        {([
+                          { value: 'square' as const, key: 'nodeStyle.iconFormSquare' },
+                          { value: 'circle' as const, key: 'nodeStyle.iconFormCircle' },
+                          { value: 'rounded' as const, key: 'nodeStyle.iconFormRounded' },
+                        ]).map(({ value, key }) => {
+                          const active = nodeIcon!.form === value;
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              data-icon-form={value}
+                              aria-pressed={active}
+                              onClick={() => setIconParam({ form: value })}
+                              className={`rounded-md border px-1 py-1.5 text-xs ${FOCUS_RING_CLASSES}`}
+                              style={
+                                active
+                                  ? { background: 'var(--accent-dim)', borderColor: 'transparent', color: 'var(--accent)' }
+                                  : { background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }
+                              }
+                            >
+                              {t(key)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Position segmented control (Top / Bottom). */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                        {t('nodeStyle.iconPosition')}
+                      </span>
+                      <div className="grid grid-cols-2 gap-1">
+                        {([
+                          { value: 't' as const, key: 'nodeStyle.iconPositionTop' },
+                          { value: 'b' as const, key: 'nodeStyle.iconPositionBottom' },
+                        ]).map(({ value, key }) => {
+                          const active = nodeIcon!.pos === value;
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              data-icon-pos={value}
+                              aria-pressed={active}
+                              onClick={() => setIconParam({ pos: value })}
+                              className={`rounded-md border px-1 py-1.5 text-xs ${FOCUS_RING_CLASSES}`}
+                              style={
+                                active
+                                  ? { background: 'var(--accent-dim)', borderColor: 'transparent', color: 'var(--accent)' }
+                                  : { background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }
+                              }
+                            >
+                              {t(key)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* W/H number inputs — empty means Auto (param omitted
+                        on emit); mixed selection shows the mixed idiom. */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                        {t('nodeStyle.iconSize')}
+                      </span>
+                      <div className="grid grid-cols-2 gap-1">
+                        <input
+                          type="number"
+                          data-icon-w
+                          value={nodeIcon!.w ?? ''}
+                          placeholder={sizePlaceholder}
+                          min={0}
+                          onChange={e => setIconSize('w', e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded-md border text-xs"
+                          style={{
+                            background: 'var(--surface-base)',
+                            borderColor: 'var(--border-subtle)',
+                            color: 'var(--text-primary)',
+                            outline: 'none',
+                          }}
+                        />
+                        <input
+                          type="number"
+                          data-icon-h
+                          value={nodeIcon!.h ?? ''}
+                          placeholder={sizePlaceholder}
+                          min={0}
+                          onChange={e => setIconSize('h', e.target.value)}
+                          className="w-full px-2.5 py-1.5 rounded-md border text-xs"
+                          style={{
+                            background: 'var(--surface-base)',
+                            borderColor: 'var(--border-subtle)',
+                            color: 'var(--text-primary)',
+                            outline: 'none',
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Remove icon — danger text action, no confirmation
+                        (reversible by re-picking). */}
+                    <button
+                      type="button"
+                      data-icon-remove
+                      onClick={() => onIconChange?.(selectedNodeIds, null)}
+                      className={`text-xs px-1 py-1.5 text-left ${FOCUS_RING_CLASSES}`}
+                      style={{ color: 'var(--danger)', background: 'transparent', border: 'none', outline: 'none' }}
+                    >
+                      {t('nodeStyle.iconRemove')}
+                    </button>
+                  </>
+                )}
+              </div>
             )}
           </div>
         )}

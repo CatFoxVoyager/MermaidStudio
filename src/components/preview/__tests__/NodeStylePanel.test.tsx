@@ -46,6 +46,22 @@ vi.mock('react-i18next', async () => {
           'nodeStyle.resetStyles': 'Reset Styles',
           'nodeStyle.delete': 'Delete',
           'nodeStyle.mixed': 'Mixed',
+          'nodeStyle.media': 'Content',
+          'nodeStyle.tabText': 'Text',
+          'nodeStyle.tabIcon': 'Icon',
+          'nodeStyle.tabImage': 'Image',
+          'nodeStyle.iconPickAction': 'Choose an icon…',
+          'nodeStyle.iconForm': 'Form',
+          'nodeStyle.iconFormSquare': 'Square',
+          'nodeStyle.iconFormCircle': 'Circle',
+          'nodeStyle.iconFormRounded': 'Rounded',
+          'nodeStyle.iconPosition': 'Position',
+          'nodeStyle.iconPositionTop': 'Top',
+          'nodeStyle.iconPositionBottom': 'Bottom',
+          'nodeStyle.iconSize': 'Size (W × H)',
+          'nodeStyle.iconSizeAuto': 'Auto',
+          'nodeStyle.iconRemove': 'Remove icon',
+          'visual.iconChangeHint': 'Set icon: {{icon}}',
           'nodeStyle.mix': 'Mix',
           'nodeStyle.solid': 'Solid',
           'nodeStyle.dashed': 'Dashed',
@@ -606,5 +622,248 @@ describe('NodeStylePanel Component', () => {
       fireEvent.keyDown(document, { key: 'Escape' });
       expect(onClose).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+// ===== 39-04 (ICON-03, Surfaces 1+6): media-mode tabs + icon param rows.
+// Every mutation assertion targets the MUTATOR PROPS (the panel never
+// regex-edits source); active states derive from the parsed data props.
+import type { IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
+
+describe('NodeStylePanel media tabs (39-04 ICON-03)', () => {
+  const ICON_A: IconConfig = { icon: 'fa:user', form: 'square', pos: 't', w: 80 };
+  const IMG_A: ImgConfig = { img: 'data:image/png;base64,x', pos: 'b' };
+
+  const mediaProps = {
+    onIconChange: vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>(),
+    onImageChange: vi.fn<(nodeIds: string[], img: ImgConfig | null) => void>(),
+  };
+
+  beforeEach(() => {
+    mediaProps.onIconChange.mockClear();
+    mediaProps.onImageChange.mockClear();
+  });
+
+  it('hides the media section entirely when the mutator props are absent (absent-props callers unchanged)', () => {
+    const { container } = render(<NodeStylePanel {...defaultProps} />);
+    expect(container.querySelector('[data-media-tab]')).toBeNull();
+    expect(container.querySelector('[role="tablist"]')).toBeNull();
+  });
+
+  it('renders the three Text | Icon | Image segments when media support is wired', () => {
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+    );
+    expect(screen.getByText('Content')).toBeInTheDocument();
+    expect(container.querySelector('[data-media-tab="text"]')).not.toBeNull();
+    expect(container.querySelector('[data-media-tab="icon"]')).not.toBeNull();
+    expect(container.querySelector('[data-media-tab="image"]')).not.toBeNull();
+  });
+
+  it('active state: all-icon selection lights the Icon segment', () => {
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={ICON_A} nodeImage={null} />,
+    );
+    expect(container.querySelector('[data-media-tab="icon"]')!.getAttribute('aria-selected')).toBe('true');
+    expect(container.querySelector('[data-media-tab="text"]')!.getAttribute('aria-selected')).toBe('false');
+    expect(container.querySelector('[data-media-tab="image"]')!.getAttribute('aria-selected')).toBe('false');
+  });
+
+  it('active state: all-img selection lights the Image segment', () => {
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={IMG_A} />,
+    );
+    expect(container.querySelector('[data-media-tab="image"]')!.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('active state: all-plain selection lights the Text segment', () => {
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+    );
+    expect(container.querySelector('[data-media-tab="text"]')!.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('active state: mixed media kinds show no active segment and the nodeStyle.mixed chip', () => {
+    const { container } = render(
+      <NodeStylePanel
+        {...defaultProps}
+        {...mediaProps}
+        selectedNodeIds={['A', 'B']}
+        nodeStyles={[{}, {}]}
+        nodeIcon={undefined}
+        nodeImage={undefined}
+      />,
+    );
+    for (const tab of ['text', 'icon', 'image']) {
+      expect(container.querySelector(`[data-media-tab="${tab}"]`)!.getAttribute('aria-selected')).toBe('false');
+    }
+    expect(screen.getByText('Mixed')).toBeInTheDocument();
+  });
+
+  it('switch to Icon strips the img params through the img mutator (onImageChange(ids, null))', () => {
+    const onIconChange = vi.fn();
+    const onImageChange = vi.fn<(nodeIds: string[], img: ImgConfig | null) => void>();
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} onImageChange={onImageChange} nodeIcon={null} nodeImage={IMG_A} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="icon"]')!);
+    expect(onImageChange).toHaveBeenCalledTimes(1);
+    expect(onImageChange).toHaveBeenCalledWith(['A'], null);
+    expect(onIconChange).not.toHaveBeenCalled();
+  });
+
+  it('switch to Image strips the icon params through the icon mutator (onIconChange(ids, null))', () => {
+    const onIconChange = vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>();
+    const onImageChange = vi.fn();
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} onImageChange={onImageChange} nodeIcon={ICON_A} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    expect(onIconChange).toHaveBeenCalledTimes(1);
+    expect(onIconChange).toHaveBeenCalledWith(['A'], null);
+    expect(onImageChange).not.toHaveBeenCalled();
+  });
+
+  it('switch to Text on an icon selection clears icon only', () => {
+    const onIconChange = vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>();
+    const onImageChange = vi.fn();
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} onImageChange={onImageChange} nodeIcon={ICON_A} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="text"]')!);
+    expect(onIconChange).toHaveBeenCalledWith(['A'], null);
+    expect(onImageChange).not.toHaveBeenCalled();
+  });
+
+  it('switch to Text on a mixed selection clears BOTH media kinds (two mutator calls)', () => {
+    const onIconChange = vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>();
+    const onImageChange = vi.fn<(nodeIds: string[], img: ImgConfig | null) => void>();
+    const { container } = render(
+      <NodeStylePanel
+        {...defaultProps}
+        {...mediaProps}
+        onIconChange={onIconChange}
+        onImageChange={onImageChange}
+        selectedNodeIds={['A', 'B']}
+        nodeStyles={[{}, {}]}
+        nodeIcon={undefined}
+        nodeImage={undefined}
+      />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="text"]')!);
+    expect(onIconChange).toHaveBeenCalledWith(['A', 'B'], null);
+    expect(onImageChange).toHaveBeenCalledWith(['A', 'B'], null);
+  });
+
+  it('switch to Text on an all-plain selection is a no-op (no source rewrite)', () => {
+    const onIconChange = vi.fn();
+    const onImageChange = vi.fn();
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} onImageChange={onImageChange} nodeIcon={null} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="text"]')!);
+    expect(onIconChange).not.toHaveBeenCalled();
+    expect(onImageChange).not.toHaveBeenCalled();
+  });
+
+  it('switch to Icon on a plain selection writes NO scaffolding (empty state; picker picks in 39-05)', () => {
+    const onIconChange = vi.fn();
+    const onImageChange = vi.fn();
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} onImageChange={onImageChange} nodeIcon={null} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="icon"]')!);
+    expect(onIconChange).not.toHaveBeenCalled();
+    expect(onImageChange).not.toHaveBeenCalled();
+    // Empty state: the declared CTA copy shows in the opened tab body.
+    expect(screen.getByText('Choose an icon…')).toBeInTheDocument();
+  });
+
+  it('icon param rows: Form renders exactly the 12.3 enums and marks the active one', () => {
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={ICON_A} nodeImage={null} />,
+    );
+    expect(container.querySelector('[data-icon-form="square"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelector('[data-icon-form="circle"]')).not.toBeNull();
+    expect(container.querySelector('[data-icon-form="rounded"]')).not.toBeNull();
+    expect(screen.getByText('Square')).toBeInTheDocument();
+    expect(screen.getByText('Circle')).toBeInTheDocument();
+    expect(screen.getByText('Rounded')).toBeInTheDocument();
+  });
+
+  it('icon param rows: Position marks the parsed pos; W shows the parsed value, H empty shows the Auto placeholder', () => {
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={ICON_A} nodeImage={null} />,
+    );
+    expect(container.querySelector('[data-icon-pos="t"]')!.getAttribute('aria-pressed')).toBe('true');
+    expect(container.querySelector('[data-icon-pos="b"]')!.getAttribute('aria-pressed')).toBe('false');
+    const w = container.querySelector('[data-icon-w]') as HTMLInputElement;
+    const h = container.querySelector('[data-icon-h]') as HTMLInputElement;
+    expect(w.value).toBe('80');
+    expect(h.value).toBe('');
+    expect(h.placeholder).toBe('Auto');
+  });
+
+  it('the picked name truncates with the full value as its accessible title (iconChangeHint)', () => {
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={ICON_A} nodeImage={null} />,
+    );
+    const trigger = container.querySelector('[data-icon-trigger]') as HTMLElement;
+    expect(trigger.getAttribute('title')).toBe('Set icon: fa:user');
+    expect(trigger.getAttribute('aria-label')).toBe('Set icon: fa:user');
+    expect(trigger.textContent).toContain('fa:user');
+  });
+
+  it('empty W input emits the config without w (param omitted on emit)', () => {
+    const onIconChange = vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>();
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} nodeIcon={ICON_A} nodeImage={null} />,
+    );
+    const w = container.querySelector('[data-icon-w]') as HTMLInputElement;
+    fireEvent.change(w, { target: { value: '' } });
+    expect(onIconChange).toHaveBeenCalledTimes(1);
+    const emitted = onIconChange.mock.calls[0][1] as IconConfig;
+    expect(emitted).not.toHaveProperty('w');
+    expect(emitted.h).toBeUndefined();
+    expect(emitted.icon).toBe('fa:user');
+    expect(emitted.form).toBe('square');
+  });
+
+  it('a numeric W entry emits through the mutator; invalid and negative entries are ignored (no emit)', () => {
+    const onIconChange = vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>();
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} nodeIcon={ICON_A} nodeImage={null} />,
+    );
+    const h = container.querySelector('[data-icon-h]') as HTMLInputElement;
+    fireEvent.change(h, { target: { value: '99.5' } });
+    expect(onIconChange).toHaveBeenCalledTimes(1);
+    expect((onIconChange.mock.calls[0][1] as IconConfig).h).toBe(99.5);
+
+    onIconChange.mockClear();
+    fireEvent.change(h, { target: { value: 'abc' } });
+    fireEvent.change(h, { target: { value: '-5' } });
+    expect(onIconChange).not.toHaveBeenCalled();
+  });
+
+  it('Remove icon clears the params through the mutator with danger styling and no confirmation dialog', () => {
+    const onIconChange = vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>();
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} nodeIcon={ICON_A} nodeImage={null} />,
+    );
+    const remove = container.querySelector('[data-icon-remove]') as HTMLElement;
+    expect(remove.style.color).toBe('var(--danger)');
+    fireEvent.click(remove);
+    expect(onIconChange).toHaveBeenCalledTimes(1);
+    expect(onIconChange).toHaveBeenCalledWith(['A'], null);
+  });
+
+  it('a Form segment pick composes the next config from the parsed data and emits it', () => {
+    const onIconChange = vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>();
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} nodeIcon={ICON_A} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-icon-form="circle"]')!);
+    expect(onIconChange).toHaveBeenCalledTimes(1);
+    expect(onIconChange).toHaveBeenCalledWith(['A'], { ...ICON_A, form: 'circle' });
   });
 });
