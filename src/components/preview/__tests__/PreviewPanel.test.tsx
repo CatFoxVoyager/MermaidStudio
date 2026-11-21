@@ -210,10 +210,8 @@ describe('PreviewPanel Component', () => {
       const zoomInButton = container.querySelector('button[title="Zoom in"]');
       expect(zoomInButton).toBeInTheDocument();
 
-      if (zoomInButton) {
-        fireEvent.click(zoomInButton);
-        // Zoom level should increase (we can't easily check the state without access to it)
-      }
+      fireEvent.click(zoomInButton!);
+      // Zoom level should increase (we can't easily check the state without access to it)
     });
 
     it('should zoom out when zoom out button clicked', async () => {
@@ -227,10 +225,8 @@ describe('PreviewPanel Component', () => {
       const zoomOutButton = container.querySelector('button[title="Zoom out"]');
       expect(zoomOutButton).toBeInTheDocument();
 
-      if (zoomOutButton) {
-        fireEvent.click(zoomOutButton);
-        // Zoom level should decrease
-      }
+      fireEvent.click(zoomOutButton!);
+      // Zoom level should decrease
     });
 
     it('should reset zoom when reset button clicked', async () => {
@@ -244,10 +240,8 @@ describe('PreviewPanel Component', () => {
       const resetButton = container.querySelector('button[title="Reset zoom"]');
       expect(resetButton).toBeInTheDocument();
 
-      if (resetButton) {
-        fireEvent.click(resetButton);
-        // Zoom should reset to 100%
-      }
+      fireEvent.click(resetButton!);
+      // Zoom should reset to 100%
     });
 
     it('should display current zoom percentage', async () => {
@@ -571,11 +565,9 @@ describe('PreviewPanel Component', () => {
       const fitButton = container.querySelector('button[data-testid="fit-button"]');
       expect(fitButton).toBeInTheDocument();
 
-      if (fitButton) {
-        fireEvent.click(fitButton);
-        // Zoom should be adjusted (we can't easily verify the exact value without accessing state)
-        // The test verifies the button is clickable without errors
-      }
+      fireEvent.click(fitButton!);
+      // Zoom should be adjusted (we can't easily verify the exact value without accessing state)
+      // The test verifies the button is clickable without errors
     });
   });
 
@@ -809,11 +801,9 @@ describe('PreviewPanel Component', () => {
       const canvas = container.querySelector('.preview-grid');
       expect(canvas).toBeInTheDocument();
 
-      if (canvas) {
-        // Simulate mouse down event
-        fireEvent.mouseDown(canvas, { button: 0 });
-        // Should not throw any errors
-      }
+      // Simulate mouse down event
+      fireEvent.mouseDown(canvas!, { button: 0 });
+      // Should not throw any errors
     });
 
     it('should handle drag over on canvas', async () => {
@@ -827,13 +817,11 @@ describe('PreviewPanel Component', () => {
       const canvas = container.querySelector('.preview-grid');
       expect(canvas).toBeInTheDocument();
 
-      if (canvas) {
-        // Simulate drag over event
-        const dragOverEvent = new Event('dragOver', { bubbles: true });
-        Object.assign(dragOverEvent, { preventDefault: vi.fn() });
-        canvas.dispatchEvent(dragOverEvent);
-        // Should not throw any errors
-      }
+      // Simulate drag over event
+      const dragOverEvent = new Event('dragOver', { bubbles: true });
+      Object.assign(dragOverEvent, { preventDefault: vi.fn() });
+      canvas!.dispatchEvent(dragOverEvent);
+      // Should not throw any errors
     });
   });
 
@@ -907,14 +895,12 @@ describe('PreviewPanel Component', () => {
       });
 
       const zoomInButton = container.querySelector('button[title="Zoom in"]');
-      if (zoomInButton) {
-        fireEvent.click(zoomInButton);
+      expect(zoomInButton).toBeInTheDocument();
+      fireEvent.click(zoomInButton!);
 
-        const zoomDisplay = container.querySelector('.text-xs.w-8');
-        if (zoomDisplay) {
-          expect(zoomDisplay.textContent).toBe('125%');
-        }
-      }
+      const zoomDisplay = container.querySelector('.text-xs.w-8');
+      expect(zoomDisplay).toBeInTheDocument();
+      expect(zoomDisplay!.textContent).toBe('125%');
     });
 
     it('should update zoom percentage when zooming out', async () => {
@@ -926,14 +912,12 @@ describe('PreviewPanel Component', () => {
       });
 
       const zoomOutButton = container.querySelector('button[title="Zoom out"]');
-      if (zoomOutButton) {
-        fireEvent.click(zoomOutButton);
+      expect(zoomOutButton).toBeInTheDocument();
+      fireEvent.click(zoomOutButton!);
 
-        const zoomDisplay = container.querySelector('.text-xs.w-8');
-        if (zoomDisplay) {
-          expect(zoomDisplay.textContent).toBe('75%');
-        }
-      }
+      const zoomDisplay = container.querySelector('.text-xs.w-8');
+      expect(zoomDisplay).toBeInTheDocument();
+      expect(zoomDisplay!.textContent).toBe('75%');
     });
 
     it('should reset zoom percentage when reset button clicked', async () => {
@@ -945,20 +929,19 @@ describe('PreviewPanel Component', () => {
       });
 
       const zoomInButton = container.querySelector('button[title="Zoom in"]');
+      expect(zoomInButton).toBeInTheDocument();
       const resetButton = container.querySelector('button[title="Reset zoom"]');
+      expect(resetButton).toBeInTheDocument();
 
-      if (zoomInButton && resetButton) {
-        // First zoom in
-        fireEvent.click(zoomInButton);
+      // First zoom in
+      fireEvent.click(zoomInButton!);
 
-        // Then reset
-        fireEvent.click(resetButton);
+      // Then reset
+      fireEvent.click(resetButton!);
 
-        const zoomDisplay = container.querySelector('.text-xs.w-8');
-        if (zoomDisplay) {
-          expect(zoomDisplay.textContent).toBe('100%');
-        }
-      }
+      const zoomDisplay = container.querySelector('.text-xs.w-8');
+      expect(zoomDisplay).toBeInTheDocument();
+      expect(zoomDisplay!.textContent).toBe('100%');
     });
   });
 
