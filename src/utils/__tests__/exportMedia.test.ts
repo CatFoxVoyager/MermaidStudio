@@ -40,12 +40,39 @@ describe('fetchImagesAsDataUris', () => {
     vi.restoreAllMocks();
   });
 
-  // Minimal structural Response double: production touches ok/status/blob.
+  // Structural Response double — SUPERSET on purpose (39-REVIEW WR-02):
+  // production reads headers + arrayBuffer (the validated bytes path);
+  // `blob` is retained so the pre-fix FileReader path stays exercisable when
+  // re-proving the RED bite of the Content-Type pins.
   type ResponseLike = {
     ok: boolean;
     status: number;
     blob: () => Promise<Blob>;
+    headers: { get: (name: string) => string | null };
+    arrayBuffer: () => Promise<ArrayBuffer>;
   };
+
+  function responseDouble(opts: {
+    body?: string;
+    contentType?: string | null;
+    ok?: boolean;
+    status?: number;
+  }): ResponseLike {
+    const body = opts.body ?? '';
+    const contentType = opts.contentType === undefined ? 'image/png' : opts.contentType;
+    const blob = () =>
+      Promise.resolve(new Blob([body], { type: contentType ?? 'image/png' }));
+    return {
+      ok: opts.ok ?? true,
+      status: opts.status ?? 200,
+      blob,
+      headers: {
+        get: (name: string) =>
+          name.toLowerCase() === 'content-type' ? contentType : null,
+      },
+      arrayBuffer: () => blob().then(b => b.arrayBuffer()),
+    };
+  }
 
   function mockFetch(
     behavior: (url: string) => Promise<ResponseLike> | never
@@ -56,11 +83,7 @@ describe('fetchImagesAsDataUris', () => {
   it('converts successful fetches to data URIs', async () => {
     vi.stubGlobal(
       'fetch',
-      mockFetch(async () => ({
-        ok: true,
-        status: 200,
-        blob: async () => new Blob(['hello'], { type: 'image/png' }),
-      }))
+      mockFetch(async () => responseDouble({ body: 'hello' }))
     );
     const { replacements, failed } = await fetchImagesAsDataUris([
       'https://cdn.example.com/a.png',
@@ -75,7 +98,7 @@ describe('fetchImagesAsDataUris', () => {
   it('counts non-ok responses instead of throwing', async () => {
     vi.stubGlobal(
       'fetch',
-      mockFetch(async () => ({ ok: false, status: 403, blob: async () => new Blob() }))
+      mockFetch(async () => responseDouble({ ok: false, status: 403 }))
     );
     const { replacements, failed } = await fetchImagesAsDataUris([
       'https://cdn.example.com/a.png',
@@ -121,13 +144,9 @@ describe('fetchImagesAsDataUris', () => {
       'fetch',
       mockFetch(async url => {
         if (url.includes('blocked')) {
-          return { ok: false, status: 403, blob: async () => new Blob() };
+          return responseDouble({ ok: false, status: 403 });
         }
-        return {
-          ok: true,
-          status: 200,
-          blob: async () => new Blob(['ok'], { type: 'image/png' }),
-        };
+        return responseDouble({ body: 'ok' });
       })
     );
     const { replacements, failed } = await fetchImagesAsDataUris([
@@ -138,5 +157,82 @@ describe('fetchImagesAsDataUris', () => {
     expect(replacements.get('https://cdn.example.com/good.png')).toBe(
       'data:image/png;base64,' + btoa('ok')
     );
+  });
+
+  // 39-REVIEW WR-02: the emitted data URI's media type is the server's
+  // Content-Type header. A hostile header would break out of the href
+  // attribute during ExportModal's textual substitution, so the declared
+  // type must be validated against the raster allowlist before the URI is
+  // built — anything else is a counted failure, never interpolated.
+
+  it('counts a hostile Content-Type instead of emitting its header verbatim', async () => {
+    const hostile = 'image/png";evil="';
+    vi.stubGlobal(
+      'fetch',
+      mockFetch(async () => responseDouble({ body: 'hello', contentType: hostile }))
+    );
+    const { replacements, failed } = await fetchImagesAsDataUris([
+      'https://cdn.example.com/a.png',
+    ]);
+    expect(failed).toBe(1);
+    expect(replacements.size).toBe(0);
+  });
+
+  it('counts a missing Content-Type as a failure', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockFetch(async () => responseDouble({ body: 'hello', contentType: null }))
+    );
+    const { replacements, failed } = await fetchImagesAsDataUris([
+      'https://cdn.example.com/a.png',
+    ]);
+    expect(failed).toBe(1);
+    expect(replacements.size).toBe(0);
+  });
+
+  it('counts a non-raster Content-Type (svg+xml) as a failure', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockFetch(async () =>
+        responseDouble({ body: '<svg/>', contentType: 'image/svg+xml' })
+      )
+    );
+    const { replacements, failed } = await fetchImagesAsDataUris([
+      'https://cdn.example.com/a.svg',
+    ]);
+    expect(failed).toBe(1);
+    expect(replacements.size).toBe(0);
+  });
+
+  it('admits a Content-Type with parameters and emits the canonical URI', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockFetch(async () =>
+        responseDouble({ body: 'ok', contentType: 'image/png; charset=utf-8' })
+      )
+    );
+    const { replacements, failed } = await fetchImagesAsDataUris([
+      'https://cdn.example.com/a.png',
+    ]);
+    expect(failed).toBe(0);
+    expect(replacements.get('https://cdn.example.com/a.png')).toBe(
+      'data:image/png;base64,' + btoa('ok')
+    );
+  });
+
+  it('admits each remaining raster mime (jpeg, webp, gif) with its declared type', async () => {
+    for (const mime of ['image/jpeg', 'image/webp', 'image/gif'] as const) {
+      vi.stubGlobal(
+        'fetch',
+        mockFetch(async () => responseDouble({ body: 'x', contentType: mime }))
+      );
+      const { replacements, failed } = await fetchImagesAsDataUris([
+        'https://cdn.example.com/a',
+      ]);
+      expect(failed, mime).toBe(0);
+      expect(replacements.get('https://cdn.example.com/a')).toBe(
+        `data:${mime};base64,` + btoa('x')
+      );
+    }
   });
 });

@@ -4,7 +4,10 @@
  * Browsers forbid network subresource loads inside SVG-as-<img>, so external
  * `<image href="https://...">` refs render blank in the rasterized PNG even
  * when they show in the live DOM. Before rasterization the export collects
- * the external hrefs, fetches each one, and substitutes a data URI.
+ * the external hrefs, fetches each one, and substitutes a data URI built
+ * from the fetched bytes with a validated media type — the server's
+ * Content-Type header is only trusted after it matches the same raster
+ * allowlist the render path admits (39-REVIEW WR-02).
  *
  * Everything here is best-effort: fetch failures (CORS blocks, offline,
  * HTTP errors, timeouts) are COUNTED, never thrown — the export proceeds and
@@ -14,6 +17,18 @@
 const IMAGE_TAG_RE = /<image\b[^>]*>/gi;
 const IMAGE_HREF_ATTR_RE = /\b(?:xlink:href|href)\s*=\s*"([^"]*)"/gi;
 const HTTPS_URL_RE = /^https:\/\//i;
+/** The raster mime set an inlined data URI may declare (39-REVIEW WR-02). */
+const INLINE_MIME_RE = /^image\/(png|jpeg|webp|gif)$/;
+
+function base64FromArrayBuffer(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...Array.from(bytes.subarray(i, i + CHUNK)));
+  }
+  return btoa(binary);
+}
 
 /** Unique external https URLs found in <image> href/xlink:href attributes. */
 export function collectExternalImageHrefs(svg: string): string[] {
@@ -25,15 +40,6 @@ export function collectExternalImageHrefs(svg: string): string[] {
     }
   }
   return [...urls];
-}
-
-function blobToDataUri(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error('Failed to read image blob'));
-    reader.readAsDataURL(blob);
-  });
 }
 
 interface InlineFetchOptions {
@@ -59,7 +65,20 @@ async function fetchOneAsDataUri(url: string, timeoutMs: number): Promise<string
       (async () => {
         const response = await fetch(url, { signal: controller.signal, mode: 'cors' });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return blobToDataUri(await response.blob());
+        // The emitted media type must not ride the server-controlled
+        // Content-Type verbatim: a hostile header (`image/png";evil="`)
+        // would break out of the href attribute during the export's textual
+        // substitution. Validate the declared type against the same raster
+        // allowlist the render path admits, then build the URI from the
+        // fetched bytes (39-REVIEW WR-02).
+        const declared = (response.headers.get('content-type') || '')
+          .split(';')[0]
+          .trim()
+          .toLowerCase();
+        if (!INLINE_MIME_RE.test(declared)) {
+          throw new Error(`Non-raster image Content-Type: ${declared || '(none)'}`);
+        }
+        return `data:${declared};base64,${base64FromArrayBuffer(await response.arrayBuffer())}`;
       })(),
       new Promise<never>((_, reject) => {
         const raceTimer = setTimeout(
