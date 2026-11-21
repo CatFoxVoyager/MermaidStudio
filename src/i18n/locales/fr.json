@@ -222,7 +222,9 @@
     "copyEmbedCode": "Copier le code d'intégration",
     "copyEmbedDesc": "HTML prêt à coller avec script CDN",
     "copyShareLink": "Copier le lien de partage",
-    "copyShareLinkDesc": "Lien partageable encodé en URL"
+    "copyShareLinkDesc": "Lien partageable encodé en URL",
+    "stepNumbers": "Numéros d'étapes",
+    "stepNumbersDesc": "Graver les badges de numéros d'étapes dans le PNG exporté"
   },
   "backup": {
     "title": "Sauvegarde et importation",
@@ -578,7 +580,27 @@
     "dotted": "Pointillés",
     "labelFontSize": "Taille police du label",
     "labelFontWeight": "Graisse police du label",
-    "animate": "Animer"
+    "animate": "Animer",
+    "edgeId": "ID du lien",
+    "edgeIdPlaceholder": "ex. e1",
+    "linkLength": "Longueur du lien",
+    "animationSpeed": "Vitesse",
+    "animationFast": "Rapide",
+    "animationSlow": "Lent",
+    "step": "Étape",
+    "curve": "Courbe",
+    "curveDefault": "Par défaut",
+    "animatePreset": "Animer (préréglage)",
+    "animatePresetHint": "Ajoute un classDef avec animation de pointillés et l'applique à ce lien",
+    "arrowDottedOpen": "Pointillé simple (-.-)",
+    "arrowThickOpen": "Ligne épaisse (===)",
+    "arrowInvisible": "Invisible (~~~)",
+    "arrowBidirectionalDotted": "Bidirectionnel pointillé (<-.->)",
+    "arrowBidirectionalThick": "Bidirectionnel épais (<==>)",
+    "arrowCircleEnd": "Cercle final (--o)",
+    "arrowCircleStart": "Cercle initial (o--)",
+    "arrowCrossEnd": "Croix finale (--x)",
+    "arrowCrossStart": "Croix initiale (x--)"
   },
   "subgraphStyle": {
     "subgraphId": "ID du sous-graphe",
@@ -597,7 +619,10 @@
     "delete": "Supprimer",
     "solid": "Continu",
     "dashed": "Tirets",
-    "dotted": "Pointillés"
+    "dotted": "Pointillés",
+    "collapse": "Replier",
+    "expand": "Déplier",
+    "viewHint": "Bascule la directive view: collapsed du sous-graphe"
   },
   "fullscreen": {
     "title": "Aperçu en plein écran",
@@ -650,7 +675,16 @@
     "layoutElkStressDesc": "Mise en page dirigée par contraintes",
     "seqCurveNatural": "Naturel",
     "seqCurveBasis": "Base",
-    "seqCurveLinear": "Linéaire"
+    "seqCurveLinear": "Linéaire",
+    "curveBumpX": "Bump X",
+    "curveBumpY": "Bump Y",
+    "curveMonotoneX": "Monotone X",
+    "curveMonotoneY": "Monotone Y",
+    "curveNatural": "Naturelle",
+    "curveStep": "Palier",
+    "curveRounded": "Arrondi",
+    "stepDuration": "Durée des étapes",
+    "markdownAutoWrap": "Retour à la ligne Markdown"
   },
   "mermaidConfig": {
     "title": "Configuration du diagramme Mermaid",

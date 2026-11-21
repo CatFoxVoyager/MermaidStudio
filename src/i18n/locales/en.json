@@ -222,7 +222,9 @@
     "copyEmbedCode": "Copy Embed Code",
     "copyEmbedDesc": "Paste-ready HTML with CDN script",
     "copyShareLink": "Copy Share Link",
-    "copyShareLinkDesc": "URL-encoded shareable link"
+    "copyShareLinkDesc": "URL-encoded shareable link",
+    "stepNumbers": "Step numbers",
+    "stepNumbersDesc": "Freeze step-number badges into the exported PNG"
   },
   "backup": {
     "title": "Backup & Import",
@@ -575,7 +577,27 @@
     "dotted": "Dotted",
     "labelFontSize": "Label Font Size",
     "labelFontWeight": "Label Font Weight",
-    "animate": "Animate"
+    "animate": "Animate",
+    "edgeId": "Edge ID",
+    "edgeIdPlaceholder": "e.g. e1",
+    "linkLength": "Link length",
+    "animationSpeed": "Speed",
+    "animationFast": "Fast",
+    "animationSlow": "Slow",
+    "step": "Step",
+    "curve": "Curve",
+    "curveDefault": "Default",
+    "animatePreset": "Animate (preset)",
+    "animatePresetHint": "Adds a dash-animation classDef and applies it to this edge",
+    "arrowDottedOpen": "Dotted line (-.-)",
+    "arrowThickOpen": "Thick line (===)",
+    "arrowInvisible": "Invisible (~~~)",
+    "arrowBidirectionalDotted": "Bidirectional dotted (<-.->)",
+    "arrowBidirectionalThick": "Bidirectional thick (<==>)",
+    "arrowCircleEnd": "Circle end (--o)",
+    "arrowCircleStart": "Circle start (o--)",
+    "arrowCrossEnd": "Cross end (--x)",
+    "arrowCrossStart": "Cross start (x--)"
   },
   "subgraphStyle": {
     "subgraphId": "Subgraph ID",
@@ -594,7 +616,10 @@
     "delete": "Delete",
     "solid": "Solid",
     "dashed": "Dashed",
-    "dotted": "Dotted"
+    "dotted": "Dotted",
+    "collapse": "Collapse",
+    "expand": "Expand",
+    "viewHint": "Toggles the subgraph's view: collapsed directive"
   },
   "fullscreen": {
     "title": "Fullscreen Preview",
@@ -647,7 +672,16 @@
     "layoutElkStressDesc": "Force-directed stress layout",
     "seqCurveNatural": "Natural",
     "seqCurveBasis": "Basis",
-    "seqCurveLinear": "Linear"
+    "seqCurveLinear": "Linear",
+    "curveBumpX": "Bump X",
+    "curveBumpY": "Bump Y",
+    "curveMonotoneX": "Monotone X",
+    "curveMonotoneY": "Monotone Y",
+    "curveNatural": "Natural",
+    "curveStep": "Step",
+    "curveRounded": "Rounded",
+    "stepDuration": "Step duration",
+    "markdownAutoWrap": "Markdown auto-wrap"
   },
   "mermaidConfig": {
     "title": "Mermaid Diagram Configuration",
