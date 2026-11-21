@@ -1,4 +1,4 @@
-import type { NodeShape, NodeStyle, IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
+import type { NodeShape, NodeStyle, IconConfig, ImgConfig, EdgeMetadata } from '@/lib/mermaid/codeUtils';
 
 export type { NodeShape, NodeStyle };
 export type { IconConfig, ImgConfig };
@@ -27,6 +27,16 @@ export interface VisualEdge {
   target: string;
   arrowType: string;
   label: string;
+  /**
+   * 40-02 (EDGE-03): the parsed edge's bare 12.3 id, user-facing link length
+   * (omitted at 1) and typed metadata — derived from parseDiagram's edge in
+   * VisualEditorCanvas's selectedEdge path (components never re-parse code
+   * strings; the locked 39 derivation rule). Writes route through the
+   * codeUtils mutators via the canvas handlers.
+   */
+  edgeId?: string;
+  length?: number;
+  metadata?: EdgeMetadata;
 }
 
 export interface SelectionState {

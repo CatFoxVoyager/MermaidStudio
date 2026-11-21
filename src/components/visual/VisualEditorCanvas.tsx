@@ -7,9 +7,10 @@ import {
   parseDiagram, updateNodeStyle, updateNodeLabel, updateNodeShape,
   addNode, removeNode, addEdge, generateNodeId, getNodeStyle,
   updateEdgeArrowType, updateEdgeLabel, removeEdge,
+  updateEdgeMetadata, updateEdgeId, applyEdgeAnimatePreset,
   bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg,
 } from '@/lib/mermaid/codeUtils';
-import type { ParsedDiagram, ParsedEdge, IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
+import type { ParsedDiagram, ParsedEdge, IconConfig, ImgConfig, EdgeMetadata } from '@/lib/mermaid/codeUtils';
 import { ShapeToolbar } from './ShapeToolbar';
 import { PropertiesPanel } from './PropertiesPanel';
 import type { NodeShape, NodeStyle, VisualNode, VisualEdge, SelectionState, ToolMode } from './types';
@@ -347,7 +348,18 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     if (!selection.edgeKey) {return null;}
     const [src, tgt] = selection.edgeKey.split('::');
     const edge = parsed.edges.find(e => e.source === src && e.target === tgt);
-    return edge ? { source: edge.source, target: edge.target, arrowType: edge.arrowType, label: edge.label } : null;
+    if (!edge) {return null; }
+    return {
+      source: edge.source,
+      target: edge.target,
+      arrowType: edge.arrowType,
+      label: edge.label,
+      // 40-02 (EDGE-03): the inspector rows read the parsed edge's id,
+      // length, and typed metadata — never a re-parse of code strings.
+      ...(edge.edgeId ? { edgeId: edge.edgeId } : {}),
+      ...(edge.length ? { length: edge.length } : {}),
+      ...(edge.metadata ? { metadata: edge.metadata } : {}),
+    };
   })();
 
   function handleNodePointerDown(e: React.PointerEvent, nodeId: string) {
@@ -713,12 +725,48 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   // ambiguity, which the inline regexes silently mishandled.
   function handleArrowChange(source: string, target: string, arrowType: string) {
     if (readOnly) {return;}
-    onChange(updateEdgeArrowType(content, source, target, arrowType));
+    // 40-02: the family switch preserves the selected edge's authored length
+    // (the length row owns length edits — picking a family never resets it).
+    const current = selectedEdge;
+    const length = current && current.source === source && current.target === target
+      ? (current.length ?? 1)
+      : 1;
+    onChange(updateEdgeArrowType(content, source, target, arrowType, length));
   }
 
   function handleEdgeLabelChange(source: string, target: string, label: string) {
     if (readOnly) {return;}
     onChange(updateEdgeLabel(content, source, target, label));
+  }
+
+  // 40-02 (EDGE-03): the inspector's edge-row delegates — the ONLY write
+  // paths are the codeUtils mutators (one vocabulary, like the 38-03 rule).
+  function handleEdgeMetaChange(meta: EdgeMetadata) {
+    if (readOnly) {return;}
+    const edge = selectedEdge;
+    if (!edge?.edgeId) {return;}
+    onChange(updateEdgeMetadata(content, edge.edgeId, meta));
+  }
+
+  function handleEdgeIdChange(newId: string) {
+    if (readOnly) {return;}
+    const edge = selectedEdge;
+    if (!edge?.edgeId) {return;}
+    onChange(updateEdgeId(content, edge.edgeId, newId));
+  }
+
+  function handleEdgeLengthChange(token: string, length: number) {
+    if (readOnly) {return;}
+    const edge = selectedEdge;
+    if (!edge) {return;}
+    onChange(updateEdgeArrowType(content, edge.source, edge.target, token, length));
+  }
+
+  function handleAnimatePreset() {
+    if (readOnly) {return;}
+    const edge = selectedEdge;
+    if (!edge) {return;}
+    onChange(applyEdgeAnimatePreset(content, edge.source, edge.target));
   }
 
   function handleDeleteEdge(source: string, target: string) {
@@ -960,6 +1008,10 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
               onArrowChange={handleArrowChange}
               onEdgeLabelChange={handleEdgeLabelChange}
               onDeleteEdge={handleDeleteEdge}
+              onEdgeMetaChange={handleEdgeMetaChange}
+              onEdgeIdChange={handleEdgeIdChange}
+              onEdgeLengthChange={handleEdgeLengthChange}
+              onAnimatePreset={handleAnimatePreset}
             />
           </div>
         )}

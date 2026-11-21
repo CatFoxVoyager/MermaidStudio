@@ -15,7 +15,8 @@ import type { ShapePickerAnchor } from '@/components/shared/ShapePicker';
 // the hardcoded-EN local ARROW_OPTIONS (which carried the Sequence-only
 // double-arrow entry) is deleted; this panel and EdgeStylePanel consume the
 // same const (Grey Area 9).
-import { EDGE_ARROW_OPTIONS, extraArrowOption } from '@/components/shared/edgeArrowOptions';
+import { EDGE_ARROW_OPTIONS, EDGE_CURVE_OPTIONS, extraArrowOption } from '@/components/shared/edgeArrowOptions';
+import type { EdgeMetadata } from '@/lib/mermaid/codeUtils';
 // 39-05 Task 3 (ICON-03, Surface 2): the lazy FA6 picker mounts from the
 // icon trigger — the fixed-position sibling recipe, never a nested popover.
 import { IconPicker } from '@/components/shared/IconPicker';
@@ -851,21 +852,78 @@ interface EdgePanelProps {
   onArrowChange: (source: string, target: string, arrowType: string) => void;
   onLabelChange: (source: string, target: string, label: string) => void;
   onDeleteEdge: (source: string, target: string) => void;
+  /**
+   * 40-02 (EDGE-03): the edge-inspector row delegates — identical semantics
+   * to EdgeStylePanel's optional props (39-04 contract: absent props hide the
+   * rows and keep existing callers byte-identical). This panel has no
+   * .style-panel class, so every new control carries the explicit
+   * `max-md:min-h-[44px]` touch floor.
+   */
+  edgeMeta?: EdgeMetadata | null;
+  onEdgeMetaChange?: (meta: EdgeMetadata) => void;
+  onEdgeIdChange?: (newId: string) => void;
+  onEdgeLengthChange?: (token: string, length: number) => void;
+  onAnimatePreset?: () => void;
 }
 
-function EdgePanel({ edge, onArrowChange, onLabelChange, onDeleteEdge }: EdgePanelProps)  {
+function EdgePanel({
+  edge, onArrowChange, onLabelChange, onDeleteEdge,
+  edgeMeta, onEdgeMetaChange, onEdgeIdChange, onEdgeLengthChange, onAnimatePreset,
+}: EdgePanelProps)  {
   const { t } = useTranslation();
   const [label, setLabel] = useState(edge.label);
 
   // Sync label when edge changes
   useLayoutEffect(() => { setLabel(edge.label); }, [edge.label]);
 
+  // 40-02: the length row's min attribute follows the selected family's
+  // minimum (the circle/cross start tokens are probe-invalid below it).
+  const lengthOption = EDGE_ARROW_OPTIONS.find(opt => opt.value === edge.arrowType);
+  const minLen = lengthOption?.minimumLength ?? 1;
+  const typedMeta = edgeMeta ?? edge.metadata ?? null;
+
+  const commitStep = (raw: string) => {
+    if (!onEdgeMetaChange) {return; }
+    if (raw === '') {
+      const { step: _drop, ...rest } = typedMeta ?? {};
+      onEdgeMetaChange(rest);
+      return;
+    }
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < 1) {return; }
+    onEdgeMetaChange({ ...(typedMeta ?? {}), step: n });
+  };
+
+  const commitCurve = (raw: string) => {
+    if (!onEdgeMetaChange) {return; }
+    if (raw === '') {
+      const { curve: _drop, ...rest } = typedMeta ?? {};
+      onEdgeMetaChange(rest);
+      return;
+    }
+    onEdgeMetaChange({ ...(typedMeta ?? {}), curve: raw });
+  };
+
+  const commitSpeed = (speed: 'fast' | 'slow') => {
+    if (!onEdgeMetaChange) {return; }
+    if (typedMeta?.animation === speed) {
+      const { animation: _drop, ...rest } = typedMeta;
+      onEdgeMetaChange(rest);
+      return;
+    }
+    onEdgeMetaChange({ ...(typedMeta ?? {}), animation: speed });
+  };
+
+  const inputStyle = { background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)', outline: 'none' } as const;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('edgeStyle.connection')}</span>
-        <div className="text-xs px-2.5 py-2 rounded-md border font-mono" style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
-          {edge.source} → {edge.target}
+        {/* 40-02 (UI-SPEC Surface 7 item 2): an authored edge id prefixes the
+            connection row in mono — `e1 · A → B`. */}
+        <div className="text-xs px-2.5 py-2 rounded-md border font-mono truncate" style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}>
+          {edge.edgeId ? `${edge.edgeId} · ` : ''}{edge.source} → {edge.target}
         </div>
       </div>
 
@@ -875,8 +933,8 @@ function EdgePanel({ edge, onArrowChange, onLabelChange, onDeleteEdge }: EdgePan
           <select
             value={edge.arrowType}
             onChange={e => onArrowChange(edge.source, edge.target, e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded-md border text-xs appearance-none pr-8"
-            style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)', outline: 'none' }}>
+            className="w-full px-2.5 py-1.5 rounded-md border text-xs appearance-none pr-8 max-md:min-h-[44px]"
+            style={{ ...inputStyle }}>
             {EDGE_ARROW_OPTIONS.map(opt => (
               <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
             ))}
@@ -900,9 +958,125 @@ function EdgePanel({ edge, onArrowChange, onLabelChange, onDeleteEdge }: EdgePan
           onBlur={() => onLabelChange(edge.source, edge.target, label)}
           onKeyDown={e => { if (e.key === 'Enter') {onLabelChange(edge.source, edge.target, label);} }}
           className="w-full px-2.5 py-1.5 rounded-md border text-xs"
-          style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)', outline: 'none' }}
+          style={{ ...inputStyle }}
         />
       </div>
+
+      {onEdgeIdChange && (
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('edgeStyle.edgeId')}</span>
+          <input
+            type="text"
+            value={edge.edgeId ?? ''}
+            placeholder={t('edgeStyle.edgeIdPlaceholder')}
+            onChange={e => onEdgeIdChange(e.target.value)}
+            data-edge-id-input
+            className="w-full px-2.5 py-1.5 rounded-md border text-xs font-mono max-md:min-h-[44px]"
+            style={{ ...inputStyle }}
+          />
+        </div>
+      )}
+
+      {onEdgeLengthChange && (
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('edgeStyle.linkLength')}</span>
+          {/* DISPLAYED value = the parsed authored length verbatim (authored
+              5..10 never clamp); clamping applies only to NEWLY TYPED input
+              (UI-SPEC Grey Area 4). */}
+          <input
+            type="number"
+            min={minLen}
+            max={4}
+            value={edge.length ?? 1}
+            onChange={e => {
+              const n = Number(e.target.value);
+              if (Number.isNaN(n)) {return; }
+              onEdgeLengthChange(edge.arrowType, Math.min(4, Math.max(minLen, n)));
+            }}
+            data-edge-length-input
+            className="w-full px-2.5 py-1.5 rounded-md border text-xs font-mono max-md:min-h-[44px]"
+            style={{ ...inputStyle }}
+          />
+        </div>
+      )}
+
+      {onEdgeMetaChange && (
+        <>
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('edgeStyle.animationSpeed')}</span>
+            {/* Independent of the Animate toggle (Grey Area 5 — mermaid
+                renders animation: standalone). Active segment = accent. */}
+            <div className="grid grid-cols-2 gap-1">
+              {(['fast', 'slow'] as const).map(speed => {
+                const isActive = typedMeta?.animation === speed;
+                return (
+                  <button
+                    key={speed}
+                    onClick={() => commitSpeed(speed)}
+                    data-edge-speed={speed}
+                    className={`py-1.5 rounded-md border text-[11px] font-medium transition-all max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                    style={{
+                      borderColor: isActive ? 'var(--accent)' : 'var(--border-subtle)',
+                      background: isActive ? 'var(--accent-dim)' : 'var(--surface-base)',
+                      color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                    }}>
+                    {t(speed === 'fast' ? 'edgeStyle.animationFast' : 'edgeStyle.animationSlow')}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('edgeStyle.step')}</span>
+            {/* Integers only; non-numeric input ignored on commit; empty =
+                param omitted (UI-SPEC Surface 2). */}
+            <input
+              type="number"
+              min={1}
+              value={typedMeta?.step ?? ''}
+              onChange={e => commitStep(e.target.value)}
+              data-edge-step-input
+              className="w-full px-2.5 py-1.5 rounded-md border text-xs font-mono max-md:min-h-[44px]"
+              style={{ ...inputStyle }}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('edgeStyle.curve')}</span>
+            {/* Leading Default option = param omitted (Grey Area 8); then
+                the 13 mermaid values in config-union order. */}
+            <select
+              value={typedMeta?.curve ?? ''}
+              onChange={e => commitCurve(e.target.value)}
+              data-edge-curve-select
+              className="w-full px-2.5 py-1.5 rounded-md border text-xs appearance-none pr-8 max-md:min-h-[44px]"
+              style={{ ...inputStyle }}>
+              <option value="">{t('edgeStyle.curveDefault')}</option>
+              {EDGE_CURVE_OPTIONS.map(cv => (
+                <option key={cv.value} value={cv.value}>{t(cv.labelKey)}</option>
+              ))}
+            </select>
+          </div>
+        </>
+      )}
+
+      {onAnimatePreset && (
+        <button
+          onClick={onAnimatePreset}
+          title={t('edgeStyle.animatePresetHint')}
+          aria-label={t('edgeStyle.animatePresetHint')}
+          data-edge-animate-preset
+          className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-medium transition-colors max-md:min-h-[44px]"
+          style={{
+            background: 'var(--accent-dim)',
+            color: 'var(--accent)',
+            border: '1px solid var(--accent)',
+          }}>
+          <Zap size={11} className="shrink-0" />
+          <span className="truncate">{t('edgeStyle.animatePreset')}</span>
+        </button>
+      )}
 
       <button
         onClick={() => onDeleteEdge(edge.source, edge.target)}
@@ -927,6 +1101,12 @@ interface Props {
   onArrowChange: (source: string, target: string, arrowType: string) => void;
   onEdgeLabelChange: (source: string, target: string, label: string) => void;
   onDeleteEdge: (source: string, target: string) => void;
+  /** 40-02 (EDGE-03): absent props hide the edge-row set (39-04 contract). */
+  edgeMeta?: EdgeMetadata | null;
+  onEdgeMetaChange?: (meta: EdgeMetadata) => void;
+  onEdgeIdChange?: (newId: string) => void;
+  onEdgeLengthChange?: (token: string, length: number) => void;
+  onAnimatePreset?: () => void;
 }
 
 export function PropertiesPanel({
@@ -934,6 +1114,7 @@ export function PropertiesPanel({
   onLabelChange, onShapeChange, onStyleChange,
   nodeIcon, nodeImage, onIconChange, onImageChange,
   onArrowChange, onEdgeLabelChange, onDeleteEdge,
+  edgeMeta, onEdgeMetaChange, onEdgeIdChange, onEdgeLengthChange, onAnimatePreset,
 }: Props) {
   const hasNode = selectedNodes.length > 0;
   const hasEdge = !!selectedEdge;
@@ -979,6 +1160,11 @@ export function PropertiesPanel({
             onArrowChange={onArrowChange}
             onLabelChange={onEdgeLabelChange}
             onDeleteEdge={onDeleteEdge}
+            edgeMeta={edgeMeta ?? selectedEdge.metadata ?? null}
+            onEdgeMetaChange={onEdgeMetaChange}
+            onEdgeIdChange={onEdgeIdChange}
+            onEdgeLengthChange={onEdgeLengthChange}
+            onAnimatePreset={onAnimatePreset}
           />
         ) : null}
       </div>

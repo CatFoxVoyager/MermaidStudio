@@ -9,7 +9,7 @@ import { getThemeById } from '@/constants/themes';
 import { sanitizeCssValue } from '@/utils/sanitization';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import { buildSvgToParsedEdgeMap } from '@/utils/svgEdgeMatching';
-import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, updateEdgeMetadata, parseLinkStyles, edgeStyleToString, updateNodeStyle, updateNodeShape, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg } from '@/lib/mermaid/codeUtils';
+import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, updateEdgeMetadata, updateEdgeId, applyEdgeAnimatePreset, parseLinkStyles, edgeStyleToString, updateNodeStyle, updateNodeShape, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, EdgeMetadata, ParsedEdge, NodeShape, PresetType, PresetColors, IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
 import { EdgeStylePanel } from './EdgeStylePanel';
@@ -1118,9 +1118,15 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const handleEdgeArrowChange = useCallback((source: string, target: string, arrowType: string) => {
     if (!onChange) return;
     if (bodyHasMetadata) return; // D6 fence
-    const result = updateEdgeArrowType(content, source, target, arrowType);
+    // 40-02: the family switch preserves the selected edge's authored length
+    // (the length row owns length edits).
+    const edge = parsedEdges[selectedEdgeIndex ?? -1];
+    const length = edge && edge.source === source && edge.target === target
+      ? (edge.length ?? 1)
+      : 1;
+    const result = updateEdgeArrowType(content, source, target, arrowType, length);
     onChange(result);
-  }, [onChange, content, bodyHasMetadata]);
+  }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
 
   // 40-01 (EDGE-02 tracer): Animate toggle delegate — derives the new
   // metadata from the PARSED edge (components never re-parse code strings)
@@ -1135,6 +1141,44 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     const { unknownParams: _fenced, ...typed } = edge.metadata ?? {};
     const result = updateEdgeMetadata(content, edge.edgeId, { ...typed, animate });
     onChange(result);
+  }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
+
+  // 40-02 (EDGE-03): the remaining inspector-row delegates — the same gating
+  // and parse-derived shape as the Animate tracer above. Length edits ride
+  // the length-aware updateEdgeArrowType (family token + new length); the
+  // preset routes through applyEdgeAnimatePreset (auto id + idempotent).
+  const handleEdgeMetaChange = useCallback((meta: EdgeMetadata) => {
+    if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
+    const edge = parsedEdges[selectedEdgeIndex ?? -1];
+    if (!edge?.edgeId) return;
+    onChange(updateEdgeMetadata(content, edge.edgeId, meta));
+  }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
+
+  const handleEdgeIdChange = useCallback((newId: string) => {
+    if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
+    const edge = parsedEdges[selectedEdgeIndex ?? -1];
+    if (!edge?.edgeId) return;
+    onChange(updateEdgeId(content, edge.edgeId, newId));
+  }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
+
+  const handleEdgeLengthChange = useCallback((token: string, length: number) => {
+    if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
+    const edge = parsedEdges[selectedEdgeIndex ?? -1];
+    if (!edge) return;
+    // a family switch elsewhere keeps the authored length; a length edit
+    // writes through this delegate only
+    onChange(updateEdgeArrowType(content, edge.source, edge.target, token, length));
+  }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
+
+  const handleAnimatePreset = useCallback(() => {
+    if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
+    const edge = parsedEdges[selectedEdgeIndex ?? -1];
+    if (!edge) return;
+    onChange(applyEdgeAnimatePreset(content, edge.source, edge.target));
   }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
 
   // Node label change handler
@@ -1778,6 +1822,10 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           edgeStyle={parsedLinkStyles.get(selectedEdgeIndex) ?? {}}
           edgeMeta={parsedEdges[selectedEdgeIndex].metadata ?? null}
           onAnimateChange={handleEdgeAnimateChange}
+          onEdgeMetaChange={handleEdgeMetaChange}
+          onEdgeIdChange={handleEdgeIdChange}
+          onEdgeLengthChange={handleEdgeLengthChange}
+          onAnimatePreset={handleAnimatePreset}
           onClose={() => setSelectedEdgeIndex(null)}
           onArrowChange={handleEdgeArrowChange}
           onLabelChange={handleEdgeLabelChange}

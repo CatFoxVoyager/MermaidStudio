@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
-import { X, RotateCcw, ChevronDown, Settings2, Trash2 } from 'lucide-react';
+import { X, RotateCcw, ChevronDown, Settings2, Trash2, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
 // 40-02 (EDGE-01, UI-SPEC Surface 1): the ONE shared 16-token picker list —
 // this panel and PropertiesPanel's EdgePanel consume the same const (Grey
 // Area 9; no per-panel duplicate).
-import { EDGE_ARROW_OPTIONS, extraArrowOption } from '@/components/shared/edgeArrowOptions';
+import { EDGE_ARROW_OPTIONS, EDGE_CURVE_OPTIONS, extraArrowOption } from '@/components/shared/edgeArrowOptions';
 import type { EdgeStyle, EdgeMetadata, ParsedEdge } from '@/lib/mermaid/codeUtils';
 
 interface EdgeStylePanelProps {
@@ -31,6 +31,14 @@ interface EdgeStylePanelProps {
    * absent props keep existing callers byte-identical (39-04 pattern).
    */
   onAnimateChange?: (animate: boolean) => void;
+  /**
+   * 40-02 (EDGE-03): the remaining inspector-row delegates — absent props
+   * hide their rows for existing callers (the 39-04 contract).
+   */
+  onEdgeMetaChange?: (meta: EdgeMetadata) => void;
+  onEdgeIdChange?: (newId: string) => void;
+  onEdgeLengthChange?: (token: string, length: number) => void;
+  onAnimatePreset?: () => void;
 }
 
 export function EdgeStylePanel({
@@ -45,6 +53,10 @@ export function EdgeStylePanel({
   onDelete,
   edgeMeta,
   onAnimateChange,
+  onEdgeMetaChange,
+  onEdgeIdChange,
+  onEdgeLengthChange,
+  onAnimatePreset,
 }: EdgeStylePanelProps) {
   const { t } = useTranslation();
   const [label, setLabel] = useState(edge.label);
@@ -88,6 +100,44 @@ export function EdgeStylePanel({
     },
     [edgeIndex, onStyleChange],
   );
+
+  // 40-02 (EDGE-03): the motion-row commit delegates — metadata writes
+  // compose from the PARSED metadata (never a re-parse of code strings).
+  const typedMeta = edgeMeta ?? null;
+  const commitStep = (raw: string) => {
+    if (!onEdgeMetaChange) {return; }
+    if (raw === '') {
+      const { step: _drop, ...rest } = typedMeta ?? {};
+      onEdgeMetaChange(rest);
+      return;
+    }
+    const n = Number(raw);
+    if (!Number.isInteger(n) || n < 1) {return; }
+    onEdgeMetaChange({ ...(typedMeta ?? {}), step: n });
+  };
+  const commitCurve = (raw: string) => {
+    if (!onEdgeMetaChange) {return; }
+    if (raw === '') {
+      const { curve: _drop, ...rest } = typedMeta ?? {};
+      onEdgeMetaChange(rest);
+      return;
+    }
+    onEdgeMetaChange({ ...(typedMeta ?? {}), curve: raw });
+  };
+  const commitSpeed = (speed: 'fast' | 'slow') => {
+    if (!onEdgeMetaChange) {return; }
+    if (typedMeta?.animation === speed) {
+      const { animation: _drop, ...rest } = typedMeta;
+      onEdgeMetaChange(rest);
+      return;
+    }
+    onEdgeMetaChange({ ...(typedMeta ?? {}), animation: speed });
+  };
+
+  // The length row's min attribute follows the selected family's minimum
+  // (the circle/cross start tokens are probe-invalid below it).
+  const lengthOption = EDGE_ARROW_OPTIONS.find(opt => opt.value === edge.arrowType);
+  const minLen = lengthOption?.minimumLength ?? 1;
 
   const parsePx = (v: string | undefined): number => parseInt(v?.replace('px', '') ?? '') || 0;
 
@@ -149,7 +199,9 @@ export function EdgeStylePanel({
               color: 'var(--text-secondary)',
             }}
           >
-            {edge.source} &rarr; {edge.target}
+            {/* 40-02 (UI-SPEC Surface 7 item 2): an authored edge id prefixes
+                the connection row in mono — `e1 · A → B` — in both panels. */}
+            {edge.edgeId ? `${edge.edgeId} · ` : ''}{edge.source} &rarr; {edge.target}
           </div>
         </div>
 
@@ -225,6 +277,69 @@ export function EdgeStylePanel({
             click routes through the parent to the updateEdgeMetadata
             mutator (the ExportModal w-9 h-5 pill-switch idiom, 40-UI-SPEC
             Surface 2). */}
+        {/* Edge ID (40-02 EDGE-03, Surface 2): single-line mono input; the
+            commit routes through updateEdgeId (rename + class-list rewrite).
+            Empty = no id — the mutator declines an invalid id so clearing
+            never destroys the anchor silently. */}
+        {onEdgeIdChange && (
+          <div className="flex flex-col gap-1">
+            <span
+              className="text-xs font-medium uppercase tracking-wider"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              {t('edgeStyle.edgeId')}
+            </span>
+            <input
+              type="text"
+              value={edge.edgeId ?? ''}
+              placeholder={t('edgeStyle.edgeIdPlaceholder')}
+              onChange={e => onEdgeIdChange(e.target.value)}
+              data-edge-id-input
+              className="w-full px-2.5 py-1.5 rounded-md border text-xs font-mono"
+              style={{
+                background: 'var(--surface-base)',
+                borderColor: 'var(--border-subtle)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+              }}
+            />
+          </div>
+        )}
+
+        {/* Link length (40-02 EDGE-03, Surface 2 / Grey Area 4): the DISPLAYED
+            value is the parsed authored length verbatim (authored 5..10 never
+            clamped); clamping applies only to NEWLY TYPED input. The min
+            attribute follows the family minimum. */}
+        {onEdgeLengthChange && (
+          <div className="flex flex-col gap-1">
+            <span
+              className="text-xs font-medium uppercase tracking-wider"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              {t('edgeStyle.linkLength')}
+            </span>
+            <input
+              type="number"
+              min={minLen}
+              max={4}
+              value={edge.length ?? 1}
+              onChange={e => {
+                const n = Number(e.target.value);
+                if (Number.isNaN(n)) {return; }
+                onEdgeLengthChange(edge.arrowType, Math.min(4, Math.max(minLen, n)));
+              }}
+              data-edge-length-input
+              className="w-full px-2.5 py-1.5 rounded-md border text-xs font-mono"
+              style={{
+                background: 'var(--surface-base)',
+                borderColor: 'var(--border-subtle)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+              }}
+            />
+          </div>
+        )}
+
         {onAnimateChange && (
           <div className="flex flex-col gap-1">
             <span
@@ -248,6 +363,121 @@ export function EdgeStylePanel({
               </div>
             </label>
           </div>
+        )}
+
+        {/* Speed (40-02 EDGE-03, Surface 2 / Grey Area 5): independent of the
+            Animate toggle — mermaid renders animation: standalone. Active
+            segment = accent (Color item 2). */}
+        {onEdgeMetaChange && (
+          <>
+            <div className="flex flex-col gap-1">
+              <span
+                className="text-xs font-medium uppercase tracking-wider"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                {t('edgeStyle.animationSpeed')}
+              </span>
+              <div className="grid grid-cols-2 gap-1">
+                {(['fast', 'slow'] as const).map(speed => {
+                  const isActive = typedMeta?.animation === speed;
+                  return (
+                    <button
+                      key={speed}
+                      onClick={() => commitSpeed(speed)}
+                      data-edge-speed={speed}
+                      className={`py-1.5 rounded-md border text-[11px] font-medium transition-all ${FOCUS_RING_CLASSES}`}
+                      style={{
+                        borderColor: isActive ? 'var(--accent)' : 'var(--border-subtle)',
+                        background: isActive ? 'var(--accent-dim)' : 'var(--surface-base)',
+                        color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      {t(speed === 'fast' ? 'edgeStyle.animationFast' : 'edgeStyle.animationSlow')}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Step (Surface 2): integers only — non-numeric input ignored on
+                commit; empty = param omitted. */}
+            <div className="flex flex-col gap-1">
+              <span
+                className="text-xs font-medium uppercase tracking-wider"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                {t('edgeStyle.step')}
+              </span>
+              <input
+                type="number"
+                min={1}
+                value={typedMeta?.step ?? ''}
+                onChange={e => commitStep(e.target.value)}
+                data-edge-step-input
+                className="w-full px-2.5 py-1.5 rounded-md border text-xs font-mono"
+                style={{
+                  background: 'var(--surface-base)',
+                  borderColor: 'var(--border-subtle)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            {/* Curve (Surface 2 / Grey Area 8): leading Default option = param
+                omitted, then the 13 mermaid values in config-union order. */}
+            <div className="flex flex-col gap-1">
+              <span
+                className="text-xs font-medium uppercase tracking-wider"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                {t('edgeStyle.curve')}
+              </span>
+              <div className="relative">
+                <select
+                  value={typedMeta?.curve ?? ''}
+                  onChange={e => commitCurve(e.target.value)}
+                  data-edge-curve-select
+                  className="w-full px-2.5 py-1.5 rounded-md border text-xs appearance-none pr-8"
+                  style={{
+                    background: 'var(--surface-base)',
+                    borderColor: 'var(--border-subtle)',
+                    color: 'var(--text-primary)',
+                    outline: 'none',
+                  }}
+                >
+                  <option value="">{t('edgeStyle.curveDefault')}</option>
+                  {EDGE_CURVE_OPTIONS.map(cv => (
+                    <option key={cv.value} value={cv.value}>{t(cv.labelKey)}</option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={11}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{ color: 'var(--text-tertiary)' }}
+                />
+              </div>
+            </div>
+
+          </>
+        )}
+
+        {onAnimatePreset && (
+          <button
+            onClick={onAnimatePreset}
+            title={t('edgeStyle.animatePresetHint')}
+            aria-label={t('edgeStyle.animatePresetHint')}
+            data-edge-animate-preset
+            className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-medium transition-colors"
+            style={{
+              background: 'var(--accent-dim)',
+              color: 'var(--accent)',
+              border: '1px solid var(--accent)',
+            }}
+          >
+            <Zap size={11} className="shrink-0" />
+            <span className="truncate">{t('edgeStyle.animatePreset')}</span>
+          </button>
         )}
 
         {/* Stroke Color */}

@@ -2136,6 +2136,152 @@ export function updateEdgeLabel(source: string, srcId: string, tgtId: string, ne
 }
 
 /**
+ * 40-02 (EDGE-03, T-40-04): rename (or relocate) one edge's bare 12.3 id.
+ * The `oldId@` token on the edge line is rewritten to `newId@` — the token
+ * abuts its hop arrow, so the splice position derives from the hop's arrow
+ * index — AND every whole-token reference inside `class` id lists and the
+ * `classDef` name position follows. A crafted id cannot splice extra class
+ * members: newId validates the mermaid-id charset and the class-list rewrite
+ * matches whole comma-split tokens only. Declines (returns source) on an
+ * invalid id, an unknown oldId, or the fenced amp + multi-hop shape.
+ */
+export function updateEdgeId(source: string, oldId: string, newId: string): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(newId)) {return source; }
+  if (oldId === newId) {return source; }
+  const lines = source.split('\n');
+  let renamed = false;
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (!trimmed.startsWith(oldId) && !ARROW_RE.test(trimmed)) {continue; }
+    const chain = matchEdgeChain(trimmed);
+    if (!chain || !chainCarriesEdgeId(chain, oldId)) {continue; }
+    if (chain.isAmp && chain.hops.length > 1) {return source; }
+    // locate the hop carrying the id and its token position
+    const hopIdx = chain.sourceEdgeId === oldId
+      ? 0
+      : chain.hops.findIndex(h => h.edgeId === oldId);
+    if (hopIdx === -1) {continue; }
+    const hop = chain.hops[hopIdx];
+    const indent = lines[i].match(/^\s*/)?.[0] ?? '';
+    const tokenStart = indent.length + hop.arrowIndex - (oldId.length + 1);
+    lines[i] = lines[i].slice(0, tokenStart) + `${newId}@` + lines[i].slice(tokenStart + oldId.length + 1);
+    renamed = true;
+    break;
+  }
+  if (!renamed) {return source; }
+  // whole-token references in class id lists + the classDef name position —
+  // AND the standalone `oldId@{...}` metadata lines cascade with the rename
+  // (a rename that orphaned them would silently detach the edge's motion
+  // settings — the same ghost-footprint rule the 38-03 delete cascade fixed).
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    const metaMatch = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*)(@\{.*\})$/);
+    if (metaMatch && metaMatch[1] === oldId) {
+      const indent = lines[i].match(/^\s*/)?.[0] ?? '';
+      lines[i] = `${indent}${newId}${metaMatch[2]}`;
+      continue;
+    }
+    const classMatch = trimmed.match(/^class\s+([A-Za-z0-9_,\s-]+?)\s+(\S+)\s*$/);
+    if (classMatch) {
+      const ids = classMatch[1].split(',').map(id => id.trim());
+      if (ids.includes(oldId)) {
+        const indent = lines[i].match(/^\s*/)?.[0] ?? '';
+        const next = ids.map(id => (id === oldId ? newId : id)).join(',');
+        lines[i] = `${indent}class ${next} ${classMatch[2]}`;
+      }
+      continue;
+    }
+    const defMatch = trimmed.match(/^classDef\s+([A-Za-z_][A-Za-z0-9_-]*)(\s+.*$)/);
+    if (defMatch && defMatch[1] === oldId) {
+      const indent = lines[i].match(/^\s*/)?.[0] ?? '';
+      lines[i] = `${indent}classDef ${newId}${defMatch[2]}`;
+    }
+  }
+  return lines.join('\n');
+}
+
+/**
+ * 40-02 (EDGE-03): the lowest free `e<n>` across the parsed edges' bare ids —
+ * generateNodeId's naming idiom applied to the edge-id namespace.
+ */
+export function generateEdgeId(source: string): string {
+  const taken = new Set<string>();
+  for (const edge of parseDiagram(source).edges) {
+    if (edge.edgeId) {taken.add(edge.edgeId); }
+  }
+  let i = 1;
+  while (taken.has(`e${i}`)) {i++; }
+  return `e${i}`;
+}
+
+/** The preset's planner-owned classDef CSS (40-UI-SPEC Surface 3) — mermaid
+ * marks an edge animated when its applied class carries `animation` (styles
+ * route, chunk-DQASFODM.mjs:1378); the comma-separated declarations carry no
+ * value commas, so no escaping is needed. */
+const ANIMATE_PRESET_CLASS = 'eDashAnim';
+const ANIMATE_PRESET_CLASSDEF = `classDef ${ANIMATE_PRESET_CLASS} stroke-dasharray: 5 5, animation: dash 1s linear infinite;`;
+
+/**
+ * 40-02 (EDGE-03): the 1-click animate preset. Assigns the next free edge id
+ * when the pair's hop carries none (one click, never two), then emits the
+ * fixed `classDef eDashAnim …` statement (once — present-checked against the
+ * source) plus the `class <id> eDashAnim` statement targeting THIS edge.
+ * Idempotent: a second click emits nothing new. Declines on the fenced
+ * amp + multi-hop shape. Statements insert strictly after the edge
+ * declaration line (the updateEdgeMetadata emission rule).
+ */
+export function applyEdgeAnimatePreset(source: string, srcId: string, tgtId: string): string {
+  const lines = source.split('\n');
+  let edgeIdx = -1;
+  let hopEdgeId = '';
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    const chain = matchEdgeChain(trimmed);
+    if (!chain) {continue; }
+    const hopIdx = findHopIndex(chain, srcId, tgtId);
+    if (hopIdx === -1) {continue; }
+    if (chain.isAmp && chain.hops.length > 1) {return source; }
+    const hop = chain.hops[hopIdx];
+    edgeIdx = i;
+    hopEdgeId = hop.edgeId || chain.sourceEdgeId;
+    if (!hopEdgeId) {
+      // assign the next free id: insert `e<n>@` immediately before the hop's
+      // arrow (a space pads glued forms so the id never merges the source)
+      const newId = generateEdgeId(source);
+      const indent = lines[i].match(/^\s*/)?.[0] ?? '';
+      const at = indent.length + hop.arrowIndex;
+      const pad = at > 0 && !WS_RE.test(lines[i][at - 1] ?? '') ? ' ' : '';
+      lines[i] = lines[i].slice(0, at) + `${pad}${newId}@` + lines[i].slice(at);
+      hopEdgeId = newId;
+    }
+    break;
+  }
+  if (edgeIdx === -1) {return source; }
+  const out: string[] = [...lines];
+  // classDef statement: written once (present-check against the source)
+  const classDefIdx = out.findIndex(line => line.trim().startsWith(`classDef ${ANIMATE_PRESET_CLASS} `));
+  let insertAt = edgeIdx + 1;
+  if (classDefIdx === -1) {
+    const indent = out[edgeIdx].match(/^\s*/)?.[0] ?? '';
+    out.splice(insertAt, 0, `${indent}${ANIMATE_PRESET_CLASSDEF}`);
+    insertAt += 1;
+  } else {
+    insertAt = classDefIdx + 1;
+  }
+  // class statement: idempotent via a whole-token scan of the id lists
+  const hasClass = out.some(line => {
+    const m = line.trim().match(/^class\s+([A-Za-z0-9_,\s-]+?)\s+(\S+)\s*$/);
+    return m !== null && m[2] === ANIMATE_PRESET_CLASS
+      && m[1].split(',').map(id => id.trim()).includes(hopEdgeId);
+  });
+  if (!hasClass) {
+    const indent = out[edgeIdx].match(/^\s*/)?.[0] ?? '';
+    out.splice(insertAt, 0, `${indent}class ${hopEdgeId} ${ANIMATE_PRESET_CLASS}`);
+  }
+  return out.join('\n');
+}
+
+/**
  * Render the canonical `edgeId@{ ... }` span for typed metadata, or null
  * when the metadata carries no meaningful param (the clear case). Emission
  * is strictly bounded formatters (T-40-01/T-40-02): canonical param order

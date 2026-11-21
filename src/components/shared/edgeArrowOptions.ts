@@ -56,3 +56,26 @@ export function extraArrowOption(arrowType: string): { value: string; label: str
     ? null
     : { value: arrowType, label: arrowType };
 }
+
+/**
+ * The 13 mermaid per-edge curve values in config-union order
+ * (`config.type.d.ts:415`) with their label keys — the `advancedStyle.curve*`
+ * keys landed with the 40-01 phase table; this plan consumes keys only.
+ * Both inspectors render the same leading `edgeStyle.curveDefault` (value ''
+ * = param omitted, Grey Area 8) before these 13.
+ */
+export const EDGE_CURVE_OPTIONS: { value: string; labelKey: string }[] = [
+  { value: 'basis', labelKey: 'advancedStyle.curveSmooth' },
+  { value: 'bumpX', labelKey: 'advancedStyle.curveBumpX' },
+  { value: 'bumpY', labelKey: 'advancedStyle.curveBumpY' },
+  { value: 'cardinal', labelKey: 'advancedStyle.curveCardinal' },
+  { value: 'catmullRom', labelKey: 'advancedStyle.curveCatmullRom' },
+  { value: 'linear', labelKey: 'advancedStyle.curveStraight' },
+  { value: 'monotoneX', labelKey: 'advancedStyle.curveMonotoneX' },
+  { value: 'monotoneY', labelKey: 'advancedStyle.curveMonotoneY' },
+  { value: 'natural', labelKey: 'advancedStyle.curveNatural' },
+  { value: 'step', labelKey: 'advancedStyle.curveStep' },
+  { value: 'stepAfter', labelKey: 'advancedStyle.curveStepAfter' },
+  { value: 'stepBefore', labelKey: 'advancedStyle.curveStepBefore' },
+  { value: 'rounded', labelKey: 'advancedStyle.curveRounded' },
+];

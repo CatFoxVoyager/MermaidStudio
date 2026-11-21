@@ -43,6 +43,32 @@ vi.mock('react-i18next', () => ({
         'edgeStyle.dashed': 'Dashed',
         'edgeStyle.dotted': 'Dotted',
         'edgeStyle.animate': 'Animate',
+        // 40-02 (EDGE-03, Surface 2/3): the motion-row keys.
+        'edgeStyle.edgeId': 'Edge ID',
+        'edgeStyle.edgeIdPlaceholder': 'e.g. e1',
+        'edgeStyle.linkLength': 'Link length',
+        'edgeStyle.animationSpeed': 'Speed',
+        'edgeStyle.animationFast': 'Fast',
+        'edgeStyle.animationSlow': 'Slow',
+        'edgeStyle.step': 'Step',
+        'edgeStyle.curve': 'Curve',
+        'edgeStyle.curveDefault': 'Default',
+        'edgeStyle.animatePreset': 'Animate (preset)',
+        'edgeStyle.animatePresetHint': 'Adds a dash-animation classDef and applies it to this edge',
+        // the 13-curve labels ride the advancedStyle.* keys (40-01 table)
+        'advancedStyle.curveSmooth': 'Smooth',
+        'advancedStyle.curveBumpX': 'Bump X',
+        'advancedStyle.curveBumpY': 'Bump Y',
+        'advancedStyle.curveCardinal': 'Cardinal',
+        'advancedStyle.curveCatmullRom': 'Catmull-Rom',
+        'advancedStyle.curveStraight': 'Straight',
+        'advancedStyle.curveMonotoneX': 'Monotone X',
+        'advancedStyle.curveMonotoneY': 'Monotone Y',
+        'advancedStyle.curveNatural': 'Natural',
+        'advancedStyle.curveStep': 'Step',
+        'advancedStyle.curveStepAfter': 'Step After',
+        'advancedStyle.curveStepBefore': 'Step Before',
+        'advancedStyle.curveRounded': 'Rounded',
       };
       let result = map[key] ?? key;
       if (opts) {
@@ -247,6 +273,143 @@ describe('EdgeStylePanel', () => {
       render(<EdgeStylePanel {...defaultProps} onAnimateChange={onAnimateChange} />);
       fireEvent.click(screen.getByRole('checkbox'));
       expect(onAnimateChange).toHaveBeenCalledWith(true);
+    });
+  });
+
+  describe('inspector motion rows (40-02 EDGE-03, Surface 2/3)', () => {
+    const rowProps = {
+      edgeMeta: { animate: false, animation: 'fast' as const, step: 3, curve: 'linear' },
+      onEdgeMetaChange: vi.fn(),
+      onEdgeIdChange: vi.fn(),
+      onEdgeLengthChange: vi.fn(),
+      onAnimatePreset: vi.fn(),
+    };
+
+    it('absent handler props hide every new row (39-04 contract)', () => {
+      const { container } = render(<EdgeStylePanel {...defaultProps} />);
+      expect(container.querySelector('[data-edge-id-input]')).toBeNull();
+      expect(container.querySelector('[data-edge-length-input]')).toBeNull();
+      expect(container.querySelector('[data-edge-speed]')).toBeNull();
+      expect(container.querySelector('[data-edge-step-input]')).toBeNull();
+      expect(container.querySelector('[data-edge-curve-select]')).toBeNull();
+      expect(container.querySelector('[data-edge-animate-preset]')).toBeNull();
+    });
+
+    it('Edge ID input displays the parsed id; typing routes through onEdgeIdChange', () => {
+      const edge = { ...mockEdge, edgeId: 'e1' };
+      const onEdgeIdChange = vi.fn();
+      const { container } = render(
+        <EdgeStylePanel {...defaultProps} edge={edge} onEdgeIdChange={onEdgeIdChange} />,
+      );
+      const input = container.querySelector('[data-edge-id-input]') as HTMLInputElement;
+      expect(input.value).toBe('e1');
+      expect(input.placeholder).toBe('e.g. e1');
+      expect(input.className).toContain('font-mono');
+      fireEvent.change(input, { target: { value: 'r1' } });
+      expect(onEdgeIdChange).toHaveBeenCalledWith('r1');
+    });
+
+    it('connection row prefix renders `e1 · A → B` in mono when edgeId exists (Surface 7)', () => {
+      const edge = { ...mockEdge, edgeId: 'e1' };
+      const { container } = render(<EdgeStylePanel {...defaultProps} edge={edge} />);
+      const box = container.querySelector('.font-mono');
+      expect(box?.textContent).toContain('e1 · ');
+      expect(box?.textContent).toContain('A');
+    });
+
+    it('length input displays the authored length verbatim and clamps NEW typed input to 1..4', () => {
+      const edge = { ...mockEdge, arrowType: '-->', length: 6 };
+      const onEdgeLengthChange = vi.fn();
+      const { container } = render(
+        <EdgeStylePanel {...defaultProps} edge={edge} onEdgeLengthChange={onEdgeLengthChange} />,
+      );
+      const input = container.querySelector('[data-edge-length-input]') as HTMLInputElement;
+      // authored 6 displays 6 (Grey Area 4 — never rewritten by selection)
+      expect(input.value).toBe('6');
+      // NEW input clamps: typed 9 commits 4; typed 2 commits 2 (a same-value
+      // change event dedupes on a controlled input, so distinct values fire)
+      fireEvent.change(input, { target: { value: '9' } });
+      expect(onEdgeLengthChange).toHaveBeenCalledWith('-->', 4);
+      onEdgeLengthChange.mockClear();
+      fireEvent.change(input, { target: { value: '2' } });
+      expect(onEdgeLengthChange).toHaveBeenCalledWith('-->', 2);
+    });
+
+    it('a circle-start token sets the length input min to 2 (probe-invalid below it)', () => {
+      const edge = { ...mockEdge, arrowType: 'o--', length: 1 };
+      const { container } = render(
+        <EdgeStylePanel {...defaultProps} edge={edge} onEdgeLengthChange={vi.fn()} />,
+      );
+      const input = container.querySelector('[data-edge-length-input]') as HTMLInputElement;
+      expect(input.min).toBe('2');
+    });
+
+    it('speed segments render fast/slow, active derives from metadata, clicks commit through metadata', () => {
+      const onEdgeMetaChange = vi.fn();
+      const { container } = render(
+        <EdgeStylePanel {...defaultProps} {...rowProps} onEdgeMetaChange={onEdgeMetaChange} />,
+      );
+      const fast = container.querySelector('[data-edge-speed="fast"]') as HTMLElement;
+      const slow = container.querySelector('[data-edge-speed="slow"]') as HTMLElement;
+      // active segment carries the accent treatment (Color item 2, inline)
+      expect(fast.style.borderColor).toBe('var(--accent)');
+      expect(fast.style.color).toBe('var(--accent)');
+      expect(slow.style.color).toBe('var(--text-secondary)');
+      fireEvent.click(slow);
+      expect(onEdgeMetaChange).toHaveBeenCalledWith(
+        expect.objectContaining({ animation: 'slow' }),
+      );
+    });
+
+    it('step input renders the parsed integer, ignores non-integer input, commits empty = omitted', () => {
+      const onEdgeMetaChange = vi.fn();
+      const { container } = render(
+        <EdgeStylePanel {...defaultProps} {...rowProps} onEdgeMetaChange={onEdgeMetaChange} />,
+      );
+      const input = container.querySelector('[data-edge-step-input]') as HTMLInputElement;
+      expect(input.value).toBe('3');
+      // integers only — a decimal is ignored on commit (a non-numeric string
+      // never reaches value on a native number input: the browser sanitizes
+      // it to '', the declared empty = omitted path)
+      fireEvent.change(input, { target: { value: '2.5' } });
+      expect(onEdgeMetaChange).not.toHaveBeenCalled();
+      fireEvent.change(input, { target: { value: '' } });
+      expect(onEdgeMetaChange).toHaveBeenCalledWith({ animate: false, animation: 'fast', curve: 'linear' });
+      onEdgeMetaChange.mockClear();
+      fireEvent.change(input, { target: { value: '5' } });
+      expect(onEdgeMetaChange).toHaveBeenCalledWith(
+        expect.objectContaining({ step: 5 }),
+      );
+    });
+
+    it('curve select renders Default first + exactly 13 in config-union order; a pick writes metadata.curve', () => {
+      const onEdgeMetaChange = vi.fn();
+      const { container } = render(
+        <EdgeStylePanel {...defaultProps} {...rowProps} onEdgeMetaChange={onEdgeMetaChange} />,
+      );
+      const select = container.querySelector('[data-edge-curve-select]') as HTMLSelectElement;
+      const values = Array.from(select.querySelectorAll('option')).map(o => o.value);
+      expect(values).toEqual([
+        '', 'basis', 'bumpX', 'bumpY', 'cardinal', 'catmullRom', 'linear',
+        'monotoneX', 'monotoneY', 'natural', 'step', 'stepAfter', 'stepBefore', 'rounded',
+      ]);
+      expect(select.value).toBe('linear');
+      fireEvent.change(select, { target: { value: '' } });
+      expect(onEdgeMetaChange).toHaveBeenCalledWith(
+        expect.not.objectContaining({ curve: expect.anything() }),
+      );
+    });
+
+    it('the preset button renders full-width with the hint and fires onAnimatePreset', () => {
+      const onAnimatePreset = vi.fn();
+      const { container } = render(
+        <EdgeStylePanel {...defaultProps} onAnimatePreset={onAnimatePreset} />,
+      );
+      const btn = container.querySelector('[data-edge-animate-preset]') as HTMLElement;
+      expect(btn.getAttribute('aria-label')).toBe('Adds a dash-animation classDef and applies it to this edge');
+      expect(btn.style.background).toBe('var(--accent-dim)');
+      fireEvent.click(btn);
+      expect(onAnimatePreset).toHaveBeenCalled();
     });
   });
 

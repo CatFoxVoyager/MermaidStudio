@@ -13,11 +13,14 @@ import {
   updateEdgeArrowType,
   updateEdgeLabel,
   updateEdgeMetadata,
+  updateEdgeId,
+  generateEdgeId,
+  applyEdgeAnimatePreset,
   removeEdge,
   bodyHasUnparsedAtDirective,
 } from '@/lib/mermaid/codeUtils';
 
-const doc = (body: string): string => `flowchart LR\n${body}`;
+const doc = (...body: string[]): string => `flowchart LR\n${body.join('\n')}`;
 
 /** The line parses to exactly one edge with the expected family token. */
 function expectEdge(source: string, src: string, tgt: string, arrowType: string, length?: number) {
@@ -362,5 +365,93 @@ describe('EDGE-01 T-40-03: the family matcher stays linear on the per-keystroke 
     // The WR-02 quadratic engine measured seconds at 16KB; the linear walk
     // sits orders of magnitude below this generous ceiling (CI-safety 5s).
     expect(elapsed).toBeLessThan(5000);
+  });
+});
+
+describe('EDGE-03 updateEdgeId (T-40-04)', () => {
+  it('renames the token and never touches a label or shape span', () => {
+    const src = doc('  A e1@-->|go| B{q?}');
+    const out = updateEdgeId(src, 'e1', 'r1');
+    expect(out).toBe(doc('  A r1@-->|go| B{q?}'));
+  });
+  it('renames a chained hop id in place', () => {
+    const out = updateEdgeId(doc('  A --> B e2@--> C'), 'e2', 'r2');
+    expect(out).toBe(doc('  A --> B r2@--> C'));
+  });
+  it('rewrites whole-token class list members and the classDef name', () => {
+    const src = doc('  A e1@--> B\n  C e2@--> D\n  class e1,e2 eDashAnim');
+    const out = updateEdgeId(src, 'e1', 'r1');
+    expect(out).toContain('class r1,e2 eDashAnim');
+    // `e10` never catches `e1` (whole tokens only)
+    const src10 = doc('  A e1@--> B\n  C e10@--> D\n  class e1,e10 anim');
+    expect(updateEdgeId(src10, 'e1', 'r1')).toContain('class r1,e10 anim');
+  });
+  it('cascades the standalone metadata line with the rename', () => {
+    const src = doc('  A e1@--> B\n  e1@{ animate: true, animation: fast }');
+    const out = updateEdgeId(src, 'e1', 'r1');
+    expect(out).toContain('A r1@--> B');
+    expect(out).toContain('r1@{ animate: true, animation: fast }');
+    expect(parseDiagram(out).edges[0].metadata?.animate).toBe(true);
+  });
+  it('declines ids outside the mermaid-id charset (T-40-04 splice guard)', () => {
+    const src = doc('  A e1@--> B\n  class e1 anim');
+    expect(updateEdgeId(src, 'e1', 'bad id!')).toBe(src);
+    expect(updateEdgeId(src, 'e1', '1e')).toBe(src);
+    expect(updateEdgeId(src, 'e1', 'e;rm')).toBe(src);
+  });
+  it('declines an unknown oldId', () => {
+    const src = doc('  A e1@--> B');
+    expect(updateEdgeId(src, 'nope', 'r1')).toBe(src);
+  });
+});
+
+describe('EDGE-03 generateEdgeId', () => {
+  it('returns the lowest free e<n> across parsed edge ids', () => {
+    expect(generateEdgeId(doc('  A e1@--> B\n  C e3@--> D'))).toBe('e2');
+    expect(generateEdgeId(doc('  A --> B'))).toBe('e1');
+    expect(generateEdgeId(doc('  A e2@--> B'))).toBe('e1');
+  });
+});
+
+describe('EDGE-03 applyEdgeAnimatePreset (Surface 3, E4 idempotency)', () => {
+  it('one click on an id-less edge assigns e1 and emits exactly one classDef + one class', () => {
+    const out = applyEdgeAnimatePreset(doc('  A --> B'), 'A', 'B');
+    expect(out).toBe(doc(
+      '  A e1@--> B',
+      '  classDef eDashAnim stroke-dasharray: 5 5, animation: dash 1s linear infinite;',
+      '  class e1 eDashAnim',
+    ));
+    // the emitted statements re-parse cleanly and the class lands on e1
+    const g = parseDiagram(out);
+    expect(g.edges[0].edgeId).toBe('e1');
+    expect(g.nodeClasses.get('e1')).toContain('eDashAnim');
+  });
+  it('a second click changes nothing (idempotent)', () => {
+    const first = applyEdgeAnimatePreset(doc('  A --> B'), 'A', 'B');
+    const second = applyEdgeAnimatePreset(first, 'A', 'B');
+    expect(second).toBe(first);
+  });
+  it('an id-bearing edge keeps its id; a present classDef is not duplicated', () => {
+    const src = doc(
+      '  A e5@--> B',
+      '  classDef eDashAnim stroke-dasharray: 5 5, animation: dash 1s linear infinite;',
+    );
+    const out = applyEdgeAnimatePreset(src, 'A', 'B');
+    expect(out).toBe(doc(
+      '  A e5@--> B',
+      '  classDef eDashAnim stroke-dasharray: 5 5, animation: dash 1s linear infinite;',
+      '  class e5 eDashAnim',
+    ));
+    expect(out.match(/classDef eDashAnim/g)).toHaveLength(1);
+  });
+  it('the preset never emits a second classDef on a second edge (shared statement)', () => {
+    let src = applyEdgeAnimatePreset(doc('  A --> B', '  B --> C'), 'A', 'B');
+    src = applyEdgeAnimatePreset(src, 'B', 'C');
+    expect(src.match(/classDef eDashAnim/g)).toHaveLength(1);
+    expect(src.match(/class e2 eDashAnim/g)).toHaveLength(1);
+  });
+  it('declines the fenced amp + multi-hop shape', () => {
+    const src = doc('  A & B --> C --> D');
+    expect(applyEdgeAnimatePreset(src, 'A', 'C')).toBe(src);
   });
 });

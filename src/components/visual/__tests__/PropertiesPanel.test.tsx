@@ -610,6 +610,7 @@ describe('PropertiesPanel image tab parity (39-05 ICON-03)', () => {
 // double-arrow option the old local list carried) are gone. Labels assert
 // against the REAL en.json copy through t() (no hand-typed strings).
 import { EDGE_ARROW_OPTIONS } from '@/components/shared/edgeArrowOptions';
+import { readFileSync } from 'fs';
 import enJson from '../../../i18n/locales/en.json';
 
 describe('PropertiesPanel EdgePanel — shared arrow list + i18n swap (40-02)', () => {
@@ -676,5 +677,170 @@ describe('PropertiesPanel EdgePanel — shared arrow list + i18n swap (40-02)', 
     const select = container.querySelector('select') as HTMLSelectElement;
     fireEvent.change(select, { target: { value: 'o--' } });
     expect(onArrow).toHaveBeenCalledWith('A', 'B', 'o--');
+  });
+});
+
+// ===== 40-02 (EDGE-03, Surfaces 2+3+7): the visual panel's edge-inspector
+// rows — identical semantics to EdgeStylePanel's, adapted to the 220px panel
+// idiom (explicit max-md:min-h-[44px] floors on every new control; this
+// panel has no .style-panel class). Absent props hide the rows (39-04).
+describe('PropertiesPanel EdgePanel — motion rows + preset (40-02 EDGE-03)', () => {
+  const EDGE: VisualEdge = { source: 'A', target: 'B', arrowType: '-->', label: '' };
+
+  function renderRows(
+    edge: VisualEdge,
+    handlers: {
+      onEdgeMetaChange?: (meta: Record<string, unknown>) => void;
+      onEdgeIdChange?: (newId: string) => void;
+      onEdgeLengthChange?: (token: string, length: number) => void;
+      onAnimatePreset?: () => void;
+    } = {},
+    edgeMeta?: Record<string, unknown> | null,
+  ) {
+    return render(
+      <PropertiesPanel
+        selectedNodes={[]}
+        selectedEdge={edge}
+        onLabelChange={vi.fn()}
+        onShapeChange={vi.fn()}
+        onStyleChange={vi.fn()}
+        onArrowChange={vi.fn()}
+        onEdgeLabelChange={vi.fn()}
+        onDeleteEdge={vi.fn()}
+        onEdgeMetaChange={handlers.onEdgeMetaChange as never}
+        onEdgeIdChange={handlers.onEdgeIdChange}
+        onEdgeLengthChange={handlers.onEdgeLengthChange}
+        onAnimatePreset={handlers.onAnimatePreset}
+        edgeMeta={edgeMeta as never}
+      />,
+    );
+  }
+
+  it('absent handler props hide every new row; the prefix shows only with an authored id', () => {
+    const { container } = renderRows(EDGE);
+    expect(container.querySelector('[data-edge-id-input]')).toBeNull();
+    expect(container.querySelector('[data-edge-length-input]')).toBeNull();
+    expect(container.querySelector('[data-edge-speed]')).toBeNull();
+    expect(container.querySelector('[data-edge-step-input]')).toBeNull();
+    expect(container.querySelector('[data-edge-curve-select]')).toBeNull();
+    expect(container.querySelector('[data-edge-animate-preset]')).toBeNull();
+  });
+
+  it('rows render with parsed values: id input, length verbatim (authored 6), step, curve selected', () => {
+    const edge: VisualEdge = { source: 'A', target: 'B', arrowType: '-->', label: '', edgeId: 'e7', length: 6 };
+    const { container } = renderRows(edge, {
+      onEdgeMetaChange: vi.fn(),
+      onEdgeIdChange: vi.fn(),
+      onEdgeLengthChange: vi.fn(),
+      onAnimatePreset: vi.fn(),
+    }, { animate: false, step: 4, curve: 'natural' });
+    const idInput = container.querySelector('[data-edge-id-input]') as HTMLInputElement;
+    expect(idInput.value).toBe('e7');
+    const lenInput = container.querySelector('[data-edge-length-input]') as HTMLInputElement;
+    expect(lenInput.value).toBe('6'); // authored 6 displays verbatim (Grey Area 4)
+    const stepInput = container.querySelector('[data-edge-step-input]') as HTMLInputElement;
+    expect(stepInput.value).toBe('4');
+    const curveSelect = container.querySelector('[data-edge-curve-select]') as HTMLSelectElement;
+    expect(curveSelect.value).toBe('natural');
+    const box = container.querySelector('.font-mono');
+    expect(box?.textContent).toContain('e7 · ');
+  });
+
+  it('length input min follows the family minimum (o-- → 2) and NEW input clamps to 1..4', () => {
+    const onLen = vi.fn<(token: string, length: number) => void>();
+    const { container } = renderRows({ ...EDGE, arrowType: 'o--', length: 1 }, { onEdgeLengthChange: onLen });
+    const input = container.querySelector('[data-edge-length-input]') as HTMLInputElement;
+    expect(input.min).toBe('2');
+    fireEvent.change(input, { target: { value: '9' } });
+    expect(onLen).toHaveBeenCalledWith('o--', 4);
+    onLen.mockClear();
+    fireEvent.change(input, { target: { value: '3' } });
+    expect(onLen).toHaveBeenCalledWith('o--', 3);
+  });
+
+  it('step ignores non-integer input; speed segments commit through metadata', () => {
+    const onMeta = vi.fn<(meta: Record<string, unknown>) => void>();
+    const { container } = renderRows(EDGE, { onEdgeMetaChange: onMeta }, { animate: false });
+    const step = container.querySelector('[data-edge-step-input]') as HTMLInputElement;
+    fireEvent.change(step, { target: { value: '2.5' } });
+    expect(onMeta).not.toHaveBeenCalled();
+    const slow = container.querySelector('[data-edge-speed="slow"]') as HTMLElement;
+    fireEvent.click(slow);
+    expect(onMeta).toHaveBeenCalledWith(expect.objectContaining({ animation: 'slow' }));
+  });
+
+  it('curve select: Default first + exactly 13 in config-union order; empty pick omits the param', () => {
+    const onMeta = vi.fn<(meta: Record<string, unknown>) => void>();
+    const { container } = renderRows(EDGE, { onEdgeMetaChange: onMeta }, { curve: 'basis' });
+    const select = container.querySelector('[data-edge-curve-select]') as HTMLSelectElement;
+    const values = Array.from(select.querySelectorAll('option')).map(o => o.value);
+    expect(values).toEqual([
+      '', 'basis', 'bumpX', 'bumpY', 'cardinal', 'catmullRom', 'linear',
+      'monotoneX', 'monotoneY', 'natural', 'step', 'stepAfter', 'stepBefore', 'rounded',
+    ]);
+    fireEvent.change(select, { target: { value: '' } });
+    expect(onMeta).toHaveBeenCalledWith({});
+  });
+
+  it('every new interactive control carries the explicit max-md:min-h-[44px] floor (no .style-panel here)', () => {
+    const { container } = renderRows(EDGE, {
+      onEdgeMetaChange: vi.fn(),
+      onEdgeIdChange: vi.fn(),
+      onEdgeLengthChange: vi.fn(),
+      onAnimatePreset: vi.fn(),
+    }, { animate: false });
+    for (const selector of [
+      '[data-edge-id-input]',
+      '[data-edge-length-input]',
+      '[data-edge-speed="fast"]',
+      '[data-edge-speed="slow"]',
+      '[data-edge-step-input]',
+      '[data-edge-curve-select]',
+      '[data-edge-animate-preset]',
+    ]) {
+      const el = container.querySelector(selector) as HTMLElement;
+      expect(el).not.toBeNull();
+      expect(el.className).toContain('max-md:min-h-[44px]');
+    }
+  });
+
+  it('the preset button carries the hint as title/aria and the accent treatment (Color item 4)', () => {
+    const onPreset = vi.fn();
+    const { container } = renderRows(EDGE, { onAnimatePreset: onPreset });
+    const btn = container.querySelector('[data-edge-animate-preset]') as HTMLElement;
+    expect(btn.getAttribute('title')).toBe('Adds a dash-animation classDef and applies it to this edge');
+    expect(btn.style.background).toBe('var(--accent-dim)');
+    fireEvent.click(btn);
+    expect(onPreset).toHaveBeenCalled();
+  });
+});
+
+// ===== 40-02 (EDGE-03, Surface 7): the unified-selector source pins —
+// a source-reading pin, not a DOM test. Every `.edgePaths path` selector in
+// the two files carries the flowchart-link class EXCEPT the pre-existing
+// cross-family marker-color-sync selector (sequence messageLine family needs
+// the bare form — tightening it would break sequence arrow color sync), and
+// the edge-enumeration selectors stay class-scoped.
+describe('selector contract source pins (40-02 Surface 7)', () => {
+  it('no widened `.edgePaths path` selector without flowchart-link outside the marker-color sync', () => {
+    for (const file of [
+      'src/components/visual/VisualEditorCanvas.tsx',
+      'src/utils/svgPostProcessing.ts',
+    ]) {
+      const src = readFileSync(file, 'utf8');
+      const re = /\.edgePaths\s+path(?!\.flowchart-link)/g;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src)) !== null) {
+        const context = src.slice(Math.max(0, m.index - 160), m.index + 160);
+        expect(
+          context.includes('messageLine'),
+          `${file}: bare .edgePaths path selector outside the marker-color sync`,
+        ).toBe(true);
+      }
+    }
+    // the edge-enumeration selectors stay class-scoped
+    expect(
+      readFileSync('src/components/visual/VisualEditorCanvas.tsx', 'utf8'),
+    ).toContain("'.edgePaths path.flowchart-link'");
   });
 });
