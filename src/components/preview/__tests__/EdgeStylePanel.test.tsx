@@ -31,6 +31,7 @@ vi.mock('react-i18next', () => ({
         'edgeStyle.solid': 'Solid',
         'edgeStyle.dashed': 'Dashed',
         'edgeStyle.dotted': 'Dotted',
+        'edgeStyle.animate': 'Animate',
       };
       let result = map[key] ?? key;
       if (opts) {
@@ -190,6 +191,52 @@ describe('EdgeStylePanel', () => {
     // longer reflects the inline value. The panel's contract is the inline
     // style it writes, so read that directly.
     expect(screen.getByText('Dashed').closest('button')?.style.borderWidth).toBe('2px');
+  });
+
+  describe('Animate toggle (40-01 EDGE-02 tracer)', () => {
+    it('renders the toggle only when onAnimateChange is provided', () => {
+      render(<EdgeStylePanel {...defaultProps} />);
+      expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+
+      render(<EdgeStylePanel {...defaultProps} onAnimateChange={vi.fn()} />);
+      expect(screen.getByRole('checkbox')).toBeInTheDocument();
+    });
+
+    it('derives the on-state from edgeMeta.animate', () => {
+      render(
+        <EdgeStylePanel
+          {...defaultProps}
+          edgeMeta={{ animate: true }}
+          onAnimateChange={vi.fn()}
+        />,
+      );
+      expect(screen.getByRole('checkbox')).toBeChecked();
+    });
+
+    it('renders off when edgeMeta is absent', () => {
+      render(<EdgeStylePanel {...defaultProps} onAnimateChange={vi.fn()} />);
+      expect(screen.getByRole('checkbox')).not.toBeChecked();
+    });
+
+    it('clicking the on toggle fires onAnimateChange(false)', () => {
+      const onAnimateChange = vi.fn();
+      render(
+        <EdgeStylePanel
+          {...defaultProps}
+          edgeMeta={{ animate: true }}
+          onAnimateChange={onAnimateChange}
+        />,
+      );
+      fireEvent.click(screen.getByRole('checkbox'));
+      expect(onAnimateChange).toHaveBeenCalledWith(false);
+    });
+
+    it('clicking the off toggle fires onAnimateChange(true)', () => {
+      const onAnimateChange = vi.fn();
+      render(<EdgeStylePanel {...defaultProps} onAnimateChange={onAnimateChange} />);
+      fireEvent.click(screen.getByRole('checkbox'));
+      expect(onAnimateChange).toHaveBeenCalledWith(true);
+    });
   });
 
   describe('Phase 17 mobile responsiveness (MDRW-02)', () => {

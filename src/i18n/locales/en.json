@@ -574,7 +574,8 @@
     "dashed": "Dashed",
     "dotted": "Dotted",
     "labelFontSize": "Label Font Size",
-    "labelFontWeight": "Label Font Weight"
+    "labelFontWeight": "Label Font Weight",
+    "animate": "Animate"
   },
   "subgraphStyle": {
     "subgraphId": "Subgraph ID",

@@ -9,8 +9,8 @@ import { getThemeById } from '@/constants/themes';
 import { sanitizeCssValue } from '@/utils/sanitization';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import { buildSvgToParsedEdgeMap } from '@/utils/svgEdgeMatching';
-import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, parseLinkStyles, edgeStyleToString, updateNodeStyle, updateNodeShape, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg } from '@/lib/mermaid/codeUtils';
-import type { NodeStyle, EdgeStyle, ParsedEdge, NodeShape, PresetType, PresetColors, IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
+import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, updateEdgeMetadata, parseLinkStyles, edgeStyleToString, updateNodeStyle, updateNodeShape, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg } from '@/lib/mermaid/codeUtils';
+import type { NodeStyle, EdgeStyle, EdgeMetadata, ParsedEdge, NodeShape, PresetType, PresetColors, IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
 import { NodeStylePanel } from './NodeStylePanel';
 import { EdgeStylePanel } from './EdgeStylePanel';
 import { SubgraphStylePanel } from './SubgraphStylePanel';
@@ -1122,6 +1122,21 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     onChange(result);
   }, [onChange, content, bodyHasMetadata]);
 
+  // 40-01 (EDGE-02 tracer): Animate toggle delegate — derives the new
+  // metadata from the PARSED edge (components never re-parse code strings)
+  // and routes through the updateEdgeMetadata mutator, mirroring the
+  // handleEdgeArrowChange gating. An id-less edge declines in the mutator
+  // (D6: nothing without an anchor is rewritten).
+  const handleEdgeAnimateChange = useCallback((animate: boolean) => {
+    if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
+    const edge = parsedEdges[selectedEdgeIndex ?? -1];
+    if (!edge?.edgeId) return;
+    const { unknownParams: _fenced, ...typed } = edge.metadata ?? {};
+    const result = updateEdgeMetadata(content, edge.edgeId, { ...typed, animate });
+    onChange(result);
+  }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
+
   // Node label change handler
   const handleNodeLabelChange = useCallback((nodeId: string, newLabel: string) => {
     if (!onChange) return;
@@ -1761,6 +1776,8 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           edge={parsedEdges[selectedEdgeIndex]}
           edgeIndex={selectedEdgeIndex}
           edgeStyle={parsedLinkStyles.get(selectedEdgeIndex) ?? {}}
+          edgeMeta={parsedEdges[selectedEdgeIndex].metadata ?? null}
+          onAnimateChange={handleEdgeAnimateChange}
           onClose={() => setSelectedEdgeIndex(null)}
           onArrowChange={handleEdgeArrowChange}
           onLabelChange={handleEdgeLabelChange}

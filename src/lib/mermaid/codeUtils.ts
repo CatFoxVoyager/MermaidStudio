@@ -88,6 +88,23 @@ export interface ImgConfig {
   label?: string;
 }
 
+/**
+ * 40-01 (EDGE-02): the typed edge-metadata config carried by a standalone
+ * `e1@{ ... }` directive line. The four mermaid 12.3 edge params type here;
+ * every other key rides `unknownParams` verbatim (in original order) and
+ * fences the span against mutation — nothing the parser cannot fully
+ * consume is ever rewritten (D6). `curve` stays a verbatim string: mermaid
+ * tolerates unknown curve values at parse, so the app never silently
+ * rewrites one.
+ */
+export interface EdgeMetadata {
+  animate?: boolean;
+  animation?: 'fast' | 'slow';
+  step?: number;
+  curve?: string;
+  unknownParams?: string[];
+}
+
 export interface ParsedEdge {
   source: string;
   target: string;
@@ -96,6 +113,13 @@ export interface ParsedEdge {
   raw: string;
   /** Bare 12.3 edge id attached before this hop's arrow (`e1@-->`), when present. */
   edgeId?: string;
+  /**
+   * 40-01 (EDGE-02): typed metadata linked from the pass-2 `linkedDirectives`
+   * registry (the standalone `edgeId@{...}` line). The registry line stays
+   * verbatim — this typed view is read-only interpretation; writes route
+   * through `updateEdgeMetadata`.
+   */
+  metadata?: EdgeMetadata;
 }
 
 export interface NodeStyle {
@@ -404,6 +428,14 @@ interface DirectiveBodyParse {
   unknownParams: string[];
   icon?: IconConfig;
   img?: ImgConfig;
+  /**
+   * 40-01 (EDGE-02): typed edge-family params (`animate` / `animation` /
+   * `step` / `curve`) when the body is a shape-less, media-less EDGE
+   * directive span. Built by the same consume-or-decline rules as the media
+   * configs — a param that fails its checks stays unconsumed and lands back
+   * in `unknownParams` verbatim.
+   */
+  edge?: EdgeMetadata;
 }
 
 /** One directive param pair, in source order, with its media-typing state. */
@@ -477,6 +509,61 @@ function buildTypedImg(entries: DirectiveParamEntry[]): ImgConfig | undefined {
   return img;
 }
 
+/**
+ * 40-01 (EDGE-02) typing rules for the edge param family. Exact-case enums:
+ * `animation` accepts only the bare lowercase tokens `fast` / `slow`
+ * (`turbo` stays unparsed — the app fences mutation rather than silently
+ * keeping or retyping it); `step` accepts only positive integer literals
+ * (`0`, `2.5`, `1e3` all decline); `animate` accepts only the bare
+ * `true` / `false` tokens; `curve` is never interpreted — any non-empty
+ * value types verbatim because mermaid owns its meaning (an unknown curve
+ * value parses fine upstream and must survive re-emission byte-identically).
+ */
+const EDGE_ANIMATION_VALUES = new Set(['fast', 'slow']);
+const EDGE_STEP_RE = /^\d+$/;
+
+function applyEdgeStepField(
+  entries: DirectiveParamEntry[],
+  key: string,
+  set: (value: number) => void,
+): void {
+  const unconsumed = entries.filter(e => e.key === key && !e.consumed);
+  if (unconsumed.length === 0) {return;}
+  if (unconsumed.length === 1 && EDGE_STEP_RE.test(unconsumed[0].value) && Number(unconsumed[0].value) > 0) {
+    unconsumed[0].consumed = true;
+    set(Number(unconsumed[0].value));
+  }
+}
+
+/**
+ * Build the typed EdgeMetadata from the ordered entries when at least one
+ * edge-family key is present. Params that fail their checks (out-of-enum
+ * animation, non-positive-integer step, non-boolean animate, empty curve)
+ * stay unconsumed and fall back to unknownParams — the fence fires on them
+ * unchanged (T-40-02: bounded formatters only, never raw interpolation).
+ */
+function buildTypedEdge(entries: DirectiveParamEntry[]): EdgeMetadata | undefined {
+  const hasEdgeKey = entries.some(
+    e => !e.consumed && (e.key === 'animate' || e.key === 'animation' || e.key === 'step' || e.key === 'curve'),
+  );
+  if (!hasEdgeKey) {return undefined;}
+  const meta: EdgeMetadata = {};
+  const unconsumed = (key: string): DirectiveParamEntry[] => entries.filter(e => e.key === key && !e.consumed);
+  const animateEntries = unconsumed('animate');
+  if (animateEntries.length === 1 && (animateEntries[0].value === 'true' || animateEntries[0].value === 'false')) {
+    animateEntries[0].consumed = true;
+    meta.animate = animateEntries[0].value === 'true';
+  }
+  applyEnumField(entries, 'animation', EDGE_ANIMATION_VALUES, v => { meta.animation = v as EdgeMetadata['animation']; });
+  applyEdgeStepField(entries, 'step', v => { meta.step = v; });
+  const curveEntries = unconsumed('curve');
+  if (curveEntries.length === 1 && curveEntries[0].value !== '') {
+    curveEntries[0].consumed = true;
+    meta.curve = curveEntries[0].value;
+  }
+  return meta;
+}
+
 function parseDirectiveBody(body: string): DirectiveBodyParse | null {
   // WR-03: the greedy capture runs to the LAST `}` — an unquoted `}` before
   // it means the real span closed earlier and the rest is residual line
@@ -516,6 +603,12 @@ function parseDirectiveBody(body: string): DirectiveBodyParse | null {
   }
   const icon = buildTypedIcon(paramEntries);
   const img = buildTypedImg(paramEntries);
+  // 40-01 (EDGE-02): the edge family types ONLY on a shape-less, media-less
+  // body — the `e1@{ animate: ... }` edge-directive form. The same key on a
+  // NODE span (`A@{ shape: person, animate: true }`) is not an edge param:
+  // it stays unconsumed so it lands in unknownParams and fences the span,
+  // never silently vanishing through a re-emission that cannot speak it.
+  const edge = (shape === null && !icon && !img) ? buildTypedEdge(paramEntries) : undefined;
   // unknownParams reassemble in ORIGINAL pair order — typed pairs leave,
   // everything else (plain unknowns and unparsed media-adjacent pairs
   // alike) keeps its position.
@@ -530,7 +623,7 @@ function parseDirectiveBody(body: string): DirectiveBodyParse | null {
     if (icon) { icon.label = label; }
     else if (img) { img.label = label; }
   }
-  return { shape, label, unknownParams, ...(icon ? { icon } : {}), ...(img ? { img } : {}) };
+  return { shape, label, unknownParams, ...(icon ? { icon } : {}), ...(img ? { img } : {}), ...(edge ? { edge } : {}) };
 }
 
 /** LOOSE parse: shape-less (edge + bare media) directive spans stay parseable. */
@@ -563,6 +656,29 @@ export function parseAtDirective(raw: string): ParsedAtDirective | null {
     ...(parsed.img ? { img: parsed.img } : {}),
     ...(!parsed.shape ? { mediaOnly: true } : {}),
   };
+}
+
+/**
+ * 40-01 (EDGE-02): typed parse of an EDGE directive span (`@{ animate: true }`).
+ * The PROMOTED 39-01 span grammar — no parallel edge parser: the same
+ * `parseDirectiveBody` beneath `parseAtDirective` does the parsing, and the
+ * edge param family types through its consume-or-decline rules. Null when
+ * the span is not an edge directive at all (a node/media span, a body
+ * carrying `shape:`/`label:` keys, no edge-family key, or a malformed body).
+ * Unknown keys ride `unknownParams` verbatim in original order (mirrors the
+ * node span contract) so the mutator can decline them (D6).
+ */
+export function parseEdgeDirectiveSpan(span: string): EdgeMetadata | null {
+  const spanMatch = span.match(/^@\{(.*)\}\s*$/);
+  if (!spanMatch) {return null;}
+  const body = spanMatch[1].trim();
+  if (!body) {return null;}
+  const parsed = parseDirectiveBody(body);
+  if (!parsed || parsed.shape !== null || parsed.label !== null) {return null;}
+  if (!parsed.edge) {return null;}
+  return parsed.unknownParams.length > 0
+    ? { ...parsed.edge, unknownParams: [...parsed.unknownParams] }
+    : { ...parsed.edge };
 }
 
 /**
@@ -1596,6 +1712,99 @@ export function updateEdgeLabel(source: string, srcId: string, tgtId: string, ne
   return source;
 }
 
+/**
+ * Render the canonical `edgeId@{ ... }` span for typed metadata, or null
+ * when the metadata carries no meaningful param (the clear case). Emission
+ * is strictly bounded formatters (T-40-01/T-40-02): canonical param order
+ * animate, animation, step, curve; absent params omitted; booleans and
+ * numbers bare; `curve` re-emits as a bare token when it is one and a
+ * double-quoted, re-escaped literal otherwise. `unknownParams` on the
+ * payload is never emitted — unknown content cannot be re-spoken by the
+ * mutator, only preserved verbatim in source (which the decline below
+ * enforces).
+ */
+function buildEdgeMetadataSpan(edgeId: string, metadata: EdgeMetadata): string | null {
+  const params: string[] = [];
+  if (metadata.animate === true) {params.push('animate: true');}
+  if (metadata.animation) {params.push(`animation: ${metadata.animation}`);}
+  if (metadata.step !== undefined && Number.isInteger(metadata.step) && metadata.step > 0) {
+    params.push(`step: ${metadata.step}`);
+  }
+  if (metadata.curve !== undefined && metadata.curve !== '') {
+    params.push(/^[A-Za-z_][\w-]*$/.test(metadata.curve)
+      ? `curve: ${metadata.curve}`
+      : `curve: "${metadata.curve.replace(/(["\\])/g, '\\$1')}"`);
+  }
+  if (params.length === 0) {return null;}
+  return `${edgeId}@{ ${params.join(', ')} }`;
+}
+
+/** Does a parsed chain carry the given bare edge id on any of its hops? */
+function chainCarriesEdgeId(chain: EdgeChain, edgeId: string): boolean {
+  if (chain.sourceEdgeId === edgeId) {return true;}
+  return chain.hops.some(h => h.edgeId === edgeId);
+}
+
+/**
+ * 40-01 (EDGE-02): emit / replace / remove the standalone `edgeId@{...}`
+ * metadata line for one edge. Contract:
+ * - `metadata: null` (or an object with no meaningful param — `animate:
+ *   false` alone is the "off" case) removes the existing line(s).
+ * - A populated metadata REPLACES the existing line IN PLACE (never appends
+ *   a duplicate; degenerate duplicate typed lines collapse to one); with no
+ *   existing line it INSERTS immediately AFTER the edge declaration line
+ *   carrying `edgeId` (the last one) — never before, never inline.
+ * - D6 decline: an existing line the parser cannot fully consume
+ *   (malformed span, unknown/fenced params) is returned unchanged — nothing
+ *   the parser cannot fully consume is ever rewritten. Same for an id-less
+ *   request (no valid mermaid id, or no edge line carries the id and
+ *   nothing exists to remove).
+ */
+export function updateEdgeMetadata(source: string, edgeId: string, metadata: EdgeMetadata | null): string {
+  // The id re-enters source text — only a valid mermaid id may (T-40-01).
+  if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(edgeId)) {return source;}
+  const lines = source.split('\n');
+  const lineRe = new RegExp(`^${escapeRegex(edgeId)}(@\\{.*\\})$`);
+  const existing: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (lineRe.test(lines[i].trim())) {existing.push(i);}
+  }
+  // D6 decline: a line whose span is unparseable or carries unknownParams
+  // is never rewritten (removal included) — its migration is a manual edit,
+  // the same rule the 39-01 media spans landed.
+  for (const idx of existing) {
+    const m = lines[idx].trim().match(lineRe);
+    const parsed = m ? parseEdgeDirectiveSpan(m[1]) : null;
+    if (!parsed || (parsed.unknownParams?.length ?? 0) > 0) {return source;}
+  }
+  const emitted = metadata ? buildEdgeMetadataSpan(edgeId, metadata) : null;
+  if (existing.length > 0) {
+    const doomed = new Set(existing);
+    if (!emitted) {
+      return lines.filter((_, i) => !doomed.has(i)).join('\n');
+    }
+    // Replace the first line in place (indent preserved); collapse any
+    // degenerate duplicates so exactly one metadata line survives.
+    const indent = lines[existing[0]].match(/^\s*/)?.[0] ?? '';
+    lines[existing[0]] = `${indent}${emitted}`;
+    return lines.filter((_, i) => i === existing[0] || !doomed.has(i)).join('\n');
+  }
+  if (!emitted) {return source;}
+  // Insert after the LAST edge declaration line that carries this edge id
+  // (matchEdgeChain is the same matcher parseDiagram used to link the id).
+  let anchor = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (!trimmed) {continue;}
+    const chain = matchEdgeChain(trimmed);
+    if (chain && chainCarriesEdgeId(chain, edgeId)) {anchor = i;}
+  }
+  if (anchor === -1) {return source;}
+  const indent = lines[anchor].match(/^\s*/)?.[0] ?? '';
+  lines.splice(anchor + 1, 0, `${indent}${emitted}`);
+  return lines.join('\n');
+}
+
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -1866,6 +2075,36 @@ export function parseDiagram(source: string): ParsedDiagram {
       linked.push(trimmed);
     } else {
       linkedDirectives.set(directiveLine[1], [trimmed]);
+    }
+  }
+  // 40-01 (EDGE-02): interpret the EDGE half of the registry — a linked
+  // `id@{...}` line whose id equals an edge's edgeId parses into typed
+  // EdgeMetadata on that edge (order-independent: the registry build above
+  // already links metadata lines placed BEFORE their edge line). The
+  // registry lines stay VERBATIM — this is read-only interpretation and the
+  // registry remains the cascade source of truth; writes route through
+  // updateEdgeMetadata.
+  for (const edge of edges) {
+    if (!edge.edgeId) {continue;}
+    const linkedLines = linkedDirectives.get(edge.edgeId);
+    if (!linkedLines) {continue;}
+    for (const linkedLine of linkedLines) {
+      const m = linkedLine.match(/^([A-Za-z_][A-Za-z0-9_-]*)(@\{.*\})$/);
+      if (!m) {continue;}
+      const parsed = parseEdgeDirectiveSpan(m[2]);
+      if (!parsed) {continue;}
+      const existing = edge.metadata;
+      if (!existing) {
+        edge.metadata = parsed;
+      } else {
+        // Degenerate multi-line form: merge field-wise (later lines win) and
+        // concatenate unknownParams — any unknown keeps the span fenced.
+        edge.metadata = {
+          ...existing,
+          ...parsed,
+          unknownParams: [...(existing.unknownParams ?? []), ...(parsed.unknownParams ?? [])],
+        };
+      }
     }
   }
   return { nodes, edges, styles, classDefs, nodeClasses, linkStyles, subgraphs, linkedDirectives };

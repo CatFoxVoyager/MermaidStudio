@@ -577,7 +577,8 @@
     "dashed": "Tirets",
     "dotted": "Pointillés",
     "labelFontSize": "Taille police du label",
-    "labelFontWeight": "Graisse police du label"
+    "labelFontWeight": "Graisse police du label",
+    "animate": "Animer"
   },
   "subgraphStyle": {
     "subgraphId": "ID du sous-graphe",

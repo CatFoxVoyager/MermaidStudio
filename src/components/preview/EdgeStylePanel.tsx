@@ -3,7 +3,7 @@ import { X, RotateCcw, ChevronDown, Settings2, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
-import type { EdgeStyle, ParsedEdge } from '@/lib/mermaid/codeUtils';
+import type { EdgeStyle, EdgeMetadata, ParsedEdge } from '@/lib/mermaid/codeUtils';
 
 interface EdgeStylePanelProps {
   edge: ParsedEdge;
@@ -16,6 +16,17 @@ interface EdgeStylePanelProps {
   onReset: (edgeIndex: number) => void;
   /** Callback when the edge is deleted (hides the button if absent) */
   onDelete?: () => void;
+  /**
+   * 40-01 (EDGE-02 tracer): parsed metadata of the selected edge — the
+   * Animate toggle's ONLY read path (components never re-parse code
+   * strings; locked 39 derivation rule).
+   */
+  edgeMeta?: EdgeMetadata | null;
+  /**
+   * When present, the Animate toggle row renders and clicks route here;
+   * absent props keep existing callers byte-identical (39-04 pattern).
+   */
+  onAnimateChange?: (animate: boolean) => void;
 }
 
 export function EdgeStylePanel({
@@ -28,6 +39,8 @@ export function EdgeStylePanel({
   onStyleChange,
   onReset,
   onDelete,
+  edgeMeta,
+  onAnimateChange,
 }: EdgeStylePanelProps) {
   const { t } = useTranslation();
   const [label, setLabel] = useState(edge.label);
@@ -202,6 +215,37 @@ export function EdgeStylePanel({
             }}
           />
         </div>
+
+        {/* Animate (40-01 EDGE-02 tracer): rendered only when the parent
+            wires onAnimateChange — absent props keep existing callers
+            byte-identical. On-state derives from parsed edge metadata; the
+            click routes through the parent to the updateEdgeMetadata
+            mutator (the ExportModal w-9 h-5 pill-switch idiom, 40-UI-SPEC
+            Surface 2). */}
+        {onAnimateChange && (
+          <div className="flex flex-col gap-1">
+            <span
+              className="text-xs font-medium uppercase tracking-wider"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              {t('edgeStyle.animate')}
+            </span>
+            <label className="flex items-center gap-2 cursor-pointer w-fit">
+              <input
+                type="checkbox"
+                checked={edgeMeta?.animate ?? false}
+                onChange={e => onAnimateChange(e.target.checked)}
+                className="peer sr-only"
+              />
+              <div
+                aria-hidden="true"
+                className={`relative w-9 h-5 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--accent)] peer-focus-visible:ring-offset-2 ${edgeMeta?.animate ? 'bg-[var(--accent)]' : 'bg-[var(--text-tertiary)]'}`}
+              >
+                <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${edgeMeta?.animate ? 'left-[18px]' : 'left-0.5'}`} />
+              </div>
+            </label>
+          </div>
+        )}
 
         {/* Stroke Color */}
         <ColorPicker
