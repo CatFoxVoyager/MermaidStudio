@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { Pipette } from 'lucide-react';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
 
@@ -20,9 +20,12 @@ interface Props {
   label: string;
   value: string;
   onChange: (color: string) => void;
+  /** Matches the surrounding panel's label typography without duplicating the picker. */
+  labelVariant?: 'inspector' | 'inspector-sm' | 'compact';
+  icon?: ReactNode;
 }
 
-export function ColorPicker({ label, value, onChange }: Props) {
+export function ColorPicker({ label, value, onChange, labelVariant = 'inspector', icon }: Props) {
   const [open, setOpen] = useState(false);
   const [hex, setHex] = useState(value && value !== 'none' && value !== 'transparent' ? value : '');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -128,9 +131,21 @@ export function ColorPicker({ label, value, onChange }: Props) {
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-        {label}
-      </span>
+      {labelVariant === 'compact' ? (
+        <div className="flex items-center gap-1.5">
+          {icon && <span style={{ color: 'var(--text-tertiary)' }}>{icon}</span>}
+          <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>
+            {label}
+          </span>
+        </div>
+      ) : (
+        <span
+          className={`${labelVariant === 'inspector-sm' ? 'text-[11px]' : 'text-xs'} font-medium uppercase tracking-wider`}
+          style={{ color: 'var(--text-tertiary)' }}
+        >
+          {label}
+        </span>
+      )}
       <div ref={containerRef} className="relative">
         <button
           ref={triggerRef}
@@ -218,8 +233,8 @@ export function ColorPicker({ label, value, onChange }: Props) {
                 placeholder="#rrggbb"
                 aria-label="Hex color value"
                 onChange={e => handleHexChange(e.target.value)}
-                className="flex-1 min-w-0 px-2 py-2 text-base rounded-md border font-mono"
-                style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)', outline: 'none' }}
+                className={`flex-1 min-w-0 px-2 py-2 text-base rounded-md border font-mono ${FOCUS_RING_CLASSES}`}
+                style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
               />
             </div>
           </div>

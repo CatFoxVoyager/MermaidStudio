@@ -172,9 +172,10 @@ export function EdgeStylePanel({
           </span>
         </div>
         <button
+          type="button"
           onClick={onClose}
-          aria-label="Close"
-          className="flex items-center justify-center w-6 h-6 rounded-md transition-colors hover:bg-[var(--hover)] shrink-0 max-md:min-w-[44px] max-md:min-h-[44px]"
+          aria-label={t('common.close', 'Close')}
+          className={`flex items-center justify-center w-6 h-6 rounded-md transition-colors hover:bg-[var(--hover)] shrink-0 max-md:min-w-[44px] max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
           style={{ color: 'var(--text-tertiary)' }}
         >
           <X size={14} />
@@ -383,6 +384,8 @@ export function EdgeStylePanel({
                   return (
                     <button
                       key={speed}
+                      type="button"
+                      aria-pressed={isActive}
                       onClick={() => commitSpeed(speed)}
                       data-edge-speed={speed}
                       className={`py-1.5 rounded-md border text-[11px] font-medium transition-all ${FOCUS_RING_CLASSES}`}
@@ -464,11 +467,12 @@ export function EdgeStylePanel({
 
         {onAnimatePreset && (
           <button
+            type="button"
             onClick={onAnimatePreset}
             title={t('edgeStyle.animatePresetHint')}
             aria-label={t('edgeStyle.animatePresetHint')}
             data-edge-animate-preset
-            className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-medium transition-colors"
+            className={`flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-medium transition-colors ${FOCUS_RING_CLASSES}`}
             style={{
               background: 'var(--accent-dim)',
               color: 'var(--accent)',
@@ -530,10 +534,12 @@ export function EdgeStylePanel({
               return (
                 <button
                   key={opt.value}
+                  type="button"
+                  aria-pressed={isActive}
                   onClick={() =>
                     handleStyleChange('strokeDasharray', opt.value || undefined)
                   }
-                  className="flex-1 py-1.5 rounded-md border text-[11px] font-medium transition-all"
+                  className={`flex-1 py-1.5 rounded-md border text-[11px] font-medium transition-all ${FOCUS_RING_CLASSES}`}
                   style={{
                     borderColor: isActive ? 'var(--accent)' : 'var(--border-subtle)',
                     background: isActive ? 'var(--accent-dim)' : 'var(--surface-base)',
@@ -609,8 +615,9 @@ export function EdgeStylePanel({
             node panel). */}
         <div className="mt-auto pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
           <button
+            type="button"
             onClick={() => onReset(edgeIndex)}
-            className="flex items-center justify-center gap-1.5 w-full min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
+            className={`flex items-center justify-center gap-1.5 w-full min-w-0 py-2 rounded-lg text-xs font-medium transition-colors ${FOCUS_RING_CLASSES}`}
             style={{
               background: 'rgba(220,38,38,0.08)',
               color: '#b91c1c',
@@ -622,6 +629,7 @@ export function EdgeStylePanel({
           </button>
           {onDelete && (
             <button
+              type="button"
               onClick={e => {
                 const btn = e.currentTarget;
                 if (btn.dataset.armed) {
@@ -642,7 +650,7 @@ export function EdgeStylePanel({
                 }, 3000);
               }}
               title={t('edgeStyle.delete')}
-              className="flex items-center justify-center gap-1.5 w-full min-w-0 py-2 rounded-lg text-xs font-semibold transition-colors"
+              className={`flex items-center justify-center gap-1.5 w-full min-w-0 py-2 rounded-lg text-xs font-semibold transition-colors ${FOCUS_RING_CLASSES}`}
               style={{
                 background: '#dc2626',
                 color: '#ffffff',

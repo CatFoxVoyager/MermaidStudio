@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Type, Maximize2, ArrowLeftRight, ArrowUpDown, Spline, Square, RotateCcw, LayoutGrid, X, SlidersHorizontal, Compass, Waypoints, Rows3, Sparkles, Code2 } from 'lucide-react';
+import { Type, Maximize2, ArrowLeftRight, ArrowUpDown, Spline, Square, RotateCcw, LayoutGrid, X, SlidersHorizontal, Compass, Waypoints, Rows3, Sparkles, Code2, Palette } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { DIAGRAM_LABELS } from '@/constants/diagramLabels';
 import {
   DEFAULT_STYLE_OPTIONS,
   isElkLayoutEngine,
@@ -108,7 +109,7 @@ function ToggleControl({ label, checked, onChange }: {
         onChange={(e) => onChange(e.target.checked)}
       />
       <div aria-hidden="true"
-        className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${checked ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+        className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${checked ? 'bg-[var(--accent)]' : 'bg-[var(--text-tertiary)]'}`}>
         <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${checked ? 'left-[18px]' : 'left-0.5'}`} />
       </div>
     </label>
@@ -351,11 +352,17 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{t('advancedStyle.title')}</span>
-            <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{t('advancedStyle.type')} {diagramType}</span>
+            <span className="text-[11px]" style={{ color: 'var(--text-tertiary)' }}>{t('advancedStyle.type')} {DIAGRAM_LABELS[diagramType]}</span>
           </div>
         </div>
-        <button onClick={handleClose} className="p-1.5 rounded-sm transition-colors hover:bg-[var(--hover)]"
-          style={{ color: 'var(--text-secondary)' }}>
+        <button
+          type="button"
+          onClick={handleClose}
+          aria-label={t('common.close', 'Close')}
+          title={t('common.close', 'Close')}
+          className={`flex items-center justify-center p-1.5 max-md:min-w-[44px] max-md:min-h-[44px] rounded-md transition-colors hover:bg-[var(--hover)] ${FOCUS_RING_CLASSES}`}
+          style={{ color: 'var(--text-secondary)' }}
+        >
           <X size={14} />
         </button>
       </div>
@@ -372,7 +379,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
               ensureGoogleFontsForFamily(e.target.value);
               update({ fontFamily: e.target.value });
             }}
-            className="w-full text-[11px] px-2 py-1.5 rounded-sm border outline-hidden transition-colors"
+            className={`w-full text-[11px] px-2 py-1.5 rounded-sm border outline-hidden transition-colors ${FOCUS_RING_CLASSES}`}
             style={{
               background: 'var(--surface-base)',
               borderColor: 'var(--border-subtle)',
@@ -398,6 +405,8 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
 
         <ColorPicker
           label={t('advancedStyle.primaryColor')}
+          labelVariant="compact"
+          icon={<Palette size={11} />}
           value={styleOptions.primaryColor ?? '#daeaf2'}
           onChange={v => update({ primaryColor: v })}
         />
@@ -428,7 +437,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
                   className={`py-1.5 rounded-sm border transition-all text-center ${FOCUS_RING_CLASSES} ${isWardleyBlocked ? 'opacity-40 cursor-not-allowed' : ''}`}
                   style={{
                     background: active
-                      ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
+                      ? 'var(--accent-dim)'
                       : 'transparent',
                     borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
                     color: active ? 'var(--accent)' : 'var(--text-secondary)',
@@ -503,7 +512,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
               onChange={(e) => update({ useGradient: e.target.checked })}
             />
             <div aria-hidden="true"
-              className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.useGradient ?? true) ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+              className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.useGradient ?? true) ? 'bg-[var(--accent)]' : 'bg-[var(--text-tertiary)]'}`}>
               <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.useGradient ?? true) ? 'left-[18px]' : 'left-0.5'}`} />
             </div>
           </label>
@@ -529,14 +538,14 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
 
         {supportsStyleKeyword && !isFlowchart && (
           <div className="py-3 px-3 rounded-lg border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-floating)' }}>
-            <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+            <div className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
               <strong>{diagramType}</strong> styling: Use the <code className="px-1 py-0.5 rounded text-[11px]" style={{ background: 'var(--surface-base)' }}>style</code> keyword for individual elements.
               <br /><br />
               <span style={{ color: 'var(--text-tertiary)' }}>Example:</span>
               <pre className="mt-2 text-[11px] p-2 rounded overflow-x-auto" style={{ background: 'var(--surface-base)', color: 'var(--text-primary)' }}>
 {diagramType === 'stateDiagram' ? `style StateName fill:#6f6,stroke:#0f0,color:#000` : `style ClassName fill:#dbeafe,stroke:#1d4ed8`}
               </pre>
-            </p>
+            </div>
           </div>
         )}
 
@@ -602,7 +611,7 @@ end`}
                     onChange={(e) => update({ elkMergeEdges: e.target.checked })}
                   />
                   <div aria-hidden="true"
-                    className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.elkMergeEdges ?? false) ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+                    className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.elkMergeEdges ?? false) ? 'bg-[var(--accent)]' : 'bg-[var(--text-tertiary)]'}`}>
                     <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.elkMergeEdges ?? false) ? 'left-[18px]' : 'left-0.5'}`} />
                   </div>
                 </label>
@@ -701,7 +710,7 @@ end`}
                     className={`py-1.5 rounded-sm border transition-all text-center ${FOCUS_RING_CLASSES}`}
                     style={{
                       background: active
-                        ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
+                        ? 'var(--accent-dim)'
                         : 'transparent',
                       borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
                       color: active ? 'var(--accent)' : 'var(--text-secondary)',
@@ -728,11 +737,13 @@ end`}
                   {DIRECTION_OPTIONS.map(opt => (
                     <button
                       key={opt.value}
+                      type="button"
+                      aria-pressed={styleOptions.direction === opt.value}
                       onClick={() => update({ direction: opt.value })}
-                      className="py-1.5 rounded-sm border transition-all text-center"
+                      className={`py-1.5 rounded-sm border transition-all text-center ${FOCUS_RING_CLASSES}`}
                       style={{
                         background: styleOptions.direction === opt.value
-                          ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
+                          ? 'var(--accent-dim)'
                           : 'transparent',
                         borderColor: styleOptions.direction === opt.value
                           ? 'var(--accent)'
@@ -789,11 +800,13 @@ end`}
                 {CURVE_OPTIONS.map(opt => (
                   <button
                     key={opt.value}
+                    type="button"
+                    aria-pressed={styleOptions.curveStyle === opt.value}
                     onClick={() => update({ curveStyle: opt.value })}
-                    className="text-[11px] py-1.5 rounded-sm border transition-all text-center font-medium"
+                    className={`text-[11px] py-1.5 rounded-sm border transition-all text-center font-medium ${FOCUS_RING_CLASSES}`}
                     style={{
                       background: styleOptions.curveStyle === opt.value
-                        ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
+                        ? 'var(--accent-dim)'
                         : 'transparent',
                       borderColor: styleOptions.curveStyle === opt.value
                         ? 'var(--accent)'
@@ -848,7 +861,7 @@ end`}
                   onChange={(e) => update({ stepNumbers: e.target.checked })}
                 />
                 <div aria-hidden="true"
-                  className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.stepNumbers ?? false) ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+                  className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.stepNumbers ?? false) ? 'bg-[var(--accent)]' : 'bg-[var(--text-tertiary)]'}`}>
                   <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.stepNumbers ?? false) ? 'left-[18px]' : 'left-0.5'}`} />
                 </div>
               </label>
@@ -864,7 +877,7 @@ end`}
                   onChange={(e) => update({ markdownAutoWrap: e.target.checked })}
                 />
                 <div aria-hidden="true"
-                  className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.markdownAutoWrap ?? true) ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+                  className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.markdownAutoWrap ?? true) ? 'bg-[var(--accent)]' : 'bg-[var(--text-tertiary)]'}`}>
                   <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.markdownAutoWrap ?? true) ? 'left-[18px]' : 'left-0.5'}`} />
                 </div>
               </label>
@@ -874,11 +887,11 @@ end`}
             <div className="space-y-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
               <div className="flex items-center gap-1.5 mb-2">
                 <Spline size={11} style={{ color: 'var(--text-tertiary)' }} />
-                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>Global Edge Styling</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.globalEdgeStyling', 'Global Edge Styling')}</span>
               </div>
 
               <SliderControl
-                label="Edge Stroke Width"
+                label={t('advancedStyle.edgeStrokeWidth', 'Edge Stroke Width')}
                 icon={<Maximize2 size={11} />}
                 value={styleOptions.edgeStrokeWidth ?? 2}
                 min={1} max={10} step={1} unit="px"
@@ -887,13 +900,15 @@ end`}
               />
 
               <ColorPicker
-                label="Edge Stroke Color"
+                label={t('advancedStyle.edgeStrokeColor', 'Edge Stroke Color')}
+                labelVariant="compact"
+                icon={<Palette size={11} />}
                 value={styleOptions.edgeStrokeColor ?? '#333333'}
                 onChange={v => update({ edgeStrokeColor: v })}
               />
 
               <SliderControl
-                label="Edge Opacity"
+                label={t('advancedStyle.edgeOpacity', 'Edge Opacity')}
                 icon={<Square size={11} />}
                 value={styleOptions.edgeOpacity ?? 1}
                 min={0.1} max={1} step={0.1} unit=""
@@ -902,7 +917,7 @@ end`}
               />
 
               <SliderControl
-                label="Edge Font Size"
+                label={t('advancedStyle.edgeFontSize', 'Edge Font Size')}
                 icon={<Type size={11} />}
                 value={styleOptions.edgeFontSize ?? 14}
                 min={8} max={24} step={1} unit="px"
@@ -911,19 +926,23 @@ end`}
               />
 
               <ColorPicker
-                label="Edge Label Color"
+                label={t('advancedStyle.edgeLabelColor', 'Edge Label Color')}
+                labelVariant="compact"
+                icon={<Palette size={11} />}
                 value={styleOptions.edgeLabelColor ?? (isDark ? '#e5e7eb' : '#374151')}
                 onChange={v => update({ edgeLabelColor: v })}
               />
 
               <ColorPicker
-                label="Edge Label Background"
+                label={t('advancedStyle.edgeLabelBackground', 'Edge Label Background')}
+                labelVariant="compact"
+                icon={<Palette size={11} />}
                 value={styleOptions.edgeLabelBackgroundColor ?? (isDark ? '#1a1f2e' : '#ffffff')}
                 onChange={v => update({ edgeLabelBackgroundColor: v })}
               />
 
               <SliderControl
-                label="Edge Label Opacity"
+                label={t('advancedStyle.edgeLabelOpacity', 'Edge Label Opacity')}
                 icon={<Square size={11} />}
                 value={styleOptions.edgeLabelOpacity ?? 1}
                 min={0} max={1} step={0.1} unit=""
@@ -934,33 +953,32 @@ end`}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5">
                   <Spline size={11} style={{ color: 'var(--text-tertiary)' }} />
-                  <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>Line Style</span>
+                  <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.lineStyle', 'Line Style')}</span>
                 </div>
                 <div className="grid grid-cols-3 gap-1">
                   {[
-                    { value: '', label: 'Solid' },
-                    { value: '5 5', label: 'Dashed' },
-                    { value: '2 2', label: 'Dotted' }
-                  ].map(opt => (
-                    <button
-                      key={opt.label}
-                      onClick={() => update({ edgeDasharray: opt.value })}
-                      className="text-[11px] py-1.5 rounded-sm border transition-all text-center font-medium"
-                      style={{
-                        background: (styleOptions.edgeDasharray || '') === opt.value
-                          ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
-                          : 'transparent',
-                        borderColor: (styleOptions.edgeDasharray || '') === opt.value
-                          ? 'var(--accent)'
-                          : 'var(--border-subtle)',
-                        color: (styleOptions.edgeDasharray || '') === opt.value
-                          ? 'var(--accent)'
-                          : 'var(--text-secondary)',
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+                    { value: '', label: t('advancedStyle.lineSolid', 'Solid') },
+                    { value: '5 5', label: t('advancedStyle.lineDashed', 'Dashed') },
+                    { value: '2 2', label: t('advancedStyle.lineDotted', 'Dotted') }
+                  ].map(opt => {
+                    const active = (styleOptions.edgeDasharray || '') === opt.value;
+                    return (
+                      <button
+                        key={opt.value || 'solid'}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => update({ edgeDasharray: opt.value })}
+                        className={`text-[11px] py-1.5 rounded-sm border transition-all text-center font-medium ${FOCUS_RING_CLASSES}`}
+                        style={{
+                          background: active ? 'var(--accent-dim)' : 'transparent',
+                          borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
+                          color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1025,7 +1043,7 @@ end`}
                 onChange={(e) => update({ mirrorActors: e.target.checked })}
               />
               <div aria-hidden="true"
-                className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.mirrorActors ?? true) ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+                className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.mirrorActors ?? true) ? 'bg-[var(--accent)]' : 'bg-[var(--text-tertiary)]'}`}>
                 <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.mirrorActors ?? true) ? 'left-[18px]' : 'left-0.5'}`} />
               </div>
             </label>
@@ -1105,7 +1123,7 @@ end`}
                 onChange={(e) => update({ displayMode: e.target.checked ? 'compact' : undefined })}
               />
               <div aria-hidden="true"
-                className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${styleOptions.displayMode === 'compact' ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+                className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${styleOptions.displayMode === 'compact' ? 'bg-[var(--accent)]' : 'bg-[var(--text-tertiary)]'}`}>
                 <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${styleOptions.displayMode === 'compact' ? 'left-[18px]' : 'left-0.5'}`} />
               </div>
             </label>
@@ -1138,7 +1156,7 @@ end`}
                       className={`py-1.5 rounded-sm border transition-all text-center ${FOCUS_RING_CLASSES}`}
                       style={{
                         background: active
-                          ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
+                          ? 'var(--accent-dim)'
                           : 'transparent',
                         borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
                         color: active ? 'var(--accent)' : 'var(--text-secondary)',
@@ -1163,7 +1181,7 @@ end`}
                 onChange={(e) => update({ automaticLaneOrdering: e.target.checked })}
               />
               <div aria-hidden="true"
-                className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.automaticLaneOrdering ?? false) ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+                className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.automaticLaneOrdering ?? false) ? 'bg-[var(--accent)]' : 'bg-[var(--text-tertiary)]'}`}>
                 <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.automaticLaneOrdering ?? false) ? 'left-[18px]' : 'left-0.5'}`} />
               </div>
             </label>
@@ -1305,7 +1323,7 @@ end`}
                       onClick={() => update({ labelStyle: opt.value })}
                       className={`py-1.5 rounded-sm border transition-all text-center ${FOCUS_RING_CLASSES}`}
                       style={{
-                        background: active ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)') : 'transparent',
+                        background: active ? 'var(--accent-dim)' : 'transparent',
                         borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
                         color: active ? 'var(--accent)' : 'var(--text-secondary)',
                       }}
@@ -1402,7 +1420,7 @@ end`}
                     onClick={() => update({ colorBy: opt.value })}
                     className={`py-1.5 rounded-sm border transition-all text-center ${FOCUS_RING_CLASSES}`}
                     style={{
-                      background: active ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)') : 'transparent',
+                      background: active ? 'var(--accent-dim)' : 'transparent',
                       borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
                       color: active ? 'var(--accent)' : 'var(--text-secondary)',
                     }}
@@ -1450,7 +1468,7 @@ end`}
                       onClick={() => update({ bitOrder: opt.value })}
                       className={`py-1.5 rounded-sm border transition-all text-center ${FOCUS_RING_CLASSES}`}
                       style={{
-                        background: active ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)') : 'transparent',
+                        background: active ? 'var(--accent-dim)' : 'transparent',
                         borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
                         color: active ? 'var(--accent)' : 'var(--text-secondary)',
                       }}
@@ -1698,18 +1716,13 @@ end`}
 
         {!isDefault && (
           <button
+            type="button"
             onClick={handleReset}
-            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border text-[11px] font-medium transition-colors"
+            className={`w-full flex items-center justify-center gap-1.5 py-2 max-md:min-h-[44px] rounded-lg border text-[11px] font-medium transition-opacity hover:opacity-90 ${FOCUS_RING_CLASSES}`}
             style={{
-              borderColor: isDark ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.15)',
-              color: isDark ? '#f87171' : '#dc2626',
-              background: isDark ? 'rgba(239,68,68,0.06)' : 'rgba(239,68,68,0.04)',
-            }}
-            onMouseEnter={e => {
-              (e.currentTarget as HTMLElement).style.borderColor = isDark ? 'rgba(239,68,68,0.4)' : 'rgba(239,68,68,0.3)';
-            }}
-            onMouseLeave={e => {
-              (e.currentTarget as HTMLElement).style.borderColor = isDark ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.15)';
+              borderColor: 'rgba(220,38,38,0.25)',
+              color: 'var(--danger)',
+              background: 'var(--danger-dim)',
             }}
           >
             <RotateCcw size={10} />

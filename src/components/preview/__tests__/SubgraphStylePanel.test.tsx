@@ -12,6 +12,7 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => {
       const map: Record<string, string> = {
+        'common.close': 'Close',
         'subgraphStyle.subgraphId': 'Subgraph ID',
         'subgraphStyle.label': 'Label',
         'subgraphStyle.labelPlaceholder': 'Subgraph label...',

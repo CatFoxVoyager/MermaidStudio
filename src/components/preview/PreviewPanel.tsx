@@ -1403,12 +1403,10 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // Drop handler: adds a shape when dragged onto the canvas, or moves node to root
   const handleDropOnCanvas = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    console.log('DROP ON CANVAS - dragNodeId:', dragNodeId);
     // D6 fence: body-metadata content is never rewritten.
     if (bodyHasMetadata) return;
     // If dragging a node over the canvas (not a shape from toolbar), move to root
     if (dragNodeId && onChange) {
-      console.log('MOVING TO ROOT:', dragNodeId);
       onChange(moveNodeToSubgraph(content, dragNodeId, null));
       setDragNodeId(null);
       setDragOverSubgraphId(null);
@@ -1548,20 +1546,20 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           surface and fed the drag-the-workspace complaint. Glyph deltas
           kept deliberately: the web's 1:1 reset beat Android's RefreshCw
           (iter-31: read as "reload page") and Scan fit is equivalent. */}
-      <div className="flex items-center justify-between px-3 min-h-12 shrink-0 border-b max-md:pl-2 max-md:pr-2 max-md:overflow-hidden"
+      <div className="flex items-center justify-between gap-2 px-3 min-h-12 shrink-0 border-b max-md:pl-2 max-md:pr-2 max-md:overflow-hidden"
         style={{ borderColor: 'var(--border-subtle)' }}>
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 shrink-0">
           {/* "Preview" label hidden on mobile (iter-25 P1: it duplicated the
               Visual segment name and crowded the zoom row past the viewport
               — the Flowchart type badge alone carries the context). */}
-          <span className="hidden md:inline text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{t('preview.title')}</span>
+          <span className="hidden lg:inline text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{t('preview.title')}</span>
           <span className="px-1.5 py-0.5 rounded-sm text-xs font-semibold border shrink-0 max-md:hidden"
             style={{ background: 'var(--accent-dim)', color: 'var(--accent)', borderColor: 'rgba(var(--accent-rgb),0.2)' }}>
             {DIAGRAM_LABELS[type]}
           </span>
           {loading && <RefreshCw size={11} style={{ color: 'var(--text-tertiary)' }} className="animate-spin" />}
         </div>
-        <div className="flex items-center gap-1 max-md:flex-1 max-md:justify-between overflow-x-auto max-md:overflow-hidden">
+        <div className="flex items-center gap-1 min-w-0 max-md:flex-1 max-md:justify-between overflow-x-auto max-md:overflow-hidden">
           <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} title={t('preview.zoomOut')} aria-label={t('preview.zoomOut')}
             className={`w-11 h-11 inline-flex items-center justify-center rounded-md shrink-0 transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] ${FOCUS_RING_CLASSES}`} style={{ color: 'var(--text-tertiary)' }}>
             <ZoomOut size={16} />

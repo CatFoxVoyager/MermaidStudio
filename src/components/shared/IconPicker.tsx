@@ -287,7 +287,7 @@ export function IconPicker({ anchor, onClose, onPick, selected, triggerRef }: Ic
             onClick={() => setQuery('')}
             title={t('visual.iconSearchClear')}
             aria-label={t('visual.iconSearchClear')}
-            className={`shrink-0 flex items-center justify-center p-1 rounded-md ${FOCUS_RING_CLASSES}`}
+            className={`shrink-0 flex items-center justify-center p-1 max-md:min-w-[44px] max-md:min-h-[44px] rounded-md transition-colors hover:bg-[var(--hover)] ${FOCUS_RING_CLASSES}`}
             style={{ color: 'var(--text-secondary)' }}
           >
             <X size={14} aria-hidden="true" />
@@ -350,7 +350,7 @@ export function IconPicker({ anchor, onClose, onPick, selected, triggerRef }: Ic
         {emptySearch ? (
           <div className="py-6 text-center" style={{ color: 'var(--text-tertiary)' }}>
             <p className="text-xs font-medium">{t('visual.iconSearchEmpty')}</p>
-            <p className="text-xs mt-1">{t('visual.iconSearchEmptyHint', { query: trimmed })}</p>
+            <p className="text-[11px] leading-[1.5] mt-1">{t('visual.iconSearchEmptyHint', { query: trimmed })}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -361,10 +361,11 @@ export function IconPicker({ anchor, onClose, onPick, selected, triggerRef }: Ic
                     data-pack-loading={section.key}
                     role="status"
                     aria-label={t('visual.iconLoading')}
-                    className="flex items-center gap-1 py-2 text-[11px] leading-[1.5]"
+                    className="flex items-center gap-2 py-2 text-[11px] leading-[1.5]"
                     style={{ color: 'var(--text-tertiary)' }}
                   >
                     <LoaderCircle size={14} className="animate-spin shrink-0" aria-hidden="true" />
+                    <span>{t(section.headerKey)}</span>
                   </div>
                 )}
                 {pack.state === 'error' && (
@@ -379,12 +380,11 @@ export function IconPicker({ anchor, onClose, onPick, selected, triggerRef }: Ic
                       type="button"
                       data-pack-retry={section.key}
                       onClick={pack.retry}
-                      className={`ml-1 flex items-center gap-1 rounded-md border px-1.5 py-1 text-[11px] font-medium ${FOCUS_RING_CLASSES}`}
+                      className={`ml-1 flex items-center gap-1 rounded-md border px-1.5 py-1 max-md:min-h-[44px] text-[11px] font-medium transition-colors hover:bg-[var(--hover)] ${FOCUS_RING_CLASSES}`}
                       style={{
                         color: 'var(--text-secondary)',
                         borderColor: 'var(--border-subtle)',
                         background: 'var(--surface-base)',
-                        outline: 'none',
                       }}
                     >
                       <RefreshCw size={11} aria-hidden="true" />
@@ -395,7 +395,7 @@ export function IconPicker({ anchor, onClose, onPick, selected, triggerRef }: Ic
                 {pack.state === 'loaded' && names.length > 0 && (
                   <>
                     <h3
-                      className="text-[11px] font-medium uppercase tracking-wider leading-[1.2]"
+                      className="text-xs font-medium uppercase tracking-wider leading-[1.2]"
                       style={{ color: 'var(--text-secondary)' }}
                     >
                       {t(section.headerKey)}

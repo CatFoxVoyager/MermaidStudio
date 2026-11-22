@@ -456,9 +456,10 @@ export function NodeStylePanel({
           </span>
         </div>
         <button
+          type="button"
           onClick={onClose}
-          aria-label="Close"
-          className="flex items-center justify-center w-6 h-6 rounded-md transition-colors hover:bg-[var(--hover)] shrink-0 max-md:min-w-[44px] max-md:min-h-[44px]"
+          aria-label={t('common.close', 'Close')}
+          className={`flex items-center justify-center w-6 h-6 rounded-md transition-colors hover:bg-[var(--hover)] shrink-0 max-md:min-w-[44px] max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
           style={{ color: 'var(--text-tertiary)' }}
         >
           <X size={14} />
@@ -493,12 +494,11 @@ export function NodeStylePanel({
               value={label}
               placeholder={t('nodeStyle.labelPlaceholder')}
               onChange={e => { setLabel(e.target.value); onLabelChange(singleNodeId, e.target.value); }}
-              className="w-full px-2.5 py-1.5 rounded-md border text-xs"
+              className={`w-full px-2.5 py-1.5 rounded-md border text-xs ${FOCUS_RING_CLASSES}`}
               style={{
                 background: 'var(--surface-base)',
                 borderColor: 'var(--border-subtle)',
                 color: 'var(--text-primary)',
-                outline: 'none',
               }}
             />
           </div>
@@ -578,7 +578,7 @@ export function NodeStylePanel({
               {mediaMixed && (
                 <span
                   data-media-mixed
-                  className="text-[10px] leading-none px-1.5 py-0.5 rounded-full border shrink-0"
+                  className="text-[10px] leading-none px-2 py-1 rounded-full border shrink-0"
                   style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}
                 >
                   {t('nodeStyle.mixed')}
@@ -1074,8 +1074,9 @@ export function NodeStylePanel({
               {presets.map(preset => (
               <button
                 key={preset.label}
+                type="button"
                 onClick={() => onPresetApply?.(selectedNodeIds, preset.presetType)}
-                className="flex items-center gap-1 px-2 py-1.5 rounded-lg border text-xs font-medium transition-all hover:scale-105 active:scale-95 min-w-0"
+                className={`flex items-center justify-center px-2 py-1.5 rounded-lg border text-xs font-medium transition-all hover:scale-105 active:scale-95 min-w-0 ${FOCUS_RING_CLASSES}`}
                 title={preset.label}
                 style={{
                   borderColor: preset.color,
@@ -1087,7 +1088,6 @@ export function NodeStylePanel({
                   backgroundColor: preset.color,
                 }}
               >
-                <span className="w-2 h-2 rounded-full shrink-0 border border-black/20" style={{ background: preset.color }} />
                 <span className="truncate">{preset.label}</span>
               </button>
             ))}
@@ -1152,10 +1152,12 @@ export function NodeStylePanel({
               return (
                 <button
                   key={opt.value}
+                  type="button"
+                  aria-pressed={isActive}
                   onClick={() =>
                     handleStyleChange('strokeDasharray', opt.value || undefined)
                   }
-                  className="flex-1 py-1.5 rounded-md border text-[11px] font-medium transition-all"
+                  className={`flex-1 py-1.5 rounded-md border text-[11px] font-medium transition-all ${FOCUS_RING_CLASSES}`}
                   style={{
                     borderColor: isActive ? 'var(--accent)' : 'var(--border-subtle)',
                     background: isActive ? 'var(--accent-dim)' : 'var(--surface-base)',
@@ -1223,8 +1225,10 @@ export function NodeStylePanel({
 
         {/* Advanced Toggle */}
         <button
+          type="button"
+          aria-expanded={advancedOpen}
           onClick={() => setAdvancedOpen(v => !v)}
-          className="flex items-center gap-1 py-1 text-xs font-medium uppercase tracking-wider transition-colors"
+          className={`flex items-center gap-1 py-1 rounded-sm text-xs font-medium uppercase tracking-wider transition-colors ${FOCUS_RING_CLASSES}`}
           style={{ color: 'var(--text-tertiary)' }}
         >
           <ChevronDown
@@ -1388,8 +1392,9 @@ export function NodeStylePanel({
             4.83 vs #ef4444's 3.76). */}
         <div className="mt-auto pt-2 border-t space-y-2" style={{ borderColor: 'var(--border-subtle)' }}>
           <button
+            type="button"
             onClick={() => onReset(selectedNodeIds)}
-            className="flex items-center justify-center gap-1.5 w-full min-w-0 py-2 rounded-lg text-xs font-medium transition-colors"
+            className={`flex items-center justify-center gap-1.5 w-full min-w-0 py-2 rounded-lg text-xs font-medium transition-colors ${FOCUS_RING_CLASSES}`}
             style={{
               background: 'rgba(220,38,38,0.08)',
               color: '#b91c1c',
@@ -1401,6 +1406,7 @@ export function NodeStylePanel({
           </button>
           {onDelete && (
             <button
+              type="button"
               onClick={e => {
                 const btn = e.currentTarget;
                 if (btn.dataset.armed) {
@@ -1425,7 +1431,7 @@ export function NodeStylePanel({
                 }, 3000);
               }}
               title={t('nodeStyle.delete')}
-              className="flex items-center justify-center gap-1.5 w-full min-w-0 py-2 rounded-lg text-xs font-semibold transition-colors"
+              className={`flex items-center justify-center gap-1.5 w-full min-w-0 py-2 rounded-lg text-xs font-semibold transition-colors ${FOCUS_RING_CLASSES}`}
               style={{
                 background: '#dc2626',
                 color: '#ffffff',

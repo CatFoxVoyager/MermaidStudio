@@ -61,6 +61,10 @@
     "shapesTitle": "SHAPES",
     "moreShapes": "More",
     "shapeAddHint": "Add {{shape}} (tap to add, drag to canvas)",
+    "propertiesTitle": "Properties",
+    "nodeProperties": "Node Properties",
+    "edgeProperties": "Edge Properties",
+    "propertiesEmpty": "Click a node to edit its properties, or select a shape from the toolbar to add one.",
     "shapes": {
       "rect": "Rectangle",
       "rounded": "Rounded rectangle",
@@ -778,7 +782,19 @@
     "gitParallelCommits": "Parallel Commits",
     "gitMainBranchName": "Main Branch Name",
     "kanbanTicketBaseUrl": "Ticket Base URL",
-    "treemapValueFormat": "Value Format"
+    "treemapValueFormat": "Value Format",
+    "globalEdgeStyling": "Global Edge Styling",
+    "edgeStrokeWidth": "Edge Stroke Width",
+    "edgeStrokeColor": "Edge Stroke Color",
+    "edgeOpacity": "Edge Opacity",
+    "edgeFontSize": "Edge Font Size",
+    "edgeLabelColor": "Edge Label Color",
+    "edgeLabelBackground": "Edge Label Background",
+    "edgeLabelOpacity": "Edge Label Opacity",
+    "lineStyle": "Line Style",
+    "lineSolid": "Solid",
+    "lineDashed": "Dashed",
+    "lineDotted": "Dotted"
   },
   "mermaidConfig": {
     "title": "Mermaid Diagram Configuration",

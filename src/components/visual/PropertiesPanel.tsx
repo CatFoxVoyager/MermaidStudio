@@ -330,21 +330,21 @@ function NodePanel({
     <div className="flex flex-col gap-4">
       {single && (
         <div className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Label</span>
+          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('nodeStyle.label', 'Label')}</span>
           <input
             type="text"
             value={label}
             onChange={e => setLabel(e.target.value)}
             onBlur={() => { if (label !== single.label) {onLabelChange(single.id, label);} }}
             onKeyDown={e => { if (e.key === 'Enter') {onLabelChange(single.id, label);} }}
-            className="w-full px-2.5 py-1.5 rounded-md border text-xs"
-            style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)', outline: 'none' }}
+            className={`w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+            style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
           />
         </div>
       )}
 
       <div className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Shape</span>
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('nodeStyle.shape', 'Shape')}</span>
         <button
           ref={shapeBtnRef}
           type="button"
@@ -352,8 +352,8 @@ function NodePanel({
           onClick={toggleShapePicker}
           title={t('visual.shapeChangeHint', { shape: shapeLabel })}
           aria-label={t('visual.shapeChangeHint', { shape: shapeLabel })}
-          className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs ${FOCUS_RING_CLASSES}`}
-          style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)', outline: 'none' }}>
+          className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+          style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}>
           <span className="shrink-0 flex items-center">
             {/* Mixed state carries the neutral rect preview (the old
                 "Mixed shapes" select-option precedent, carried to the
@@ -387,13 +387,13 @@ function NodePanel({
       {mediaWired && (
         <div className="flex flex-col gap-1">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
               {t('nodeStyle.media')}
             </span>
             {mediaMixed && (
               <span
                 data-media-mixed
-                className="text-[10px] leading-none px-1.5 py-0.5 rounded-full border shrink-0"
+                className="text-[10px] leading-none px-2 py-1 rounded-full border shrink-0"
                 style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}
               >
                 {t('nodeStyle.mixed')}
@@ -491,7 +491,7 @@ function NodePanel({
               {nodeIcon && (
                 <>
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                    <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
                       {t('nodeStyle.iconForm')}
                     </span>
                     <div className="grid grid-cols-3 gap-1">
@@ -523,7 +523,7 @@ function NodePanel({
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                    <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
                       {t('nodeStyle.iconPosition')}
                     </span>
                     <div className="grid grid-cols-2 gap-1">
@@ -554,7 +554,7 @@ function NodePanel({
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                    <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
                       {t('nodeStyle.iconSize')}
                     </span>
                     <div className="grid grid-cols-2 gap-1">
@@ -565,12 +565,11 @@ function NodePanel({
                         placeholder={sizePlaceholder}
                         min={0}
                         onChange={e => setIconSize('w', e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px]"
+                        className={`w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
                         style={{
                           background: 'var(--surface-base)',
                           borderColor: 'var(--border-subtle)',
                           color: 'var(--text-primary)',
-                          outline: 'none',
                         }}
                       />
                       <input
@@ -580,12 +579,11 @@ function NodePanel({
                         placeholder={sizePlaceholder}
                         min={0}
                         onChange={e => setIconSize('h', e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px]"
+                        className={`w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
                         style={{
                           background: 'var(--surface-base)',
                           borderColor: 'var(--border-subtle)',
                           color: 'var(--text-primary)',
-                          outline: 'none',
                         }}
                       />
                     </div>
@@ -688,7 +686,7 @@ function NodePanel({
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                    <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
                       {t('nodeStyle.iconPosition')}
                     </span>
                     <div className="grid grid-cols-2 gap-1">
@@ -719,7 +717,7 @@ function NodePanel({
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                    <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
                       {t('nodeStyle.iconSize')}
                     </span>
                     <div className="grid grid-cols-2 gap-1">
@@ -730,12 +728,11 @@ function NodePanel({
                         placeholder={sizePlaceholder}
                         min={0}
                         onChange={e => setImageSize('w', e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px]"
+                        className={`w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
                         style={{
                           background: 'var(--surface-base)',
                           borderColor: 'var(--border-subtle)',
                           color: 'var(--text-primary)',
-                          outline: 'none',
                         }}
                       />
                       <input
@@ -745,12 +742,11 @@ function NodePanel({
                         placeholder={sizePlaceholder}
                         min={0}
                         onChange={e => setImageSize('h', e.target.value)}
-                        className="w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px]"
+                        className={`w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
                         style={{
                           background: 'var(--surface-base)',
                           borderColor: 'var(--border-subtle)',
                           color: 'var(--text-primary)',
-                          outline: 'none',
                         }}
                       />
                     </div>
@@ -848,13 +844,13 @@ function NodePanel({
         </div>
       )}
 
-      <ColorPicker label="Fill Color" value={sharedStyle.fill ?? ''} onChange={v => handleStyleField('fill', v)} />
-      <ColorPicker label="Border Color" value={sharedStyle.stroke ?? ''} onChange={v => handleStyleField('stroke', v)} />
-      <ColorPicker label="Text Color" value={sharedStyle.color ?? ''} onChange={v => handleStyleField('color', v)} />
+      <ColorPicker label={t('nodeStyle.fillColor', 'Fill Color')} labelVariant="inspector-sm" value={sharedStyle.fill ?? ''} onChange={v => handleStyleField('fill', v)} />
+      <ColorPicker label={t('nodeStyle.borderColor', 'Border Color')} labelVariant="inspector-sm" value={sharedStyle.stroke ?? ''} onChange={v => handleStyleField('stroke', v)} />
+      <ColorPicker label={t('nodeStyle.textColor', 'Text Color')} labelVariant="inspector-sm" value={sharedStyle.color ?? ''} onChange={v => handleStyleField('color', v)} />
 
       <div className="flex flex-col gap-1">
         <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-          Border Width
+          {t('nodeStyle.borderWidth', 'Border Width')}
         </span>
         <div className="flex items-center gap-2">
           <input
@@ -1055,14 +1051,15 @@ function NodePanel({
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-1">
           <Zap size={11} style={{ color: 'var(--text-tertiary)' }} />
-          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>Presets</span>
+          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('nodeStyle.presets', 'Presets')}</span>
         </div>
         <div className="grid grid-cols-2 gap-1.5">
           {PRESETS.map(p => (
             <button
               key={p.label}
+              type="button"
               onClick={() => nodes.forEach(n => onStyleChange(n.id, p.style))}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg border text-[11px] font-medium transition-all hover:scale-105 active:scale-95 min-w-0"
+              className={`flex items-center gap-1 px-2 py-1.5 max-md:min-h-[44px] rounded-lg border text-[11px] font-medium transition-all hover:scale-105 active:scale-95 min-w-0 ${FOCUS_RING_CLASSES}`}
               title={p.label}
               style={{ borderColor: p.color, color: p.label === 'Dark' ? '#ffffff' : p.color, background: p.style.fill }}>
               <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
@@ -1148,7 +1145,7 @@ function EdgePanel({
     onEdgeMetaChange({ ...(typedMeta ?? {}), animation: speed });
   };
 
-  const inputStyle = { background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)', outline: 'none' } as const;
+  const inputStyle = { background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' } as const;
 
   return (
     <div className="flex flex-col gap-4">
@@ -1167,7 +1164,7 @@ function EdgePanel({
           <select
             value={edge.arrowType}
             onChange={e => onArrowChange(edge.source, edge.target, e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded-md border text-xs appearance-none pr-8 max-md:min-h-[44px]"
+            className={`w-full px-2.5 py-1.5 rounded-md border text-xs appearance-none pr-8 max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
             style={{ ...inputStyle }}>
             {EDGE_ARROW_OPTIONS.map(opt => (
               <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
@@ -1191,7 +1188,7 @@ function EdgePanel({
           onChange={e => setLabel(e.target.value)}
           onBlur={() => onLabelChange(edge.source, edge.target, label)}
           onKeyDown={e => { if (e.key === 'Enter') {onLabelChange(edge.source, edge.target, label);} }}
-          className="w-full px-2.5 py-1.5 rounded-md border text-xs"
+          className={`w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
           style={{ ...inputStyle }}
         />
       </div>
@@ -1205,7 +1202,7 @@ function EdgePanel({
             placeholder={t('edgeStyle.edgeIdPlaceholder')}
             onChange={e => onEdgeIdChange(e.target.value)}
             data-edge-id-input
-            className="w-full px-2.5 py-1.5 rounded-md border text-xs font-mono max-md:min-h-[44px]"
+            className={`w-full px-2.5 py-1.5 rounded-md border text-xs font-mono max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
             style={{ ...inputStyle }}
           />
         </div>
@@ -1228,7 +1225,7 @@ function EdgePanel({
               onEdgeLengthChange(edge.arrowType, Math.min(4, Math.max(minLen, n)));
             }}
             data-edge-length-input
-            className="w-full px-2.5 py-1.5 rounded-md border text-xs font-mono max-md:min-h-[44px]"
+            className={`w-full px-2.5 py-1.5 rounded-md border text-xs font-mono max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
             style={{ ...inputStyle }}
           />
         </div>
@@ -1246,6 +1243,8 @@ function EdgePanel({
                 return (
                   <button
                     key={speed}
+                    type="button"
+                    aria-pressed={isActive}
                     onClick={() => commitSpeed(speed)}
                     data-edge-speed={speed}
                     className={`py-1.5 rounded-md border text-[11px] font-medium transition-all max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
@@ -1271,7 +1270,7 @@ function EdgePanel({
               value={typedMeta?.step ?? ''}
               onChange={e => commitStep(e.target.value)}
               data-edge-step-input
-              className="w-full px-2.5 py-1.5 rounded-md border text-xs font-mono max-md:min-h-[44px]"
+              className={`w-full px-2.5 py-1.5 rounded-md border text-xs font-mono max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
               style={{ ...inputStyle }}
             />
           </div>
@@ -1280,28 +1279,32 @@ function EdgePanel({
             <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('edgeStyle.curve')}</span>
             {/* Leading Default option = param omitted (Grey Area 8); then
                 the 13 mermaid values in config-union order. */}
-            <select
-              value={typedMeta?.curve ?? ''}
-              onChange={e => commitCurve(e.target.value)}
-              data-edge-curve-select
-              className="w-full px-2.5 py-1.5 rounded-md border text-xs appearance-none pr-8 max-md:min-h-[44px]"
-              style={{ ...inputStyle }}>
-              <option value="">{t('edgeStyle.curveDefault')}</option>
-              {EDGE_CURVE_OPTIONS.map(cv => (
-                <option key={cv.value} value={cv.value}>{t(cv.labelKey)}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={typedMeta?.curve ?? ''}
+                onChange={e => commitCurve(e.target.value)}
+                data-edge-curve-select
+                className={`w-full px-2.5 py-1.5 rounded-md border text-xs appearance-none pr-8 max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                style={{ ...inputStyle }}>
+                <option value="">{t('edgeStyle.curveDefault')}</option>
+                {EDGE_CURVE_OPTIONS.map(cv => (
+                  <option key={cv.value} value={cv.value}>{t(cv.labelKey)}</option>
+                ))}
+              </select>
+              <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-tertiary)' }} />
+            </div>
           </div>
         </>
       )}
 
       {onAnimatePreset && (
         <button
+          type="button"
           onClick={onAnimatePreset}
           title={t('edgeStyle.animatePresetHint')}
           aria-label={t('edgeStyle.animatePresetHint')}
           data-edge-animate-preset
-          className="flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-medium transition-colors max-md:min-h-[44px]"
+          className={`flex items-center justify-center gap-1.5 w-full py-2 rounded-lg text-xs font-medium transition-colors max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
           style={{
             background: 'var(--accent-dim)',
             color: 'var(--accent)',
@@ -1313,9 +1316,10 @@ function EdgePanel({
       )}
 
       <button
+        type="button"
         onClick={() => onDeleteEdge(edge.source, edge.target)}
-        className="w-full py-1.5 rounded-lg text-xs font-medium transition-colors"
-        style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+        className={`w-full py-1.5 rounded-lg text-xs font-medium transition-colors max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+        style={{ background: 'var(--danger-dim)', color: 'var(--danger)', border: '1px solid rgba(220,38,38,0.25)' }}>
         {t('edgeStyle.delete')}
       </button>
     </div>
@@ -1457,10 +1461,14 @@ export function PropertiesPanel({
         <Settings2 size={13} style={{ color: 'var(--accent)' }} />
         <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>
           {hasNode
-            ? selectedNodes.length === 1 ? 'Node Properties' : `${selectedNodes.length} Nodes`
+            ? selectedNodes.length === 1
+              ? t('visual.nodeProperties', 'Node Properties')
+              : t('nodeStyle.nodes', { count: selectedNodes.length })
             : hasSubgraph
               ? t('preview.subgraph')
-              : hasEdge ? 'Edge Properties' : 'Properties'}
+              : hasEdge
+                ? t('visual.edgeProperties', 'Edge Properties')
+                : t('visual.propertiesTitle', 'Properties')}
         </span>
       </div>
 
@@ -1472,7 +1480,7 @@ export function PropertiesPanel({
               <Settings2 size={18} style={{ color: 'var(--text-tertiary)' }} />
             </div>
             <p className="text-xs leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-              Click a node to edit its properties, or select a shape from the toolbar to add one.
+              {t('visual.propertiesEmpty', 'Click a node to edit its properties, or select a shape from the toolbar to add one.')}
             </p>
           </div>
         ) : hasNode ? (

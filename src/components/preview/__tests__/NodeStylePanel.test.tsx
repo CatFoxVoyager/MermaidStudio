@@ -25,6 +25,7 @@ vi.mock('react-i18next', async () => {
     useTranslation: () => ({
       t: (key: string, opts?: Record<string, string | number>) => {
         const map: Record<string, string> = {
+          'common.close': 'Close',
           'nodeStyle.nodes': '{{count}} Nodes',
           'nodeStyle.label': 'Label',
           'nodeStyle.shape': 'Shape',

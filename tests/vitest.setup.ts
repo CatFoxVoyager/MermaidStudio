@@ -35,6 +35,9 @@ vi.mock('react-i18next', () => {
       'common.cancel': 'Cancel',
       'common.delete': 'Delete',
       'common.close': 'Close',
+      'visual.propertiesTitle': 'Properties',
+      'visual.nodeProperties': 'Node Properties',
+      'visual.edgeProperties': 'Edge Properties',
     };
     return translations[key] || key;
   };

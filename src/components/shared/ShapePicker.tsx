@@ -132,7 +132,7 @@ export function ShapePicker({ anchor, onClose, onPick, onDragStart, selected, tr
             onClick={() => setQuery('')}
             title={t('visual.shapeSearchClear')}
             aria-label={t('visual.shapeSearchClear')}
-            className={`shrink-0 flex items-center justify-center p-1 rounded-md ${FOCUS_RING_CLASSES}`}
+            className={`shrink-0 flex items-center justify-center p-1 max-md:min-w-[44px] max-md:min-h-[44px] rounded-md transition-colors hover:bg-[var(--hover)] ${FOCUS_RING_CLASSES}`}
             style={{ color: 'var(--text-secondary)' }}
           >
             <X size={14} aria-hidden="true" />
@@ -147,7 +147,7 @@ export function ShapePicker({ anchor, onClose, onPick, onDragStart, selected, tr
         {sections.length === 0 ? (
           <div className="py-6 text-center" style={{ color: 'var(--text-tertiary)' }}>
             <p className="text-xs font-medium">{t('visual.shapeSearchEmpty')}</p>
-            <p className="text-xs mt-1">{t('visual.shapeSearchEmptyHint', { query: trimmed })}</p>
+            <p className="text-[11px] leading-[1.5] mt-1">{t('visual.shapeSearchEmptyHint', { query: trimmed })}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-2">

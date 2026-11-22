@@ -121,14 +121,19 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
       return count;
     };
     // Pass 1: could ALL shapes fit inline? Then the More button (and its
-    // lane) disappears entirely. Pass 2: otherwise the group reserves the
-    // More lane (pr-16 = 64px) AFTER the shapes — the fill must leave it
-    // free, or the row overflows by exactly the lane width.
+    // lane) disappears entirely. Pass 2: otherwise reserve the More lane
+    // (68px = More chip + right offset + breathing gap) AFTER the shapes.
+    // When el.clientWidth === 0 (jsdom / unmeasured layout), keep the
+    // deterministic MIN_PRIMARY_SHAPE_COUNT floor; in a real browser with
+    // measured geometry, never force more shapes than actually clear the
+    // pinned More chip (fixes 320px & narrow desktop split overlaps).
     const base = el.clientWidth - leftPrefix - padRight - rightFixed;
     const countAll = greedy(base);
-    const count = countAll >= SHAPES.length
-      ? countAll
-      : Math.max(MIN_PRIMARY_SHAPE_COUNT, greedy(base - 64));
+    const count = el.clientWidth === 0
+      ? MIN_PRIMARY_SHAPE_COUNT
+      : countAll >= SHAPES.length
+        ? countAll
+        : greedy(base - 68);
     setVisibleCount(count);
   }, []);
 
@@ -281,7 +286,7 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
             onClick={onDeleteSelected}
             title={t('visual.deleteSelected')}
             className={`flex items-center gap-1.5 px-3 min-h-[44px] rounded-lg text-xs font-medium transition-colors shrink-0 ${FOCUS_RING_CLASSES}`}
-            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}>
+            style={{ background: 'var(--danger-dim)', color: 'var(--danger)', border: '1px solid rgba(220,38,38,0.25)' }}>
             <Trash2 size={14} />
             {t('visual.deleteSelected')}
           </button>
@@ -304,7 +309,14 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
           aria-label={t('visual.moreShapes')}
           title={t('visual.moreShapes')}
           className={`absolute right-2 top-1/2 -translate-y-1/2 flex flex-col items-center justify-center gap-1 px-2 min-h-[53px] rounded-lg border transition-colors ${FOCUS_RING_CLASSES}`}
-          style={{ background: moreOpen ? 'var(--accent-dim)' : 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: moreOpen ? 'var(--accent)' : 'var(--text-secondary)', minWidth: 52 }}>
+          style={{
+            background: moreOpen
+              ? 'color-mix(in srgb, var(--accent) 12%, var(--surface-base))'
+              : 'var(--surface-base)',
+            borderColor: moreOpen ? 'var(--accent)' : 'var(--border-subtle)',
+            color: moreOpen ? 'var(--accent)' : 'var(--text-secondary)',
+            minWidth: 52,
+          }}>
           <LayoutGrid size={16} />
           <span className="text-xs font-medium leading-none flex items-center gap-0.5">
             {t('visual.moreShapes')}

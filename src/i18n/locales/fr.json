@@ -61,6 +61,10 @@
     "shapesTitle": "FORMES",
     "moreShapes": "Plus",
     "shapeAddHint": "Ajouter {{shape}} (toucher pour ajouter, glisser sur le canevas)",
+    "propertiesTitle": "Propriétés",
+    "nodeProperties": "Propriétés du nœud",
+    "edgeProperties": "Propriétés du lien",
+    "propertiesEmpty": "Cliquez sur un nœud pour modifier ses propriétés ou choisissez une forme dans la barre d'outils pour en ajouter un.",
     "shapes": {
       "rect": "Rectangle",
       "rounded": "Rectangle arrondi",
@@ -778,7 +782,19 @@
     "gitParallelCommits": "Commits parallèles",
     "gitMainBranchName": "Nom de la branche principale",
     "kanbanTicketBaseUrl": "URL de base des tickets",
-    "treemapValueFormat": "Format des valeurs"
+    "treemapValueFormat": "Format des valeurs",
+    "globalEdgeStyling": "Style global des arêtes",
+    "edgeStrokeWidth": "Épaisseur du trait",
+    "edgeStrokeColor": "Couleur du trait",
+    "edgeOpacity": "Opacité des arêtes",
+    "edgeFontSize": "Taille de police des étiquettes",
+    "edgeLabelColor": "Couleur des étiquettes",
+    "edgeLabelBackground": "Fond des étiquettes",
+    "edgeLabelOpacity": "Opacité des étiquettes",
+    "lineStyle": "Style de ligne",
+    "lineSolid": "Plein",
+    "lineDashed": "Tirets",
+    "lineDotted": "Pointillés"
   },
   "mermaidConfig": {
     "title": "Configuration du diagramme Mermaid",

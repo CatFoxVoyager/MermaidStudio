@@ -11,6 +11,7 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, opts?: Record<string, string | number>) => {
       const map: Record<string, string> = {
+        'common.close': 'Close',
         'edgeStyle.connection': 'Connection',
         'edgeStyle.arrowType': 'Arrow Type',
         'edgeStyle.label': 'Label',
