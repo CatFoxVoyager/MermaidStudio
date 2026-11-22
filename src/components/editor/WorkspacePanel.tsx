@@ -283,6 +283,43 @@ export function WorkspacePanel({
     ]);
   }, []);
 
+  // Stabilize callbacks passed to PreviewPanel/VisualEditorCanvas/CodeEditor
+  // so React.memo(PreviewPanelInner) bails out on renderTimeMs and unrelated
+  // App/WorkspacePanel re-renders. Kept strictly before the early return below.
+  const activeTabIdForHandlers = activeTab?.id ?? null;
+  const handleContentChange = useCallback(
+    (v: string) => {
+      if (activeTabIdForHandlers) {
+        onContentChange(activeTabIdForHandlers, v);
+      }
+    },
+    [activeTabIdForHandlers, onContentChange]
+  );
+
+  const onShowExportRef = useRef(onShowExport);
+  const onFullscreenRef = useRef(onFullscreen);
+  const onDiagramColorsCloseRef = useRef(onDiagramColorsClose);
+  const onAdvancedStyleCloseRef = useRef(onAdvancedStyleClose);
+  useEffect(() => {
+    onShowExportRef.current = onShowExport;
+    onFullscreenRef.current = onFullscreen;
+    onDiagramColorsCloseRef.current = onDiagramColorsClose;
+    onAdvancedStyleCloseRef.current = onAdvancedStyleClose;
+  }, [onShowExport, onFullscreen, onDiagramColorsClose, onAdvancedStyleClose]);
+
+  const handleShowExport = useCallback(() => {
+    onShowExportRef.current();
+  }, []);
+
+  const handleFullscreen = useCallback(() => {
+    onFullscreenRef.current();
+  }, []);
+
+  const handleSelectionOpen = useCallback(() => {
+    onDiagramColorsCloseRef.current();
+    onAdvancedStyleCloseRef.current();
+  }, []);
+
   if (!activeTab) {
     return (
       <EmptyState
@@ -595,7 +632,7 @@ export function WorkspacePanel({
                 content={activeTab.content}
                 theme={theme}
                 themeId={themeId}
-                onChange={v => onContentChange(activeTab.id, v)}
+                onChange={handleContentChange}
               />
             </Suspense>
           </ErrorBoundary>
@@ -615,7 +652,7 @@ export function WorkspacePanel({
                   <LazyCodeEditor
                     ref={codeEditorRef}
                     value={activeTab.content}
-                    onChange={v => onContentChange(activeTab.id, v)}
+                    onChange={handleContentChange}
                     onSave={() => onSave(activeTab.id)}
                     theme={theme}
                   />
@@ -634,15 +671,12 @@ export function WorkspacePanel({
                   content={activeTab.content}
                   theme={theme}
                   themeId={themeId}
-                  onChange={v => onContentChange(activeTab.id, v)}
-                  onExport={onShowExport}
+                  onChange={handleContentChange}
+                  onExport={handleShowExport}
                   onRenderTime={onRenderTime}
-                  onFullscreen={onFullscreen}
+                  onFullscreen={handleFullscreen}
                   onNodeSelect={handleNodeSelect}
-                  onSelectionOpen={() => {
-                    onDiagramColorsClose();
-                    onAdvancedStyleClose();
-                  }}
+                  onSelectionOpen={handleSelectionOpen}
                   externalPanelOpen={showDiagramColors || showAdvancedStyle}
                   onError={onPreviewError}
                 />

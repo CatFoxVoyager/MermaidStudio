@@ -826,87 +826,157 @@ function iconConfigFromMatch(m: RegExpMatchArray): IconConfig {
   };
 }
 
-function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted: boolean; icon?: IconConfig } {
-  const trimmed = raw.trim();
+const V11_SHAPE_RE = /^@\{\s*shape:\s*["']?(\w[\w-]*)["']?\s*(?:,\s*label:\s*["']([^"']*)["'])?/;
 
-  // Check for v11 @{ shape: "...", label: "..." } syntax first
-  const v11Match = trimmed.match(/^@\{\s*shape:\s*["']?(\w[\w-]*)["']?\s*(?:,\s*label:\s*["']([^"']*)["'])?/);
-  if (v11Match) {
-    const shapeName = v11Match[1];
-    const label = v11Match[2] ?? shapeName;
-    if (V11_SHAPES.has(shapeName as NodeShape)) {
-      return { label, shape: shapeName as NodeShape, quoted: true };
+const EMPTY_SHAPES_MAP: ReadonlyMap<string, NodeShape> = new Map<string, NodeShape>([
+  ['([])', 'stadium'],
+  ['[[]]', 'fr-rect'],
+  ['[()]', 'cyl'],
+  ['((()))', 'dbl-circ'],
+  ['(())', 'circle'],
+  ['{{}}', 'hex'],
+  ['{}', 'diam'],
+  ['()', 'rounded'],
+  ['>]', 'odd'],
+  ['[//]', 'lean-r'],
+  ['[\\\\]', 'lean-l'],
+  ['[/\\]', 'trap-b'],
+  ['[\\/]', 'trap-t'],
+  ['[]', 'rect'],
+]);
+
+interface CompiledShapePattern {
+  shape: NodeShape;
+  quoted: boolean;
+  regex: RegExp;
+}
+
+const toCompiledShapePattern = (p: (typeof SHAPE_PATTERNS)[number]): CompiledShapePattern => ({
+  shape: p.shape,
+  quoted: p.open.startsWith('"') || p.open.endsWith('"'),
+  regex: p.regex,
+});
+
+const SHAPE_PATTERNS_SQUARE: CompiledShapePattern[] = SHAPE_PATTERNS
+  .filter(p => p.open.charCodeAt(0) === 91)
+  .map(toCompiledShapePattern);
+const SHAPE_PATTERNS_PAREN: CompiledShapePattern[] = SHAPE_PATTERNS
+  .filter(p => p.open.charCodeAt(0) === 40)
+  .map(toCompiledShapePattern);
+const SHAPE_PATTERNS_BRACE: CompiledShapePattern[] = SHAPE_PATTERNS
+  .filter(p => p.open.charCodeAt(0) === 123)
+  .map(toCompiledShapePattern);
+const SHAPE_PATTERNS_ANGLE: CompiledShapePattern[] = SHAPE_PATTERNS
+  .filter(p => p.open.charCodeAt(0) === 62)
+  .map(toCompiledShapePattern);
+
+function finalizeParsedNodeLabel(
+  rawLabel: string,
+  shape: NodeShape,
+  quoted: boolean,
+): { label: string; shape: NodeShape; quoted: boolean; icon?: IconConfig } {
+  let label = rawLabel;
+  // Strip markdown backticks from single-line label
+  if (label.length >= 3 && label.charCodeAt(0) === 96 && label.charCodeAt(label.length - 1) === 96) {
+    label = label.slice(1, -1);
+  }
+  // Check if label contains @{ icon: ... } or @{ shape: ... } syntax
+  if (label.length >= 2 && label.charCodeAt(0) === 64 && label.charCodeAt(1) === 123) {
+    const innerV11 = label.match(V11_SHAPE_RE);
+    if (innerV11) {
+      const shapeName = innerV11[1];
+      const v11Label = innerV11[2] ?? shapeName;
+      if (V11_SHAPES.has(shapeName as NodeShape)) {
+        return { label: v11Label, shape: shapeName as NodeShape, quoted: true };
+      }
+    }
+    const innerIcon = label.match(ICON_SPAN_RE);
+    if (innerIcon) {
+      return {
+        label: innerIcon[3] ?? innerIcon[1],
+        shape,
+        quoted,
+        icon: iconConfigFromMatch(innerIcon),
+      };
     }
   }
+  return { label, shape, quoted };
+}
 
-  // Check for v11 @{ icon: "fa:user", form: "square", label: "User", pos: "t", w: 24, h: 60 } syntax
-  const iconMatch = trimmed.match(ICON_SPAN_RE);
-  if (iconMatch) {
-    return {
-      label: iconMatch[3] ?? iconMatch[1],
-      shape: 'rect',
-      quoted: false,
-      icon: iconConfigFromMatch(iconMatch),
-    };
+function parseNodeLabel(raw: string): { label: string; shape: NodeShape; quoted: boolean; icon?: IconConfig } {
+  const trimmed = raw.trim();
+  const len = trimmed.length;
+  if (len === 0) {
+    return { label: '', shape: 'rect', quoted: false };
+  }
+
+  const c0 = trimmed.charCodeAt(0);
+
+  // Check for v11 @{ shape: "...", label: "..." } and @{ icon: ... } syntax first
+  if (c0 === 64 && len >= 2 && trimmed.charCodeAt(1) === 123) {
+    const v11Match = trimmed.match(V11_SHAPE_RE);
+    if (v11Match) {
+      const shapeName = v11Match[1];
+      const label = v11Match[2] ?? shapeName;
+      if (V11_SHAPES.has(shapeName as NodeShape)) {
+        return { label, shape: shapeName as NodeShape, quoted: true };
+      }
+    }
+
+    const iconMatch = trimmed.match(ICON_SPAN_RE);
+    if (iconMatch) {
+      return {
+        label: iconMatch[3] ?? iconMatch[1],
+        shape: 'rect',
+        quoted: false,
+        icon: iconConfigFromMatch(iconMatch),
+      };
+    }
   }
 
   // Check for empty brackets (e.g. [], (), {}, [[]], (()), etc.) — 38-02:
   // shape values re-keyed to canonical like SHAPE_PATTERNS above.
-  const EMPTY_SHAPES: Array<{ shape: NodeShape; open: string; close: string }> = [
-    { shape: 'stadium',        open: '([', close: '])' },
-    { shape: 'fr-rect',        open: '[[', close: ']]' },
-    { shape: 'cyl',            open: '[(', close: ')]' },
-    // Phase 26 (WR-01): the dbl-circ writer emits `((()))` for an empty
-    // label; without this reader the bare triple-paren form fell through to
-    // the circle pattern and re-parsed as a circle labeled `()`. Positioned
-    // above circle to mirror SHAPE_PATTERNS ordering.
-    { shape: 'dbl-circ',       open: '(((', close: ')))' },
-    { shape: 'circle',         open: '((', close: '))' },
-    { shape: 'hex',            open: '{{', close: '}}' },
-    { shape: 'diam',           open: '{',  close: '}' },
-    { shape: 'rounded',        open: '(',  close: ')' },
-    { shape: 'odd',            open: '>',  close: ']' },
-    { shape: 'lean-r',         open: '[/', close: '/]' },
-    { shape: 'lean-l',         open: '[\\', close: '\\]' },
-    { shape: 'trap-b',         open: '[/', close: '\\]' },
-    { shape: 'trap-t',         open: '[\\', close: '/]' },
-    { shape: 'rect',           open: '[',  close: ']' },
-  ];
-  for (const es of EMPTY_SHAPES) {
-    if (trimmed === `${es.open}${es.close}`) {
-      return { label: '', shape: es.shape, quoted: false };
+  if (len <= 6) {
+    const emptyShape = EMPTY_SHAPES_MAP.get(trimmed);
+    if (emptyShape !== undefined) {
+      return { label: '', shape: emptyShape, quoted: false };
     }
   }
 
-  for (const pat of SHAPE_PATTERNS) {
-    const m = trimmed.match(pat.regex);
-    if (m) {
-      let label = m[1];
-      const quoted = pat.open.startsWith('"') || pat.open.endsWith('"');
-      // Strip markdown backticks from label
-      const mdMatch = label.match(/^`(.+)`$/);
-      if (mdMatch) {
-        label = mdMatch[1];
-      }
-      // Check if label contains @{ icon: ... } or @{ shape: ... } syntax
-      const innerV11 = label.match(/^@\{\s*shape:\s*["']?(\w[\w-]*)["']?\s*(?:,\s*label:\s*["']([^"']*)["'])?/);
-      if (innerV11) {
-        const shapeName = innerV11[1];
-        const v11Label = innerV11[2] ?? shapeName;
-        if (V11_SHAPES.has(shapeName as NodeShape)) {
-          return { label: v11Label, shape: shapeName as NodeShape, quoted: true };
+  // Fast path for plain/quoted [rect] labels before bracket-bucket regex loop
+  if (c0 === 91) {
+    if (len >= 3 && trimmed.charCodeAt(len - 1) === 93) {
+      const c1 = trimmed.charCodeAt(1);
+      if (
+        c1 !== 91 &&
+        c1 !== 40 &&
+        c1 !== 47 &&
+        c1 !== 92 &&
+        !trimmed.includes('\n') &&
+        !trimmed.includes('\r')
+      ) {
+        if (len >= 5 && c1 === 34 && trimmed.charCodeAt(len - 2) === 34) {
+          return finalizeParsedNodeLabel(trimmed.slice(2, -2), 'rect', true);
         }
+        return finalizeParsedNodeLabel(trimmed.slice(1, -1), 'rect', false);
       }
-      const innerIcon = label.match(ICON_SPAN_RE);
-      if (innerIcon) {
-        return {
-          label: innerIcon[3] ?? innerIcon[1],
-          shape: pat.shape,
-          quoted,
-          icon: iconConfigFromMatch(innerIcon),
-        };
-      }
-      return { label, shape: pat.shape, quoted };
+    }
+    for (const pat of SHAPE_PATTERNS_SQUARE) {
+      const m = trimmed.match(pat.regex);
+      if (m) { return finalizeParsedNodeLabel(m[1], pat.shape, pat.quoted); }
+    }
+    return { label: trimmed, shape: 'rect', quoted: false };
+  }
+
+  let bucket: CompiledShapePattern[] | null = null;
+  if (c0 === 40) { bucket = SHAPE_PATTERNS_PAREN; }
+  else if (c0 === 123) { bucket = SHAPE_PATTERNS_BRACE; }
+  else if (c0 === 62) { bucket = SHAPE_PATTERNS_ANGLE; }
+
+  if (bucket) {
+    for (const pat of bucket) {
+      const m = trimmed.match(pat.regex);
+      if (m) { return finalizeParsedNodeLabel(m[1], pat.shape, pat.quoted); }
     }
   }
   return { label: trimmed, shape: 'rect', quoted: false };
@@ -1104,11 +1174,37 @@ function shapeWrap(label: string, shape: NodeShape, quoted = false, unknownParam
   }
 }
 
-const STANDALONE_NODE_RE = /^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)$/;
 const EDGE_HEAD_ID_RE = /^([A-Za-z_][A-Za-z0-9_-]*)/;
 const WS_RE = /\s/;
-const ID_START_RE = /[A-Za-z_]/;
-const ID_CHAR_RE = /[A-Za-z0-9_-]/;
+const TRAILING_BARE_EDGE_ID_RE = /(?:^|\s)([A-Za-z_][A-Za-z0-9_-]*)@$/;
+
+function isWsCode(c: number, s: string, i: number): boolean {
+  if (c === 32 || (c >= 9 && c <= 13)) { return true; }
+  return c > 127 && WS_RE.test(s[i]);
+}
+
+function isIdStartCode(c: number): boolean {
+  return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 95;
+}
+
+function isIdCharCode(c: number): boolean {
+  return (
+    (c >= 65 && c <= 90) ||
+    (c >= 97 && c <= 122) ||
+    (c >= 48 && c <= 57) ||
+    c === 95 ||
+    c === 45
+  );
+}
+
+function isStandaloneId(s: string): boolean {
+  const len = s.length;
+  if (len === 0 || !isIdStartCode(s.charCodeAt(0))) { return false; }
+  for (let i = 1; i < len; i++) {
+    if (!isIdCharCode(s.charCodeAt(i))) { return false; }
+  }
+  return true;
+}
 
 /**
  * 40-02 (EDGE-01): the probed-valid Flowchart arrow grammar as a length-aware
@@ -1227,17 +1323,77 @@ const EDGE_LINE_ARROW_RE = new RegExp(
 /** Bounded emission: the mutators never write beyond the probed grammar. */
 const MAX_ARROW_LENGTH = 10;
 
+/** First-character partitioned buckets of ARROW_FAMILIES preserving exact relative order. */
+const ARROW_FAMILIES_DASH: ArrowFamily[] = ARROW_FAMILIES.filter(f => f.canonical.charCodeAt(0) === 45);
+const ARROW_FAMILIES_EQ: ArrowFamily[] = ARROW_FAMILIES.filter(f => f.canonical.charCodeAt(0) === 61);
+const ARROW_FAMILIES_LT: ArrowFamily[] = ARROW_FAMILIES.filter(f => f.canonical.charCodeAt(0) === 60);
+const ARROW_FAMILIES_TILDE: ArrowFamily[] = ARROW_FAMILIES.filter(f => f.canonical.charCodeAt(0) === 126);
+const ARROW_FAMILIES_O: ArrowFamily[] = ARROW_FAMILIES.filter(f => f.canonical.charCodeAt(0) === 111);
+const ARROW_FAMILIES_X: ArrowFamily[] = ARROW_FAMILIES.filter(f => f.canonical.charCodeAt(0) === 120);
+const ARROW_FAMILIES_DOT: ArrowFamily[] = ARROW_FAMILIES.filter(f => f.canonical.charCodeAt(0) === 46);
+
+/** Fast O(1) substring prefilter before ARROW_RE.test: every arrow family contains at least one of these 5 literals. */
+function hasArrowToken(s: string): boolean {
+  if (
+    !s.includes('--') &&
+    !s.includes('-.') &&
+    !s.includes('==') &&
+    !s.includes('~~') &&
+    !s.includes('.->')
+  ) {
+    return false;
+  }
+  return ARROW_RE.test(s);
+}
+
 /** Try the family table at one position; null when no family matches (or the
  * glue rule rejects the match). Bounded patterns keep this linear. */
 function matchArrowToken(s: string, i: number): { family: ArrowFamily; span: string } | null {
-  for (const family of ARROW_FAMILIES) {
+  if (i + 2 >= s.length) { return null; }
+  const c0 = s.charCodeAt(i);
+  const c1 = s.charCodeAt(i + 1);
+  let bucket: ArrowFamily[];
+  switch (c0) {
+    case 45: // '-'
+      if (c1 !== 45 && c1 !== 46) { return null; }
+      bucket = ARROW_FAMILIES_DASH;
+      break;
+    case 61: // '='
+      if (c1 !== 61) { return null; }
+      bucket = ARROW_FAMILIES_EQ;
+      break;
+    case 60: // '<'
+      if (c1 !== 45 && c1 !== 61) { return null; }
+      bucket = ARROW_FAMILIES_LT;
+      break;
+    case 126: // '~'
+      if (c1 !== 126) { return null; }
+      bucket = ARROW_FAMILIES_TILDE;
+      break;
+    case 111: // 'o'
+      if (c1 !== 45 && c1 !== 61) { return null; }
+      bucket = ARROW_FAMILIES_O;
+      break;
+    case 120: // 'x'
+      if (c1 !== 45 && c1 !== 61) { return null; }
+      bucket = ARROW_FAMILIES_X;
+      break;
+    case 46: // '.'
+      if (c1 !== 45 || s.charCodeAt(i + 2) !== 62) { return null; }
+      bucket = ARROW_FAMILIES_DOT;
+      break;
+    default:
+      return null;
+  }
+  for (let b = 0; b < bucket.length; b++) {
+    const family = bucket[b];
     family.re.lastIndex = i;
     const m = family.re.exec(s);
-    if (!m) {continue; }
+    if (!m) { continue; }
     const span = m[0];
     if (family.arrowFinal) {
       const next = s[i + span.length];
-      if (next === 'o' || next === 'x') {continue; }
+      if (next === 'o' || next === 'x') { continue; }
     }
     return { family, span };
   }
@@ -1285,29 +1441,29 @@ function emitArrowToken(familyToken: string, length: number): string | null {
  */
 interface EdgeScanState {
   depth: number;
-  quote: string | null;
+  quote: number; // 0 = none, 34 = '"', 39 = "'"
   inBackticks: boolean;
 }
 
 /** True when an arrow tested at the current position may open a hop. */
 function edgeScanAtHopLevel(st: EdgeScanState): boolean {
-  return st.depth === 0 && st.quote === null && !st.inBackticks;
+  return st.depth === 0 && st.quote === 0 && !st.inBackticks;
 }
 
-/** Consume one character into the scanner state (order: backtick, quote, depth). */
-function edgeScanUpdate(st: EdgeScanState, ch: string): void {
+/** Consume one character code into the scanner state (order: backtick, quote, depth). */
+function edgeScanUpdate(st: EdgeScanState, c: number): void {
   if (st.inBackticks) {
-    if (ch === '`') {st.inBackticks = false;}
+    if (c === 96) { st.inBackticks = false; }
     return;
   }
-  if (st.quote) {
-    if (ch === st.quote) {st.quote = null;}
+  if (st.quote !== 0) {
+    if (c === st.quote) { st.quote = 0; }
     return;
   }
-  if (ch === '`') {st.inBackticks = true; return;}
-  if (ch === '"' || ch === "'") {st.quote = ch; return;}
-  if (ch === '(' || ch === '[' || ch === '{') {st.depth++; return;}
-  if (ch === ')' || ch === ']' || ch === '}') {st.depth = Math.max(0, st.depth - 1);}
+  if (c === 96) { st.inBackticks = true; return; }
+  if (c === 34 || c === 39) { st.quote = c; return; }
+  if (c === 40 || c === 91 || c === 123) { st.depth++; return; }
+  if (c === 41 || c === 93 || c === 125) { if (st.depth > 0) { st.depth--; } }
 }
 
 /**
@@ -1332,16 +1488,20 @@ interface ArrowLineMatch {
 }
 
 function matchArrowLine(trimmed: string): ArrowLineMatch | null {
-  const leadingIdLen = trimmed.match(EDGE_HEAD_ID_RE)?.[0].length ?? 0;
-  if (leadingIdLen === 0) {return null;}
+  const len = trimmed.length;
+  if (len === 0 || !isIdStartCode(trimmed.charCodeAt(0))) { return null; }
+  let leadingIdLen = 1;
+  while (leadingIdLen < len && isIdCharCode(trimmed.charCodeAt(leadingIdLen))) {
+    leadingIdLen++;
+  }
   // 40-01 (EDGE-02 markdown survival): the candidate walk carries the same
   // depth/quote state findNextHopArrow has — an arrow-like token inside a
   // bracket label (`A["x --> y"]`) or a quoted/backtick Markdown span never
   // wins the first-hop split. The state is inert on lines with no nesting,
   // so the winning split for plain lines stays the flat engine's (same walk
   // start at 1, same first continuing-tail win).
-  const st: EdgeScanState = { depth: 0, quote: null, inBackticks: false };
-  for (let i = 1; i < trimmed.length; i++) {
+  const st: EdgeScanState = { depth: 0, quote: 0, inBackticks: false };
+  for (let i = 1; i < len; i++) {
     if (edgeScanAtHopLevel(st)) {
       const token = matchArrowToken(trimmed, i);
       if (token) {
@@ -1362,7 +1522,7 @@ function matchArrowLine(trimmed: string): ArrowLineMatch | null {
         }
       }
     }
-    edgeScanUpdate(st, trimmed[i] ?? '');
+    edgeScanUpdate(st, trimmed.charCodeAt(i));
   }
   return null;
 }
@@ -1378,21 +1538,21 @@ function matchArrowLine(trimmed: string): ArrowLineMatch | null {
  * target id continues the arrow.
  */
 function matchEdgeTail(s: string, from: number): [string | undefined, string, string] | null {
+  const len = s.length;
   let i = from;
-  while (i < s.length && WS_RE.test(s[i] ?? '')) {i++;}
+  while (i < len && isWsCode(s.charCodeAt(i), s, i)) { i++; }
   let label: string | undefined;
-  if (s[i] === '|') {
+  if (i < len && s.charCodeAt(i) === 124) {
     const close = s.indexOf('|', i + 1);
     if (close !== -1) {
       label = s.slice(i + 1, close);
       i = close + 1;
     }
   }
-  while (i < s.length && WS_RE.test(s[i] ?? '')) {i++;}
-  const start = s[i];
-  if (start === undefined || !ID_START_RE.test(start)) {return null;}
+  while (i < len && isWsCode(s.charCodeAt(i), s, i)) { i++; }
+  if (i >= len || !isIdStartCode(s.charCodeAt(i))) { return null; }
   let j = i + 1;
-  while (j < s.length && ID_CHAR_RE.test(s[j] ?? '')) {j++;}
+  while (j < len && isIdCharCode(s.charCodeAt(j))) { j++; }
   // `[^\n]*$` on the remainder always matches (callers pass single lines).
   return [label, s.slice(i, j), s.slice(j)];
 }
@@ -1405,10 +1565,37 @@ function matchEdgeTail(s: string, from: number): [string | undefined, string, st
  * when the span carries none).
  */
 function extractTrailingBareEdgeId(raw: string): { span: string; edgeId: string } {
+  if (!raw.includes('@')) { return { span: raw, edgeId: '' }; }
   const trim = raw.trim();
-  const m = trim.match(/(?:^|\s)([A-Za-z_][A-Za-z0-9_-]*)@$/);
-  if (!m || m.index === undefined) {return { span: raw, edgeId: '' };}
+  const m = trim.match(TRAILING_BARE_EDGE_ID_RE);
+  if (!m || m.index === undefined) { return { span: raw, edgeId: '' }; }
   return { span: trim.slice(0, m.index).trimEnd(), edgeId: m[1] };
+}
+
+type NextHopArrow = {
+  span: string;
+  canonical: string;
+  length: number;
+  index: number;
+  tail: [string | undefined, string, string];
+};
+
+function splitHopTailInternal(
+  rest: string,
+): { targetSpan: string; hopPrefix: string; next: NextHopArrow | null } {
+  if (rest.length === 0) { return { targetSpan: '', hopPrefix: '', next: null }; }
+  const next = findNextHopArrow(rest);
+  if (!next) { return { targetSpan: rest, hopPrefix: '', next: null }; }
+  const span = rest.slice(0, next.index);
+  const { span: cleanSpan, edgeId } = extractTrailingBareEdgeId(span);
+  if (edgeId) {
+    return {
+      targetSpan: cleanSpan,
+      hopPrefix: `${span.slice(0, span.length - span.trimEnd().length).trimEnd()} ${edgeId}@`,
+      next,
+    };
+  }
+  return { targetSpan: span, hopPrefix: '', next };
 }
 
 /**
@@ -1420,18 +1607,8 @@ function extractTrailingBareEdgeId(raw: string): { span: string; edgeId: string 
  * verbatim before the tail.
  */
 function splitHopTail(rest: string): { targetSpan: string; hopPrefix: string; tail: string } {
-  const next = findNextHopArrow(rest);
-  if (!next) {return { targetSpan: rest, hopPrefix: '', tail: '' }; }
-  const span = rest.slice(0, next.index);
-  const { span: cleanSpan, edgeId } = extractTrailingBareEdgeId(span);
-  if (edgeId) {
-    return {
-      targetSpan: cleanSpan,
-      hopPrefix: `${span.slice(0, span.length - span.trimEnd().length).trimEnd()} ${edgeId}@`,
-      tail: rest.slice(next.index),
-    };
-  }
-  return { targetSpan: span, hopPrefix: '', tail: rest.slice(next.index) };
+  const { targetSpan, hopPrefix, next } = splitHopTailInternal(rest);
+  return { targetSpan, hopPrefix, tail: next ? rest.slice(next.index) : '' };
 }
 
 /**
@@ -1444,15 +1621,14 @@ function splitHopTail(rest: string): { targetSpan: string; hopPrefix: string; ta
  * alternative, its index in `s`, and the matched tail; null when the
  * remainder holds no further hop.
  */
-function findNextHopArrow(
-  s: string,
-): { span: string; canonical: string; length: number; index: number; tail: [string | undefined, string, string] } | null {
+function findNextHopArrow(s: string): NextHopArrow | null {
   // 40-01: the state machine moved to the shared EdgeScanState helpers —
   // identical depth/quote semantics, plus the backtick Markdown-string
   // channel (`` ` ``-delimited spans inside straight quotes). 40-02: the
   // family table resolves canonical + length per hop the same way.
-  const st: EdgeScanState = { depth: 0, quote: null, inBackticks: false };
-  for (let i = 0; i < s.length; i++) {
+  const len = s.length;
+  const st: EdgeScanState = { depth: 0, quote: 0, inBackticks: false };
+  for (let i = 0; i < len; i++) {
     if (edgeScanAtHopLevel(st)) {
       const token = matchArrowToken(s, i);
       if (token) {
@@ -1468,7 +1644,7 @@ function findNextHopArrow(
         }
       }
     }
-    edgeScanUpdate(st, s[i] ?? '');
+    edgeScanUpdate(st, s.charCodeAt(i));
   }
   return null;
 }
@@ -1534,12 +1710,14 @@ interface EdgeChain {
  * span slice.
  */
 function splitAmpGroup(headId: string, groupText: string): { id: string; shapeRaw: string }[] | null {
+  if (!groupText.includes('&')) { return null; }
   const full = `${headId}${groupText}`;
-  const st: EdgeScanState = { depth: 0, quote: null, inBackticks: false };
+  const st: EdgeScanState = { depth: 0, quote: 0, inBackticks: false };
   const cuts: number[] = [];
   for (let i = 0; i < full.length; i++) {
-    if (edgeScanAtHopLevel(st) && full[i] === '&') {cuts.push(i); }
-    edgeScanUpdate(st, full[i] ?? '');
+    const c = full.charCodeAt(i);
+    if (edgeScanAtHopLevel(st) && c === 38) { cuts.push(i); }
+    edgeScanUpdate(st, c);
   }
   if (cuts.length === 0) {return null; }
   const parts: string[] = [];
@@ -1594,10 +1772,22 @@ export function matchEdgeChain(trimmed: string): EdgeChain | null {
   // absolute offsets always derive as trimmed.length - rest.length).
   let rest = first.targetRaw;
   for (;;) {
-    const split = splitHopTail(rest);
+    let targetSpan: string;
+    let nextArrow: NextHopArrow | null = null;
+    let nextEdgeId = '';
+    if (rest.length === 0) {
+      targetSpan = '';
+    } else {
+      const split = splitHopTailInternal(rest);
+      targetSpan = split.targetSpan;
+      nextArrow = split.next;
+      if (split.hopPrefix) {
+        nextEdgeId = split.hopPrefix.trim().replace(/@$/, '');
+      }
+    }
     // 40-02: the hop's target group splits on the span BEFORE the next hop
     // arrow (`--> B & C e2@--> D` — the `e2@` prefix belongs to hop 1).
-    const group = splitAmpGroup(targetId, split.targetSpan);
+    const group = splitAmpGroup(targetId, targetSpan);
     hops.push({
       arrowSpan,
       arrowType,
@@ -1609,20 +1799,18 @@ export function matchEdgeChain(trimmed: string): EdgeChain | null {
       targetId,
       // A grouped hop's member-0 raw slice rides the group entry; the flat
       // slice stays for the ungrouped emit path.
-      targetShapeRaw: group ? group[0].shapeRaw : split.targetSpan,
+      targetShapeRaw: group ? group[0].shapeRaw : targetSpan,
       ...(group && group.length > 1 ? { targetGroup: group } : {}),
     });
-    if (!split.tail) {break; }
-    const nextArrow = findNextHopArrow(split.tail);
-    if (!nextArrow) {break; }
+    if (!nextArrow) { break; }
     const [nextLabel, nextId, nextRaw] = nextArrow.tail;
     arrowSpan = nextArrow.span;
     arrowType = nextArrow.canonical;
     arrowLength = nextArrow.length;
-    // split.tail is a suffix of the trimmed line; nextArrow.index is
-    // relative to it — the sum is the absolute arrow position.
-    arrowIndex = (trimmed.length - split.tail.length) + nextArrow.index;
-    edgeId = split.hopPrefix.trim().replace(/@$/, '');
+    // rest is a suffix of the trimmed line; nextArrow.index is relative to
+    // rest — the sum is the absolute arrow position.
+    arrowIndex = (trimmed.length - rest.length) + nextArrow.index;
+    edgeId = nextEdgeId;
     labelRaw = nextLabel ?? '';
     label = labelRaw.trim();
     targetId = nextId;
@@ -1690,12 +1878,7 @@ function findHopIndex(chain: EdgeChain, srcId: string, tgtId: string): number {
   });
 }
 
-/**
- * Check if an ID refers to a subgraph.
- */
-function isSubgraphId(id: string, subgraphs: ParsedSubgraph[]): boolean {
-  return subgraphs.some(sg => sg.id === id);
-}
+const TRAILING_SEMI_RE = /;+\s*$/;
 
 /**
  * Split a CSS declaration list from `style` / `classDef` / `linkStyle` directives.
@@ -1703,72 +1886,67 @@ function isSubgraphId(id: string, subgraphs: ParsedSubgraph[]): boolean {
  * parentheses (`rgb(...)`) and quotes so commas inside values stay intact.
  */
 function splitCssDeclarations(val: string): string[] {
-  const cleaned = val.trim().replace(/;+\s*$/, '');
-  if (!cleaned) {return [];}
+  const trimmedVal = val.trim();
+  const cleaned = trimmedVal.endsWith(';') ? trimmedVal.replace(TRAILING_SEMI_RE, '') : trimmedVal;
+  if (!cleaned) { return []; }
 
+  const len = cleaned.length;
   let hasTopLevelSemi = false;
-  let parenDepth = 0;
-  let quote: string | null = null;
-  for (let i = 0; i < cleaned.length; i++) {
-    const ch = cleaned[i];
-    if (quote) {
-      if (ch === quote) {quote = null;}
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      quote = ch;
-    } else if (ch === '(') {
-      parenDepth++;
-    } else if (ch === ')') {
-      parenDepth = Math.max(0, parenDepth - 1);
-    } else if (ch === ';' && parenDepth === 0) {
-      hasTopLevelSemi = true;
-      break;
+  if (cleaned.includes(';')) {
+    let parenDepth = 0;
+    let quote = 0;
+    for (let i = 0; i < len; i++) {
+      const c = cleaned.charCodeAt(i);
+      if (quote !== 0) {
+        if (c === quote) { quote = 0; }
+        continue;
+      }
+      if (c === 34 || c === 39) {
+        quote = c;
+      } else if (c === 40) {
+        parenDepth++;
+      } else if (c === 41) {
+        if (parenDepth > 0) { parenDepth--; }
+      } else if (c === 59 && parenDepth === 0) {
+        hasTopLevelSemi = true;
+        break;
+      }
     }
   }
 
-  const delimiter = hasTopLevelSemi ? ';' : ',';
+  const delimCode = hasTopLevelSemi ? 59 : 44; // ';' : ','
   const parts: string[] = [];
-  let current = '';
-  parenDepth = 0;
-  quote = null;
-  for (let i = 0; i < cleaned.length; i++) {
-    const ch = cleaned[i];
-    if (quote) {
-      if (ch === quote) {quote = null;}
-      current += ch;
+  let start = 0;
+  let parenDepth = 0;
+  let quote = 0;
+  for (let i = 0; i < len; i++) {
+    const c = cleaned.charCodeAt(i);
+    if (quote !== 0) {
+      if (c === quote) { quote = 0; }
       continue;
     }
-    if (ch === '"') {
-      quote = ch;
-      current += ch;
-    } else if (ch === "'") {
-      quote = ch;
-      current += ch;
-    } else if (ch === '\\') {
+    if (c === 34 || c === 39) {
+      quote = c;
+    } else if (c === 92) {
       // 40-01 (EDGE-02): a backslash-escaped byte is LITERAL — keep BOTH
       // bytes in the value and never let the escaped char split (`5\,5`
       // stays one declaration). Applies to any escaped byte, so a lone
       // trailing backslash still passes through verbatim.
-      current += ch;
-      if (i + 1 < cleaned.length) {
-        current += cleaned[i + 1];
+      if (i + 1 < len) {
         i++;
       }
-    } else if (ch === '(') {
+    } else if (c === 40) {
       parenDepth++;
-      current += ch;
-    } else if (ch === ')') {
-      parenDepth = Math.max(0, parenDepth - 1);
-      current += ch;
-    } else if (ch === delimiter && parenDepth === 0) {
-      if (current.trim()) {parts.push(current.trim());}
-      current = '';
-    } else {
-      current += ch;
+    } else if (c === 41) {
+      if (parenDepth > 0) { parenDepth--; }
+    } else if (c === delimCode && parenDepth === 0) {
+      const slice = cleaned.slice(start, i).trim();
+      if (slice) { parts.push(slice); }
+      start = i + 1;
     }
   }
-  if (current.trim()) {parts.push(current.trim());}
+  const tail = cleaned.slice(start).trim();
+  if (tail) { parts.push(tail); }
   return parts;
 }
 
@@ -1781,7 +1959,7 @@ function splitCssDeclarations(val: string): string[] {
  * values that never use the escape round-trip byte-identically.
  */
 function unescapeCssCommas(v: string): string {
-  return v.replace(/\\,/g, ',');
+  return v.includes('\\,') ? v.replace(/\\,/g, ',') : v;
 }
 
 function escapeCssCommas(v: string): string {
@@ -1851,28 +2029,43 @@ export function styleToString(style: NodeStyle): string {
   return parts.join(',');
 }
 
-export function parseLinkStyles(source: string): Map<number | 'default', EdgeStyle> {
-  const linkStyles = new Map<number | 'default', EdgeStyle>();
-  const lines = source.split('\n');
+const LINK_STYLE_RE = /^linkStyle\s+(\d+(?:\s*,\s*\d+)*|default)\s+(.+)$/;
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    const match = trimmed.match(/^linkStyle\s+(\d+(?:\s*,\s*\d+)*|default)\s+(.+)$/);
-    if (match) {
-      const indexStr = match[1];
-      const styleStr = match[2];
-      const parsedStyle = parseEdgeStyleValue(styleStr);
-      if (indexStr === 'default') {
-        linkStyles.set('default', { ...linkStyles.get('default'), ...parsedStyle });
-      } else {
-        for (const rawIdx of indexStr.split(',')) {
-          const idx = parseInt(rawIdx.trim(), 10);
-          if (!Number.isNaN(idx)) {
-            linkStyles.set(idx, { ...linkStyles.get(idx), ...parsedStyle });
-          }
-        }
+function parseLinkStyleLine(trimmed: string, linkStyles: Map<number | 'default', EdgeStyle>): boolean {
+  if (!trimmed.startsWith('linkStyle')) { return false; }
+  const match = trimmed.match(LINK_STYLE_RE);
+  if (!match) { return false; }
+  const indexStr = match[1];
+  const styleStr = match[2];
+  const parsedStyle = parseEdgeStyleValue(styleStr);
+  if (indexStr === 'default') {
+    linkStyles.set('default', { ...linkStyles.get('default'), ...parsedStyle });
+  } else {
+    for (const rawIdx of indexStr.split(',')) {
+      const idx = parseInt(rawIdx.trim(), 10);
+      if (!Number.isNaN(idx)) {
+        linkStyles.set(idx, { ...linkStyles.get(idx), ...parsedStyle });
       }
     }
+  }
+  return true;
+}
+
+export function parseLinkStyles(source: string): Map<number | 'default', EdgeStyle> {
+  const linkStyles = new Map<number | 'default', EdgeStyle>();
+  if (!source.includes('linkStyle')) { return linkStyles; }
+
+  const len = source.length;
+  let lineStart = 0;
+  while (lineStart <= len) {
+    const nlIdx = source.indexOf('\n', lineStart);
+    const lineEnd = nlIdx === -1 ? len : nlIdx;
+    const trimmed = source.slice(lineStart, lineEnd).trim();
+    if (trimmed.length > 9 && trimmed.charCodeAt(0) === 108) {
+      parseLinkStyleLine(trimmed, linkStyles);
+    }
+    if (nlIdx === -1) { break; }
+    lineStart = nlIdx + 1;
   }
 
   return linkStyles;
@@ -2543,32 +2736,56 @@ export function updateSubgraphView(source: string, subgraphId: string, view: 'co
   return lines.join('\n');
 }
 
+const FLOWCHART_HEADER_RE = /^(flowchart|graph)\s/i;
+const SUBGRAPH_ID_RE = /^subgraph\s+([A-Za-z_][A-Za-z0-9_-]*)/;
+const SUBGRAPH_BRACKET_RE = /\[(?:"([^"]*)"|'([^']*)'|([^\]]*))\]/;
+const STANDALONE_DIRECTIVE_RE = /^([A-Za-z_][A-Za-z0-9_-]*)(@\{.*\})$/;
+const STANDALONE_SHAPED_NODE_RE = /^([A-Za-z_][A-Za-z0-9_-]*)\s*((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[).+)$/;
+const STANDALONE_KEYWORDS = new Set(['TD', 'TB', 'BT', 'RL', 'LR', 'end', 'direction', 'subgraph']);
+
 export function parseDiagram(source: string): ParsedDiagram {
-  const lines = source.split('\n');
   const nodes: ParsedNode[] = [];
   const edges: ParsedEdge[] = [];
   const styles = new Map<string, NodeStyle>();
   const classDefs = new Map<string, NodeStyle>();
   const nodeClasses = new Map<string, string[]>();
-  const seenIds = new Set<string>();
+  const linkStyles = new Map<number | 'default', EdgeStyle>();
+  const nodeById = new Map<string, ParsedNode>();
   const subgraphs: ParsedSubgraph[] = [];
+  const subgraphIdSet = new Set<string>();
   const subgraphStack: string[] = []; // stack of subgraph IDs
   // 38-03 pass-1 residue: the trimmed standalone `id@{...}` lines that DID
   // define a node — pass 2 links every other standalone directive line
   // (edge-id metadata, subgraph directives) by entity id.
   const directiveNodeLines = new Set<string>();
+  const hasAnyAtBrace = source.includes('@{');
+  const atBraceLines: string[] = [];
 
   const currentParent = (): string | null => subgraphStack.length > 0 ? subgraphStack[subgraphStack.length - 1] : null;
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('%%')) {continue;}
+  const len = source.length;
+  let lineStart = 0;
+  while (lineStart <= len) {
+    const nlIdx = source.indexOf('\n', lineStart);
+    const lineEnd = nlIdx === -1 ? len : nlIdx;
+    const trimmed = source.slice(lineStart, lineEnd).trim();
+    if (nlIdx === -1) {
+      lineStart = len + 1;
+    } else {
+      lineStart = nlIdx + 1;
+    }
 
-    if (trimmed.match(/^(flowchart|graph)\s/i)) {continue;}
+    if (!trimmed || (trimmed.charCodeAt(0) === 37 && trimmed.charCodeAt(1) === 37)) { continue; }
+
+    if (hasAnyAtBrace && trimmed.includes('@{')) {
+      atBraceLines.push(trimmed);
+    }
+
+    if (FLOWCHART_HEADER_RE.test(trimmed)) { continue; }
 
     if (trimmed.startsWith('style ')) {
       const rest = trimmed.slice(6).trim();
-      const spaceIdx = rest.search(/\s/);
+      const spaceIdx = rest.search(WS_RE);
       if (spaceIdx !== -1) {
         const nodeId = rest.slice(0, spaceIdx);
         const styleStr = rest.slice(spaceIdx).trim();
@@ -2579,7 +2796,7 @@ export function parseDiagram(source: string): ParsedDiagram {
 
     if (trimmed.startsWith('classDef ')) {
       const rest = trimmed.slice(9).trim();
-      const spaceIdx = rest.search(/\s/);
+      const spaceIdx = rest.search(WS_RE);
       if (spaceIdx !== -1) {
         const className = rest.slice(0, spaceIdx);
         const styleStr = rest.slice(spaceIdx).trim();
@@ -2594,26 +2811,31 @@ export function parseDiagram(source: string): ParsedDiagram {
       if (parts.length >= 2) {
         const ids = parts[0].split(',');
         const cls = parts[1];
-        ids.forEach(id => {
-          const existing = nodeClasses.get(id) ?? [];
-          if (!existing.includes(cls)) {existing.push(cls);}
-          nodeClasses.set(id, existing);
-        });
+        for (let k = 0; k < ids.length; k++) {
+          const id = ids[k];
+          const existing = nodeClasses.get(id);
+          if (existing) {
+            if (!existing.includes(cls)) { existing.push(cls); }
+          } else {
+            nodeClasses.set(id, [cls]);
+          }
+        }
       }
       continue;
     }
 
     // Handle subgraph lines
     if (trimmed.startsWith('subgraph')) {
-      const subgraphMatch = trimmed.match(/^subgraph\s+([A-Za-z_][A-Za-z0-9_-]*)/);
+      const subgraphMatch = trimmed.match(SUBGRAPH_ID_RE);
       if (subgraphMatch) {
         const sgId = subgraphMatch[1];
         // Extract label from bracket format: id["label"] or id[label]
-        const bracketLabel = trimmed.match(/\[(?:"([^"]*)"|'([^']*)'|([^\]]*))\]/);
+        const bracketLabel = trimmed.match(SUBGRAPH_BRACKET_RE);
         const sgLabel = bracketLabel
           ? (bracketLabel[1] ?? bracketLabel[2] ?? bracketLabel[3]?.trim()) ?? sgId
           : sgId;
         subgraphs.push({ id: sgId, label: sgLabel, parentSubgraphId: currentParent() });
+        subgraphIdSet.add(sgId);
         subgraphStack.push(sgId);
       }
       continue;
@@ -2626,54 +2848,22 @@ export function parseDiagram(source: string): ParsedDiagram {
       continue;
     }
 
-    // Parse linkStyle lines
-    const linkStyleMatch = trimmed.match(/^linkStyle\s+(\d+)\s+(.+)$/);
-    if (linkStyleMatch) {continue;}
+    // Parse linkStyle lines inline (single pass — eliminates second full-source scan)
+    if (trimmed.charCodeAt(0) === 108 && parseLinkStyleLine(trimmed, linkStyles)) { continue; }
 
     // Skip click events
-    if (trimmed.startsWith('click ')) {continue;}
+    if (trimmed.startsWith('click ')) { continue; }
 
     // Skip subgraph direction
-    if (trimmed.startsWith('direction ')) {continue;}
+    if (trimmed.startsWith('direction ')) { continue; }
 
     const parentId = currentParent();
+    const hasArrow = hasArrowToken(trimmed);
 
-    // Phase 27: standalone directive node `id@{ shape: ... }` — placed before
-    // the arrow branch and guarded on it (a directive line whose label text
-    // contains an arrow token is routed to the edge branch, where the D6
-    // fence catches the mangled capture). The at-brace must sit immediately
-    // after the id: the space-separated form is invalid mermaid 12.1.0 and
-    // stays unparsed.
-    if (!ARROW_RE.test(trimmed)) {
-      const directiveLine = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*)(@\{.*\})$/);
-      if (directiveLine) {
-        const span = directiveLine[2];
-        const parsed = parseAtDirective(span);
-        if (parsed && !seenIds.has(directiveLine[1]) && !isSubgraphId(directiveLine[1], subgraphs)) {
-          seenIds.add(directiveLine[1]);
-          directiveNodeLines.add(trimmed);
-          nodes.push({
-            id: directiveLine[1],
-            label: parsed.label ?? directiveLine[1],
-            shape: directiveShapeKey(parsed.shape),
-            raw: span,
-            parentSubgraphId: parentId,
-            directiveRaw: span,
-            unknownParams: parsed.unknownParams,
-            authoredShape: authoredShapeFor(parsed.shape),
-            ...(parsed.icon ? { icon: parsed.icon } : {}),
-            ...(parsed.img ? { img: parsed.img } : {}),
-          });
-        }
-        continue;
-      }
-    }
-
-    if (ARROW_RE.test(trimmed)) {
+    if (hasArrow) {
       const chain = matchEdgeChain(trimmed);
       if (chain) {
         const sourceId = chain.sourceId;
-        const sourceShapeRaw = chain.sourceShapeRaw.trim();
 
         // Ensure source nodes exist (unless they're subgraphs). 40-02: every
         // `&` group member creates its node — the flat path is the singleton
@@ -2681,13 +2871,13 @@ export function parseDiagram(source: string): ParsedDiagram {
         const sourceMembers = chain.sourceGroup ?? [{ id: sourceId, shapeRaw: chain.sourceShapeRaw }];
         for (const member of sourceMembers) {
           const memberRaw = member.shapeRaw.trim();
-          if (!seenIds.has(member.id) && !isSubgraphId(member.id, subgraphs)) {
-            seenIds.add(member.id);
+          if (!nodeById.has(member.id) && !subgraphIdSet.has(member.id)) {
+            let node: ParsedNode;
             if (memberRaw) {
               // parseNodeRawDirective receives the UNTRIMMED slice: its WR-04
               // check keys on a leading space (` id @{...}` stays declined).
               const parsed = parseNodeRawDirective(member.shapeRaw, member.id);
-              nodes.push({
+              node = {
                 id: member.id,
                 label: parsed.label,
                 shape: parsed.shape,
@@ -2698,10 +2888,12 @@ export function parseDiagram(source: string): ParsedDiagram {
                   : {}),
                 ...(parsed.icon ? { icon: parsed.icon } : {}),
                 ...(parsed.img ? { img: parsed.img } : {}),
-              });
+              };
             } else {
-              nodes.push({ id: member.id, label: member.id, shape: 'rect', raw: member.id, parentSubgraphId: parentId });
+              node = { id: member.id, label: member.id, shape: 'rect', raw: member.id, parentSubgraphId: parentId };
             }
+            nodeById.set(node.id, node);
+            nodes.push(node);
           }
         }
         // Per-hop target creation (chained lines contribute every hop, not
@@ -2722,11 +2914,11 @@ export function parseDiagram(source: string): ParsedDiagram {
             const targetShapeRaw = member.shapeRaw.trim();
             // Parse target label from shape (e.g. B{Is it working?}) — the
             // parse call keeps the untrimmed slice for the WR-04 space check.
-            if (!seenIds.has(targetId) && !isSubgraphId(targetId, subgraphs)) {
-              seenIds.add(targetId);
+            if (!nodeById.has(targetId) && !subgraphIdSet.has(targetId)) {
+              let node: ParsedNode;
               if (targetShapeRaw) {
                 const parsed = parseNodeRawDirective(member.shapeRaw, targetId);
-                nodes.push({
+                node = {
                   id: targetId,
                   label: parsed.label,
                   shape: parsed.shape,
@@ -2737,12 +2929,14 @@ export function parseDiagram(source: string): ParsedDiagram {
                     : {}),
                   ...(parsed.icon ? { icon: parsed.icon } : {}),
                   ...(parsed.img ? { img: parsed.img } : {}),
-                });
+                };
               } else {
-                nodes.push({ id: targetId, label: targetId, shape: 'rect', raw: targetId, parentSubgraphId: parentId });
+                node = { id: targetId, label: targetId, shape: 'rect', raw: targetId, parentSubgraphId: parentId };
               }
-            } else if (targetShapeRaw && !isSubgraphId(targetId, subgraphs)) {
-              const existing = nodes.find(n => n.id === targetId);
+              nodeById.set(targetId, node);
+              nodes.push(node);
+            } else if (targetShapeRaw && !subgraphIdSet.has(targetId)) {
+              const existing = nodeById.get(targetId);
               if (existing && existing.label === existing.id) {
                 const parsed = parseNodeRawDirective(member.shapeRaw, targetId);
                 existing.label = parsed.label;
@@ -2752,8 +2946,8 @@ export function parseDiagram(source: string): ParsedDiagram {
                   existing.unknownParams = parsed.unknownParams;
                   existing.authoredShape = parsed.authoredShape;
                 }
-                if (parsed.icon) {existing.icon = parsed.icon;}
-                if (parsed.img) {existing.img = parsed.img;}
+                if (parsed.icon) { existing.icon = parsed.icon; }
+                if (parsed.img) { existing.img = parsed.img; }
               }
             }
           }
@@ -2779,31 +2973,63 @@ export function parseDiagram(source: string): ParsedDiagram {
       continue;
     }
 
-    const nodeMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[)[^\n]+)/);
-    if (nodeMatch && !ARROW_RE.test(trimmed)) {
-      const id = nodeMatch[2];
-      const rest = nodeMatch[4].trim();
+    // Phase 27: standalone directive node `id@{ shape: ... }` — guarded on
+    // !hasArrow above (a directive line whose label text contains an arrow
+    // token is routed to the edge branch, where the D6 fence catches the
+    // mangled capture). The at-brace must sit immediately after the id: the
+    // space-separated form is invalid mermaid 12.1.0 and stays unparsed.
+    if (hasAnyAtBrace && trimmed.includes('@{')) {
+      const directiveLine = trimmed.match(STANDALONE_DIRECTIVE_RE);
+      if (directiveLine) {
+        const span = directiveLine[2];
+        const parsed = parseAtDirective(span);
+        if (parsed && !nodeById.has(directiveLine[1]) && !subgraphIdSet.has(directiveLine[1])) {
+          directiveNodeLines.add(trimmed);
+          const node: ParsedNode = {
+            id: directiveLine[1],
+            label: parsed.label ?? directiveLine[1],
+            shape: directiveShapeKey(parsed.shape),
+            raw: span,
+            parentSubgraphId: parentId,
+            directiveRaw: span,
+            unknownParams: parsed.unknownParams,
+            authoredShape: authoredShapeFor(parsed.shape),
+            ...(parsed.icon ? { icon: parsed.icon } : {}),
+            ...(parsed.img ? { img: parsed.img } : {}),
+          };
+          nodeById.set(node.id, node);
+          nodes.push(node);
+        }
+        continue;
+      }
+    }
+
+    const nodeMatch = trimmed.match(STANDALONE_SHAPED_NODE_RE);
+    if (nodeMatch) {
+      const id = nodeMatch[1];
+      const rest = nodeMatch[2];
       const { label, shape, icon } = parseNodeLabel(rest);
-      if (!seenIds.has(id)) {
-        seenIds.add(id);
-        nodes.push({ id, label, shape, raw: rest, parentSubgraphId: parentId, ...(icon ? { icon } : {}) });
+      if (!nodeById.has(id)) {
+        const node: ParsedNode = { id, label, shape, raw: rest, parentSubgraphId: parentId, ...(icon ? { icon } : {}) };
+        nodeById.set(id, node);
+        nodes.push(node);
       }
       continue;
     }
 
-    const standalone = line.match(STANDALONE_NODE_RE);
-    if (standalone) {
-      const id = standalone[2];
+    if (isStandaloneId(trimmed)) {
+      const id = trimmed;
       // Allow IDs that START with subgraph (like subgraph1) but NOT the bare keyword
-      if (['TD', 'TB', 'BT', 'RL', 'LR', 'end', 'direction'].includes(id) || id === 'subgraph') {continue;}
-      if (!seenIds.has(id) && !isSubgraphId(id, subgraphs)) {
-        seenIds.add(id);
-        nodes.push({ id, label: id, shape: 'rect', raw: id, parentSubgraphId: parentId });
+      if (STANDALONE_KEYWORDS.has(id)) { continue; }
+      if (!nodeById.has(id) && !subgraphIdSet.has(id)) {
+        const node: ParsedNode = { id, label: id, shape: 'rect', raw: id, parentSubgraphId: parentId };
+        nodeById.set(id, node);
+        nodes.push(node);
       } else if (parentId) {
         // Mermaid semantics: a later standalone reference inside a subgraph
         // places the node into it (moveNodeToSubgraph relies on this for
         // nodes first defined on an edge line).
-        const existing = nodes.find(n => n.id === id);
+        const existing = nodeById.get(id);
         if (existing && existing.parentSubgraphId !== parentId) {
           existing.parentSubgraphId = parentId;
         }
@@ -2811,79 +3037,81 @@ export function parseDiagram(source: string): ParsedDiagram {
     }
   }
 
-  const linkStyles = parseLinkStyles(source);
   // 38-03 pass 2: link every standalone `id@{...}` line pass 1 did NOT turn
   // into a node — edge-id metadata lines (`e1@{ animate: true }`) and
   // subgraph directive lines (`SG@{ view: collapsed }`) — to its entity id,
   // verbatim and uninterpreted (parseDiagram stops silently dropping them;
   // interpretation is Phase 40 / EDGE-05). Order-independent: the
-  // node-definition test reads pass 1's final seenIds, so a metadata line
+  // node-definition test reads pass 1's final nodeById, so a metadata line
   // placed before its edge line still links instead of minting a node.
   const linkedDirectives = new Map<string, string[]>();
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('%%')) {continue;}
-    if (ARROW_RE.test(trimmed) || directiveNodeLines.has(trimmed)) {continue;}
-    const directiveLine = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*)(@\{.*\})$/);
-    if (!directiveLine) {continue;}
-    const linked = linkedDirectives.get(directiveLine[1]);
-    if (linked) {
-      linked.push(trimmed);
-    } else {
-      linkedDirectives.set(directiveLine[1], [trimmed]);
-    }
-  }
-  // 40-01 (EDGE-02): interpret the EDGE half of the registry — a linked
-  // `id@{...}` line whose id equals an edge's edgeId parses into typed
-  // EdgeMetadata on that edge (order-independent: the registry build above
-  // already links metadata lines placed BEFORE their edge line). The
-  // registry lines stay VERBATIM — this is read-only interpretation and the
-  // registry remains the cascade source of truth; writes route through
-  // updateEdgeMetadata.
-  for (const edge of edges) {
-    if (!edge.edgeId) {continue;}
-    const linkedLines = linkedDirectives.get(edge.edgeId);
-    if (!linkedLines) {continue;}
-    for (const linkedLine of linkedLines) {
-      const m = linkedLine.match(/^([A-Za-z_][A-Za-z0-9_-]*)(@\{.*\})$/);
-      if (!m) {continue;}
-      const parsed = parseEdgeDirectiveSpan(m[2]);
-      if (!parsed) {continue;}
-      const existing = edge.metadata;
-      if (!existing) {
-        edge.metadata = parsed;
+  if (atBraceLines.length > 0) {
+    for (const trimmed of atBraceLines) {
+      if (hasArrowToken(trimmed) || directiveNodeLines.has(trimmed)) { continue; }
+      const directiveLine = trimmed.match(STANDALONE_DIRECTIVE_RE);
+      if (!directiveLine) { continue; }
+      const linked = linkedDirectives.get(directiveLine[1]);
+      if (linked) {
+        linked.push(trimmed);
       } else {
-        // Degenerate multi-line form: merge field-wise (later lines win) and
-        // concatenate unknownParams — any unknown keeps the span fenced.
-        edge.metadata = {
-          ...existing,
-          ...parsed,
-          unknownParams: [...(existing.unknownParams ?? []), ...(parsed.unknownParams ?? [])],
-        };
+        linkedDirectives.set(directiveLine[1], [trimmed]);
       }
     }
   }
-  // 40-04 (EDGE-05): interpret the SUBGRAPH half of the registry — a linked
-  // `id@{...}` line whose id equals a parsed subgraph id types `view` onto
-  // that subgraph (absent directive = expanded by convention). Unknown view
-  // values and unknown sibling params land verbatim in `unknownViewParams`
-  // (the subgraph stays fenced against view mutation — D6); a span another
-  // directive family typed leaves the view untouched here and stays
-  // mutator-declined. The registry lines stay VERBATIM — read-only
-  // interpretation; writes route through updateSubgraphView.
-  for (const sg of subgraphs) {
-    const linkedLines = linkedDirectives.get(sg.id);
-    if (!linkedLines) {continue;}
-    for (const linkedLine of linkedLines) {
-      const m = linkedLine.match(/^([A-Za-z_][A-Za-z0-9_-]*)(@\{.*\})$/);
-      if (!m) {continue;}
-      const parsed = parseSubgraphViewSpan(m[2]);
-      if (!parsed) {continue;}
-      if (parsed.view !== undefined) {
-        sg.view = parsed.view;
+
+  if (linkedDirectives.size > 0) {
+    // 40-01 (EDGE-02): interpret the EDGE half of the registry — a linked
+    // `id@{...}` line whose id equals an edge's edgeId parses into typed
+    // EdgeMetadata on that edge (order-independent: the registry build above
+    // already links metadata lines placed BEFORE their edge line). The
+    // registry lines stay VERBATIM — this is read-only interpretation and the
+    // registry remains the cascade source of truth; writes route through
+    // updateEdgeMetadata.
+    for (const edge of edges) {
+      if (!edge.edgeId) { continue; }
+      const linkedLines = linkedDirectives.get(edge.edgeId);
+      if (!linkedLines) { continue; }
+      for (const linkedLine of linkedLines) {
+        const m = linkedLine.match(STANDALONE_DIRECTIVE_RE);
+        if (!m) { continue; }
+        const parsed = parseEdgeDirectiveSpan(m[2]);
+        if (!parsed) { continue; }
+        const existing = edge.metadata;
+        if (!existing) {
+          edge.metadata = parsed;
+        } else {
+          // Degenerate multi-line form: merge field-wise (later lines win) and
+          // concatenate unknownParams — any unknown keeps the span fenced.
+          edge.metadata = {
+            ...existing,
+            ...parsed,
+            unknownParams: [...(existing.unknownParams ?? []), ...(parsed.unknownParams ?? [])],
+          };
+        }
       }
-      if (parsed.unknownViewParams.length > 0) {
-        sg.unknownViewParams = [...(sg.unknownViewParams ?? []), ...parsed.unknownViewParams];
+    }
+    // 40-04 (EDGE-05): interpret the SUBGRAPH half of the registry — a linked
+    // `id@{...}` line whose id equals a parsed subgraph id types `view` onto
+    // that subgraph (absent directive = expanded by convention). Unknown view
+    // values and unknown sibling params land verbatim in `unknownViewParams`
+    // (the subgraph stays fenced against view mutation — D6); a span another
+    // directive family typed leaves the view untouched here and stays
+    // mutator-declined. The registry lines stay VERBATIM — read-only
+    // interpretation; writes route through updateSubgraphView.
+    for (const sg of subgraphs) {
+      const linkedLines = linkedDirectives.get(sg.id);
+      if (!linkedLines) { continue; }
+      for (const linkedLine of linkedLines) {
+        const m = linkedLine.match(STANDALONE_DIRECTIVE_RE);
+        if (!m) { continue; }
+        const parsed = parseSubgraphViewSpan(m[2]);
+        if (!parsed) { continue; }
+        if (parsed.view !== undefined) {
+          sg.view = parsed.view;
+        }
+        if (parsed.unknownViewParams.length > 0) {
+          sg.unknownViewParams = [...(sg.unknownViewParams ?? []), ...parsed.unknownViewParams];
+        }
       }
     }
   }
@@ -3668,23 +3896,40 @@ export function parseFrontmatter(content: string): { frontmatter: FrontmatterCon
  */
 
 export function bodyHasUnparsedAtDirective(content: string): boolean {
+  if (!content.includes('@{') && !content.includes('&')) {
+    return false;
+  }
   const body = parseFrontmatter(content).body;
-  for (const line of body.split('\n')) {
+  const hasAtBrace = body.includes('@{');
+  const hasAmp = body.includes('&');
+  if (!hasAtBrace && !hasAmp) {
+    return false;
+  }
+  const len = body.length;
+  let lineStart = 0;
+  while (lineStart <= len) {
+    const nlIdx = body.indexOf('\n', lineStart);
+    const lineEnd = nlIdx === -1 ? len : nlIdx;
+    const line = body.slice(lineStart, lineEnd);
     // Backlog C: chained hops and bare 12.3 edge ids are EDITABLE now — the
     // mutation writers survive both (chain-survival.test.ts gates that), so
     // no fence here anymore. The remaining fences are the at-brace forms the
     // directive rules cannot fully consume — plus (40-02) the amp + multi-hop
     // combination, whose group-rebuild writers handle single-hop amp lines
     // only (plain multi-hop lines stay lifted).
-    if (!line.includes('@{')) {
-      const trimmed = line.trim();
-      if (ARROW_RE.test(trimmed)) {
-        const chain = matchEdgeChain(trimmed);
-        if (chain?.isAmp && chain.hops.length > 1) {return true; }
+    if (!hasAtBrace || !line.includes('@{')) {
+      if (hasAmp && line.includes('&')) {
+        const trimmed = line.trim();
+        if (hasArrowToken(trimmed)) {
+          const chain = matchEdgeChain(trimmed);
+          if (chain?.isAmp && chain.hops.length > 1) { return true; }
+        }
       }
-      continue;
+    } else if (!directiveLineFullyConsumed(line.trim())) {
+      return true;
     }
-    if (!directiveLineFullyConsumed(line.trim())) {return true;}
+    if (nlIdx === -1) { break; }
+    lineStart = nlIdx + 1;
   }
   return false;
 }
@@ -3727,13 +3972,13 @@ function directiveSpanEditable(span: string): boolean {
  * here.
  */
 function directiveLineFullyConsumed(trimmed: string): boolean {
-  if (!trimmed || trimmed.startsWith('%%')) {return true;}
+  if (!trimmed || trimmed.startsWith('%%')) { return true; }
   // A subgraph header carrying a directive stays fenced: its rename path
   // (updateSubgraphLabel) rewrites the line and would drop the metadata.
-  if (trimmed.startsWith('subgraph')) {return false;}
-  if (!ARROW_RE.test(trimmed)) {
-    const standalone = trimmed.match(/^([A-Za-z_][A-Za-z0-9_-]*)(@\{.*\})$/);
-    if (standalone) {return directiveSpanEditable(standalone[2]);}
+  if (trimmed.startsWith('subgraph')) { return false; }
+  if (!hasArrowToken(trimmed)) {
+    const standalone = trimmed.match(STANDALONE_DIRECTIVE_RE);
+    if (standalone) { return directiveSpanEditable(standalone[2]); }
     return false;
   }
   const edge = matchArrowLine(trimmed);
@@ -3741,8 +3986,10 @@ function directiveLineFullyConsumed(trimmed: string): boolean {
     // 40-02 (EDGE-01): an amp line combined with additional hops fences —
     // the group-rebuild writers handle single-hop amp lines only, so the D6
     // pill guards the multi-hop combinations read-only.
-    const chain = matchEdgeChain(trimmed);
-    if (chain?.isAmp && chain.hops.length > 1) {return false; }
+    if (trimmed.includes('&')) {
+      const chain = matchEdgeChain(trimmed);
+      if (chain?.isAmp && chain.hops.length > 1) { return false; }
+    }
     const sourceCapture = edge.sourceRaw;
     const targetCapture = edge.targetRaw;
     const sourceRaw = sourceCapture.trim();
@@ -3750,8 +3997,8 @@ function directiveLineFullyConsumed(trimmed: string): boolean {
     // WR-04: a directive span must attach directly to its id — the
     // space-separated form stays fenced on edge lines too (mirrors the
     // standalone rule and parseNodeRawDirective's decline).
-    if (sourceRaw.startsWith('@{') && (!sourceCapture.startsWith('@{') || !directiveSpanEditable(sourceRaw))) {return false;}
-    if (targetRaw.startsWith('@{') && (!targetCapture.startsWith('@{') || !directiveSpanEditable(targetRaw))) {return false;}
+    if (sourceRaw.startsWith('@{') && (!sourceCapture.startsWith('@{') || !directiveSpanEditable(sourceRaw))) { return false; }
+    if (targetRaw.startsWith('@{') && (!targetCapture.startsWith('@{') || !directiveSpanEditable(targetRaw))) { return false; }
     return true;
   }
   return false;

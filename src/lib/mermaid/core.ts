@@ -34,13 +34,18 @@ let currentMermaidTheme: MermaidBuiltinTheme = 'base';
 let currentDefaultLook: DiagramLook = 'neo';
 let defaultTheme: MermaidTheme | null = null;
 let diagramTheme: MermaidTheme | null = null;
+let lastInitSignature: string | null = null;
+
+const YAML_EDGE_LABEL_BG_RE = /edgeLabelBackground:\s*['"]?([^'"\n]+)/;
+const INIT_EDGE_LABEL_BG_RE = /'edgeLabelBackground'\s*:\s*'([^']+)'/;
 
 function doInit(
   theme: 'dark' | 'light',
   useBase: boolean,
   mermaidTheme?: MermaidBuiltinTheme,
   diagramType?: DiagramType,
-  maxTextSize?: number
+  maxTextSize?: number,
+  force = false
 ) {
   // Register lazy icon packs (FA6 + logos + mdi) and lazy tidy-tree layout on
   // the single init path (PERF-01: 0 B eager boot impact; run-once guarded).
@@ -54,8 +59,26 @@ function doInit(
     ? activeTheme!.baseTheme!
     : (mermaidTheme ?? (useBase ? 'base' : isDark ? 'dark' : 'default'));
 
+  // Mermaid Wardley maps do not support handDrawn look; gracefully fall back to 'neo'.
+  const effectiveLook: DiagramLook =
+    diagramType === 'wardley' && currentDefaultLook === 'handDrawn' ? 'neo' : currentDefaultLook;
+
+  const resolvedMaxTextSize = maxTextSize ?? LIMITS.MAX_DIAGRAM_SIZE;
+  const useCustomThemeVars = Boolean(!useBase && activeTheme && !isNative);
+  const themeFamilyKey =
+    useCustomThemeVars && diagramType && FAMILY_SCOPED_THEME_TYPES.has(diagramType)
+      ? diagramType
+      : '';
+  const coreColorsKey =
+    useCustomThemeVars && activeTheme ? JSON.stringify(activeTheme.coreColors) : '';
+
+  const initSignature = `${isDark ? 1 : 0}|${resolvedMermaidTheme}|${effectiveLook}|${resolvedMaxTextSize}|${useCustomThemeVars ? 1 : 0}|${themeFamilyKey}|${coreColorsKey}`;
+  if (!force && initSignature === lastInitSignature) {
+    return;
+  }
+
   let themeVars: Record<string, unknown> | undefined;
-  if (!useBase && activeTheme && !isNative) {
+  if (useCustomThemeVars && activeTheme) {
     // Use family-scoped derivation (preserving nested objects & contrast-safe
     // overrides) for the 10 new families + radar/xyChart while keeping the
     // legacy 8 theme-matrix families bound directly to deriveThemeVariables.
@@ -69,10 +92,6 @@ function doInit(
   }
   // When useBase is true, don't pass themeVariables (frontmatter controls theming)
 
-  // Mermaid Wardley maps do not support handDrawn look; gracefully fall back to 'neo'.
-  const effectiveLook: DiagramLook =
-    diagramType === 'wardley' && currentDefaultLook === 'handDrawn' ? 'neo' : currentDefaultLook;
-
   mermaid.initialize({
     startOnLoad: false,
     theme: resolvedMermaidTheme,
@@ -80,7 +99,7 @@ function doInit(
     look: effectiveLook,
     darkMode: isDark,
     htmlLabels: true,
-    maxTextSize: maxTextSize ?? LIMITS.MAX_DIAGRAM_SIZE,
+    maxTextSize: resolvedMaxTextSize,
     fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
     fontSize: 14,
     flowchart: { curve: 'basis', padding: 20, useMaxWidth: false, wrappingWidth: 200 }, // v11-default pin — v12 lowers wrappingWidth to 120, freezing node width so bigger fonts grow node height instead of width
@@ -88,11 +107,12 @@ function doInit(
     swimlane: { layout: 'swimlane' },
     ...(themeVars && { themeVariables: themeVars }),
   });
+  lastInitSignature = initSignature;
 }
 
 export function setDefaultLook(look: DiagramLook): void {
   currentDefaultLook = look;
-  doInit(currentTheme, false, currentMermaidTheme);
+  doInit(currentTheme, false, currentMermaidTheme, undefined, undefined, true);
 }
 
 export function getDefaultLook(): DiagramLook {
@@ -111,12 +131,12 @@ export function initMermaid(
   if (appDefaultTheme !== undefined) {
     defaultTheme = appDefaultTheme;
   }
-  doInit(theme, false, currentMermaidTheme);
+  doInit(theme, false, currentMermaidTheme, undefined, undefined, true);
 }
 
 export function setDefaultTheme(theme: MermaidTheme | null) {
   defaultTheme = theme;
-  doInit(currentTheme, false, currentMermaidTheme);
+  doInit(currentTheme, false, currentMermaidTheme, undefined, undefined, true);
 }
 
 export function getDefaultTheme(): MermaidTheme | null {
@@ -142,55 +162,74 @@ export function getDiagramTheme(): MermaidTheme | null {
 }
 
 function extractEdgeLabelTextColor(content: string): string | null {
-  // Try YAML frontmatter format first
-  const yamlMatch = content.match(/edgeLabelBackground:\s*['"]?([^'"\n]+)/);
-  if (yamlMatch) {
-    const bg = yamlMatch[1].trim();
-    const r = parseInt(bg.substr(1, 2), 16);
-    const g = parseInt(bg.substr(3, 2), 16);
-    const b = parseInt(bg.substr(5, 2), 16);
-    const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-    return lum > 0.5 ? '#000000' : '#ffffff';
-  }
-
-  // Fall back to old init directive format
-  const oldMatch = content.match(/'edgeLabelBackground'\s*:\s*'([^']+)'/);
-  if (!oldMatch) {
+  if (!content.includes('edgeLabelBackground')) {
     return null;
   }
-  const bg = oldMatch[1];
-  const r = parseInt(bg.substr(1, 2), 16);
-  const g = parseInt(bg.substr(3, 2), 16);
-  const b = parseInt(bg.substr(5, 2), 16);
+
+  // Try YAML frontmatter format first, then fall back to old init directive format
+  const yamlMatch = content.match(YAML_EDGE_LABEL_BG_RE);
+  const bg = yamlMatch
+    ? yamlMatch[1].trim()
+    : (content.match(INIT_EDGE_LABEL_BG_RE)?.[1] ?? null);
+  if (!bg) {
+    return null;
+  }
+
+  const r = parseInt(bg.slice(1, 3), 16);
+  const g = parseInt(bg.slice(3, 5), 16);
+  const b = parseInt(bg.slice(5, 7), 16);
   const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   return lum > 0.5 ? '#000000' : '#ffffff';
 }
 
 function hasExplicitAncestorColor(el: Element): boolean {
-  const boundary = el.closest('.edgeLabel');
   let curr: Element | null = el;
   while (curr) {
     if ((curr as HTMLElement).style?.color) {
       return true;
     }
-    if (curr === boundary) break;
+    if (curr.classList.contains('edgeLabel')) {
+      return false;
+    }
     curr = curr.parentElement;
   }
   return false;
 }
 
 function fixEdgeLabelTextColor(svgStr: string, textColor: string): string {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(svgStr, 'text/html');
-  const labels = doc.querySelectorAll('.edgeLabel span, .edgeLabel p');
-  labels.forEach(el => {
+  if (!svgStr.includes('edgeLabel')) {
+    return svgStr;
+  }
+
+  let svgEl: Element | null = null;
+  if (typeof document !== 'undefined') {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = svgStr;
+    svgEl = tpl.content.querySelector('svg');
+  } else {
+    const parser = new DOMParser();
+    svgEl = parser.parseFromString(svgStr, 'text/html').querySelector('svg');
+  }
+  if (!svgEl) {
+    return svgStr;
+  }
+
+  const labels = svgEl.querySelectorAll('.edgeLabel span, .edgeLabel p');
+  if (labels.length === 0) {
+    return svgStr;
+  }
+
+  let mutated = false;
+  for (let i = 0; i < labels.length; i++) {
+    const el = labels[i];
     // Preserve per-edge or default `linkStyle ... color:...` set by Mermaid on `.labelBkg` / `.label`
     if (!hasExplicitAncestorColor(el)) {
       (el as HTMLElement).style.color = textColor;
+      mutated = true;
     }
-  });
-  const svgEl = doc.querySelector('svg');
-  return svgEl ? svgEl.outerHTML : svgStr;
+  }
+
+  return mutated ? svgEl.outerHTML : svgStr;
 }
 
 export async function renderDiagram(
@@ -227,7 +266,7 @@ export async function renderDiagram(
     // dies with "got LINK" (critique iter-9 P1 — the stored seed shipped
     // with 18 leading spaces). Trim is render-only; the stored content and
     // the code pane keep their original bytes.
-    let { svg } = await mermaid.render(safeId, content.trimStart());
+    let { svg } = await mermaid.render(safeId, trimmed);
 
     svg = sanitizeMermaidSVG(svg);
 
@@ -256,7 +295,7 @@ export async function renderDiagram(
     
     // Adjust line numbers if frontmatter is present
     // Mermaid often starts counting lines after the frontmatter block
-    if (content.trimStart().startsWith('---')) {
+    if (trimmed.startsWith('---')) {
       const lines = content.split('\n');
       let frontmatterEndLine = -1;
       let dashCount = 0;

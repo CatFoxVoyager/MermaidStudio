@@ -7,7 +7,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { extractThemeIdFromContent } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
 import { sanitizeCssValue } from '@/utils/sanitization';
-import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
+import * as svgPostProcessing from '@/utils/svgPostProcessing';
 import { buildSvgToParsedEdgeMap } from '@/utils/svgEdgeMatching';
 import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, updateEdgeMetadata, updateEdgeId, applyEdgeAnimatePreset, parseLinkStyles, edgeStyleToString, updateNodeStyle, updateNodeShape, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, updateSubgraphView, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, EdgeMetadata, ParsedEdge, NodeShape, PresetType, PresetColors, IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
@@ -42,18 +42,72 @@ interface SubgraphOverlay {
   isCollapsed?: boolean;
 }
 
-function isCollapsedSubgraphGroup(el: Element): boolean {
-  return /\bcollapsed-group\b/.test(el.getAttribute('class') ?? '') || el.querySelector('.collapsed-group') !== null;
+const RENDER_DEBOUNCE_MS = 95;
+const FLOWCHART_NODE_ID_RE = /flowchart-([A-Za-z0-9_-]+)-\d+$/;
+const COLLAPSED_GROUP_RE = /\bcollapsed-group\b/;
+const EMPTY_NODE_PANEL_DATA: {
+  panelLabels: Map<string, string>;
+  basePanelStyles: Map<string, NodeStyle>;
+  nodeSubgraphIds: Map<string, string | null>;
+} = {
+  panelLabels: new Map(),
+  basePanelStyles: new Map(),
+  nodeSubgraphIds: new Map(),
+};
+const EMPTY_SUBGRAPH_LIST: Array<{ id: string; label: string }> = [];
+const SHADOW_CENTERING_CSS = `
+  foreignObject > div, 
+  foreignObject > span,
+  .nodeLabel,
+  .cluster-label,
+  .label {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 100% !important;
+    width: 100% !important;
+    line-height: 1 !important;
+    text-align: center !important;
+    pointer-events: auto !important;
+  }
+
+  /* Ensure containers don't block clicks to elements behind them */
+  foreignObject,
+  .cluster-label {
+    pointer-events: none !important;
+  }
+  
+  /* Subgraph label centering (SVG and HTML) */
+  .cluster-label text,
+  .label text {
+    dominant-baseline: hanging !important;
+    text-anchor: middle !important;
+    y: 0 !important;
+  }
+`;
+
+interface RenderedSnapshot {
+  svg: string;
+  renderId: number;
+  content: string;
+  parsedDiagram: ReturnType<typeof parseDiagram>;
+  supportsVisualEditing: boolean;
 }
 
-function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElement): NodeOverlay[] {
-  // Find SVG in Shadow DOM
-  const shadowRoot = shadowHost.shadowRoot;
-  if (!shadowRoot) return [];
+function isCollapsedSubgraphGroup(el: Element): boolean {
+  const cls = el.getAttribute('class');
+  if (cls && cls.includes('collapsed-group') && COLLAPSED_GROUP_RE.test(cls)) {
+    return true;
+  }
+  return el.querySelector('.collapsed-group') !== null;
+}
 
-  const svg = shadowRoot.querySelector('svg');
-  if (!svg) {return [];}
-
+function extractSvgNodes(
+  svg: SVGSVGElement,
+  offsetX: number,
+  offsetY: number,
+  hasCollapsedGroups: boolean,
+): NodeOverlay[] {
   // 39-04 (ICON-03, UI-SPEC Surface 4): widened to mermaid 12.3's
   // special-shape groups — measured live DOM: img nodes emit
   // <g class="image-shape default" id="flowchart-<id>-<n>"> and icon nodes
@@ -64,65 +118,69 @@ function extractSvgNodes(outerContainer: HTMLDivElement, shadowHost: HTMLDivElem
   const overlays: NodeOverlay[] = [];
   const seen = new Set<string>();
 
-  // Account for scroll offset
-  const scrollLeft = outerContainer.scrollLeft;
-  const scrollTop = outerContainer.scrollTop;
-
-  nodeElements.forEach(el => {
+  for (let i = 0; i < nodeElements.length; i++) {
+    const el = nodeElements[i];
     const idAttr = el.id ?? '';
-    const flowchartMatch = idAttr.match(/flowchart-([A-Za-z0-9_-]+)-\d+$/);
+    const flowchartMatch = FLOWCHART_NODE_ID_RE.exec(idAttr);
     const nodeId = flowchartMatch ? flowchartMatch[1] : null;
-    if (!nodeId || seen.has(nodeId)) {return;}
+    if (!nodeId || seen.has(nodeId)) {continue;}
     // 40-04 (EDGE-05, UI-SPEC Grey Area 7): a collapsed subgraph wears a
     // node shape inside g.nodes (mermaid puts `.collapsed-group` on its
     // child <rect>/<path>, or on the group itself in mocks) — it IS the
     // subgraph, never a node. Excluded here so no node overlay can attach.
-    if (isCollapsedSubgraphGroup(el)) {return;}
+    if (hasCollapsedGroups && isCollapsedSubgraphGroup(el)) {continue;}
     seen.add(nodeId);
 
     try {
       const rect = el.getBoundingClientRect();
-      const containerRect = outerContainer.getBoundingClientRect();
       overlays.push({
         id: nodeId,
-        x: rect.left - containerRect.left + scrollLeft,
-        y: rect.top - containerRect.top + scrollTop,
+        x: rect.left + offsetX,
+        y: rect.top + offsetY,
         width: rect.width,
         height: rect.height,
       });
     } catch {
       // skip
     }
-  });
+  }
 
   return overlays;
 }
 
-function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTMLDivElement, knownSubgraphIds: string[]): SubgraphOverlay[] {
-  const shadowRoot = shadowHost.shadowRoot;
-  if (!shadowRoot) return [];
+function extractSubgraphOverlays(
+  svg: SVGSVGElement,
+  offsetX: number,
+  offsetY: number,
+  knownSubgraphIds: string[],
+  hasCollapsedGroups: boolean,
+): SubgraphOverlay[] {
+  if (knownSubgraphIds.length === 0) return [];
 
-  const svg = shadowRoot.querySelector('svg');
-  if (!svg) return [];
-
-  const overlays: SubgraphOverlay[] = [];
   const knownSet = new Set(knownSubgraphIds);
+  const remainingRegular = new Set(knownSet);
+  const remainingCollapsed = hasCollapsedGroups ? new Set(knownSet) : null;
+  const firstRegularMatch = new Map<string, SVGGElement>();
+  const firstCollapsedMatch = hasCollapsedGroups ? new Map<string, SVGGElement>() : null;
 
   // Mermaid v11 often uses class "node" for subgraphs, and ID format is "preview_N_TIMESTAMP-subgraphId"
-  // We'll look for any g element that has a rect and an ID containing one of our known subgraph IDs.
-  const allGs = Array.from(svg.querySelectorAll('g'));
-  const candidates: Map<string, SVGElement> = new Map();
+  // Match known subgraph IDs in a single pass over g[id] without splitting on '-' (IDs may contain hyphens).
+  const allGs = svg.querySelectorAll<SVGGElement>('g[id]');
+  for (let i = 0; i < allGs.length; i++) {
+    if (remainingRegular.size === 0 && (!remainingCollapsed || remainingCollapsed.size === 0)) {
+      break;
+    }
+    const g = allGs[i];
+    const id = g.id;
+    if (!id) continue;
 
-  for (const sgId of knownSet) {
-    // Look for the best matching G element for this subgraph ID
-    const match = allGs.find(g => {
-      const id = g.id || '';
-      return id === sgId || id.endsWith(`-${sgId}`);
-    });
-
-    if (match && match.querySelector('rect')) {
-      candidates.set(sgId, match);
-      continue;
+    if (remainingRegular.size > 0) {
+      for (const sgId of remainingRegular) {
+        if (id === sgId || id.endsWith(`-${sgId}`)) {
+          firstRegularMatch.set(sgId, g);
+          remainingRegular.delete(sgId);
+        }
+      }
     }
 
     // 40-04 (EDGE-05, UI-SPEC Grey Area 7): a collapsed subgraph renders as
@@ -130,37 +188,45 @@ function extractSubgraphOverlays(outerContainer: HTMLDivElement, shadowHost: HTM
     // container rect/path) with the flowchart-<id>-<n> id family —
     // classified as a SUBGRAPH hit here so its click target routes to the
     // subgraph panel and the Expand toggle stays reachable.
-    const collapsedMatch = allGs.find(g => {
-      if (!isCollapsedSubgraphGroup(g)) {return false;}
-      const id = g.id || '';
-      const flowchartMatch = id.match(/flowchart-([A-Za-z0-9_-]+)-\d+$/);
-      return (flowchartMatch !== null && flowchartMatch[1] === sgId) || id === sgId || id.endsWith(`-${sgId}`);
-    });
-
-    if (collapsedMatch && collapsedMatch.querySelector('rect')) {
-      candidates.set(sgId, collapsedMatch);
+    if (remainingCollapsed && remainingCollapsed.size > 0 && isCollapsedSubgraphGroup(g)) {
+      const flowchartMatch = FLOWCHART_NODE_ID_RE.exec(id);
+      const flowchartId = flowchartMatch ? flowchartMatch[1] : null;
+      for (const sgId of remainingCollapsed) {
+        if (flowchartId === sgId || id === sgId || id.endsWith(`-${sgId}`)) {
+          firstCollapsedMatch!.set(sgId, g);
+          remainingCollapsed.delete(sgId);
+        }
+      }
     }
   }
 
-  for (const [sgId, el] of candidates) {
+  const overlays: SubgraphOverlay[] = [];
+  for (const sgId of knownSet) {
+    const regular = firstRegularMatch.get(sgId);
+    let el: SVGGElement | undefined;
+    if (regular && regular.querySelector('rect')) {
+      el = regular;
+    } else if (firstCollapsedMatch) {
+      const collapsed = firstCollapsedMatch.get(sgId);
+      if (collapsed && collapsed.querySelector('rect')) {
+        el = collapsed;
+      }
+    }
+    if (!el) continue;
+
     // 40-04 (EDGE-05): a collapsed-group hit covers the WHOLE shape — the
     // top-30px label-strip strategy has no separate label area on the
     // node-shaped collapsed form.
-    const isCollapsed = isCollapsedSubgraphGroup(el);
+    const isCollapsed = hasCollapsedGroups ? isCollapsedSubgraphGroup(el) : false;
     // Try different selectors for label text depending on Mermaid version
     const labelText = el.querySelector('.cluster-label text, .nodeLabel text, .label text, text');
     const label = labelText?.textContent ?? sgId;
 
-    // Account for scroll offset
-    const scrollLeft = outerContainer.scrollLeft;
-    const scrollTop = outerContainer.scrollTop;
-
     try {
-      const containerRect = outerContainer.getBoundingClientRect();
       const rect = el.getBoundingClientRect();
 
-      const clusterX = rect.left - containerRect.left + scrollLeft;
-      const clusterY = rect.top - containerRect.top + scrollTop;
+      const clusterX = rect.left + offsetX;
+      const clusterY = rect.top + offsetY;
       const clusterWidth = rect.width;
       const clusterHeight = rect.height;
 
@@ -230,22 +296,32 @@ function addEdgeClickTargets(
 
     // Use the mapped parsed edge index instead of SVG index
     const parsedIndex = svgToParsedIndex.get(svgIndex) ?? Math.min(svgIndex, Math.max(0, parsedEdges.length - 1));
-
-    hitPath.addEventListener('click', (e) => {
-      // In connect mode the click must fall through to the canvas so it can
-      // cancel a pending connectFirst — return BEFORE stopPropagation, or the
-      // 15px-wide hit path silently swallows every connect-mode click.
-      if (isConnectMode()) return;
-      e.stopPropagation();
-      e.preventDefault();
-      onEdgeClick(parsedIndex);
-    });
+    hitPath.setAttribute('data-edge-index', String(parsedIndex));
 
     overlaySvg.appendChild(hitPath);
   });
 
+  const handleOverlayClick = (e: MouseEvent) => {
+    const hitEl = e.target instanceof Element ? e.target.closest('[data-edge-index]') : null;
+    if (!hitEl) return;
+    // In connect mode the click must fall through to the canvas so it can
+    // cancel a pending connectFirst — return BEFORE stopPropagation, or the
+    // 15px-wide hit path silently swallows every connect-mode click.
+    if (isConnectMode()) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const parsedIndex = Number(hitEl.getAttribute('data-edge-index'));
+    if (!Number.isNaN(parsedIndex)) {
+      onEdgeClick(parsedIndex);
+    }
+  };
+
+  overlaySvg.addEventListener('click', handleOverlayClick);
   containerEl.appendChild(overlaySvg);
-  return () => overlaySvg.remove();
+  return () => {
+    overlaySvg.removeEventListener('click', handleOverlayClick);
+    overlaySvg.remove();
+  };
 }
 
 export function highlightSelectedEdge(shadowHost: HTMLDivElement, edgeIndex: number | null, parsedEdges: ParsedEdge[]) {
@@ -311,7 +387,9 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // Mobile preview drops the Copy-SVG toolbar action (redundant with the
   // Export sheet's copy actions and the toolbar's overflow casualty).
   const isMobilePreview = useMediaQuery('(max-width: 767.98px)');
-  const [svg, setSvg] = useState('');
+  const [renderedSnapshot, setRenderedSnapshot] = useState<RenderedSnapshot | null>(null);
+  const svg = renderedSnapshot?.svg ?? '';
+  const hasSvg = Boolean(renderedSnapshot);
   const [error, setError] = useState<string | null>(null);
 
   // Remonter l'erreur au parent
@@ -323,11 +401,11 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const [copied, setCopied] = useState(false);
   const [nodeOverlays, setNodeOverlays] = useState<Array<NodeOverlay>>([]);
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(new Set());
-  const [panelStyles, setPanelStyles] = useState<Map<string, NodeStyle>>(new Map());
-  const [panelLabels, setPanelLabels] = useState<Map<string, string>>(new Map());
+  const [panelStyleOverride, setPanelStyleOverride] = useState<{
+    diagram: ReturnType<typeof parseDiagram>;
+    styles: Map<string, NodeStyle>;
+  } | null>(null);
   const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(null);
-  const [parsedEdges, setParsedEdges] = useState<ParsedEdge[]>([]);
-  const [parsedLinkStyles, setParsedLinkStyles] = useState<Map<number | 'default', EdgeStyle>>(new Map());
   const [toolMode, setToolMode] = useState<'select' | 'connect'>('select');
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -338,6 +416,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
   const [dragOverSubgraphId, setDragOverSubgraphId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const sizingWrapperRef = useRef<HTMLDivElement>(null);
   const shadowHostRef = useRef<HTMLDivElement>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
   const svgNaturalSizeRef = useRef({ width: 0, height: 0 });
@@ -346,20 +425,25 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const renderIdRef = useRef(0);
   const contentRef = useRef(content);
   const debounceRef = useRef<number>(0);
-  const skipResyncRef = useRef(false);
+  const renderTimeTimerRef = useRef<number>(0);
   const edgeCleanupRef = useRef<(() => void) | null>(null);
   const relativeContainerRef = useRef<HTMLDivElement>(null);
   const [subgraphOverlays, setSubgraphOverlays] = useState<SubgraphOverlay[]>([]);
-  const [nodeSubgraphIds, setNodeSubgraphIds] = useState<Map<string, string | null>>(new Map());
-  const [subgraphList, setSubgraphList] = useState<Array<{ id: string; label: string }>>([]);
   const [selectedSubgraphId, setSelectedSubgraphId] = useState<string | null>(null);
-  const [parsedStyles, setParsedStyles] = useState<Map<string, NodeStyle>>(new Map());
   // Bumped whenever the SVG container becomes visible or changes size. On
   // mobile the preview tab renders hidden (display:none): overlays measured at
   // mount time collapse to 0×0 and stay stale until something re-runs the
   // measure. The tick re-triggers it when the tab is shown — same pattern as
   // VisualEditorCanvas.
   const [visibilityTick, setVisibilityTick] = useState(0);
+  const visibilityTickRef = useRef(visibilityTick);
+  const lastMeasuredRef = useRef<{
+    renderId: number;
+    zoom: number;
+    visibilityTick: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const toolModeRef = useRef(toolMode);
   // Latest-ref pattern: syncEdgeTargets must not depend on the onSelectionOpen
   // prop identity. WorkspacePanel passes it as an inline arrow, so depending on
@@ -368,12 +452,17 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // edge highlight on every selection.
   const onSelectionOpenRef = useRef(onSelectionOpen);
   const selectedEdgeIndexRef = useRef<number | null>(null);
+  const renderedSnapshotRef = useRef<RenderedSnapshot | null>(null);
+  const onRenderTimeRef = useRef(onRenderTime);
 
   // Keep refs in sync without accessing them during render
   useEffect(() => { contentRef.current = content; }, [content]);
   useEffect(() => { toolModeRef.current = toolMode; }, [toolMode]);
   useEffect(() => { onSelectionOpenRef.current = onSelectionOpen; }, [onSelectionOpen]);
   useEffect(() => { selectedEdgeIndexRef.current = selectedEdgeIndex; }, [selectedEdgeIndex]);
+  useEffect(() => { onRenderTimeRef.current = onRenderTime; }, [onRenderTime]);
+  useEffect(() => { visibilityTickRef.current = visibilityTick; }, [visibilityTick]);
+  useEffect(() => () => clearTimeout(renderTimeTimerRef.current), []);
 
   // Entering connect mode closes every floating panel and clears the current
   // selection: the Node/Edge/Subgraph style panels float above the canvas
@@ -402,49 +491,42 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // never see a stale fence.)
   const bodyHasMetadata = useMemo(() => bodyHasUnparsedAtDirective(content), [content]);
 
-  // Generate node presets based on current theme (syncs with theme changes)
-  const nodePresets = useMemo(() => {
+  // Resolve effective theme, preset button swatches, and preset colors once per content/themeId change
+  const { nodePresets, currentThemeColors, effectiveThemeId } = useMemo(() => {
     // Try themeId prop first, then extract from content
-    const effectiveThemeId = themeId ?? extractThemeIdFromContent(content);
-    const currentTheme = effectiveThemeId ? getThemeById(effectiveThemeId) : null;
+    const resolvedThemeId = themeId ?? extractThemeIdFromContent(content);
+    const currentTheme = resolvedThemeId ? getThemeById(resolvedThemeId) : null;
     const colors = currentTheme?.coreColors;
 
-    return [
-      {
-        label: 'Primary',
-        presetType: 'primary' as PresetType,
-        color: colors?.primaryColor ?? '#94a3b8', // Shows theme base color in button
-      },
-      {
-        label: 'Success',
-        presetType: 'success' as PresetType,
-        color: colors?.successColor ?? '#22c55e',
-      },
-      {
-        label: 'Warning',
-        presetType: 'warning' as PresetType,
-        color: colors?.warningColor ?? '#f59e0b',
-      },
-      {
-        label: 'Danger',
-        presetType: 'danger' as PresetType,
-        color: colors?.errorColor ?? '#ef4444',
-      },
-      {
-        label: 'Info',
-        presetType: 'info' as PresetType,
-        color: colors?.infoColor ?? '#06b6d4',
-      },
-    ];
-  }, [content, themeId, theme]);
-
-  // Get current theme colors and theme ID for preset operations
-  const { currentThemeColors, effectiveThemeId } = useMemo(() => {
-    const effectiveThemeId = themeId ?? extractThemeIdFromContent(content);
-    const currentTheme = effectiveThemeId ? getThemeById(effectiveThemeId) : null;
-    const colors = currentTheme?.coreColors;
     return {
-      effectiveThemeId,
+      effectiveThemeId: resolvedThemeId,
+      nodePresets: [
+        {
+          label: 'Primary',
+          presetType: 'primary' as PresetType,
+          color: colors?.primaryColor ?? '#94a3b8', // Shows theme base color in button
+        },
+        {
+          label: 'Success',
+          presetType: 'success' as PresetType,
+          color: colors?.successColor ?? '#22c55e',
+        },
+        {
+          label: 'Warning',
+          presetType: 'warning' as PresetType,
+          color: colors?.warningColor ?? '#f59e0b',
+        },
+        {
+          label: 'Danger',
+          presetType: 'danger' as PresetType,
+          color: colors?.errorColor ?? '#ef4444',
+        },
+        {
+          label: 'Info',
+          presetType: 'info' as PresetType,
+          color: colors?.infoColor ?? '#06b6d4',
+        },
+      ],
       currentThemeColors: {
         primaryColor: colors?.primaryColor ?? '#3b82f6',
         successColor: colors?.successColor ?? '#22c55e',
@@ -479,14 +561,50 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     // Update all preset classDef colors in the diagram
     const updated = updatePresetColors(content, currentThemeColors);
     if (updated !== content && onChange) {
-      skipResyncRef.current = true;
       onChange(updated);
     }
   }, [effectiveThemeId, content, currentThemeColors]);
 
-  const type = detectDiagramType(content);
+  const type = useMemo(() => detectDiagramType(content), [content]);
   const stylingCapabilities = getStylingCapabilities(type);
   const supportsVisualEditing = stylingCapabilities.supportsVisualEditing;
+
+  const parsedEdges = parsedDiagram.edges;
+  const parsedLinkStyles = parsedDiagram.linkStyles;
+  const parsedStyles = parsedDiagram.styles;
+
+  const hasSelectedNodes = selectedNodeIds.size > 0;
+  const { panelLabels, basePanelStyles, nodeSubgraphIds } = useMemo(() => {
+    if (!supportsVisualEditing || !hasSelectedNodes) {
+      return EMPTY_NODE_PANEL_DATA;
+    }
+    const labels = new Map<string, string>();
+    const styles = new Map<string, NodeStyle>();
+    const subgraphIds = new Map<string, string | null>();
+    for (const node of parsedDiagram.nodes) {
+      labels.set(node.id, node.label);
+      styles.set(node.id, getNodeStyle(parsedDiagram.styles, parsedDiagram.classDefs, parsedDiagram.nodeClasses, node.id));
+      subgraphIds.set(node.id, node.parentSubgraphId ?? null);
+    }
+    return {
+      panelLabels: labels,
+      basePanelStyles: styles,
+      nodeSubgraphIds: subgraphIds,
+    };
+  }, [parsedDiagram, supportsVisualEditing, hasSelectedNodes]);
+
+  const panelStyles =
+    panelStyleOverride && panelStyleOverride.diagram === parsedDiagram
+      ? panelStyleOverride.styles
+      : basePanelStyles;
+
+  const needsSubgraphList = hasSelectedNodes || selectedSubgraphId !== null;
+  const subgraphList = useMemo(() => {
+    if (!supportsVisualEditing || !needsSubgraphList) {
+      return EMPTY_SUBGRAPH_LIST;
+    }
+    return parsedDiagram.subgraphs.map(sg => ({ id: sg.id, label: sg.label }));
+  }, [parsedDiagram, supportsVisualEditing, needsSubgraphList]);
 
   // Keep zoomRef in sync with zoom state
   useEffect(() => {
@@ -516,7 +634,12 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       if (id !== renderIdRef.current) {return;}
 
       const elapsed = Math.round(performance.now() - start);
-      onRenderTime?.(elapsed);
+      clearTimeout(renderTimeTimerRef.current);
+      renderTimeTimerRef.current = window.setTimeout(() => {
+        if (id === renderIdRef.current) {
+          onRenderTimeRef.current?.(elapsed);
+        }
+      }, 0);
 
       if (e) {
         // Clear the shadow root while the canvas branch is still mounted —
@@ -530,13 +653,21 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         if (shadowHostRef.current?.shadowRoot) {
           shadowHostRef.current.shadowRoot.textContent = '';
         }
+        edgeCleanupRef.current?.();
+        edgeCleanupRef.current = null;
         setError(e);
-        setSvg('');
+        setRenderedSnapshot(null);
       } else {
         // Add data-rendered attribute to SVG for E2E tests
         // Simply replace the first <svg occurrence
-        const svgWithAttr = s.replace('<svg', '<svg data-rendered="true"');
-        setSvg(svgWithAttr);
+        const svgWithAttr = s ? s.replace('<svg', '<svg data-rendered="true"') : '';
+        setRenderedSnapshot(svgWithAttr ? {
+          svg: svgWithAttr,
+          renderId: id,
+          content,
+          parsedDiagram,
+          supportsVisualEditing,
+        } : null);
         setError(null);
       }
     } finally {
@@ -545,11 +676,11 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         setLoading(false);
       }
     }
-  }, [content, onRenderTime, themeId]);
+  }, [content, parsedDiagram, supportsVisualEditing, themeId]);
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
-    debounceRef.current = window.setTimeout(render, 400);
+    debounceRef.current = window.setTimeout(render, RENDER_DEBOUNCE_MS);
     return () => clearTimeout(debounceRef.current);
   }, [render, theme]);
 
@@ -558,17 +689,36 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // (no /zoom division — that only applies to overlays living inside a scaled
   // wrapper, like the visual editor's).
   const remeasureOverlays = useCallback(() => {
-    if (!containerRef.current || !shadowHostRef.current) return;
-    setNodeOverlays(extractSvgNodes(containerRef.current, shadowHostRef.current));
-    const knownIds = subgraphList.map(sg => sg.id);
-    setSubgraphOverlays(extractSubgraphOverlays(containerRef.current, shadowHostRef.current, knownIds));
-  }, [subgraphList]);
+    const snap = renderedSnapshotRef.current;
+    if (!snap || !snap.supportsVisualEditing) {
+      setNodeOverlays(prev => prev.length === 0 ? prev : []);
+      setSubgraphOverlays(prev => prev.length === 0 ? prev : []);
+      return;
+    }
+    const outerContainer = containerRef.current;
+    const shadowRoot = shadowHostRef.current?.shadowRoot;
+    if (!outerContainer || !shadowRoot) return;
+
+    const svgEl = shadowRoot.querySelector('svg');
+    if (!svgEl) return;
+
+    const containerRect = outerContainer.getBoundingClientRect();
+    const offsetX = outerContainer.scrollLeft - containerRect.left;
+    const offsetY = outerContainer.scrollTop - containerRect.top;
+    const hasCollapsedGroups = svgEl.querySelector('.collapsed-group') !== null;
+
+    setNodeOverlays(extractSvgNodes(svgEl, offsetX, offsetY, hasCollapsedGroups));
+    const knownIds = snap.parsedDiagram.subgraphs.map(sg => sg.id);
+    setSubgraphOverlays(extractSubgraphOverlays(svgEl, offsetX, offsetY, knownIds, hasCollapsedGroups));
+  }, []);
 
   // (Re)create the edge hit-target layer, releasing the previous one first so
   // effect re-runs never stack stale overlays.
-  const syncEdgeTargets = useCallback(() => {
-    if (!supportsVisualEditing || !shadowHostRef.current || !relativeContainerRef.current) return;
+  const syncEdgeTargets = useCallback((snapshotOverride?: RenderedSnapshot | null) => {
     edgeCleanupRef.current?.();
+    edgeCleanupRef.current = null;
+    const snap = snapshotOverride !== undefined ? snapshotOverride : renderedSnapshotRef.current;
+    if (!snap || !snap.supportsVisualEditing || !shadowHostRef.current || !relativeContainerRef.current) return;
     edgeCleanupRef.current = addEdgeClickTargets(shadowHostRef.current, relativeContainerRef.current, (index) => {
       if (toolModeRef.current === 'connect') return;
       setSelectedNodeIds(new Set());
@@ -584,25 +734,28 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       if (willSelect) {
         requestAnimationFrame(() => onSelectionOpenRef.current?.());
       }
-    }, parsedEdges, () => toolModeRef.current === 'connect');
-  }, [supportsVisualEditing, parsedEdges]);
+    }, snap.parsedDiagram.edges, () => toolModeRef.current === 'connect');
+  }, []);
 
   // Setup Shadow DOM for SVG isolation
   useEffect(() => {
-    if (!shadowHostRef.current) return;
+    renderedSnapshotRef.current = renderedSnapshot;
 
-    // Clean up shadow root when svg is cleared (e.g. after a parse error)
-    if (!svg) {
-      if (shadowHostRef.current.shadowRoot) {
+    // Clean up shadow root, edge targets, and overlays when snapshot is cleared
+    // (e.g. after a parse error, even if shadowHostRef detached on error branch swap)
+    if (!renderedSnapshot) {
+      lastMeasuredRef.current = null;
+      if (shadowHostRef.current?.shadowRoot) {
         shadowHostRef.current.shadowRoot.textContent = '';
       }
+      edgeCleanupRef.current?.();
+      edgeCleanupRef.current = null;
+      setNodeOverlays(prev => prev.length === 0 ? prev : []);
+      setSubgraphOverlays(prev => prev.length === 0 ? prev : []);
       return;
     }
 
-    // Clean up previous shadow root
-    if (shadowHostRef.current.shadowRoot) {
-      shadowHostRef.current.shadowRoot.textContent = '';
-    }
+    if (!shadowHostRef.current) return;
 
     // Create shadow root only if it doesn't exist
     if (!shadowHostRef.current.shadowRoot) {
@@ -612,13 +765,13 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     const shadowRoot = shadowHostRef.current.shadowRoot;
     if (!shadowRoot) return;
 
-    // Extract theme variables from content and define them in Shadow DOM
+    // Extract theme variables from snapshot content and define them in Shadow DOM
     let shadowCSS = ':host { all: initial; }\n';
     let fontFamily = '';
     let fontSize = '';
 
     try {
-      const { frontmatter } = parseFrontmatter(content);
+      const { frontmatter } = parseFrontmatter(renderedSnapshot.content);
       const config = frontmatter.config as Record<string, any>;
       const themeVars = config?.themeVariables as Record<string, string> | undefined;
 
@@ -666,40 +819,111 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     // Shared post-processing (label fixes + edge style cleanup, incl. neutralizing
     // the linkStyle fill that Mermaid misapplies to edge paths) — same pipeline as
     // the exports so PNG/SVG output matches the preview.
-    const processedSvg = postProcessDiagramSvg(svg, parsedDiagram);
+    const processedSvgEl =
+      'postProcessDiagramSvgToElement' in svgPostProcessing &&
+      typeof svgPostProcessing.postProcessDiagramSvgToElement === 'function'
+        ? svgPostProcessing.postProcessDiagramSvgToElement(
+            renderedSnapshot.svg,
+            renderedSnapshot.parsedDiagram
+          )
+        : null;
 
-    // Safe sink: `svg` was sanitized by renderDiagram (DOMPurify) and the
-    // post-processing pipeline only mutates attributes via DOM APIs — it
-    // cannot introduce markup. shadowCSS values are escaped above.
-    shadowRoot.innerHTML = `<style>${shadowCSS}</style><div class="mermaid">${processedSvg}</div>`;
-    // innerHTML was just set with a `.mermaid` div, so the container exists.
-    const svgContainer = shadowRoot.querySelector('.mermaid')!;
+    let svgContainer: Element;
+    let svgElement: SVGSVGElement | null;
+
+    if (processedSvgEl) {
+      let themeStyle = shadowRoot.querySelector<HTMLStyleElement>('style[data-shadow-theme]');
+      let centeringStyle = shadowRoot.getElementById('mermaid-centering-fix') as HTMLStyleElement | null;
+      let wrapper = shadowRoot.querySelector<HTMLDivElement>('.mermaid');
+
+      if (themeStyle && centeringStyle && wrapper) {
+        if (themeStyle.textContent !== shadowCSS) {
+          themeStyle.textContent = shadowCSS;
+        }
+        wrapper.replaceChildren(document.adoptNode(processedSvgEl));
+      } else {
+        themeStyle = document.createElement('style');
+        themeStyle.setAttribute('data-shadow-theme', '');
+        themeStyle.textContent = shadowCSS;
+        centeringStyle = document.createElement('style');
+        centeringStyle.id = 'mermaid-centering-fix';
+        centeringStyle.textContent = SHADOW_CENTERING_CSS;
+        wrapper = document.createElement('div');
+        wrapper.className = 'mermaid';
+        wrapper.appendChild(document.adoptNode(processedSvgEl));
+        shadowRoot.replaceChildren(themeStyle, centeringStyle, wrapper);
+      }
+      svgContainer = wrapper;
+      svgElement = processedSvgEl;
+    } else {
+      const processedSvg = svgPostProcessing.postProcessDiagramSvg(
+        renderedSnapshot.svg,
+        renderedSnapshot.parsedDiagram
+      );
+
+      // Safe sink: `svg` was sanitized by renderDiagram (DOMPurify) and the
+      // post-processing pipeline only mutates attributes via DOM APIs — it
+      // cannot introduce markup. shadowCSS values are escaped above.
+      shadowRoot.innerHTML = `<style>${shadowCSS}</style><style id="mermaid-centering-fix">${SHADOW_CENTERING_CSS}</style><div class="mermaid">${processedSvg}</div>`;
+      // innerHTML was just set with a `.mermaid` div, so the container exists.
+      svgContainer = shadowRoot.querySelector('.mermaid')!;
+      svgElement = svgContainer.querySelector('svg');
+    }
 
     // Store reference for size calculations (pointing to SVG container in Shadow DOM)
     svgContainerRef.current = svgContainer as unknown as HTMLDivElement;
 
     // Capture SVG natural size for fit-to-screen
-    const svgElement = svgContainer.querySelector('svg');
     if (svgElement) {
-      svgNaturalSizeRef.current = {
-        width: svgElement.getAttribute('width') ? parseFloat(svgElement.getAttribute('width')!) : 0,
-        height: svgElement.getAttribute('height') ? parseFloat(svgElement.getAttribute('height')!) : 0,
-      };
+      const widthAttr = svgElement.getAttribute('width');
+      const heightAttr = svgElement.getAttribute('height');
+      let nextWidth = widthAttr ? parseFloat(widthAttr) : 0;
+      let nextHeight = heightAttr ? parseFloat(heightAttr) : 0;
+      if (!Number.isFinite(nextWidth)) nextWidth = 0;
+      if (!Number.isFinite(nextHeight)) nextHeight = 0;
+
       // If no explicit size, use viewBox
-      if (svgNaturalSizeRef.current.width === 0 || svgNaturalSizeRef.current.height === 0) {
+      if (nextWidth === 0 || nextHeight === 0) {
         const viewBox = svgElement.getAttribute('viewBox');
         if (viewBox) {
-          const [, , w, h] = viewBox.split(/\s+/).map(Number);
-          svgNaturalSizeRef.current = { width: w, height: h };
+          const [, , w, h] = viewBox.trim().split(/[\s,]+/).map(Number);
+          nextWidth = Number.isFinite(w) ? w : 0;
+          nextHeight = Number.isFinite(h) ? h : 0;
         }
       }
-      setSvgNaturalSize(svgNaturalSizeRef.current);
+      const nextSize = { width: nextWidth, height: nextHeight };
+      svgNaturalSizeRef.current = nextSize;
+      setSvgNaturalSize(prev =>
+        prev.width === nextSize.width && prev.height === nextSize.height ? prev : nextSize
+      );
+
+      // Imperatively sync wrapper and shadow-host dimensions before synchronous
+      // overlay/edge measurement so size-changing renders avoid an extra rAF.
+      // Null-guarded when recovering from the error/empty ternary branch.
+      const sizingWrapper = sizingWrapperRef.current;
+      if (sizingWrapper) {
+        sizingWrapper.style.width = nextSize.width ? `${nextSize.width * zoomRef.current}px` : '100%';
+        sizingWrapper.style.height = nextSize.height ? `${nextSize.height * zoomRef.current}px` : '100%';
+      }
+      const shadowHost = shadowHostRef.current;
+      if (shadowHost) {
+        shadowHost.style.width = nextSize.width ? `${nextSize.width}px` : '100%';
+        shadowHost.style.height = nextSize.height ? `${nextSize.height}px` : '100%';
+      }
     }
 
     // Inject edge click hit targets (must be after SVG is in DOM)
-    syncEdgeTargets();
+    syncEdgeTargets(renderedSnapshot);
+    remeasureOverlays();
+    lastMeasuredRef.current = {
+      renderId: renderedSnapshot.renderId,
+      zoom: zoomRef.current,
+      visibilityTick: visibilityTickRef.current,
+      width: svgNaturalSizeRef.current.width,
+      height: svgNaturalSizeRef.current.height,
+    };
 
-  }, [svg, content, parsedDiagram, parsedEdges, syncEdgeTargets]);
+  }, [renderedSnapshot, syncEdgeTargets, remeasureOverlays]);
 
   // Cleanup edge hit targets on unmount
   useEffect(() => {
@@ -717,56 +941,48 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     };
   }, []);
 
-  // Extract node overlays after SVG renders
+  // Extract node overlays and align edge overlay geometry after SVG renders
   useEffect(() => {
-    if (!svg || !svgContainerRef.current || !containerRef.current || !shadowHostRef.current) return;
-    
-    // Inject custom centering styles into shadow root
-    const shadowRoot = shadowHostRef.current.shadowRoot;
-    if (shadowRoot) {
-      const styleId = 'mermaid-centering-fix';
-      if (!shadowRoot.getElementById(styleId)) {
-        const style = document.createElement('style');
-        style.id = styleId;
-        style.textContent = `
-          foreignObject > div, 
-          foreignObject > span,
-          .nodeLabel,
-          .cluster-label,
-          .label {
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            height: 100% !important;
-            width: 100% !important;
-            line-height: 1 !important;
-            text-align: center !important;
-            pointer-events: auto !important;
-          }
+    if (!renderedSnapshot || !svgContainerRef.current || !containerRef.current || !shadowHostRef.current) return;
 
-          /* Ensure containers don't block clicks to elements behind them */
-          foreignObject,
-          .cluster-label {
-            pointer-events: none !important;
-          }
-          
-          /* Subgraph label centering (SVG and HTML) */
-          .cluster-label text,
-          .label text {
-            dominant-baseline: hanging !important;
-            text-anchor: middle !important;
-            y: 0 !important;
-          }
-        `;
-        shadowRoot.appendChild(style);
-      }
+    const last = lastMeasuredRef.current;
+    if (
+      last &&
+      last.renderId === renderedSnapshot.renderId &&
+      last.zoom === zoom &&
+      last.visibilityTick === visibilityTick &&
+      last.width === svgNaturalSize.width &&
+      last.height === svgNaturalSize.height
+    ) {
+      return;
     }
 
-    const timer = setTimeout(() => {
+    const rafId = requestAnimationFrame(() => {
       remeasureOverlays();
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [svg, zoom, subgraphList, remeasureOverlays, visibilityTick]);
+      const shadowRoot = shadowHostRef.current?.shadowRoot;
+      const relativeContainer = relativeContainerRef.current;
+      if (shadowRoot && relativeContainer) {
+        const svgEl = shadowRoot.querySelector('svg');
+        const edgeOverlay = relativeContainer.querySelector<SVGSVGElement>('[data-edge-overlay="true"]');
+        if (svgEl && edgeOverlay) {
+          const svgRect = svgEl.getBoundingClientRect();
+          const containerRect = relativeContainer.getBoundingClientRect();
+          edgeOverlay.style.left = `${svgRect.left - containerRect.left}px`;
+          edgeOverlay.style.top = `${svgRect.top - containerRect.top}px`;
+          edgeOverlay.style.width = `${svgRect.width}px`;
+          edgeOverlay.style.height = `${svgRect.height}px`;
+        }
+      }
+      lastMeasuredRef.current = {
+        renderId: renderedSnapshot.renderId,
+        zoom,
+        visibilityTick,
+        width: svgNaturalSize.width,
+        height: svgNaturalSize.height,
+      };
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [renderedSnapshot, svgNaturalSize, zoom, visibilityTick, remeasureOverlays]);
 
   // Watch for the container becoming visible or resized (mobile tab switches,
   // panel layout changes): overlays measured while hidden are 0×0 and must be
@@ -774,7 +990,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // neither observer.
   useEffect(() => {
     const el = containerRef.current;
-    if (!svg || !el || typeof IntersectionObserver === 'undefined') return;
+    if (!hasSvg || !el || typeof IntersectionObserver === 'undefined') return;
 
     const bump = () => setVisibilityTick(t => t + 1);
     const io = new IntersectionObserver((entries) => {
@@ -802,11 +1018,11 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       io.disconnect();
       ro?.disconnect();
     };
-  }, [svg]);
+  }, [hasSvg]);
 
   // Update overlay positions on scroll (immediate, not debounced)
   useEffect(() => {
-    if (!svg || !containerRef.current || !shadowHostRef.current) return;
+    if (!hasSvg || !containerRef.current || !shadowHostRef.current) return;
     const scrollableContainer = containerRef.current;
 
     const handleScroll = () => {
@@ -817,7 +1033,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     return () => {
       scrollableContainer.removeEventListener('scroll', handleScroll);
     };
-  }, [svg, remeasureOverlays]);
+  }, [hasSvg, remeasureOverlays]);
 
   // First-paint centering (iter-20 P2 → iter-27 REVERT of the auto-fit:
   // the fit measured the shadow-host SVG before full layout and hit the
@@ -827,20 +1043,29 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   // explicit control.
   const centeredOnceRef = useRef(false);
   useEffect(() => {
-    if (!svg || !containerRef.current || centeredOnceRef.current) {return;}
+    if (!hasSvg || !containerRef.current || centeredOnceRef.current) {return;}
     centeredOnceRef.current = true;
     const c = containerRef.current;
     c.scrollLeft = Math.max(0, (c.scrollWidth - c.clientWidth) / 2);
-  }, [svg]);
+  }, [hasSvg]);
 
-  // Settle pass: the 100ms first measure above can run mid-way through the
-  // shadow host's 150ms transform transition (zoom changes), freezing overlays
-  // at an intermediate geometry — and edge hit targets need re-creating with
-  // the settled rects too. transitionend is the precise signal (it bubbles out
-  // of the shadow root); the timeout covers environments that never fire it
-  // (jsdom) and zoom changes too small to produce an event.
+  // Settle pass: scoped strictly to zoom and visibilityTick changes so normal
+  // typing edits do not trigger a redundant post-render settle rebuild while
+  // zoom transitions (150ms transform) and mobile tab reveals keep exact settle
+  // behavior. transitionend is the precise signal (it bubbles out of the shadow
+  // root); the timeout covers environments that never fire it (jsdom) and zoom
+  // changes too small to produce an event.
+  const prevZoomRef = useRef(zoom);
+  const prevVisibilityTickRef = useRef(visibilityTick);
   useEffect(() => {
-    if (!svg || !shadowHostRef.current) return;
+    const zoomChanged = prevZoomRef.current !== zoom;
+    const visibilityChanged = prevVisibilityTickRef.current !== visibilityTick;
+    prevZoomRef.current = zoom;
+    prevVisibilityTickRef.current = visibilityTick;
+
+    if (!zoomChanged && !visibilityChanged) return;
+    if (!renderedSnapshotRef.current || !shadowHostRef.current) return;
+
     const host = shadowHostRef.current;
     let done = false;
     const settle = () => {
@@ -858,49 +1083,13 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       host.removeEventListener('transitionend', onTransitionEnd);
       clearTimeout(fallback);
     };
-  }, [svg, zoom, subgraphList, parsedEdges, remeasureOverlays, syncEdgeTargets, visibilityTick]);
+  }, [zoom, visibilityTick, remeasureOverlays, syncEdgeTargets]);
 
   // Highlight selected edge when selection changes
   useEffect(() => {
-    if (!shadowHostRef.current) return;
-    highlightSelectedEdge(shadowHostRef.current, selectedEdgeIndex, parsedEdges);
-  }, [selectedEdgeIndex, svg, parsedEdges]);
-
-  // Parse diagram and initialize node/label/style data
-  useEffect(() => {
-    if (!supportsVisualEditing) return;
-    const parsed = parsedDiagram;
-    const labels = new Map<string, string>();
-    const styles = new Map<string, NodeStyle>();
-    const subgraphIds = new Map<string, string | null>();
-    for (const node of parsed.nodes) {
-      labels.set(node.id, node.label);
-      styles.set(node.id, getNodeStyle(parsed.styles, parsed.classDefs, parsed.nodeClasses, node.id));
-      subgraphIds.set(node.id, node.parentSubgraphId ?? null);
-    }
-    setPanelLabels(labels);
-    setPanelStyles(styles);
-    setParsedEdges(parsed.edges);
-    setParsedLinkStyles(parsed.linkStyles);
-    setNodeSubgraphIds(subgraphIds);
-    setSubgraphList(parsed.subgraphs.map(sg => ({ id: sg.id, label: sg.label })));
-    setParsedStyles(parsed.styles);
-  }, [parsedDiagram, supportsVisualEditing]);
-
-  // Auto-resync: update panel styles when content changes from code editor
-  useEffect(() => {
-    if (!supportsVisualEditing || selectedNodeIds.size === 0 || skipResyncRef.current) {
-      skipResyncRef.current = false;
-      return;
-    }
-    const parsed = parsedDiagram;
-    const updatedStyles = new Map<string, NodeStyle>();
-    for (const nodeId of selectedNodeIds) {
-      const nodeStyle = getNodeStyle(parsed.styles, parsed.classDefs, parsed.nodeClasses, nodeId);
-      updatedStyles.set(nodeId, nodeStyle);
-    }
-    setPanelStyles(updatedStyles);
-  }, [parsedDiagram, supportsVisualEditing, selectedNodeIds]);
+    if (!shadowHostRef.current || !renderedSnapshot) return;
+    highlightSelectedEdge(shadowHostRef.current, selectedEdgeIndex, renderedSnapshot.parsedDiagram.edges);
+  }, [selectedEdgeIndex, renderedSnapshot]);
 
   // Node click handler with multi-node selection (shift+click)
   // SyntheticEvent: reached from both the pointer click and the node
@@ -1058,16 +1247,15 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const handleStyleChange = useCallback((nodeIds: string[], styleUpdate: Partial<NodeStyle>) => {
     if (!onChange) return;
     if (bodyHasMetadata) return; // D6 fence — also skips the panelStyles update below
-    skipResyncRef.current = true;
 
-    // Update panelStyles immediately so UI reflects the change
-    setPanelStyles(prev => {
-      const next = new Map(prev);
+    // Update optimistic panelStyles immediately so UI reflects the change
+    setPanelStyleOverride(prev => {
+      const source = prev && prev.diagram === parsedDiagram ? prev.styles : basePanelStyles;
+      const next = new Map(source);
       for (const nodeId of nodeIds) {
-        const existing = next.get(nodeId) ?? {};
-        next.set(nodeId, { ...existing, ...styleUpdate });
+        next.set(nodeId, { ...(next.get(nodeId) ?? {}), ...styleUpdate });
       }
-      return next;
+      return { diagram: parsedDiagram, styles: next };
     });
 
     // Remove old classDef and class lines for these nodes
@@ -1116,13 +1304,13 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     }
 
     onChange(result);
-  }, [onChange, content, panelStyles, bodyHasMetadata]);
+  }, [onChange, content, panelStyles, parsedDiagram, basePanelStyles, bodyHasMetadata]);
 
   // Reset handler: removes all classDef/class lines for selected nodes
   const handleResetStyles = useCallback((nodeIds: string[]) => {
     if (!onChange) return;
     if (bodyHasMetadata) return; // D6 fence
-    skipResyncRef.current = true;
+    setPanelStyleOverride(null);
     const result = removeNodeStyles(content, nodeIds);
     onChange(result);
     setSelectedNodeIds(new Set());
@@ -1140,7 +1328,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const handlePresetApply = useCallback((nodeIds: string[], presetType: PresetType) => {
     if (!onChange) return;
     if (bodyHasMetadata) return; // D6 fence — also skips the panelStyles update below
-    skipResyncRef.current = true;
+    setPanelStyleOverride(null);
 
     // Remove old styles for these nodes first
     let result = removeNodeStyles(content, nodeIds);
@@ -1527,10 +1715,12 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   }, [zoomBy]);
 
   async function copySvg() {
-    if (!svg) {return;}
+    if (!renderedSnapshot) {return;}
     // Same pipeline as the preview and exports so the clipboard SVG matches
     // what the user sees (incl. the edge-fill cleanup).
-    await navigator.clipboard.writeText(postProcessDiagramSvg(svg, parsedDiagram));
+    await navigator.clipboard.writeText(
+      svgPostProcessing.postProcessDiagramSvg(renderedSnapshot.svg, renderedSnapshot.parsedDiagram)
+    );
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -1726,6 +1916,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           <div ref={relativeContainerRef} className="relative min-h-full p-8"
             style={{ display: 'flex', justifyContent: 'safe center', alignItems: 'safe center' }}>
             <div
+              ref={sizingWrapperRef}
               style={{
                 position: 'relative',
                 width: svgNaturalSize.width ? svgNaturalSize.width * zoom : '100%',

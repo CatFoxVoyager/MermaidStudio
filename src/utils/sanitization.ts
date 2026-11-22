@@ -160,13 +160,26 @@ function isAllowedSrcset(value: string): boolean {
 // Every entry is a carrier of the same payload class the allowlist exists
 // for (39-REVIEW WR-01 + WR-06); <source> carries both src (inside
 // <video>/<audio>) and srcset (inside <picture>).
-const MEDIA_SRC_ATTRS: Readonly<Record<string, readonly string[]>> = {
-  img: ['src', 'srcset'],
-  image: ['href', 'xlink:href', 'src'],
-  source: ['src', 'srcset'],
-  video: ['src'],
-  audio: ['src'],
-};
+// Pre-populated with both lowercase (SVG/XML) and uppercase (HTML) tag names
+// so the hot-path lookup avoids per-element .toLowerCase() allocations while
+// still falling back for exotic mixed-case XML media tags.
+const IMG_SRC_ATTRS: readonly string[] = ['src', 'srcset'];
+const IMAGE_SRC_ATTRS: readonly string[] = ['href', 'xlink:href', 'src'];
+const SOURCE_SRC_ATTRS: readonly string[] = ['src', 'srcset'];
+const MEDIA_SRC_ONLY_ATTRS: readonly string[] = ['src'];
+
+const MEDIA_SRC_ATTRS_BY_NAME: ReadonlyMap<string, readonly string[]> = new Map([
+  ['img', IMG_SRC_ATTRS],
+  ['IMG', IMG_SRC_ATTRS],
+  ['image', IMAGE_SRC_ATTRS],
+  ['IMAGE', IMAGE_SRC_ATTRS],
+  ['source', SOURCE_SRC_ATTRS],
+  ['SOURCE', SOURCE_SRC_ATTRS],
+  ['video', MEDIA_SRC_ONLY_ATTRS],
+  ['VIDEO', MEDIA_SRC_ONLY_ATTRS],
+  ['audio', MEDIA_SRC_ONLY_ATTRS],
+  ['AUDIO', MEDIA_SRC_ONLY_ATTRS],
+]);
 
 let imageHrefHookInstalled = false;
 
@@ -175,16 +188,31 @@ function installImageHrefAllowlist(): void {
   imageHrefHookInstalled = true;
   DOMPurify.addHook('afterSanitizeAttributes', node => {
     const el = node as Element;
-    if (!el.tagName) return;
-    const tag = el.tagName.toLowerCase();
+    const tagName = el.tagName;
+    if (!tagName) return;
     // The hook is instance-global, so this gate covers the mermaid-SVG path,
     // the foreignObject inner HTML pass (whose restored label content would
     // otherwise ride an HTML-profile sanitize with a broader data-URI
-    // policy), and the bare sanitizeSVG preview path alike. MEDIA_SRC_ATTRS
-    // enumerates the whole carrier class rather than one attribute per
-    // element (39-REVIEW WR-01 + WR-06); srcset is candidate-checked.
-    const srcAttrs = MEDIA_SRC_ATTRS[tag];
-    if (!srcAttrs) return;
+    // policy), and the bare sanitizeSVG preview path alike.
+    // MEDIA_SRC_ATTRS_BY_NAME enumerates the whole carrier class rather than
+    // one attribute per element (39-REVIEW WR-01 + WR-06); srcset is
+    // candidate-checked.
+    let srcAttrs = MEDIA_SRC_ATTRS_BY_NAME.get(tagName);
+    if (srcAttrs === undefined) {
+      const len = tagName.length;
+      if (len === 3 || len === 5 || len === 6) {
+        const firstLower = tagName.charCodeAt(0) | 32;
+        if (
+          firstLower === 105 ||
+          firstLower === 115 ||
+          firstLower === 118 ||
+          firstLower === 97
+        ) {
+          srcAttrs = MEDIA_SRC_ATTRS_BY_NAME.get(tagName.toLowerCase());
+        }
+      }
+      if (!srcAttrs) return;
+    }
     for (const attr of Array.from(el.attributes)) {
       const name = attr.name.toLowerCase();
       if (!srcAttrs.includes(name)) continue;
@@ -199,6 +227,320 @@ function installImageHrefAllowlist(): void {
 
 installImageHrefAllowlist();
 
+// FORBID_TAGS/FORBID_ATTR must be plain string[] arrays: DOMPurify's
+// _resolveSetOption falls back to an empty set for any non-array value, so
+// non-array shapes would silently disable the forbid lists. The html
+// USE_PROFILE alone allows form/input/button/iframe, so the explicit forbid
+// list matters.
+const MERMAID_FORBIDDEN_TAGS: string[] = [
+  'iframe',
+  'form',
+  'input',
+  'textarea',
+  'select',
+  'button',
+  'script',
+  'object',
+  'embed',
+  'applet',
+  // Media/resource elements mermaid never emits (39-REVIEW WR-06, same
+  // justification as object/embed): the instance-global allowlist hook
+  // already gates their fetching attributes on every path, and forbidding
+  // the elements removes the whole carrier from the mermaid-SVG path too.
+  'video',
+  'audio',
+  'source',
+];
+
+const MERMAID_FORBIDDEN_ATTRS: string[] = [
+  'onerror',
+  'onload',
+  'onclick',
+  'onmouseover',
+  // SMIL animation event handlers (ICON-04 / T-39-06): the array feeds BOTH
+  // DOMPurify passes (foreignObject inner + main SVG), so these can no longer
+  // survive sanitization on animateTransform/animateMotion carriers.
+  'onbegin',
+  'onend',
+  'onrepeat',
+];
+
+const MERMAID_SVG_ADD_TAGS: string[] = ['foreignObject'];
+
+// Strictly non-URI SVG geometric, numeric, typography, and marker-geometry
+// attributes verified never to accept URLs, CSS url(), or executable payloads.
+// Passing these via ADD_URI_SAFE_ATTR skips DOMPurify's ATTR_WHITESPACE +
+// IS_ALLOWED_URI regex scan on large path `d` and coordinate attributes while
+// FORBID_ATTR, ALLOWED_ATTR, SAFE_FOR_XML, and the instance-global
+// afterSanitizeAttributes media-allowlist hook continue to run on every
+// attribute.
+//
+// SECURITY INVARIANT: URI, paint, script, and SMIL carriers (href, xlink:href,
+// src, srcset, style, fill, stroke, filter, clip-path, mask, marker-start,
+// marker-mid, marker-end, background, action, formaction, poster, data,
+// attributename, begin, end, values, to, from, by) MUST NEVER be added here.
+const MERMAID_URI_SAFE_SVG_ATTRS: string[] = [
+  'd',
+  'points',
+  'transform',
+  'viewbox',
+  'x',
+  'y',
+  'x1',
+  'y1',
+  'x2',
+  'y2',
+  'cx',
+  'cy',
+  'r',
+  'rx',
+  'ry',
+  'width',
+  'height',
+  'dx',
+  'dy',
+  'stroke-width',
+  'stroke-dasharray',
+  'stroke-dashoffset',
+  'opacity',
+  'fill-opacity',
+  'stroke-opacity',
+  'preserveaspectratio',
+  'offset',
+  'font-size',
+  'font-weight',
+  'text-anchor',
+  'dominant-baseline',
+  'markerunits',
+  'markerwidth',
+  'markerheight',
+  'refx',
+  'refy',
+  'orient',
+];
+
+const PLACEHOLDER_PREFIX = '%%MMPRESERVE';
+const FOREIGN_OBJECT_RE = /<foreignObject([^>]*)>([\s\S]*?)<\/foreignObject>/g;
+const PLACEHOLDER_RESTORE_RE = /%%MMPRESERVE(\d+)%%/g;
+const FO_WRAPPER_ATTR = 'data-mm-fo';
+// Stateless (/i without /g) check for tokens that could collide with the
+// batch wrapper attribute or interfere with <table><tbody><tr><td> parsing.
+const FO_UNSAFE_BATCH_RE =
+  /data-mm-fo|<\/?(?:table|tbody|thead|tfoot|tr|td|th|caption|colgroup|col|style|title|textarea|xmp|noscript|noembed|noframes|plaintext|iframe|script|form|template)\b/i;
+
+// Large pure-ASCII <path d="..."> hoisting around the outer DOMPurify pass.
+// Avoids parsing and re-serializing hundreds of KB of raw numeric path
+// geometry while strictly gating every hoisted value with a 128-byte ASCII
+// allowlist LUT (excluding <, >, ", ', &, :, (, ), /, \, =, ;, N for NaN, and
+// all non-ASCII code points), tag-boundary and double-quote-parity checks,
+// collision rejection on 'MMPATH', and single-use restoration.
+const PATH_HOIST_MIN_LEN = 2048;
+const PATH_PLACEHOLDER_GUARD = 'MMPATH';
+const PATH_PLACEHOLDER_PREFIX = '%%MMPATH';
+const PATH_PLACEHOLDER_RESTORE_RE = /(\s)d="%%MMPATH(\d+)%%"/g;
+const SVG_PATH_CHAR_LUT = new Uint8Array(128);
+{
+  const allowed = 'MmLlHhVvCcSsQqTtAaZz0123456789.,+- \t\n\r';
+  for (let i = 0; i < allowed.length; i++) {
+    SVG_PATH_CHAR_LUT[allowed.charCodeAt(i)] = 1;
+  }
+}
+
+function isAsciiWs(code: number): boolean {
+  return code === 32 || code === 9 || code === 10 || code === 13;
+}
+
+function hoistLargeSvgPathData(svg: string): { svg: string; hoisted: string[] | null } {
+  if (svg.length < PATH_HOIST_MIN_LEN || svg.includes(PATH_PLACEHOLDER_GUARD)) {
+    return { svg, hoisted: null };
+  }
+
+  let hoisted: string[] | null = null;
+  let parts: string[] | null = null;
+  let lastEmit = 0;
+  let searchFrom = 0;
+
+  while (true) {
+    const idx = svg.indexOf('d="', searchFrom);
+    if (idx === -1) break;
+
+    if (idx === 0 || !isAsciiWs(svg.charCodeAt(idx - 1))) {
+      searchFrom = idx + 3;
+      continue;
+    }
+
+    const valStart = idx + 3;
+    const valEnd = svg.indexOf('"', valStart);
+    if (valEnd === -1) break;
+
+    if (valEnd - valStart < PATH_HOIST_MIN_LEN) {
+      searchFrom = valEnd + 1;
+      continue;
+    }
+
+    const tagStart = svg.lastIndexOf('<', idx);
+    if (
+      tagStart === -1 ||
+      !svg.startsWith('<path', tagStart) ||
+      !isAsciiWs(svg.charCodeAt(tagStart + 5)) ||
+      (tagStart > 0 && svg.lastIndexOf('<', tagStart - 1) > svg.lastIndexOf('>', tagStart - 1))
+    ) {
+      searchFrom = valEnd + 1;
+      continue;
+    }
+
+    // Verify we are inside the <path ...> start tag (no '>', no single quotes,
+    // and balanced even double-quote parity before this d="..." attribute).
+    let tagValid = true;
+    let quoteCount = 0;
+    for (let j = tagStart + 5; j < idx; j++) {
+      const code = svg.charCodeAt(j);
+      if (code === 62 /* > */ || code === 39 /* ' */) {
+        tagValid = false;
+        break;
+      }
+      if (code === 34 /* " */) {
+        quoteCount++;
+      }
+    }
+    if (!tagValid || (quoteCount & 1) !== 0) {
+      searchFrom = valEnd + 1;
+      continue;
+    }
+
+    // Strictly validate every character in the path data against the 128-byte ASCII LUT.
+    let valueValid = true;
+    for (let j = valStart; j < valEnd; j++) {
+      const code = svg.charCodeAt(j);
+      if (code >= 128 || SVG_PATH_CHAR_LUT[code] !== 1) {
+        valueValid = false;
+        break;
+      }
+    }
+    if (!valueValid) {
+      searchFrom = valEnd + 1;
+      continue;
+    }
+
+    if (!hoisted) {
+      hoisted = [];
+      parts = [];
+    }
+    const hoistIdx = hoisted.length;
+    hoisted.push(svg.slice(valStart, valEnd));
+    parts!.push(svg.slice(lastEmit, valStart), `${PATH_PLACEHOLDER_PREFIX}${hoistIdx}%%`);
+    lastEmit = valEnd;
+    searchFrom = valEnd + 1;
+  }
+
+  if (!hoisted || !parts) {
+    return { svg, hoisted: null };
+  }
+  parts.push(svg.slice(lastEmit));
+  return { svg: parts.join(''), hoisted };
+}
+
+function restoreHoistedSvgPathData(svg: string, hoisted: readonly string[] | null): string {
+  if (!hoisted || hoisted.length === 0) return svg;
+  const used = new Uint8Array(hoisted.length);
+  return svg.replace(PATH_PLACEHOLDER_RESTORE_RE, (match, ws: string, idxStr: string) => {
+    const idx = Number(idxStr);
+    if (idx >= 0 && idx < hoisted.length && used[idx] === 0 && String(idx) === idxStr) {
+      used[idx] = 1;
+      return `${ws}d="${hoisted[idx]}"`;
+    }
+    return match;
+  });
+}
+
+function sanitizeSingleForeignObject(content: string): string {
+  return DOMPurify.sanitize(content, {
+    USE_PROFILES: { html: true, mathMl: true },
+    FORBID_TAGS: MERMAID_FORBIDDEN_TAGS,
+    FORBID_ATTR: MERMAID_FORBIDDEN_ATTRS,
+  });
+}
+
+/**
+ * Sanitize N > 1 unique foreignObject HTML fragments in a single
+ * table-cell-isolated DOMPurify pass (WHATWG §13.2.4.3 / §13.2.6.4.15: <td>
+ * pushes an active-formatting marker and </td> clears active formatting
+ * elements up to that marker, preventing cross-fragment formatting bleed).
+ * Fails closed to per-fragment sanitization if canBatch is false or any
+ * structural invariant on the returned DOM skeleton does not hold.
+ */
+function sanitizeForeignObjectBatch(
+  uniqueFragments: readonly string[],
+  canBatch: boolean
+): string[] {
+  if (canBatch) {
+    const count = uniqueFragments.length;
+    const parts = new Array<string>(count + 2);
+    parts[0] = '<table><tbody><tr>';
+    for (let i = 0; i < count; i++) {
+      parts[i + 1] = `<td ${FO_WRAPPER_ATTR}="${i}">${uniqueFragments[i]}</td>`;
+    }
+    parts[count + 1] = '</tr></tbody></table>';
+
+    const batchedRoot: unknown = DOMPurify.sanitize(parts.join(''), {
+      USE_PROFILES: { html: true, mathMl: true },
+      FORBID_TAGS: MERMAID_FORBIDDEN_TAGS,
+      FORBID_ATTR: MERMAID_FORBIDDEN_ATTRS,
+      RETURN_DOM: true,
+    });
+
+    if (batchedRoot !== null && typeof batchedRoot === 'object' && 'childNodes' in batchedRoot) {
+      const rootNodes = (batchedRoot as Node).childNodes;
+      if (rootNodes.length === 1) {
+        const tableNode = rootNodes[0];
+        if (
+          tableNode.nodeType === 1 &&
+          tableNode.nodeName === 'TABLE' &&
+          (tableNode as Element).attributes.length === 0 &&
+          tableNode.childNodes.length === 1
+        ) {
+          const tbodyNode = tableNode.childNodes[0];
+          if (
+            tbodyNode.nodeType === 1 &&
+            tbodyNode.nodeName === 'TBODY' &&
+            (tbodyNode as Element).attributes.length === 0 &&
+            tbodyNode.childNodes.length === 1
+          ) {
+            const trNode = tbodyNode.childNodes[0];
+            if (
+              trNode.nodeType === 1 &&
+              trNode.nodeName === 'TR' &&
+              (trNode as Element).attributes.length === 0 &&
+              trNode.childNodes.length === count
+            ) {
+              const results = new Array<string>(count);
+              let valid = true;
+              for (let i = 0; i < count; i++) {
+                const tdNode = trNode.childNodes[i];
+                if (
+                  tdNode.nodeType !== 1 ||
+                  tdNode.nodeName !== 'TD' ||
+                  (tdNode as Element).attributes.length !== 1 ||
+                  (tdNode as Element).getAttribute(FO_WRAPPER_ATTR) !== String(i)
+                ) {
+                  valid = false;
+                  break;
+                }
+                results[i] = (tdNode as Element).innerHTML;
+              }
+              if (valid) {
+                return results;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return uniqueFragments.map(sanitizeSingleForeignObject);
+}
+
 /**
  * Sanitize Mermaid SVG output while preserving foreignObject HTML content.
  * DOMPurify strips HTML content inside foreignObject because it doesn't
@@ -206,75 +548,72 @@ installImageHrefAllowlist();
  * foreignObject content before sanitization, then restoring it after.
  */
 export function sanitizeMermaidSVG(svg: string): string {
-  // FORBID_TAGS/FORBID_ATTR must be ARRAYS: DOMPurify's _resolveSetOption
-  // falls back to an empty set for any non-array value, so the previous
-  // object form ({ tag: true }) was silently ignored at runtime and these
-  // tags/attributes were NOT actually forbidden. The html USE_PROFILE alone
-  // allows form/input/button/iframe, so the explicit forbid list matters.
-  const forbiddenTags = [
-    'iframe',
-    'form',
-    'input',
-    'textarea',
-    'select',
-    'button',
-    'script',
-    'object',
-    'embed',
-    'applet',
-    // Media/resource elements mermaid never emits (39-REVIEW WR-06, same
-    // justification as object/embed): the instance-global allowlist hook
-    // already gates their fetching attributes on every path, and forbidding
-    // the elements removes the whole carrier from the mermaid-SVG path too.
-    'video',
-    'audio',
-    'source',
-  ];
-  const forbiddenAttrs = [
-    'onerror',
-    'onload',
-    'onclick',
-    'onmouseover',
-    // SMIL animation event handlers (ICON-04 / T-39-06): the array feeds BOTH
-    // DOMPurify passes (foreignObject inner + main SVG), so these can no longer
-    // survive sanitization on animateTransform/animateMotion carriers.
-    'onbegin',
-    'onend',
-    'onrepeat',
-  ];
+  if (!svg.includes('<foreignObject')) {
+    const { svg: hoistedSvg, hoisted } = hoistLargeSvgPathData(svg);
+    const sanitized = DOMPurify.sanitize(hoistedSvg, {
+      USE_PROFILES: { html: true, svg: true, svgFilters: true, mathMl: true },
+      ADD_TAGS: MERMAID_SVG_ADD_TAGS,
+      ADD_URI_SAFE_ATTR: MERMAID_URI_SAFE_SVG_ATTRS,
+      FORBID_TAGS: MERMAID_FORBIDDEN_TAGS,
+      FORBID_ATTR: MERMAID_FORBIDDEN_ATTRS,
+    });
+    return stripDegeneratePaths(restoreHoistedSvgPathData(sanitized, hoisted));
+  }
 
-  const foContents: string[] = [];
-  const placeholder = '%%MMPRESERVE';
+  const allowPathHoist = !svg.includes(PATH_PLACEHOLDER_GUARD);
+  const uniqueRawFragments: string[] = [];
+  const dedupMap = new Map<string, number>();
+  let canBatch = true;
+
   const withPlaceholders = svg.replace(
-    /<foreignObject([^>]*)>([\s\S]*?)<\/foreignObject>/g,
-    (_, attrs, content) => {
-      // The extracted HTML label content never crosses the outer SVG-profile
-      // pass (DOMPurify does not traverse the SVG↔HTML namespace boundary),
-      // so restoring it verbatim would be an XSS bypass — sanitize it here
-      // with the HTML profile and the same deny lists, before it is
-      // reinjected into the sanitized document.
-      foContents.push(
-        DOMPurify.sanitize(content, {
-          USE_PROFILES: { html: true, mathMl: true },
-          FORBID_TAGS: forbiddenTags,
-          FORBID_ATTR: forbiddenAttrs,
-        })
-      );
-      return `<foreignObject${attrs}>${placeholder}${foContents.length - 1}%%</foreignObject>`;
+    FOREIGN_OBJECT_RE,
+    (_match, attrs: string, content: string) => {
+      let uniqueIdx = dedupMap.get(content);
+      if (uniqueIdx === undefined) {
+        uniqueIdx = uniqueRawFragments.length;
+        dedupMap.set(content, uniqueIdx);
+        uniqueRawFragments.push(content);
+        if (canBatch && FO_UNSAFE_BATCH_RE.test(content)) {
+          canBatch = false;
+        }
+      }
+      return `<foreignObject${attrs}>${PLACEHOLDER_PREFIX}${uniqueIdx}%%</foreignObject>`;
     }
   );
 
-  const sanitized = DOMPurify.sanitize(withPlaceholders, {
+  // The extracted HTML label content never crosses the outer SVG-profile
+  // pass (DOMPurify does not traverse the SVG↔HTML namespace boundary),
+  // so restoring it verbatim would be an XSS bypass — sanitize it here
+  // with the HTML+MathML profile and the same deny lists, before the outer
+  // SVG pass and before reinjection into the sanitized document.
+  let sanitizedUnique: string[];
+  if (uniqueRawFragments.length === 0) {
+    sanitizedUnique = [];
+  } else if (uniqueRawFragments.length === 1) {
+    sanitizedUnique = [sanitizeSingleForeignObject(uniqueRawFragments[0])];
+  } else {
+    sanitizedUnique = sanitizeForeignObjectBatch(uniqueRawFragments, canBatch);
+  }
+
+  const { svg: outerInput, hoisted } = allowPathHoist
+    ? hoistLargeSvgPathData(withPlaceholders)
+    : { svg: withPlaceholders, hoisted: null };
+
+  const sanitized = DOMPurify.sanitize(outerInput, {
     USE_PROFILES: { html: true, svg: true, svgFilters: true, mathMl: true },
-    ADD_TAGS: ['foreignObject'],
-    FORBID_TAGS: forbiddenTags,
-    FORBID_ATTR: forbiddenAttrs,
+    ADD_TAGS: MERMAID_SVG_ADD_TAGS,
+    ADD_URI_SAFE_ATTR: MERMAID_URI_SAFE_SVG_ATTRS,
+    FORBID_TAGS: MERMAID_FORBIDDEN_TAGS,
+    FORBID_ATTR: MERMAID_FORBIDDEN_ATTRS,
   });
 
-  const restored = sanitized.replace(
-    new RegExp(`${placeholder}(\\d+)%%`, 'g'),
-    (_, idx) => foContents[parseInt(idx)]
-  );
+  const pathsRestored = restoreHoistedSvgPathData(sanitized, hoisted);
+  const restored =
+    sanitizedUnique.length > 0
+      ? pathsRestored.replace(PLACEHOLDER_RESTORE_RE, (match, idx: string) => {
+          return sanitizedUnique[Number(idx)] ?? match;
+        })
+      : pathsRestored;
 
   return stripDegeneratePaths(restored);
 }

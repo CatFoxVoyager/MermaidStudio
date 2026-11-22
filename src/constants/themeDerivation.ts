@@ -15,7 +15,14 @@ import {
 import { builtinThemes } from '@/constants/themes';
 import { detectDiagramType } from '@/lib/mermaid/diagramType';
 import { updateLinkStyle, parseLinkStyles } from '@/lib/mermaid/codeUtils';
-import { adjustToHex, darkenToHex, lightenToHex, invertToHex } from '@/utils/colorConversion';
+import {
+  adjustToHex,
+  darkenToHex,
+  lightenToHex,
+  invertToHex,
+  parseHexToHsl,
+  adjustParsedHslToHex,
+} from '@/utils/colorConversion';
 
 const THEME_COLOR_LIMIT = 12;
 
@@ -922,273 +929,306 @@ export function deriveThemeVariables(
   coreColors: ThemeCoreColors,
   darkMode: boolean
 ): Record<string, string> {
-  const t: Record<string, string | boolean | number> = { ...coreColors, darkMode };
-  t.secondaryColor = t.secondaryColor || adjustToHex(t.primaryColor as string, { h: -120 });
-  t.tertiaryColor = t.tertiaryColor || adjustToHex(t.primaryColor as string, { h: 180, l: 5 });
-  t.primaryBorderColor = t.primaryBorderColor || mkBorder(t.primaryColor as string, darkMode);
-  t.secondaryBorderColor = t.secondaryBorderColor || mkBorder(t.secondaryColor as string, darkMode);
-  t.tertiaryBorderColor = t.tertiaryBorderColor || mkBorder(t.tertiaryColor as string, darkMode);
-  t.noteBorderColor =
-    t.noteBorderColor || mkBorder((t.noteBkgColor as string) || '#fff5ad', darkMode);
-  t.noteBkgColor = t.noteBkgColor || '#fff5ad';
-  t.noteTextColor = t.noteTextColor || '#333';
-  t.primaryTextColor = t.primaryTextColor || (darkMode ? '#eee' : '#333');
-  t.secondaryTextColor = t.secondaryTextColor || invertToHex(t.secondaryColor as string);
-  t.tertiaryTextColor = t.tertiaryTextColor || invertToHex(t.tertiaryColor as string);
-  t.lineColor = t.lineColor || invertToHex(t.background as string);
-  t.arrowheadColor = t.arrowheadColor || invertToHex(t.background as string);
-  t.textColor = t.textColor || t.primaryTextColor;
-  t.border2 = t.border2 || t.tertiaryBorderColor;
-  t.nodeBkg = t.nodeBkg || t.primaryColor;
-  t.mainBkg = t.mainBkg || t.primaryColor;
-  t.nodeBorder = t.nodeBorder || t.primaryBorderColor;
-  t.clusterBkg = t.clusterBkg || t.tertiaryColor;
-  t.clusterBorder = t.clusterBorder || t.tertiaryBorderColor;
-  t.defaultLinkColor = t.defaultLinkColor || t.lineColor;
-  t.titleColor = t.titleColor || t.tertiaryTextColor;
-  t.edgeLabelBackground = t.edgeLabelBackground || t.background;
-  t.nodeTextColor = t.nodeTextColor || t.primaryTextColor;
-  t.actorBorder = t.actorBorder || t.primaryBorderColor;
-  t.actorBkg = t.actorBkg || t.mainBkg;
-  t.actorTextColor = t.actorTextColor || t.primaryTextColor;
-  t.actorLineColor = t.actorLineColor || t.actorBorder;
-  t.labelBoxBkgColor = t.labelBoxBkgColor || t.actorBkg;
-  t.signalColor = t.signalColor || t.lineColor;
-  t.signalTextColor = t.signalTextColor || t.textColor || t.primaryTextColor;
-  t.labelBoxBorderColor = t.labelBoxBorderColor || t.actorBorder;
-  t.labelTextColor = t.labelTextColor || t.actorTextColor;
-  t.loopTextColor = t.loopTextColor || t.actorTextColor;
-  t.activationBorderColor = t.activationBorderColor || darkenToHex(t.secondaryColor as string, 10);
-  t.activationBkgColor = t.activationBkgColor || t.secondaryColor;
-  t.sequenceNumberColor = t.sequenceNumberColor || invertToHex(t.lineColor as string);
-  t.sectionBkgColor = t.sectionBkgColor || t.secondaryColor;
-  t.altSectionBkgColor = t.altSectionBkgColor || 'white';
-  t.sectionBkgColor2 = t.sectionBkgColor2 || t.primaryColor;
-  t.excludeBkgColor = t.excludeBkgColor || '#eeeeee';
-  t.taskBorderColor = t.taskBorderColor || t.primaryBorderColor;
-  t.taskBkgColor = t.taskBkgColor || t.primaryColor;
-  t.activeTaskBorderColor = t.activeTaskBorderColor || t.primaryColor;
-  t.activeTaskBkgColor = t.activeTaskBkgColor || lightenToHex(t.primaryColor as string, 23);
-  t.gridColor = t.gridColor || 'lightgrey';
-  t.doneTaskBkgColor = t.doneTaskBkgColor || 'lightgrey';
-  t.doneTaskBorderColor = t.doneTaskBorderColor || 'grey';
-  t.critBorderColor = t.critBorderColor || '#ff8888';
-  t.critBkgColor = t.critBkgColor || 'red';
-  t.todayLineColor = t.todayLineColor || 'red';
-  t.vertLineColor = t.vertLineColor || 'navy';
-  t.taskTextColor = t.taskTextColor || t.textColor;
-  t.taskTextOutsideColor = t.taskTextOutsideColor || t.textColor;
-  t.taskTextLightColor = t.taskTextLightColor || t.textColor;
-  t.taskTextDarkColor = t.taskTextDarkColor || t.textColor;
-  t.taskTextClickableColor = t.taskTextClickableColor || '#003163';
-  t.personBorder = t.personBorder || t.primaryBorderColor;
-  t.personBkg = t.personBkg || t.mainBkg;
-  if (darkMode) {
-    t.rowOdd = t.rowOdd || darkenToHex(t.mainBkg as string, 5) || '#ffffff';
-    t.rowEven = t.rowEven || darkenToHex(t.mainBkg as string, 10);
-  } else {
-    t.rowOdd = t.rowOdd || lightenToHex(t.mainBkg as string, 75) || '#ffffff';
-    t.rowEven = t.rowEven || lightenToHex(t.mainBkg as string, 5);
+  const rawCore = coreColors as unknown as Record<string, unknown>;
+  const initialRadar = rawCore.radar as Record<string, unknown> | undefined;
+  const initialXyChart = rawCore.xyChart as Record<string, unknown> | undefined;
+
+  const result: Record<string, string> = {};
+  for (const key in rawCore) {
+    if (!Object.prototype.hasOwnProperty.call(rawCore, key)) continue;
+    if (key === 'darkMode' || key === 'radar' || key === 'xyChart') continue;
+    const value = rawCore[key];
+    if (value === undefined) continue;
+    result[key] = typeof value === 'string' ? value : String(value);
   }
-  t.transitionColor = t.transitionColor || t.lineColor;
-  t.transitionLabelColor = t.transitionLabelColor || t.textColor;
-  t.stateLabelColor = t.stateLabelColor || t.stateBkg || t.primaryTextColor;
-  t.stateBkg = t.stateBkg || t.mainBkg;
-  t.labelBackgroundColor = t.labelBackgroundColor || t.stateBkg;
-  t.compositeBackground = t.compositeBackground || t.background || t.tertiaryColor;
-  t.altBackground = t.altBackground || t.tertiaryColor;
-  t.compositeTitleBackground = t.compositeTitleBackground || t.mainBkg;
-  t.compositeBorder = t.compositeBorder || t.nodeBorder;
-  t.innerEndBackground = t.nodeBorder;
-  t.errorBkgColor = t.errorBkgColor || t.tertiaryColor;
-  t.errorTextColor = t.errorTextColor || t.tertiaryTextColor;
-  t.specialStateColor = t.lineColor;
-  t.cScale0 = t.cScale0 || t.primaryColor;
-  t.cScale1 = t.cScale1 || t.secondaryColor;
-  t.cScale2 = t.cScale2 || t.tertiaryColor;
-  t.cScale3 = t.cScale3 || adjustToHex(t.primaryColor as string, { h: 30 });
-  t.cScale4 = t.cScale4 || adjustToHex(t.primaryColor as string, { h: 60 });
-  t.cScale5 = t.cScale5 || adjustToHex(t.primaryColor as string, { h: 90 });
-  t.cScale6 = t.cScale6 || adjustToHex(t.primaryColor as string, { h: 120 });
-  t.cScale7 = t.cScale7 || adjustToHex(t.primaryColor as string, { h: 150 });
-  t.cScale8 = t.cScale8 || adjustToHex(t.primaryColor as string, { h: 210, l: 150 });
-  t.cScale9 = t.cScale9 || adjustToHex(t.primaryColor as string, { h: 270 });
-  t.cScale10 = t.cScale10 || adjustToHex(t.primaryColor as string, { h: 300 });
-  t.cScale11 = t.cScale11 || adjustToHex(t.primaryColor as string, { h: 330 });
-  if (darkMode) {
-    for (let i = 0; i < THEME_COLOR_LIMIT; i++)
-      t['cScale' + i] = darkenToHex(t['cScale' + i] as string, 75);
-  } else {
-    for (let i = 0; i < THEME_COLOR_LIMIT; i++)
-      t['cScale' + i] = darkenToHex(t['cScale' + i] as string, 25);
+
+  const adjustHsl = (
+    baseColor: string,
+    baseHsl: readonly [number, number, number] | null,
+    dh: number,
+    ds: number,
+    dl: number
+  ): string =>
+    baseHsl
+      ? adjustParsedHslToHex(baseHsl, dh, ds, dl)
+      : adjustToHex(baseColor, { h: dh, s: ds, l: dl });
+
+  const primaryHsl = parseHexToHsl(result.primaryColor);
+  result.secondaryColor =
+    result.secondaryColor || adjustHsl(result.primaryColor, primaryHsl, -120, 0, 0);
+  result.tertiaryColor =
+    result.tertiaryColor || adjustHsl(result.primaryColor, primaryHsl, 180, 0, 5);
+  const secondaryHsl = parseHexToHsl(result.secondaryColor);
+  const tertiaryHsl = parseHexToHsl(result.tertiaryColor);
+  const borderL = darkMode ? 10 : -10;
+  result.primaryBorderColor =
+    result.primaryBorderColor || adjustHsl(result.primaryColor, primaryHsl, 0, -40, borderL);
+  result.secondaryBorderColor =
+    result.secondaryBorderColor || adjustHsl(result.secondaryColor, secondaryHsl, 0, -40, borderL);
+  result.tertiaryBorderColor =
+    result.tertiaryBorderColor || adjustHsl(result.tertiaryColor, tertiaryHsl, 0, -40, borderL);
+  result.noteBorderColor =
+    result.noteBorderColor || mkBorder(result.noteBkgColor || '#fff5ad', darkMode);
+  result.noteBkgColor = result.noteBkgColor || '#fff5ad';
+  result.noteTextColor = result.noteTextColor || '#333';
+  result.primaryTextColor = result.primaryTextColor || (darkMode ? '#eee' : '#333');
+  result.secondaryTextColor = result.secondaryTextColor || invertToHex(result.secondaryColor);
+  result.tertiaryTextColor = result.tertiaryTextColor || invertToHex(result.tertiaryColor);
+  if (!result.lineColor || !result.arrowheadColor) {
+    const invertedBackground = invertToHex(result.background);
+    if (!result.lineColor) result.lineColor = invertedBackground;
+    if (!result.arrowheadColor) result.arrowheadColor = invertedBackground;
   }
-  for (let i = 0; i < THEME_COLOR_LIMIT; i++)
-    t['cScaleInv' + i] = t['cScaleInv' + i] || invertToHex(t['cScale' + i] as string);
+  result.textColor = result.textColor || result.primaryTextColor;
+  result.border2 = result.border2 || result.tertiaryBorderColor;
+  result.nodeBkg = result.nodeBkg || result.primaryColor;
+  result.mainBkg = result.mainBkg || result.primaryColor;
+  const mainBkgHsl =
+    result.mainBkg === result.primaryColor ? primaryHsl : parseHexToHsl(result.mainBkg);
+  result.nodeBorder = result.nodeBorder || result.primaryBorderColor;
+  result.clusterBkg = result.clusterBkg || result.tertiaryColor;
+  result.clusterBorder = result.clusterBorder || result.tertiaryBorderColor;
+  result.defaultLinkColor = result.defaultLinkColor || result.lineColor;
+  result.titleColor = result.titleColor || result.tertiaryTextColor;
+  result.edgeLabelBackground = result.edgeLabelBackground || result.background;
+  result.nodeTextColor = result.nodeTextColor || result.primaryTextColor;
+  result.actorBorder = result.actorBorder || result.primaryBorderColor;
+  result.actorBkg = result.actorBkg || result.mainBkg;
+  result.actorTextColor = result.actorTextColor || result.primaryTextColor;
+  result.actorLineColor = result.actorLineColor || result.actorBorder;
+  result.labelBoxBkgColor = result.labelBoxBkgColor || result.actorBkg;
+  result.signalColor = result.signalColor || result.lineColor;
+  result.signalTextColor = result.signalTextColor || result.textColor || result.primaryTextColor;
+  result.labelBoxBorderColor = result.labelBoxBorderColor || result.actorBorder;
+  result.labelTextColor = result.labelTextColor || result.actorTextColor;
+  result.loopTextColor = result.loopTextColor || result.actorTextColor;
+  result.activationBorderColor =
+    result.activationBorderColor || darkenToHex(result.secondaryColor, 10);
+  result.activationBkgColor = result.activationBkgColor || result.secondaryColor;
+  result.sequenceNumberColor = result.sequenceNumberColor || invertToHex(result.lineColor);
+  result.sectionBkgColor = result.sectionBkgColor || result.secondaryColor;
+  result.altSectionBkgColor = result.altSectionBkgColor || 'white';
+  result.sectionBkgColor2 = result.sectionBkgColor2 || result.primaryColor;
+  result.excludeBkgColor = result.excludeBkgColor || '#eeeeee';
+  result.taskBorderColor = result.taskBorderColor || result.primaryBorderColor;
+  result.taskBkgColor = result.taskBkgColor || result.primaryColor;
+  result.activeTaskBorderColor = result.activeTaskBorderColor || result.primaryColor;
+  result.activeTaskBkgColor = result.activeTaskBkgColor || lightenToHex(result.primaryColor, 23);
+  result.gridColor = result.gridColor || 'lightgrey';
+  result.doneTaskBkgColor = result.doneTaskBkgColor || 'lightgrey';
+  result.doneTaskBorderColor = result.doneTaskBorderColor || 'grey';
+  result.critBorderColor = result.critBorderColor || '#ff8888';
+  result.critBkgColor = result.critBkgColor || 'red';
+  result.todayLineColor = result.todayLineColor || 'red';
+  result.vertLineColor = result.vertLineColor || 'navy';
+  result.taskTextColor = result.taskTextColor || result.textColor;
+  result.taskTextOutsideColor = result.taskTextOutsideColor || result.textColor;
+  result.taskTextLightColor = result.taskTextLightColor || result.textColor;
+  result.taskTextDarkColor = result.taskTextDarkColor || result.textColor;
+  result.taskTextClickableColor = result.taskTextClickableColor || '#003163';
+  result.personBorder = result.personBorder || result.primaryBorderColor;
+  result.personBkg = result.personBkg || result.mainBkg;
+  if (darkMode) {
+    result.rowOdd = result.rowOdd || darkenToHex(result.mainBkg, 5) || '#ffffff';
+    result.rowEven = result.rowEven || darkenToHex(result.mainBkg, 10);
+  } else {
+    result.rowOdd = result.rowOdd || lightenToHex(result.mainBkg, 75) || '#ffffff';
+    result.rowEven = result.rowEven || lightenToHex(result.mainBkg, 5);
+  }
+  result.transitionColor = result.transitionColor || result.lineColor;
+  result.transitionLabelColor = result.transitionLabelColor || result.textColor;
+  result.stateLabelColor = result.stateLabelColor || result.stateBkg || result.primaryTextColor;
+  result.stateBkg = result.stateBkg || result.mainBkg;
+  result.labelBackgroundColor = result.labelBackgroundColor || result.stateBkg;
+  result.compositeBackground =
+    result.compositeBackground || result.background || result.tertiaryColor;
+  result.altBackground = result.altBackground || result.tertiaryColor;
+  result.compositeTitleBackground = result.compositeTitleBackground || result.mainBkg;
+  result.compositeBorder = result.compositeBorder || result.nodeBorder;
+  result.innerEndBackground = result.nodeBorder;
+  result.errorBkgColor = result.errorBkgColor || result.tertiaryColor;
+  result.errorTextColor = result.errorTextColor || result.tertiaryTextColor;
+  result.specialStateColor = result.lineColor;
+  result.cScale0 = result.cScale0 || result.primaryColor;
+  result.cScale1 = result.cScale1 || result.secondaryColor;
+  result.cScale2 = result.cScale2 || result.tertiaryColor;
+  result.cScale3 = result.cScale3 || adjustHsl(result.primaryColor, primaryHsl, 30, 0, 0);
+  result.cScale4 = result.cScale4 || adjustHsl(result.primaryColor, primaryHsl, 60, 0, 0);
+  result.cScale5 = result.cScale5 || adjustHsl(result.primaryColor, primaryHsl, 90, 0, 0);
+  result.cScale6 = result.cScale6 || adjustHsl(result.primaryColor, primaryHsl, 120, 0, 0);
+  result.cScale7 = result.cScale7 || adjustHsl(result.primaryColor, primaryHsl, 150, 0, 0);
+  result.cScale8 = result.cScale8 || adjustHsl(result.primaryColor, primaryHsl, 210, 0, 150);
+  result.cScale9 = result.cScale9 || adjustHsl(result.primaryColor, primaryHsl, 270, 0, 0);
+  result.cScale10 = result.cScale10 || adjustHsl(result.primaryColor, primaryHsl, 300, 0, 0);
+  result.cScale11 = result.cScale11 || adjustHsl(result.primaryColor, primaryHsl, 330, 0, 0);
+  const cScaleDarken = darkMode ? 75 : 25;
+  for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
+    const key = 'cScale' + i;
+    result[key] = darkenToHex(result[key], cScaleDarken);
+  }
+  for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
+    result['cScaleInv' + i] = result['cScaleInv' + i] || invertToHex(result['cScale' + i]);
+  }
   for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
     const key = 'cScale' + i;
     const peerKey = 'cScalePeer' + i;
-    t[peerKey] =
-      t[peerKey] ||
-      (darkMode ? lightenToHex(t[key] as string, 10) : darkenToHex(t[key] as string, 10));
+    result[peerKey] =
+      result[peerKey] ||
+      (darkMode ? lightenToHex(result[key], 10) : darkenToHex(result[key], 10));
   }
-  t.scaleLabelColor = t.scaleLabelColor || t.labelTextColor;
-  for (let i = 0; i < THEME_COLOR_LIMIT; i++)
-    t['cScaleLabel' + i] = t['cScaleLabel' + i] || t.scaleLabelColor;
+  result.scaleLabelColor = result.scaleLabelColor || result.labelTextColor;
+  for (let i = 0; i < THEME_COLOR_LIMIT; i++) {
+    result['cScaleLabel' + i] = result['cScaleLabel' + i] || result.scaleLabelColor;
+  }
   const multiplier = darkMode ? -4 : -1;
   for (let i = 0; i < 5; i++) {
     const surfaceKey = 'surface' + i;
     const surfacePeerKey = 'surfacePeer' + i;
-    t[surfaceKey] =
-      t[surfaceKey] ||
-      adjustToHex(t.mainBkg as string, { h: 180, s: -15, l: multiplier * (5 + i * 3) });
-    t[surfacePeerKey] =
-      t[surfacePeerKey] ||
-      adjustToHex(t.mainBkg as string, { h: 180, s: -15, l: multiplier * (8 + i * 3) });
+    result[surfaceKey] =
+      result[surfaceKey] || adjustHsl(result.mainBkg, mainBkgHsl, 180, -15, multiplier * (5 + i * 3));
+    result[surfacePeerKey] =
+      result[surfacePeerKey] ||
+      adjustHsl(result.mainBkg, mainBkgHsl, 180, -15, multiplier * (8 + i * 3));
   }
-  t.classText = t.classText || t.textColor;
-  t.fillType0 = t.fillType0 || t.primaryColor;
-  t.fillType1 = t.fillType1 || t.secondaryColor;
-  t.fillType2 = t.fillType2 || adjustToHex(t.primaryColor as string, { h: 64 });
-  t.fillType3 = t.fillType3 || adjustToHex(t.secondaryColor as string, { h: 64 });
-  t.fillType4 = t.fillType4 || adjustToHex(t.primaryColor as string, { h: -64 });
-  t.fillType5 = t.fillType5 || adjustToHex(t.secondaryColor as string, { h: -64 });
-  t.fillType6 = t.fillType6 || adjustToHex(t.primaryColor as string, { h: 128 });
-  t.fillType7 = t.fillType7 || adjustToHex(t.secondaryColor as string, { h: 128 });
-  t.pie1 = t.pie1 || t.primaryColor;
-  t.pie2 = t.pie2 || t.secondaryColor;
-  t.pie3 = t.pie3 || t.tertiaryColor;
-  t.pie4 = t.pie4 || adjustToHex(t.primaryColor as string, { l: -10 });
-  t.pie5 = t.pie5 || adjustToHex(t.secondaryColor as string, { l: -10 });
-  t.pie6 = t.pie6 || adjustToHex(t.tertiaryColor as string, { l: -10 });
-  t.pie7 = t.pie7 || adjustToHex(t.primaryColor as string, { h: 60, l: -10 });
-  t.pie8 = t.pie8 || adjustToHex(t.primaryColor as string, { h: -60, l: -10 });
-  t.pie9 = t.pie9 || adjustToHex(t.primaryColor as string, { h: 120, l: 0 });
-  t.pie10 = t.pie10 || adjustToHex(t.primaryColor as string, { h: 60, l: -20 });
-  t.pie11 = t.pie11 || adjustToHex(t.primaryColor as string, { h: -60, l: -20 });
-  t.pie12 = t.pie12 || adjustToHex(t.primaryColor as string, { h: 120, l: -10 });
-  t.pieTitleTextSize = t.pieTitleTextSize || '25px';
-  t.pieTitleTextColor = t.pieTitleTextColor || t.taskTextDarkColor;
-  t.pieSectionTextSize = t.pieSectionTextSize || '17px';
-  t.pieSectionTextColor = t.pieSectionTextColor || t.textColor;
-  t.pieLegendTextSize = t.pieLegendTextSize || '17px';
-  t.pieLegendTextColor = t.pieLegendTextColor || t.taskTextDarkColor;
-  t.pieStrokeColor = t.pieStrokeColor || 'black';
-  t.pieStrokeWidth = t.pieStrokeWidth || '2px';
-  t.pieOuterStrokeWidth = t.pieOuterStrokeWidth || '2px';
-  t.pieOuterStrokeColor = t.pieOuterStrokeColor || 'black';
-  t.pieOpacity = t.pieOpacity || '0.7';
-  t.venn1 = t.venn1 ?? adjustToHex(t.primaryColor as string, { l: -30 });
-  t.venn2 = t.venn2 ?? adjustToHex(t.secondaryColor as string, { l: -30 });
-  t.venn3 = t.venn3 ?? adjustToHex(t.tertiaryColor as string, { l: -30 });
-  t.venn4 = t.venn4 ?? adjustToHex(t.primaryColor as string, { h: 60, l: -30 });
-  t.venn5 = t.venn5 ?? adjustToHex(t.primaryColor as string, { h: -60, l: -30 });
-  t.venn6 = t.venn6 ?? adjustToHex(t.secondaryColor as string, { h: 60, l: -30 });
-  t.venn7 = t.venn7 ?? adjustToHex(t.primaryColor as string, { h: 120, l: -30 });
-  t.venn8 = t.venn8 ?? adjustToHex(t.secondaryColor as string, { h: 120, l: -30 });
-  t.vennTitleTextColor = t.vennTitleTextColor ?? t.titleColor;
-  t.vennSetTextColor = t.vennSetTextColor ?? t.textColor;
-  // radar/xyChart are built as objects here and JSON.stringify'd into strings
-  // by the final pass below (`key === 'radar' || key === 'xyChart'`), so the
-  // cast only bridges the intermediate Record<string, string> typing — the
-  // value stored is never used as a string before serialization.
-  t.radar = {
-    axisColor: (t.radar as any)?.axisColor || t.lineColor,
-    axisStrokeWidth: (t.radar as any)?.axisStrokeWidth || 2,
-    axisLabelFontSize: (t.radar as any)?.axisLabelFontSize || 12,
-    curveOpacity: (t.radar as any)?.curveOpacity || 0.5,
-    curveStrokeWidth: (t.radar as any)?.curveStrokeWidth || 2,
-    graticuleColor: (t.radar as any)?.graticuleColor || '#DEDEDE',
-    graticuleStrokeWidth: (t.radar as any)?.graticuleStrokeWidth || 1,
-    graticuleOpacity: (t.radar as any)?.graticuleOpacity || 0.3,
-    legendBoxSize: (t.radar as any)?.legendBoxSize || 12,
-    legendFontSize: (t.radar as any)?.legendFontSize || 12,
-  } as unknown as string;
-  t.archEdgeColor = t.archEdgeColor || '#777';
-  t.archEdgeArrowColor = t.archEdgeArrowColor || '#777';
-  t.archEdgeWidth = t.archEdgeWidth || '3';
-  t.archGroupBorderColor = t.archGroupBorderColor || '#000';
-  t.archGroupBorderWidth = t.archGroupBorderWidth || '2px';
-  t.quadrant1Fill = t.quadrant1Fill || t.primaryColor;
-  t.quadrant2Fill = t.quadrant2Fill || adjustToHex(t.primaryColor as string, { r: 5, g: 5, b: 5 });
-  t.quadrant3Fill =
-    t.quadrant3Fill || adjustToHex(t.primaryColor as string, { r: 10, g: 10, b: 10 });
-  t.quadrant4Fill =
-    t.quadrant4Fill || adjustToHex(t.primaryColor as string, { r: 15, g: 15, b: 15 });
-  t.quadrant1TextFill = t.quadrant1TextFill || t.primaryTextColor;
-  t.quadrant2TextFill =
-    t.quadrant2TextFill || adjustToHex(t.primaryTextColor as string, { r: -5, g: -5, b: -5 });
-  t.quadrant3TextFill =
-    t.quadrant3TextFill || adjustToHex(t.primaryTextColor as string, { r: -10, g: -10, b: -10 });
-  t.quadrant4TextFill =
-    t.quadrant4TextFill || adjustToHex(t.primaryTextColor as string, { r: -15, g: -15, b: -15 });
-  t.quadrantPointFill =
-    t.quadrantPointFill ||
-    (isDark(t.quadrant1Fill as string)
-      ? lightenToHex(t.quadrant1Fill as string)
-      : darkenToHex(t.quadrant1Fill as string));
-  t.quadrantPointTextFill = t.quadrantPointTextFill || t.primaryTextColor;
-  t.quadrantXAxisTextFill = t.quadrantXAxisTextFill || t.primaryTextColor;
-  t.quadrantYAxisTextFill = t.quadrantYAxisTextFill || t.primaryTextColor;
-  t.quadrantInternalBorderStrokeFill = t.quadrantInternalBorderStrokeFill || t.primaryBorderColor;
-  t.quadrantExternalBorderStrokeFill = t.quadrantExternalBorderStrokeFill || t.primaryBorderColor;
-  t.quadrantTitleFill = t.quadrantTitleFill || t.primaryTextColor;
-  t.xyChart = {
-    backgroundColor: (t.xyChart as any)?.backgroundColor || t.background,
-    titleColor: (t.xyChart as any)?.titleColor || t.primaryTextColor,
-    xAxisTitleColor: (t.xyChart as any)?.xAxisTitleColor || t.primaryTextColor,
-    xAxisLabelColor: (t.xyChart as any)?.xAxisLabelColor || t.primaryTextColor,
-    xAxisTickColor: (t.xyChart as any)?.xAxisTickColor || t.primaryTextColor,
-    xAxisLineColor: (t.xyChart as any)?.xAxisLineColor || t.primaryTextColor,
-    yAxisTitleColor: (t.xyChart as any)?.yAxisTitleColor || t.primaryTextColor,
-    yAxisLabelColor: (t.xyChart as any)?.yAxisLabelColor || t.primaryTextColor,
-    yAxisTickColor: (t.xyChart as any)?.yAxisTickColor || t.primaryTextColor,
-    yAxisLineColor: (t.xyChart as any)?.yAxisLineColor || t.primaryTextColor,
+  result.classText = result.classText || result.textColor;
+  result.fillType0 = result.fillType0 || result.primaryColor;
+  result.fillType1 = result.fillType1 || result.secondaryColor;
+  result.fillType2 = result.fillType2 || adjustHsl(result.primaryColor, primaryHsl, 64, 0, 0);
+  result.fillType3 = result.fillType3 || adjustHsl(result.secondaryColor, secondaryHsl, 64, 0, 0);
+  result.fillType4 = result.fillType4 || adjustHsl(result.primaryColor, primaryHsl, -64, 0, 0);
+  result.fillType5 = result.fillType5 || adjustHsl(result.secondaryColor, secondaryHsl, -64, 0, 0);
+  result.fillType6 = result.fillType6 || adjustHsl(result.primaryColor, primaryHsl, 128, 0, 0);
+  result.fillType7 = result.fillType7 || adjustHsl(result.secondaryColor, secondaryHsl, 128, 0, 0);
+  result.pie1 = result.pie1 || result.primaryColor;
+  result.pie2 = result.pie2 || result.secondaryColor;
+  result.pie3 = result.pie3 || result.tertiaryColor;
+  result.pie4 = result.pie4 || adjustHsl(result.primaryColor, primaryHsl, 0, 0, -10);
+  result.pie5 = result.pie5 || adjustHsl(result.secondaryColor, secondaryHsl, 0, 0, -10);
+  result.pie6 = result.pie6 || adjustHsl(result.tertiaryColor, tertiaryHsl, 0, 0, -10);
+  result.pie7 = result.pie7 || adjustHsl(result.primaryColor, primaryHsl, 60, 0, -10);
+  result.pie8 = result.pie8 || adjustHsl(result.primaryColor, primaryHsl, -60, 0, -10);
+  result.pie9 = result.pie9 || adjustHsl(result.primaryColor, primaryHsl, 120, 0, 0);
+  result.pie10 = result.pie10 || adjustHsl(result.primaryColor, primaryHsl, 60, 0, -20);
+  result.pie11 = result.pie11 || adjustHsl(result.primaryColor, primaryHsl, -60, 0, -20);
+  result.pie12 = result.pie12 || adjustHsl(result.primaryColor, primaryHsl, 120, 0, -10);
+  result.pieTitleTextSize = result.pieTitleTextSize || '25px';
+  result.pieTitleTextColor = result.pieTitleTextColor || result.taskTextDarkColor;
+  result.pieSectionTextSize = result.pieSectionTextSize || '17px';
+  result.pieSectionTextColor = result.pieSectionTextColor || result.textColor;
+  result.pieLegendTextSize = result.pieLegendTextSize || '17px';
+  result.pieLegendTextColor = result.pieLegendTextColor || result.taskTextDarkColor;
+  result.pieStrokeColor = result.pieStrokeColor || 'black';
+  result.pieStrokeWidth = result.pieStrokeWidth || '2px';
+  result.pieOuterStrokeWidth = result.pieOuterStrokeWidth || '2px';
+  result.pieOuterStrokeColor = result.pieOuterStrokeColor || 'black';
+  result.pieOpacity = result.pieOpacity || '0.7';
+  result.venn1 = result.venn1 ?? adjustHsl(result.primaryColor, primaryHsl, 0, 0, -30);
+  result.venn2 = result.venn2 ?? adjustHsl(result.secondaryColor, secondaryHsl, 0, 0, -30);
+  result.venn3 = result.venn3 ?? adjustHsl(result.tertiaryColor, tertiaryHsl, 0, 0, -30);
+  result.venn4 = result.venn4 ?? adjustHsl(result.primaryColor, primaryHsl, 60, 0, -30);
+  result.venn5 = result.venn5 ?? adjustHsl(result.primaryColor, primaryHsl, -60, 0, -30);
+  result.venn6 = result.venn6 ?? adjustHsl(result.secondaryColor, secondaryHsl, 60, 0, -30);
+  result.venn7 = result.venn7 ?? adjustHsl(result.primaryColor, primaryHsl, 120, 0, -30);
+  result.venn8 = result.venn8 ?? adjustHsl(result.secondaryColor, secondaryHsl, 120, 0, -30);
+  result.vennTitleTextColor = result.vennTitleTextColor ?? result.titleColor;
+  result.vennSetTextColor = result.vennSetTextColor ?? result.textColor;
+  result.radar = JSON.stringify({
+    axisColor: initialRadar?.axisColor || result.lineColor,
+    axisStrokeWidth: initialRadar?.axisStrokeWidth || 2,
+    axisLabelFontSize: initialRadar?.axisLabelFontSize || 12,
+    curveOpacity: initialRadar?.curveOpacity || 0.5,
+    curveStrokeWidth: initialRadar?.curveStrokeWidth || 2,
+    graticuleColor: initialRadar?.graticuleColor || '#DEDEDE',
+    graticuleStrokeWidth: initialRadar?.graticuleStrokeWidth || 1,
+    graticuleOpacity: initialRadar?.graticuleOpacity || 0.3,
+    legendBoxSize: initialRadar?.legendBoxSize || 12,
+    legendFontSize: initialRadar?.legendFontSize || 12,
+  });
+  result.archEdgeColor = result.archEdgeColor || '#777';
+  result.archEdgeArrowColor = result.archEdgeArrowColor || '#777';
+  result.archEdgeWidth = result.archEdgeWidth || '3';
+  result.archGroupBorderColor = result.archGroupBorderColor || '#000';
+  result.archGroupBorderWidth = result.archGroupBorderWidth || '2px';
+  result.quadrant1Fill = result.quadrant1Fill || result.primaryColor;
+  result.quadrant2Fill =
+    result.quadrant2Fill || adjustToHex(result.primaryColor, { r: 5, g: 5, b: 5 });
+  result.quadrant3Fill =
+    result.quadrant3Fill || adjustToHex(result.primaryColor, { r: 10, g: 10, b: 10 });
+  result.quadrant4Fill =
+    result.quadrant4Fill || adjustToHex(result.primaryColor, { r: 15, g: 15, b: 15 });
+  result.quadrant1TextFill = result.quadrant1TextFill || result.primaryTextColor;
+  result.quadrant2TextFill =
+    result.quadrant2TextFill || adjustToHex(result.primaryTextColor, { r: -5, g: -5, b: -5 });
+  result.quadrant3TextFill =
+    result.quadrant3TextFill || adjustToHex(result.primaryTextColor, { r: -10, g: -10, b: -10 });
+  result.quadrant4TextFill =
+    result.quadrant4TextFill || adjustToHex(result.primaryTextColor, { r: -15, g: -15, b: -15 });
+  result.quadrantPointFill =
+    result.quadrantPointFill ||
+    (isDark(result.quadrant1Fill)
+      ? lightenToHex(result.quadrant1Fill)
+      : darkenToHex(result.quadrant1Fill));
+  result.quadrantPointTextFill = result.quadrantPointTextFill || result.primaryTextColor;
+  result.quadrantXAxisTextFill = result.quadrantXAxisTextFill || result.primaryTextColor;
+  result.quadrantYAxisTextFill = result.quadrantYAxisTextFill || result.primaryTextColor;
+  result.quadrantInternalBorderStrokeFill =
+    result.quadrantInternalBorderStrokeFill || result.primaryBorderColor;
+  result.quadrantExternalBorderStrokeFill =
+    result.quadrantExternalBorderStrokeFill || result.primaryBorderColor;
+  result.quadrantTitleFill = result.quadrantTitleFill || result.primaryTextColor;
+  result.xyChart = JSON.stringify({
+    backgroundColor: initialXyChart?.backgroundColor || result.background,
+    titleColor: initialXyChart?.titleColor || result.primaryTextColor,
+    xAxisTitleColor: initialXyChart?.xAxisTitleColor || result.primaryTextColor,
+    xAxisLabelColor: initialXyChart?.xAxisLabelColor || result.primaryTextColor,
+    xAxisTickColor: initialXyChart?.xAxisTickColor || result.primaryTextColor,
+    xAxisLineColor: initialXyChart?.xAxisLineColor || result.primaryTextColor,
+    yAxisTitleColor: initialXyChart?.yAxisTitleColor || result.primaryTextColor,
+    yAxisLabelColor: initialXyChart?.yAxisLabelColor || result.primaryTextColor,
+    yAxisTickColor: initialXyChart?.yAxisTickColor || result.primaryTextColor,
+    yAxisLineColor: initialXyChart?.yAxisLineColor || result.primaryTextColor,
     plotColorPalette:
       '#FFF4DD,#FFD8B1,#FFA07A,#ECEFF1,#D6DBDF,#C3E0A8,#FFB6A4,#FFD74D,#738FA7,#FFFFF0',
-  } as unknown as string;
-  t.requirementBackground = t.requirementBackground || t.primaryColor;
-  t.requirementBorderColor = t.requirementBorderColor || t.primaryBorderColor;
-  t.requirementBorderSize = t.requirementBorderSize || '1';
-  t.requirementTextColor = t.requirementTextColor || t.primaryTextColor;
-  t.relationColor = t.relationColor || t.lineColor;
-  t.relationLabelBackground =
-    t.relationLabelBackground ||
-    (darkMode ? darkenToHex(t.secondaryColor as string, 30) : t.secondaryColor);
-  t.relationLabelColor = t.relationLabelColor || t.actorTextColor;
-  t.git0 = t.git0 || t.primaryColor;
-  t.git1 = t.git1 || t.secondaryColor;
-  t.git2 = t.git2 || t.tertiaryColor;
-  t.git3 = t.git3 || adjustToHex(t.primaryColor as string, { h: -30 });
-  t.git4 = t.git4 || adjustToHex(t.primaryColor as string, { h: -60 });
-  t.git5 = t.git5 || adjustToHex(t.primaryColor as string, { h: -90 });
-  t.git6 = t.git6 || adjustToHex(t.primaryColor as string, { h: 60 });
-  t.git7 = t.git7 || adjustToHex(t.primaryColor as string, { h: 120 });
+  });
+  result.requirementBackground = result.requirementBackground || result.primaryColor;
+  result.requirementBorderColor = result.requirementBorderColor || result.primaryBorderColor;
+  result.requirementBorderSize = result.requirementBorderSize || '1';
+  result.requirementTextColor = result.requirementTextColor || result.primaryTextColor;
+  result.relationColor = result.relationColor || result.lineColor;
+  result.relationLabelBackground =
+    result.relationLabelBackground ||
+    (darkMode ? darkenToHex(result.secondaryColor, 30) : result.secondaryColor);
+  result.relationLabelColor = result.relationLabelColor || result.actorTextColor;
+  result.git0 = result.git0 || result.primaryColor;
+  result.git1 = result.git1 || result.secondaryColor;
+  result.git2 = result.git2 || result.tertiaryColor;
+  result.git3 = result.git3 || adjustHsl(result.primaryColor, primaryHsl, -30, 0, 0);
+  result.git4 = result.git4 || adjustHsl(result.primaryColor, primaryHsl, -60, 0, 0);
+  result.git5 = result.git5 || adjustHsl(result.primaryColor, primaryHsl, -90, 0, 0);
+  result.git6 = result.git6 || adjustHsl(result.primaryColor, primaryHsl, 60, 0, 0);
+  result.git7 = result.git7 || adjustHsl(result.primaryColor, primaryHsl, 120, 0, 0);
   if (darkMode) {
-    for (let i = 0; i < 8; i++) t['git' + i] = lightenToHex(t['git' + i] as string, 25);
+    for (let i = 0; i < 8; i++) result['git' + i] = lightenToHex(result['git' + i], 25);
   } else {
-    for (let i = 0; i < 8; i++) t['git' + i] = darkenToHex(t['git' + i] as string, 25);
+    for (let i = 0; i < 8; i++) result['git' + i] = darkenToHex(result['git' + i], 25);
   }
-  for (let i = 0; i < 8; i++)
-    t['gitInv' + i] = t['gitInv' + i] || invertToHex(t['git' + i] as string);
-  t.branchLabelColor = t.branchLabelColor || (darkMode ? 'black' : t.labelTextColor);
-  for (let i = 0; i < 8; i++)
-    t['gitBranchLabel' + i] = t['gitBranchLabel' + i] || t.branchLabelColor;
-  t.tagLabelColor = t.tagLabelColor || t.primaryTextColor;
-  t.tagLabelBackground = t.tagLabelBackground || t.primaryColor;
-  t.tagLabelBorder = t.tagBorder || t.primaryBorderColor;
-  t.tagLabelFontSize = t.tagLabelFontSize || '10px';
-  t.commitLabelColor = t.commitLabelColor || t.secondaryTextColor;
-  t.commitLabelBackground = t.commitLabelBackground || t.secondaryColor;
-  t.commitLabelFontSize = t.commitLabelFontSize || '10px';
-  t.attributeBackgroundColorOdd = t.attributeBackgroundColorOdd || t.primaryColor;
-  t.attributeBackgroundColorEven =
-    t.attributeBackgroundColorEven || adjustToHex(t.primaryColor as string, { h: 60, l: -10 });
-  const result: Record<string, string> = {};
-  for (const [key, value] of Object.entries(t)) {
-    if (key === 'darkMode') continue;
-    if (key === 'radar' || key === 'xyChart') result[key] = JSON.stringify(value);
-    else result[key] = String(value);
+  for (let i = 0; i < 8; i++) {
+    result['gitInv' + i] = result['gitInv' + i] || invertToHex(result['git' + i]);
   }
+  result.branchLabelColor = result.branchLabelColor || (darkMode ? 'black' : result.labelTextColor);
+  for (let i = 0; i < 8; i++) {
+    result['gitBranchLabel' + i] = result['gitBranchLabel' + i] || result.branchLabelColor;
+  }
+  result.tagLabelColor = result.tagLabelColor || result.primaryTextColor;
+  result.tagLabelBackground = result.tagLabelBackground || result.primaryColor;
+  result.tagLabelBorder = result.tagBorder || result.primaryBorderColor;
+  result.tagLabelFontSize = result.tagLabelFontSize || '10px';
+  result.commitLabelColor = result.commitLabelColor || result.secondaryTextColor;
+  result.commitLabelBackground = result.commitLabelBackground || result.secondaryColor;
+  result.commitLabelFontSize = result.commitLabelFontSize || '10px';
+  result.attributeBackgroundColorOdd = result.attributeBackgroundColorOdd || result.primaryColor;
+  result.attributeBackgroundColorEven =
+    result.attributeBackgroundColorEven || adjustHsl(result.primaryColor, primaryHsl, 60, 0, -10);
   return result;
 }
 

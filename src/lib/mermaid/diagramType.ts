@@ -7,179 +7,186 @@
 // PERF-01 parser purity gate in src/__tests__/bundlePerf.test.ts.
 import type { DiagramType } from '@/types';
 
+const UNICODE_WS_RE = /\s/;
+const XYCHART_RE = /^xychart(?:-beta)?(?:\s|$)/;
+const USECASE_RE = /^usecase-beta(?:\s|$)/;
+const ISHIKAWA_RE = /^ishikawa(?:-beta)?\b/i;
+const RADAR_RE = /^radar-beta(?:\s|$)/;
+const TREEMAP_RE = /^treemap(?:-beta)?(?:\s|$)/;
+const EVENTMODELING_RE = /^eventmodeling(?:\s|$)/;
+const VENN_RE = /^venn-beta(?:\s|$)/;
+const TREEVIEW_RE = /^treeView-beta(?:\s|$)/;
+const WARDLEY_RE = /^wardley-beta(?:\s|$)/i;
+const CYNEFIN_RE = /^cynefin-beta(?:[\s:]|$)/;
+const RAILROAD_RE = /^railroad(?:-(?:ebnf|abnf|peg))?-beta(?:\s|$)/i;
+const SWIMLANE_RE = /^swimlane-beta\b/;
+const AGENTFLOW_RE = /^agentflow(?:-beta)?(?:\s|$)/i;
+
+function skipWs(s: string, i: number): number {
+  const len = s.length;
+  while (i < len) {
+    const c = s.charCodeAt(i);
+    if (c === 32 || (c >= 9 && c <= 13)) {
+      i++;
+    } else if (c > 127 && UNICODE_WS_RE.test(s[i])) {
+      i++;
+    } else {
+      break;
+    }
+  }
+  return i;
+}
+
 export function detectDiagramType(content: string): DiagramType {
-  // Remove YAML frontmatter if present
-  let body = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
-  body = body.replace(/^\s*%%\{init:[\s\S]*?\}%%\s*/i, '').trim();
-  // Skip Mermaid comment lines (e.g. %% @theme corporate_blue)
-  body = body.replace(/^(%%[^\n]*\n?)+/i, '').trim();
+  const len = content.length;
+  let pos = skipWs(content, 0);
+
+  // Skip YAML frontmatter if present (matches /^\s*---[\s\S]*?---\s*/i once)
+  if (
+    pos + 2 < len &&
+    content.charCodeAt(pos) === 45 &&
+    content.charCodeAt(pos + 1) === 45 &&
+    content.charCodeAt(pos + 2) === 45
+  ) {
+    const closeIdx = content.indexOf('---', pos + 3);
+    if (closeIdx !== -1) {
+      pos = skipWs(content, closeIdx + 3);
+    }
+  }
+
+  // Skip legacy init directive if present (matches /^\s*%%\{init:[\s\S]*?\}%%\s*/i once)
+  if (
+    pos + 7 < len &&
+    content.charCodeAt(pos) === 37 &&
+    content.charCodeAt(pos + 1) === 37 &&
+    content.charCodeAt(pos + 2) === 123 &&
+    content.slice(pos + 3, pos + 8).toLowerCase() === 'init:'
+  ) {
+    const closeIdx = content.indexOf('}%%', pos + 8);
+    if (closeIdx !== -1) {
+      pos = skipWs(content, closeIdx + 3);
+    }
+  }
+
+  // Skip leading Mermaid comment lines (matches /^(%%[^\n]*\n?)+/i followed by .trim())
+  while (
+    pos + 1 < len &&
+    content.charCodeAt(pos) === 37 &&
+    content.charCodeAt(pos + 1) === 37
+  ) {
+    const nl = content.indexOf('\n', pos + 2);
+    if (nl === -1) {
+      pos = len;
+      break;
+    }
+    pos = nl + 1;
+  }
+  pos = skipWs(content, pos);
+
+  if (pos >= len) return 'unknown';
 
   // Preserve original casing for case-sensitive v12 detectors (e.g. `treeView-beta`).
-  const rawFirst = body.split('\n')[0]?.trim() ?? '';
+  const lineEnd = content.indexOf('\n', pos);
+  const rawFirst = (lineEnd === -1 ? content.slice(pos) : content.slice(pos, lineEnd)).trim();
   const first = rawFirst.toLowerCase();
   if (!first) return 'unknown';
 
-  // Flowchart and variants
-  if (first.startsWith('flowchart') || first.startsWith('graph')) {
-    return 'flowchart';
-  }
+  switch (first.charCodeAt(0)) {
+    case 97: // 'a'
+      if (first.startsWith('architecture')) return 'architectureDiagram';
+      if (AGENTFLOW_RE.test(rawFirst)) return 'agentflow';
+      return 'unknown';
 
-  // Sequence diagram
-  if (first.startsWith('sequencediagram')) {
-    return 'sequence';
-  }
+    case 98: // 'b'
+      if (first.startsWith('blockbeta') || first.startsWith('block')) return 'blockDiagram';
+      return 'unknown';
 
-  // Class diagram
-  if (first.startsWith('classdiagram')) {
-    return 'classDiagram';
-  }
+    case 99: // 'c'
+      if (first.startsWith('classdiagram')) return 'classDiagram';
+      if (first.startsWith('c4')) return 'c4';
+      if (CYNEFIN_RE.test(rawFirst)) return 'cynefin';
+      return 'unknown';
 
-  // State diagram
-  if (first.startsWith('statediagram')) {
-    return 'stateDiagram';
-  }
+    case 101: // 'e'
+      if (first.startsWith('erdiagram')) return 'erDiagram';
+      if (EVENTMODELING_RE.test(rawFirst)) return 'eventmodeling';
+      return 'unknown';
 
-  // ER diagram
-  if (first.startsWith('erdiagram')) {
-    return 'erDiagram';
-  }
+    case 102: // 'f'
+      if (first.startsWith('flowchart')) return 'flowchart';
+      return 'unknown';
 
-  // Gantt chart
-  if (first.startsWith('gantt')) {
-    return 'gantt';
-  }
+    case 103: // 'g'
+      if (first.startsWith('graph')) return 'flowchart';
+      if (first.startsWith('gantt')) return 'gantt';
+      if (first.startsWith('gitgraph')) return 'gitGraph';
+      return 'unknown';
 
-  // Pie chart
-  if (first.startsWith('pie')) {
-    return 'pie';
-  }
+    case 105: // 'i'
+      if (ISHIKAWA_RE.test(rawFirst)) return 'ishikawa';
+      return 'unknown';
 
-  // Mindmap
-  if (first.startsWith('mindmap')) {
-    return 'mindmap';
-  }
+    case 106: // 'j'
+      if (first.startsWith('journey')) return 'journey';
+      return 'unknown';
 
-  // Git graph
-  if (first.startsWith('gitgraph')) {
-    return 'gitGraph';
-  }
+    case 107: // 'k'
+      if (first.startsWith('kanban')) return 'kanban';
+      return 'unknown';
 
-  // Journey map
-  if (first.startsWith('journey')) {
-    return 'journey';
-  }
+    case 109: // 'm'
+      if (first.startsWith('mindmap')) return 'mindmap';
+      return 'unknown';
 
-  // Timeline
-  if (first.startsWith('timeline')) {
-    return 'timeline';
-  }
+    case 112: // 'p'
+      if (first.startsWith('pie')) return 'pie';
+      if (first.startsWith('packet')) return 'packetDiagram';
+      return 'unknown';
 
-  // Quadrant chart
-  if (first.startsWith('quadrantchart')) {
-    return 'quadrantChart';
-  }
+    case 113: // 'q'
+      if (first.startsWith('quadrantchart')) return 'quadrantChart';
+      return 'unknown';
 
-  // Requirement diagram
-  if (first.startsWith('requirementdiagram')) {
-    return 'requirementDiagram';
-  }
+    case 114: // 'r'
+      if (first.startsWith('requirementdiagram')) return 'requirementDiagram';
+      if (RADAR_RE.test(rawFirst)) return 'radar';
+      if (RAILROAD_RE.test(rawFirst)) return 'railroad';
+      return 'unknown';
 
-  // Sankey diagram
-  if (first.startsWith('sankey-beta') || first.startsWith('sankey')) {
-    return 'sankey';
-  }
+    case 115: // 's'
+      if (first.startsWith('sequencediagram')) return 'sequence';
+      if (first.startsWith('statediagram')) return 'stateDiagram';
+      if (first.startsWith('sankey-beta') || first.startsWith('sankey')) return 'sankey';
+      if (SWIMLANE_RE.test(rawFirst)) return 'swimlane';
+      return 'unknown';
 
-  // XY Chart (v11.14+ supports both `xychart` and `xychart-beta`)
-  if (/^xychart(?:-beta)?(?:\s|$)/.test(first)) {
-    return 'xyChart';
-  }
+    case 116: // 't'
+      if (first.startsWith('timeline')) return 'timeline';
+      if (TREEMAP_RE.test(rawFirst)) return 'treemap';
+      if (TREEVIEW_RE.test(rawFirst)) return 'treeView';
+      return 'unknown';
 
-  // Block diagram
-  if (first.startsWith('blockbeta') || first.startsWith('block')) {
-    return 'blockDiagram';
-  }
+    case 117: // 'u'
+      if (USECASE_RE.test(first)) return 'usecaseDiagram';
+      return 'unknown';
 
-  // C4 diagram
-  if (first.startsWith('c4')) {
-    return 'c4';
-  }
+    case 118: // 'v'
+      if (VENN_RE.test(rawFirst)) return 'venn';
+      return 'unknown';
 
-  // Architecture diagram
-  if (first.startsWith('architecture')) {
-    return 'architectureDiagram';
-  }
+    case 119: // 'w'
+      if (WARDLEY_RE.test(rawFirst)) return 'wardley';
+      return 'unknown';
 
-  // ZenUML
-  if (first.startsWith('zenuml')) {
-    return 'zenuml';
-  }
+    case 120: // 'x'
+      if (XYCHART_RE.test(first)) return 'xyChart';
+      return 'unknown';
 
-  // Packet diagram
-  if (first.startsWith('packet')) {
-    return 'packetDiagram';
-  }
+    case 122: // 'z'
+      if (first.startsWith('zenuml')) return 'zenuml';
+      return 'unknown';
 
-  // Kanban
-  if (first.startsWith('kanban')) {
-    return 'kanban';
+    default:
+      return 'unknown';
   }
-
-  // Use case diagram (mermaid 12) — the v12 content trigger keyword is
-  // `usecase-beta` (mermaid's detector is /^\s*usecase-beta(?:\s|$)/, verified
-  // mermaid.core.mjs:591-599); the 'usecaseDiagram' union label is
-  // app-internal only and never appears as content. The (?:\s|$) boundary
-  // mirrors the renderer's detector exactly: a longer word like
-  // `usecase-betamax` falls through to 'unknown' here instead of mislabeling
-  // input the renderer will reject (IN-03).
-  if (/^usecase-beta(?:\s|$)/.test(first)) {
-    return 'usecaseDiagram';
-  }
-
-  // Missing 10 Mermaid 12.3.0 families (DIAG-01) — matched against Mermaid's own
-  // dist detector boundaries, preserving exact case where Mermaid requires it.
-  if (/^ishikawa(?:-beta)?\b/i.test(rawFirst)) {
-    return 'ishikawa';
-  }
-
-  if (/^radar-beta(?:\s|$)/.test(rawFirst)) {
-    return 'radar';
-  }
-
-  if (/^treemap(?:-beta)?(?:\s|$)/.test(rawFirst)) {
-    return 'treemap';
-  }
-
-  if (/^eventmodeling(?:\s|$)/.test(rawFirst)) {
-    return 'eventmodeling';
-  }
-
-  if (/^venn-beta(?:\s|$)/.test(rawFirst)) {
-    return 'venn';
-  }
-
-  if (/^treeView-beta(?:\s|$)/.test(rawFirst)) {
-    return 'treeView';
-  }
-
-  if (/^wardley-beta(?:\s|$)/i.test(rawFirst)) {
-    return 'wardley';
-  }
-
-  if (/^cynefin-beta(?:[\s:]|$)/.test(rawFirst)) {
-    return 'cynefin';
-  }
-
-  if (/^railroad(?:-(?:ebnf|abnf|peg))?-beta(?:\s|$)/i.test(rawFirst)) {
-    return 'railroad';
-  }
-
-  if (/^swimlane-beta\b/.test(rawFirst)) {
-    return 'swimlane';
-  }
-
-  if (/^agentflow(?:-beta)?(?:\s|$)/i.test(rawFirst)) {
-    return 'agentflow';
-  }
-
-  return 'unknown';
 }
