@@ -244,9 +244,10 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   const isSequence = stylingCapabilities.supportsSequenceConfig;
   const isGantt = stylingCapabilities.supportsGanttConfig;
   const isSwimlane = stylingCapabilities.supportsSwimlaneConfig;
+  const isAgentflow = Boolean(stylingCapabilities.supportsAgentflowConfig);
   const canUseElk = supportsElkLayout(diagramType);
   const canUseTidyTree = supportsTidyTreeLayout(diagramType);
-  const hasConfigOptions = isFlowchart || isSequence || isGantt || isSwimlane || canUseElk || canUseTidyTree;
+  const hasConfigOptions = isFlowchart || isSequence || isGantt || isSwimlane || isAgentflow || canUseElk || canUseTidyTree;
   const isElkLayout = isElkLayoutEngine(styleOptions.layoutEngine);
   // diagramType is a DiagramType; detectDiagramType normalizes `graph …`
   // sources to 'flowchart', so no separate 'graph' branch exists.
@@ -1083,6 +1084,52 @@ end`}
                 <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.automaticLaneOrdering ?? false) ? 'left-[18px]' : 'left-0.5'}`} />
               </div>
             </label>
+          </>
+        )}
+
+        {/* Agentflow diagram controls (AGF-01) */}
+        {isAgentflow && (
+          <>
+            <SliderControl
+              label={t('advancedStyle.nodeSpacing')}
+              icon={<ArrowLeftRight size={11} />}
+              value={styleOptions.nodeSpacing ?? 50}
+              min={10} max={150} step={5} unit="px"
+              onChange={(v) => update({ nodeSpacing: v })}
+              theme={theme}
+            />
+            <SliderControl
+              label={t('advancedStyle.rankSpacing')}
+              icon={<ArrowUpDown size={11} />}
+              value={styleOptions.rankSpacing ?? 50}
+              min={10} max={150} step={5} unit="px"
+              onChange={(v) => update({ rankSpacing: v })}
+              theme={theme}
+            />
+            <SliderControl
+              label={t('advancedStyle.wrappingWidth')}
+              icon={<Maximize2 size={11} />}
+              value={styleOptions.wrappingWidth ?? 120}
+              min={80} max={400} step={10} unit="px"
+              onChange={(v) => update({ wrappingWidth: v })}
+              theme={theme}
+            />
+            <SliderControl
+              label={t('advancedStyle.minNodeWidth')}
+              icon={<Maximize2 size={11} />}
+              value={styleOptions.minNodeWidth ?? 120}
+              min={60} max={300} step={10} unit="px"
+              onChange={(v) => update({ minNodeWidth: v })}
+              theme={theme}
+            />
+            <SliderControl
+              label={t('advancedStyle.diagramPadding')}
+              icon={<Square size={11} />}
+              value={styleOptions.diagramPadding ?? 8}
+              min={0} max={64} step={2} unit="px"
+              onChange={(v) => update({ diagramPadding: v })}
+              theme={theme}
+            />
           </>
         )}
 

@@ -25,6 +25,7 @@ const FAMILY_SCOPED_THEME_TYPES: ReadonlySet<DiagramType> = new Set<DiagramType>
   'cynefin',
   'railroad',
   'swimlane',
+  'agentflow',
   'xyChart',
 ]);
 

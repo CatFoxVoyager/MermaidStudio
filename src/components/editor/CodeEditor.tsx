@@ -5,8 +5,10 @@ import { EditorState, StateEffect, StateField } from '@codemirror/state';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { undo, defaultKeymap, indentWithTab, redo } from '@codemirror/commands';
 import { bracketMatching } from '@codemirror/language';
+import { linter, lintGutter, type Diagnostic } from '@codemirror/lint';
 import { mermaidLanguage } from '@/lib/mermaid/language';
 import { mermaidAutocomplete } from '@/lib/mermaid/autocomplete';
+import { detectDiagramType } from '@/lib/mermaid/diagramType';
 import { registerCodeViewAccessor, unregisterCodeViewAccessor, registerHistoryCommands, unregisterHistoryCommands } from '@/lib/editor/codeViewRegistry';
 
 interface Props {
@@ -50,6 +52,26 @@ const highlightField = StateField.define<DecorationSet>({
   },
   provide: f => EditorView.decorations.from(f),
 });
+
+const agentflowLinter = linter(
+  async (view): Promise<Diagnostic[]> => {
+    const doc = view.state.doc;
+    const text = doc.toString();
+    if (detectDiagramType(text) !== 'agentflow') {
+      return [];
+    }
+    const { collectAgentflowDiagnostics, mapAgentflowDiagnosticsToCodeMirror } = await import(
+      '@/lib/mermaid/agentflowDiagnostics'
+    );
+    const diags = await collectAgentflowDiagnostics(text);
+    // Avoid applying stale diagnostics if the document changed while awaiting Mermaid
+    if (view.state.doc.toString() !== text) {
+      return [];
+    }
+    return mapAgentflowDiagnosticsToCodeMirror(view.state.doc, diags);
+  },
+  { delay: 450 }
+);
 
 export const CodeEditor = forwardRef<CodeEditorRef, Props>(function CodeEditor({ value, onChange, onSave, theme }, ref) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -109,6 +131,8 @@ export const CodeEditor = forwardRef<CodeEditorRef, Props>(function CodeEditor({
         basicSetup,
         mermaidLanguage,
         mermaidAutocomplete,
+        agentflowLinter,
+        lintGutter(),
         bracketMatching(),
         highlightField,
         ...(theme === 'dark' ? [oneDark] : []),

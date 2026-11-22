@@ -34,6 +34,7 @@ export type DiagramType =
   | 'cynefin'
   | 'railroad'
   | 'swimlane'
+  | 'agentflow'
   | 'unknown';
 
 export interface Template {
@@ -79,6 +80,7 @@ export const ELK_CAPABLE_DIAGRAM_TYPES: ReadonlySet<DiagramType> = new Set<Diagr
   'erDiagram',
   'requirementDiagram',
   'usecaseDiagram',
+  'agentflow',
   'journey',
   'blockDiagram',
   'architectureDiagram',
@@ -258,6 +260,11 @@ export interface DiagramStyleOptions extends BaseStyleOptions {
   // Swimlane options
   lineHops?: boolean | 'arc' | 'gap';
   automaticLaneOrdering?: boolean;
+
+  // Agentflow options (AGF-01: config.agentflow.*)
+  wrappingWidth?: number;
+  minNodeWidth?: number;
+  diagramPadding?: number;
 }
 
 export const DEFAULT_STYLE_OPTIONS: DiagramStyleOptions = {
@@ -290,6 +297,7 @@ export interface StylingCapabilities {
   supportsSequenceConfig: boolean; // Can use sequence config
   supportsGanttConfig: boolean; // Can use gantt config
   supportsSwimlaneConfig: boolean; // Can use swimlane config (lineHops, automaticLaneOrdering)
+  supportsAgentflowConfig?: boolean; // Can use agentflow config (nodeSpacing, rankSpacing, wrappingWidth, minNodeWidth, diagramPadding)
   supportsC4Style: boolean; // Can use UpdateElementStyle/UpdateRelStyle (C4 diagrams)
   supportsThemeVariablesOnly: boolean; // Only theme variables, no per-element styling
   availableConfigOptions: string[]; // List of available config option names
@@ -758,6 +766,29 @@ export function getStylingCapabilities(diagramType: DiagramType): StylingCapabil
         supportsC4Style: false,
         supportsThemeVariablesOnly: false,
         availableConfigOptions: ['lineHops', 'automaticLaneOrdering'],
+      };
+
+    case 'agentflow':
+      return {
+        supportsClassDef: true, // agentflow supports classDef & style keywords
+        supportsVisualEditing: false,
+        supportsStyleKeyword: true,
+        supportsRectBlocks: false,
+        supportsFlowchartConfig: false,
+        supportsSequenceConfig: false,
+        supportsGanttConfig: false,
+        supportsSwimlaneConfig: false,
+        supportsAgentflowConfig: true,
+        supportsC4Style: false,
+        supportsThemeVariablesOnly: false,
+        availableConfigOptions: [
+          'nodeSpacing',
+          'rankSpacing',
+          'wrappingWidth',
+          'minNodeWidth',
+          'diagramPadding',
+          'layoutEngine',
+        ],
       };
 
     case 'ishikawa':

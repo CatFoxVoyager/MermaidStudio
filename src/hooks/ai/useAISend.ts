@@ -118,6 +118,7 @@ const HUMAN_DIAGRAM_LABELS: Record<DiagramType, string> = {
   cynefin: 'cynefin chart',
   railroad: 'railroad diagram',
   swimlane: 'swimlane diagram',
+  agentflow: 'agentflow diagram',
   unknown: 'diagram',
 };
 

@@ -310,6 +310,17 @@ const KNOWLEDGE_BASE: Record<string, MermaidSnippet> = {
     ],
     example: 'swimlane-beta LR\n  subgraph User\n    a[Submit]\n  end\n  subgraph Support\n    b[Triage]\n  end\n  a --> b',
   },
+  agentflow: {
+    type: 'agentflow',
+    syntax: 'agentflow-beta [TB | LR]',
+    bestPractices: [
+      'Wrap workflow steps in `flow id["Title"] ... end` containers; declare shared refdocs/actions in `global ... end` and connectors with `connector id["Title"]`',
+      'Use semantic shapes: `@{ shape: input | task | tool | decision | refdoc | action, label: "..." }`',
+      'Use semantic edges: `-->` (sequence), `-.-` (unlabeled reference to `refdoc`), `--x` (failure/escalation)',
+      'Every `flow` should contain at least one `input` node; label outgoing branches from `decision` nodes (`-->|Yes|`)',
+    ],
+    example: 'agentflow-beta TB\n  connector api["CRM API"]\n  flow triage["Triage"]\n    inp@{ shape: input, label: "Ticket" }\n    step@{ shape: task, label: "Classify" }\n    tool1@{ shape: tool, label: "Lookup", connectorRef: "api" }\n    inp --> step --> tool1\n  end',
+  },
 };
 
 const TYPE_ALIASES: Record<string, string> = {
@@ -326,6 +337,7 @@ const TYPE_ALIASES: Record<string, string> = {
   packet: 'packetDiagram',
   usecase: 'usecaseDiagram',
   treeview: 'treeView',
+  'agentflow-beta': 'agentflow',
 };
 
 export function getMermaidContext(type: string = 'flowchart'): string {

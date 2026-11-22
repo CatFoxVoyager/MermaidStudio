@@ -77,8 +77,8 @@ const MODES = ['light', 'dark'] as const;
 type Mode = (typeof MODES)[number];
 
 const TYPE_IDS = Object.keys(SWEEP_FIXTURES) as SweepFixtureKey[];
-if (TYPE_IDS.length !== 32) {
-  throw new Error(`DIAG-05 grid integrity: expected 32 types, found ${TYPE_IDS.length}`);
+if (TYPE_IDS.length !== 33) {
+  throw new Error(`DIAG-05 grid integrity: expected 33 types, found ${TYPE_IDS.length}`);
 }
 
 async function renderCell(type: SweepFixtureKey, mode: Mode): Promise<{ svg: string; error: string | null }> {

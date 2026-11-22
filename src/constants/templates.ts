@@ -1006,6 +1006,56 @@ swimlane-beta LR
     investigate --> fix --> answer
     answer --> receive`,
   },
+  {
+    id: 'agentflow-support-triage',
+    title: 'AI Support Triage Agentflow',
+    description: 'Agentic workflow with flow/global containers, connector, semantic edges, and collapsed subflow',
+    category: 'Agentflow',
+    complexity: 'moderate',
+    type: 'agentflow',
+    content: `---
+config:
+  layout: elk
+  agentflow:
+    nodeSpacing: 50
+    rankSpacing: 50
+---
+agentflow-beta TB
+    connector crm["CRM Connector"]@{ protocol: "mcp" }
+
+    global
+        kb@{ shape: refdoc, label: "Support Runbook" }
+        fallback@{ shape: action, label: "Escalate to Human" }
+    end
+
+    flow triage["Support Triage Flow"]@{
+      schedule:
+        cron: "*/15 * * * *"
+        timezone: "UTC"
+    }
+        ticket@{ shape: input, label: "Incoming Ticket" }
+        classify@{ shape: task, label: "Classify Intent", instruction: "Categorize severity and product area" }
+        lookup@{ shape: tool, label: "Query CRM", connectorRef: "crm" }
+        urgent@{ shape: decision, label: "High Priority?" }
+        reply@{ shape: action, label: "Send Resolution" }
+
+        flow enrichment["Context Enrichment"]@{ view: collapsed, algorithm: "elk.rectpacking" }
+            ctx_in@{ shape: input, label: "Customer ID" }
+            ctx_fetch@{ shape: tool, label: "Fetch History", connectorRef: "crm" }
+            ctx_in --> ctx_fetch
+        end
+
+        ticket --> classify
+        classify -.- kb
+        classify --> lookup
+        lookup --> enrichment
+        enrichment --> urgent
+        urgent -->|No| reply
+        urgent -->|Yes| fallback
+    end
+
+    triage --x fallback`,
+  },
 ];
 
 export const CATEGORIES = [...new Set(TEMPLATES.map(t => t.category))];

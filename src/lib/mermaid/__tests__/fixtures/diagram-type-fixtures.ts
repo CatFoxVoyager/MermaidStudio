@@ -337,15 +337,26 @@ export const SWEEP_FIXTURES: Record<SweepFixtureKey, SweepFixture> = {
   end
   request --> triage`,
   },
+  agentflow: {
+    type: 'agentflow',
+    content: `agentflow-beta TB
+  connector crm["CRM"]
+  flow triage["Triage Flow"]
+    inp@{ shape: input, label: "Ticket" }
+    t1@{ shape: task, label: "Classify" }
+    tool1@{ shape: tool, label: "Lookup", connectorRef: "crm" }
+    inp --> t1 --> tool1
+  end`,
+  },
 };
 
-// DIA-01 / DIAG-05 grid integrity: exactly 32 fixtures. A future type adoption
+// DIA-01 / DIAG-05 / AGF-01 grid integrity: exactly 33 fixtures. A future type adoption
 // must extend the sweep consciously — the Record<SweepFixtureKey, ...> typing
 // already forces the key set at compile time; this guards the runtime count
 // against silent erosion.
 const SWEEP_KEYS = Object.keys(SWEEP_FIXTURES);
-if (SWEEP_KEYS.length !== 32) {
+if (SWEEP_KEYS.length !== 33) {
   throw new Error(
-    `DIAG-05 grid integrity: expected 32 sweep fixtures, found ${SWEEP_KEYS.length} — a type adoption must extend the sweep consciously, never silently`
+    `DIAG-05 grid integrity: expected 33 sweep fixtures, found ${SWEEP_KEYS.length} — a type adoption must extend the sweep consciously, never silently`
   );
 }

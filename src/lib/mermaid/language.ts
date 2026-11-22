@@ -13,18 +13,20 @@ const DIAGRAM_TYPES = new Set([
   'ishikawa-beta', 'radar-beta', 'treemap', 'treemap-beta', 'eventmodeling',
   'venn-beta', 'wardley-beta', 'cynefin-beta', 'railroad-beta',
   'railroad-ebnf-beta', 'railroad-abnf-beta', 'railroad-peg-beta',
-  'swimlane-beta',
+  'swimlane-beta', 'agentflow', 'agentflow-beta',
 ]);
 
 const SHAPE_TOKENS = new Set<string>([
   ...CANONICAL_SHAPES.map(shape => shape.shortName),
   ...ALIAS_TO_CANONICAL.keys(),
+  'task', 'tool', 'input', 'decision', 'refdoc', 'action',
 ]);
 
 const DIRECTIVE_KEYWORDS = new Set([
   'shape', 'icon', 'img', 'form', 'pos', 'w', 'h', 'constraint', 'label',
   'animate', 'animation', 'step', 'curve', 'view', 'collapsed', 'expanded',
-  'fast', 'slow',
+  'fast', 'slow', 'algorithm', 'schedule', 'cron', 'at', 'timezone',
+  'instruction', 'description', 'connectorRef', 'params', 'protocol',
 ]);
 
 const FLOWCHART_KEYWORDS = new Set([
@@ -63,6 +65,7 @@ const V12_FAMILY_KEYWORDS = new Set([
   'terminal', 'nonterminal', 'special', 'sequence', 'optional', 'oneOrMore', 'zeroOrMore',
   'anchor', 'component', 'pipeline', 'evolve', 'source', 'accelerator', 'deaccelerator',
   'x-axis', 'y-axis', 'columns', 'space', 'requirement', 'element', 'functionalRequirement',
+  'flow', 'global', 'connector',
 ]);
 
 const ALL_KEYWORDS = new Set([
@@ -194,8 +197,8 @@ export const MERMAID_KEYWORDS = Array.from(new Set([
   'ishikawa-beta', 'radar-beta',
   'treemap-beta', 'eventmodeling', 'venn-beta', 'treeView-beta',
   'wardley-beta', 'cynefin-beta', 'railroad-beta', 'railroad-ebnf-beta',
-  'railroad-abnf-beta', 'railroad-peg-beta', 'swimlane-beta',
-  'subgraph', 'end', 'participant', 'actor', 'activate', 'deactivate',
+  'railroad-abnf-beta', 'railroad-peg-beta', 'swimlane-beta', 'agentflow-beta',
+  'subgraph', 'flow', 'global', 'connector', 'end', 'participant', 'actor', 'activate', 'deactivate',
   'note', 'over', 'loop', 'alt', 'else', 'opt', 'par', 'and',
   'critical', 'break', 'rect', 'autonumber', 'title', 'section',
   'dateFormat', 'axisFormat', 'todayMarker', 'excludes',
@@ -203,7 +206,7 @@ export const MERMAID_KEYWORDS = Array.from(new Set([
   'state', 'direction', 'class', 'namespace', 'callback',
   'click', 'link', 'style', 'classDef', 'linkStyle',
   'systemBoundary', 'animate', 'animation', 'step', 'curve', 'view',
-  'collapsed', 'expanded', 'icon', 'img',
+  'collapsed', 'expanded', 'algorithm', 'schedule', 'icon', 'img',
   'TD', 'TB', 'BT', 'RL', 'LR',
 ]));
 

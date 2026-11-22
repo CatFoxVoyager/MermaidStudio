@@ -581,3 +581,33 @@ describe('Phase 44 THM-01 — all 11 official Mermaid v12 native themes render c
   });
 });
 
+describe('Phase 46 AGF-01 — agentflow renders cleanly with custom & native themes', { timeout: 30000 }, () => {
+  const AGENTFLOW_FIXTURE = `agentflow-beta TB
+  connector crm["CRM"]
+  flow triage["Triage"]
+    inp@{ shape: input, label: "Ticket" }
+    t1@{ shape: task, label: "Classify" }
+    inp --> t1
+  end`;
+
+  for (const mode of MODES) {
+    it(`renders agentflow (${mode}) with family-scoped themeVariables and flowContainerStroke`, async () => {
+      const palette = PALETTES[0];
+      initMermaid(mode, 'base', null);
+      const id = `tmx46_agentflow_${mode}`;
+      try {
+        const { svg, error } = await renderDiagram(AGENTFLOW_FIXTURE, id, palette.renderThemeId);
+        if (error && !GETBBOX_JSDOM_LIMITATION.test(error)) {
+          throw new Error(`Unexpected render error for agentflow (${mode}): ${error}`);
+        }
+        expect(svg).not.toBe('');
+        expect(svg).toMatch(/<(path|rect|circle|polygon|text|line)[\s>]/);
+      } finally {
+        document.getElementById(id)?.remove();
+        document.getElementById(`d${id}`)?.remove();
+      }
+    });
+  }
+});
+
+

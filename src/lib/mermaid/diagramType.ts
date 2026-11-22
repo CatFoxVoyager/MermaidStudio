@@ -177,5 +177,9 @@ export function detectDiagramType(content: string): DiagramType {
     return 'swimlane';
   }
 
+  if (/^agentflow(?:-beta)?(?:\s|$)/i.test(rawFirst)) {
+    return 'agentflow';
+  }
+
   return 'unknown';
 }

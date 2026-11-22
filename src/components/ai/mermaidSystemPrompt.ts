@@ -106,7 +106,8 @@ When generating Mermaid code:
 **ER**: \`erDiagram\` - \`Entity ||--o{ Entity : label\`
 **Gantt**: \`gantt\` - \`title\`, \`section\`, \`task :done, a, b\`
 **Mindmap**: \`mindmap\` - \`root((center))\`  branch\`  sub-branch\`
-**Other v12 Families**: \`gitGraph\`, \`journey\`, \`timeline\`, \`pie\`, \`quadrantChart\`, \`requirementDiagram\`, \`sankey-beta\`, \`xychart\`/\`xychart-beta\`, \`packet\`/\`packet-beta\`, \`kanban\`, \`architecture-beta\`, \`usecase-beta\`, \`block\`/\`block-beta\`, \`C4Context\`, \`ishikawa-beta\`, \`radar-beta\`, \`treemap-beta\`, \`eventmodeling\`, \`venn-beta\`, \`treeView-beta\` (exact casing), \`wardley-beta\`, \`cynefin-beta\`, \`railroad-beta\` (\`ebnf\`/\`abnf\`/\`peg\`), \`swimlane-beta\`
+**Agentflow**: \`agentflow-beta TB\` (or \`LR\`) - Containers \`flow id["Title"] ... end\`, \`global ... end\`, \`connector id["Title"]\`; shape aliases \`@{ shape: task|tool|input|decision|refdoc|action, label: "..." }\`; semantic edges \`-->\` (sequence), \`-.-\` (reference to \`refdoc\`, no label), \`--x\` (failure); metadata \`@{ view: collapsed, algorithm: "elk.rectpacking", schedule: { cron: "...", timezone: "UTC" } }\`
+**Other v12 Families**: \`gitGraph\`, \`journey\`, \`timeline\`, \`pie\`, \`quadrantChart\`, \`requirementDiagram\`, \`sankey-beta\`, \`xychart\`/\`xychart-beta\`, \`packet\`/\`packet-beta\`, \`kanban\`, \`architecture-beta\`, \`usecase-beta\`, \`block\`/\`block-beta\`, \`C4Context\`, \`ishikawa-beta\`, \`radar-beta\`, \`treemap-beta\`, \`eventmodeling\`, \`venn-beta\`, \`treeView-beta\` (exact casing), \`wardley-beta\`, \`cynefin-beta\`, \`railroad-beta\` (\`ebnf\`/\`abnf\`/\`peg\`), \`swimlane-beta\`, \`agentflow-beta\`
 
 ## Configuration Format & Styling
 
@@ -215,8 +216,8 @@ You are an expert Mermaid.js diagnostic and repair assistant. Your job is to ana
 When given a diagram, perform these three analysis passes:
 
 ### Pass 1: Syntax Analysis
-- Check for unclosed brackets, braces, parentheses (note: asymmetric \`A>Label]\` and v12 \`id@{ shape/icon/img/animate/view }\` directives are valid)
-- Validate diagram type headers across all 32 families (\`flowchart\`, \`sequenceDiagram\`, \`classDiagram\`, \`stateDiagram-v2\`, \`erDiagram\`, \`gantt\`, \`ishikawa-beta\`, \`radar-beta\`, \`treemap-beta\`, \`eventmodeling\`, \`venn-beta\`, \`treeView-beta\` exact-case, \`wardley-beta\`, \`cynefin-beta\`, \`railroad-beta\`, \`swimlane-beta\`, etc.)
+- Check for unclosed brackets, braces, parentheses (note: asymmetric \`A>Label]\` and v12 \`id@{ shape/icon/img/animate/view/algorithm/schedule }\` directives are valid)
+- Validate diagram type headers across all 33 families (\`flowchart\`, \`sequenceDiagram\`, \`classDiagram\`, \`stateDiagram-v2\`, \`erDiagram\`, \`gantt\`, \`ishikawa-beta\`, \`radar-beta\`, \`treemap-beta\`, \`eventmodeling\`, \`venn-beta\`, \`treeView-beta\` exact-case, \`wardley-beta\`, \`cynefin-beta\`, \`railroad-beta\`, \`swimlane-beta\`, \`agentflow-beta\`, etc.)
 - Check for malformed lines, YAML frontmatter syntax, or invalid arrow combinations
 - Verify quote matching, Markdown strings \`"\`...\`"\`, and escaping
 
@@ -225,6 +226,7 @@ When given a diagram, perform these three analysis passes:
 - Find disconnected subgraphs
 - Detect invalid edge syntax or references to non-existent nodes
 - Check for missing required attributes
+- For \`agentflow-beta\`: ensure tasks/tools/decisions live inside \`flow ... end\` (not orphaned outside), each \`flow\` has an \`input\` node, \`connectorRef\` targets a declared \`connector\`, \`-.-\` reference edges point to a \`refdoc\` without labels, and \`decision\` outgoing branches carry condition labels
 
 ### Pass 3: Style Analysis
 - Note inconsistent naming conventions (camelCase vs snake_case)

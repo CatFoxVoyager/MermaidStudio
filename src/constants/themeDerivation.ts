@@ -48,6 +48,7 @@ const RESTRICTED_THEME_VARIABLES = new Set([
   'treeView',
   'railroad',
   'swimlane',
+  'agentflow',
   'layout',
   'look',
   'theme',
@@ -740,6 +741,32 @@ const DIAGRAM_TYPE_VARIABLES: Record<DiagramType, string[]> = {
     'fontFamily',
     'fontSize',
   ],
+  agentflow: [
+    'primaryColor',
+    'secondaryColor',
+    'tertiaryColor',
+    'background',
+    'lineColor',
+    'arrowheadColor',
+    'primaryTextColor',
+    'secondaryTextColor',
+    'tertiaryTextColor',
+    'textColor',
+    'primaryBorderColor',
+    'secondaryBorderColor',
+    'tertiaryBorderColor',
+    'nodeBkg',
+    'mainBkg',
+    'nodeBorder',
+    'clusterBkg',
+    'clusterBorder',
+    'defaultLinkColor',
+    'edgeLabelBackground',
+    'nodeTextColor',
+    'flowContainerStroke',
+    'fontFamily',
+    'fontSize',
+  ],
   unknown: [
     'primaryColor',
     'secondaryColor',
@@ -883,7 +910,7 @@ export function deriveThemeVariablesForDiagramType(
   } else if (diagramType === 'railroad') {
     filtered.secondBkg = allVars.secondaryColor;
     filtered.labelBackground = allVars.background;
-  } else if (diagramType === 'swimlane') {
+  } else if (diagramType === 'swimlane' || diagramType === 'agentflow') {
     filtered.flowContainerStroke = allVars.secondaryBorderColor ?? allVars.lineColor;
   }
 
@@ -2113,6 +2140,34 @@ export function applyStyleToContent(
       }
       hasChanges = true;
     }
+  } else if (diagramType === 'agentflow') {
+    const agentflowCfg: Record<string, unknown> = { ...(newConfig.agentflow || {}) };
+    let hasAgentflowChanges = false;
+    const afNumericKeys: Array<[keyof DiagramStyleOptions, string]> = [
+      ['nodeSpacing', 'nodeSpacing'],
+      ['rankSpacing', 'rankSpacing'],
+      ['wrappingWidth', 'wrappingWidth'],
+      ['minNodeWidth', 'minNodeWidth'],
+      ['diagramPadding', 'diagramPadding'],
+    ];
+    for (const [optKey, cfgKey] of afNumericKeys) {
+      const val = styleOptions[optKey];
+      if (typeof val === 'number' && Number.isFinite(val) && agentflowCfg[cfgKey] !== val) {
+        agentflowCfg[cfgKey] = val;
+        hasAgentflowChanges = true;
+      } else if (optKey in styleOptions && val === undefined && cfgKey in agentflowCfg) {
+        delete agentflowCfg[cfgKey];
+        hasAgentflowChanges = true;
+      }
+    }
+    if (hasAgentflowChanges) {
+      if (Object.keys(agentflowCfg).length === 0) {
+        delete newConfig.agentflow;
+      } else {
+        newConfig.agentflow = agentflowCfg;
+      }
+      hasChanges = true;
+    }
   }
 
   // 4b. Layout engine & ELK options (LAY-01/02/03)
@@ -2227,6 +2282,7 @@ export function applyStyleToContent(
     !newConfig.sequence &&
     !newConfig.gantt &&
     !newConfig.swimlane &&
+    !newConfig.agentflow &&
     !newConfig.elk &&
     !newConfig.layout &&
     !newConfig.look &&
@@ -2376,6 +2432,21 @@ export function extractStyleOptionsFromContent(
         }
         const autoOrder = parseBooleanValue(sw.automaticLaneOrdering);
         if (autoOrder !== undefined) options.automaticLaneOrdering = autoOrder;
+      }
+
+      // Extract agentflow specific options (AGF-01)
+      if (config.agentflow && typeof config.agentflow === 'object') {
+        const af = config.agentflow as Record<string, any>;
+        const nodeSpacing = parseFiniteNumber(af.nodeSpacing);
+        if (nodeSpacing !== undefined) options.nodeSpacing = nodeSpacing;
+        const rankSpacing = parseFiniteNumber(af.rankSpacing);
+        if (rankSpacing !== undefined) options.rankSpacing = rankSpacing;
+        const wrappingWidth = parseFiniteNumber(af.wrappingWidth);
+        if (wrappingWidth !== undefined) options.wrappingWidth = wrappingWidth;
+        const minNodeWidth = parseFiniteNumber(af.minNodeWidth);
+        if (minNodeWidth !== undefined) options.minNodeWidth = minNodeWidth;
+        const diagramPadding = parseFiniteNumber(af.diagramPadding);
+        if (diagramPadding !== undefined) options.diagramPadding = diagramPadding;
       }
 
       // Extract ELK sub-options (LAY-02)

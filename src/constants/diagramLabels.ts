@@ -37,5 +37,6 @@ export const DIAGRAM_LABELS: Record<DiagramType, string> = {
   cynefin: 'Cynefin',
   railroad: 'Railroad',
   swimlane: 'Swimlane',
+  agentflow: 'Agentflow',
   unknown: 'Diagram',
 };

@@ -50,6 +50,8 @@ const DIAGRAM_STARTERS: CompletionEntry[] = [
   { label: 'railroad-abnf-beta', detail: 'Railroad ABNF grammar', type: 'keyword' },
   { label: 'railroad-peg-beta', detail: 'Railroad PEG grammar', type: 'keyword' },
   { label: 'swimlane-beta', detail: 'Swimlane diagram', type: 'keyword' },
+  { label: 'agentflow-beta TB', detail: 'Top-bottom Agentflow diagram', type: 'keyword' },
+  { label: 'agentflow-beta LR', detail: 'Left-right Agentflow diagram', type: 'keyword' },
 ];
 
 const canonicalNameSet = new Set<string>(CANONICAL_SHAPES.map(shape => shape.shortName));
@@ -377,6 +379,29 @@ const SWIMLANE_COMPLETIONS: CompletionEntry[] = [
   { label: '-->', detail: 'Arrow connection', type: 'operator' },
 ];
 
+const AGENTFLOW_COMPLETIONS: CompletionEntry[] = [
+  { label: 'flow', detail: 'Start a flow container block', type: 'keyword' },
+  { label: 'global', detail: 'Start a global-scope block (shared refdocs/actions)', type: 'keyword' },
+  { label: 'connector', detail: 'Declare a connector (connector id["Title"])', type: 'keyword' },
+  { label: 'end', detail: 'End a flow or global block', type: 'keyword' },
+  { label: 'direction', detail: 'Set container direction (TB, LR, RL, BT)', type: 'keyword' },
+  { label: 'classDef', detail: 'Define a style class', type: 'keyword' },
+  { label: 'class', detail: 'Assign style class', type: 'keyword' },
+  { label: 'style', detail: 'Style a node', type: 'keyword' },
+  { label: '-->', detail: 'Sequence / control-flow edge', type: 'operator' },
+  { label: '-.-', detail: 'Reference edge (attach refdoc)', type: 'operator' },
+  { label: '--x', detail: 'Failure / escalation edge', type: 'operator' },
+  { label: '@{ shape: task, label: "Task" }', detail: 'Agentflow task node (roundedRect)', type: 'type' },
+  { label: '@{ shape: tool, label: "Tool", connectorRef: "conn" }', detail: 'Agentflow tool node (subroutine)', type: 'type' },
+  { label: '@{ shape: input, label: "Input" }', detail: 'Agentflow input node (lean-right)', type: 'type' },
+  { label: '@{ shape: decision, label: "Condition?" }', detail: 'Agentflow decision node (diamond)', type: 'type' },
+  { label: '@{ shape: refdoc, label: "Reference Doc" }', detail: 'Agentflow reference document (lin-doc)', type: 'type' },
+  { label: '@{ shape: action, label: "Action" }', detail: 'Agentflow external action (hexagon)', type: 'type' },
+  { label: '@{ view: collapsed }', detail: 'Collapse a flow container', type: 'keyword' },
+  { label: '@{ algorithm: "elk.rectpacking" }', detail: 'Override container layout algorithm', type: 'keyword' },
+  { label: '@{ schedule: "0 9 * * 1-5" }', detail: 'Attach a schedule trigger to a flow', type: 'keyword' },
+];
+
 export function mermaidCompletions(context: CompletionContext): CompletionResult | null {
   const word = context.matchBefore(/[\w\-.|<>{}[\]():#"`~=*]+/);
   if (!word && !context.explicit) { return null; }
@@ -430,6 +455,7 @@ export function mermaidCompletions(context: CompletionContext): CompletionResult
       case 'cynefin':             completions = CYNEFIN_COMPLETIONS; break;
       case 'railroad':            completions = RAILROAD_COMPLETIONS; break;
       case 'swimlane':            completions = SWIMLANE_COMPLETIONS; break;
+      case 'agentflow':           completions = AGENTFLOW_COMPLETIONS; break;
       default:
         completions = MERMAID_KEYWORDS.map(k => ({ label: k, type: 'keyword' }));
         completions.push(...MERMAID_ARROWS.map(a => ({ label: a, type: 'operator' })));
