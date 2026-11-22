@@ -49,11 +49,13 @@ export type ImageCompressErrorCode = 'invalid-type' | 'too-large';
 
 export class ImageCompressError extends Error {
   readonly code: ImageCompressErrorCode;
+  readonly limitBytes?: number;
 
-  constructor(code: ImageCompressErrorCode, message: string) {
+  constructor(code: ImageCompressErrorCode, message: string, limitBytes?: number) {
     super(message);
     this.name = 'ImageCompressError';
     this.code = code;
+    this.limitBytes = limitBytes;
   }
 }
 
@@ -112,7 +114,11 @@ export async function fileToCompressedDataUri(file: File | Blob): Promise<string
   }
   // 2. Source cap BEFORE decode — the decompression-bomb guard (T-39-13).
   if (file.size > SOURCE_MAX_BYTES) {
-    throw new ImageCompressError('too-large', `Image exceeds the ${formatBytes(SOURCE_MAX_BYTES)} source cap`);
+    throw new ImageCompressError(
+      'too-large',
+      `Image exceeds the ${formatBytes(SOURCE_MAX_BYTES)} source cap`,
+      SOURCE_MAX_BYTES,
+    );
   }
   // 3. GIF passthrough: unchanged bytes keep animation; oversized GIFs are
   //    rejected (no safe re-encode path — canvas flattens to one frame).
@@ -120,7 +126,11 @@ export async function fileToCompressedDataUri(file: File | Blob): Promise<string
     if (file.size <= OUTPUT_MAX_BYTES) {
       return blobToDataUri(file);
     }
-    throw new ImageCompressError('too-large', `GIF exceeds the ${formatBytes(OUTPUT_MAX_BYTES)} output cap`);
+    throw new ImageCompressError(
+      'too-large',
+      `GIF exceeds the ${formatBytes(OUTPUT_MAX_BYTES)} output cap`,
+      OUTPUT_MAX_BYTES,
+    );
   }
 
   // 4. Decode -> downscale -> re-encode. Every emitted byte passes through
@@ -143,7 +153,11 @@ export async function fileToCompressedDataUri(file: File | Blob): Promise<string
     // decode to hundreds of megapixels. Cap the decoded surface BEFORE any
     // canvas allocation.
     if (bitmap.width * bitmap.height > MAX_DECODED_PIXELS) {
-      throw new ImageCompressError('too-large', `Image decodes to ${bitmap.width}x${bitmap.height}`);
+      throw new ImageCompressError(
+        'too-large',
+        `Image decodes to ${bitmap.width}x${bitmap.height}`,
+        SOURCE_MAX_BYTES,
+      );
     }
     const longestEdge = Math.max(bitmap.width, bitmap.height);
     // Fit the longest edge to the cap first; never upscale a small source.
@@ -158,17 +172,33 @@ export async function fileToCompressedDataUri(file: File | Blob): Promise<string
       const ctx = canvas.getContext('2d');
       if (!ctx) {break;}
       ctx.drawImage(bitmap, 0, 0, width, height);
+      if (mime === 'image/png') {
+        const pngBlob = await canvasToBlob(canvas, 'image/png', 1);
+        if (pngBlob && pngBlob.size <= OUTPUT_MAX_BYTES) {
+          return await blobToDataUri(pngBlob);
+        }
+        // PNG ignores quality; try lossy WebP (alpha-preserving) at the current
+        // dimensions before downscaling further.
+        for (const quality of QUALITY_STEPS) {
+          const webpBlob = await canvasToBlob(canvas, 'image/webp', quality);
+          if (webpBlob && webpBlob.size <= OUTPUT_MAX_BYTES) {
+            return await blobToDataUri(webpBlob);
+          }
+        }
+        continue;
+      }
       for (const quality of QUALITY_STEPS) {
         const blob = await canvasToBlob(canvas, mime, quality);
         if (blob && blob.size <= OUTPUT_MAX_BYTES) {
           return await blobToDataUri(blob);
         }
-        // PNG/WebP-lossless encodes ignore the quality parameter — the
-        // ladder cannot shrink them, so drop straight to the next scale.
-        if (file.type === 'image/png') {break;}
       }
     }
-    throw new ImageCompressError('too-large', `Image could not be compressed under ${formatBytes(OUTPUT_MAX_BYTES)}`);
+    throw new ImageCompressError(
+      'too-large',
+      `Image could not be compressed under ${formatBytes(OUTPUT_MAX_BYTES)}`,
+      OUTPUT_MAX_BYTES,
+    );
   } finally {
     (bitmap as ImageBitmap & { close?: () => void }).close?.();
   }

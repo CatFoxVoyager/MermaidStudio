@@ -215,4 +215,22 @@ describe('imageCompress (39-05 ICON-03)', () => {
     expect(formatBytes(512)).toBe('512 B');
     expect(formatBytes(24 * 1024)).toBe('24 KB');
   });
+
+  it('falls back to image/webp at 512px when a PNG encode exceeds OUTPUT_MAX_BYTES', async () => {
+    encodeByteBudget = (rec) => (rec.mime === 'image/png' ? OUTPUT_MAX_BYTES + 1 : 24 * 1024);
+    const uri = await fileToCompressedDataUri(makeFile(4096, 'image/png', 'img 1200x800'));
+    expect(uri).toMatch(/^data:image\/webp;base64,/);
+    expect(recorded[0]).toMatchObject({ mime: 'image/png', width: 512 });
+    expect(recorded[1]).toMatchObject({ mime: 'image/webp', width: 512, quality: 0.9 });
+  });
+
+  it('reports SOURCE_MAX_BYTES for oversized sources and OUTPUT_MAX_BYTES for uncompressible outputs', async () => {
+    await expect(
+      fileToCompressedDataUri(makeFile(SOURCE_MAX_BYTES + 1, 'image/png', 'img 64x64')),
+    ).rejects.toMatchObject({ code: 'too-large', limitBytes: SOURCE_MAX_BYTES });
+
+    await expect(
+      fileToCompressedDataUri(makeFile(OUTPUT_MAX_BYTES + 1, 'image/gif', 'anim')),
+    ).rejects.toMatchObject({ code: 'too-large', limitBytes: OUTPUT_MAX_BYTES });
+  });
 });

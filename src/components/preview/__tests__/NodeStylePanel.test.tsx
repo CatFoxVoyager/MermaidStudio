@@ -1089,6 +1089,19 @@ describe('NodeStylePanel image tab (39-05 Task 1 ICON-03)', () => {
     expect(row.style.color).toBe('var(--danger)');
   });
 
+  it('a too-large failure carrying an explicit output limit interpolates that limit (300 KB)', async () => {
+    vi.mocked(fileToCompressedDataUri).mockRejectedValue(
+      new ImageCompressError('too-large', 'output cap', 300 * 1024),
+    );
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+    );
+    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    await upload(container, makePng());
+    const row = container.querySelector('[data-image-error="too-large"]') as HTMLElement;
+    expect(row.textContent).toContain('Image too large — pick one under 300 KB.');
+  });
+
   it('validation rows are persistent until the next attempt clears them (inline, never a toast)', async () => {
     vi.mocked(fileToCompressedDataUri).mockRejectedValueOnce(new ImageCompressError('invalid-type', 'bad mime'));
     vi.mocked(fileToCompressedDataUri).mockResolvedValueOnce(IMG_COMPRESSED);

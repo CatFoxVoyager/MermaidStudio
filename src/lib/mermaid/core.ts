@@ -1,5 +1,5 @@
 import mermaid from 'mermaid';
-import { validateDiagramContent } from '@/utils/validation';
+import { LIMITS, validateDiagramContent } from '@/utils/validation';
 import {
   deriveThemeVariables,
   deriveThemeVariablesForDiagramType,
@@ -36,7 +36,8 @@ function doInit(
   theme: 'dark' | 'light',
   useBase: boolean,
   mermaidTheme?: MermaidBuiltinTheme,
-  diagramType?: DiagramType
+  diagramType?: DiagramType,
+  maxTextSize?: number
 ) {
   // 39-02 (ICON-02): register the lazy FA6 icon packs on the single init
   // path. iconPacks.ts carries no heavy static import — it rides this lazy
@@ -70,6 +71,7 @@ function doInit(
     layout: 'dagre', // v11-default pin — v12 would default 7 diagram types to ELK
     look: 'neo', // v12 neo/redux-color look — flips the Phase-21 classic pin (revert-safe)
     darkMode: isDark,
+    maxTextSize: maxTextSize ?? LIMITS.MAX_DIAGRAM_SIZE,
     fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
     fontSize: 14,
     flowchart: { curve: 'basis', padding: 20, htmlLabels: true, useMaxWidth: false, wrappingWidth: 200 }, // v11-default pin — v12 lowers wrappingWidth to 120, freezing node width so bigger fonts grow node height instead of width
@@ -197,7 +199,8 @@ export async function renderDiagram(
   }
 
   const diagramType = detectDiagramType(content);
-  doInit(currentTheme, hasCustomTheme, currentMermaidTheme, diagramType);
+  const requiredMaxTextSize = Math.max(LIMITS.MAX_DIAGRAM_SIZE, trimmed.length + 1024);
+  doInit(currentTheme, hasCustomTheme, currentMermaidTheme, diagramType, requiredMaxTextSize);
 
   const safeId = id.replace(/[^a-zA-Z0-9_]/g, '_');
   try {

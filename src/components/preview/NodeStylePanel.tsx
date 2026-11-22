@@ -234,6 +234,7 @@ export function NodeStylePanel({
   const [imageTabArmed, setImageTabArmed] = useState(false);
   const [imageBusy, setImageBusy] = useState(false);
   const [imageError, setImageError] = useState<ImageCompressErrorCode | null>(null);
+  const [imageErrorLimit, setImageErrorLimit] = useState<number | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   // 39-05 Task 3 (Surface 2): the IconPicker popover — the same fixed-anchor
   // measurement the ShapePicker trigger uses.
@@ -245,6 +246,7 @@ export function NodeStylePanel({
     setImageTabArmed(false);
     setImageBusy(false);
     setImageError(null);
+    setImageErrorLimit(null);
   }, [selectedNodeIds[0], selectedNodeIds.length]);
   const iconBodyVisible =
     activeMedia === 'icon' || (iconTabArmed && mediaWired && !mediaMixed && !nodeIcon && !nodeImage);
@@ -302,6 +304,7 @@ export function NodeStylePanel({
   const handleImageFile = useCallback(async (file: File) => {
     if (!onImageChange) {return;}
     setImageError(null);
+    setImageErrorLimit(null);
     setImageBusy(true);
     try {
       const dataUri = await fileToCompressedDataUri(file);
@@ -309,6 +312,7 @@ export function NodeStylePanel({
     } catch (err) {
       if (err instanceof ImageCompressError) {
         setImageError(err.code);
+        setImageErrorLimit(err.limitBytes ?? null);
       } else {
         logger.warn('Image compression failed', err);
       }
@@ -1037,7 +1041,7 @@ export function NodeStylePanel({
                     <span>
                       {imageError === 'invalid-type'
                         ? t('nodeStyle.imageInvalidType')
-                        : t('nodeStyle.imageTooLarge', { limit: formatBytes(SOURCE_MAX_BYTES) })}
+                        : t('nodeStyle.imageTooLarge', { limit: formatBytes(imageErrorLimit ?? SOURCE_MAX_BYTES) })}
                     </span>
                   </div>
                 )}

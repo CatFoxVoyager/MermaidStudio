@@ -109,6 +109,16 @@ describe('Mermaid Core SVG Sanitization', () => {
       expect(validation.valid).toBe(true);
       expect(validation.error).toBeUndefined();
     });
+
+    it('should render diagrams carrying embedded raster data URIs over 50k and 100k chars', async () => {
+      const base64 = 'A'.repeat(160_000);
+      const content = `flowchart LR\n  A@{ img: "data:image/png;base64,${base64}" }\n  A --> B[Done]`;
+      const result = await renderDiagram(content, 'test-large-img');
+
+      expect(result.error).toBeNull();
+      expect(result.svg).not.toContain('Maximum text size in diagram exceeded');
+      expect(result.svg).toContain('Done');
+    });
   });
 
   describe('SVG sanitization', () => {

@@ -24,6 +24,19 @@ export const LIMITS = {
 } as const;
 
 /**
+ * Maximum total diagram length when embedded raster data URIs are present
+ * (~3.6 MB of base64 image payloads across one or more nodes).
+ */
+export const MAX_MEDIA_DIAGRAM_SIZE = 5_000_000;
+
+/**
+ * Embedded raster image data URIs allowed by imageCompress & SVG sanitization.
+ * Excluded from the syntax-only MAX_DIAGRAM_SIZE cap (active types like
+ * image/svg+xml are never exempted).
+ */
+const RASTER_DATA_URI_RE = /data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+=*/gi;
+
+/**
  * Validation result interface
  */
 export interface ValidationResult {
@@ -77,8 +90,21 @@ export function validateDiagramContent(content: string): ValidationResult {
     return { valid: true };
   }
 
-  // Check size limit
-  if (content.length > LIMITS.MAX_DIAGRAM_SIZE) {
+  // Hard ceiling on total payload including embedded raster data URIs
+  if (content.length > MAX_MEDIA_DIAGRAM_SIZE) {
+    return {
+      valid: false,
+      error: `Content exceeds maximum size of ${MAX_MEDIA_DIAGRAM_SIZE} characters`,
+    };
+  }
+
+  // Check syntax size limit (excluding safe raster base64 payloads so pasted
+  // images up to OUTPUT_MAX_BYTES do not exhaust the 100k syntax budget)
+  const syntaxContent = content.includes('data:image/')
+    ? content.replace(RASTER_DATA_URI_RE, 'data:image/raster')
+    : content;
+
+  if (syntaxContent.length > LIMITS.MAX_DIAGRAM_SIZE) {
     return {
       valid: false,
       error: `Content exceeds maximum size of ${LIMITS.MAX_DIAGRAM_SIZE} characters`,

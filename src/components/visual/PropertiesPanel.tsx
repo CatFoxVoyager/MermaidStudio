@@ -139,12 +139,14 @@ function NodePanel({
   const [imageTabArmed, setImageTabArmed] = useState(false);
   const [imageBusy, setImageBusy] = useState(false);
   const [imageError, setImageError] = useState<ImageCompressErrorCode | null>(null);
+  const [imageErrorLimit, setImageErrorLimit] = useState<number | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     setIconTabArmed(false);
     setImageTabArmed(false);
     setImageBusy(false);
     setImageError(null);
+    setImageErrorLimit(null);
   }, [nodes.map(n => n.id).join(','), nodes.length]);
   const iconBodyVisible =
     activeMedia === 'icon' || (iconTabArmed && mediaWired && !mediaMixed && !nodeIcon && !nodeImage);
@@ -215,6 +217,7 @@ function NodePanel({
   const handleImageFile = useCallback(async (file: File) => {
     if (!onImageChange) {return;}
     setImageError(null);
+    setImageErrorLimit(null);
     setImageBusy(true);
     try {
       const dataUri = await fileToCompressedDataUri(file);
@@ -222,6 +225,7 @@ function NodePanel({
     } catch (err) {
       if (err instanceof ImageCompressError) {
         setImageError(err.code);
+        setImageErrorLimit(err.limitBytes ?? null);
       } else {
         logger.warn('Image compression failed', err);
       }
@@ -788,7 +792,7 @@ function NodePanel({
                   <span>
                     {imageError === 'invalid-type'
                       ? t('nodeStyle.imageInvalidType')
-                      : t('nodeStyle.imageTooLarge', { limit: formatBytes(SOURCE_MAX_BYTES) })}
+                      : t('nodeStyle.imageTooLarge', { limit: formatBytes(imageErrorLimit ?? SOURCE_MAX_BYTES) })}
                   </span>
                 </div>
               )}

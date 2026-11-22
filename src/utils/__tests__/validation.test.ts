@@ -167,6 +167,36 @@ describe('Validation Utilities', () => {
       expect(result.valid).toBe(false);
       expect(result.error).toContain('potentially malicious');
     });
+
+    it('should allow diagrams with large embedded raster data URIs when syntax stays under MAX_DIAGRAM_SIZE', () => {
+      const payload = 'A'.repeat(250_000);
+      const content = `flowchart LR\n  A@{ img: "data:image/png;base64,${payload}" }\n  A --> B`;
+      expect(validateDiagramContent(content)).toEqual({ valid: true });
+    });
+
+    it('should still reject oversized data:image/svg+xml payloads', () => {
+      const payload = 'A'.repeat(120_000);
+      const content = `flowchart LR\n  A@{ img: "data:image/svg+xml;base64,${payload}" }`;
+      const result = validateDiagramContent(content);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('exceeds maximum size');
+    });
+
+    it('should reject diagrams exceeding MAX_MEDIA_DIAGRAM_SIZE even with raster data URIs', () => {
+      const payload = 'A'.repeat(5_000_001);
+      const content = `flowchart LR\n  A@{ img: "data:image/png;base64,${payload}" }`;
+      const result = validateDiagramContent(content);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('exceeds maximum size');
+    });
+
+    it('should reject diagrams whose syntax alone exceeds MAX_DIAGRAM_SIZE alongside a raster data URI', () => {
+      const img = `data:image/webp;base64,${'A'.repeat(150_000)}`;
+      const content = `flowchart LR\n  A@{ img: "${img}" }\n  ${'B'.repeat(100_001)}`;
+      const result = validateDiagramContent(content);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('100000');
+    });
   });
 
   describe('validateTitle', () => {
