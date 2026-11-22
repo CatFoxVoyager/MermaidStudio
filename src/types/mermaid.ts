@@ -227,16 +227,66 @@ export interface DiagramStyleOptions extends BaseStyleOptions {
   sectionMargin?: number;
   displayMode?: 'compact';
 
-  // Mindmap options
+  // Mindmap options (CFG-01: config.mindmap.*)
   maxNodeWidth?: number;
   maxNodeHeight?: number;
   maxTextWidth?: number;
+  colorBy?: 'branch' | 'depth';
+
+  // Pie options (CFG-01: config.pie.*)
+  donutHole?: number;
+  legendPosition?: 'top' | 'bottom' | 'left' | 'right' | 'center';
+  highlightSlice?: string;
+  textPosition?: number;
+
+  // Sankey options (CFG-01: config.sankey.*)
+  labelStyle?: 'legacy' | 'outlined';
+  sankeyNodeWidth?: number;
+  sankeyNodePadding?: number;
+  nodeColors?: Record<string, string>;
+  linkColor?: string;
+  nodeAlignment?: 'left' | 'right' | 'center' | 'justify';
+  showValues?: boolean;
+
+  // Class diagram options (CFG-02: config.class.*)
+  hierarchicalNamespaces?: boolean;
+  hideEmptyMembersBox?: boolean;
+
+  // Packet diagram options (CFG-02: config.packet.*)
+  bitOrder?: 'ascending' | 'descending';
+  bitsPerRow?: number;
+  showBits?: boolean;
+
+  // Architecture diagram options (CFG-02: config.architecture.*)
+  randomize?: boolean;
+  seed?: number;
+  nodeSeparation?: number;
+  idealEdgeLengthMultiplier?: number;
+  edgeElasticity?: number;
+  numIter?: number;
+
+  // TreeView options (CFG-02: config.treeView.*)
+  showIcons?: boolean;
+  defaultIconPack?: string;
+
+  // GitGraph options (CFG-02: config.gitGraph.*)
+  showBranches?: boolean;
+  showCommitLabel?: boolean;
+  rotateCommitLabel?: boolean;
+  parallelCommits?: boolean;
+  mainBranchName?: string;
+
+  // Kanban options (CFG-02: config.kanban.*)
+  ticketBaseUrl?: string;
+
+  // Treemap options (CFG-02: config.treemap.*; shares showValues & diagramPadding)
+  valueFormat?: string;
 
   // ER diagram options
   minEntityWidth?: number;
   minEntityHeight?: number;
 
-  // Timeline options
+  // Timeline options (CFG-02: config.timeline.*)
   disableMulticolor?: boolean;
   htmlLabels?: boolean;
 
@@ -252,8 +302,9 @@ export interface DiagramStyleOptions extends BaseStyleOptions {
   chartWidth?: number;
   chartHeight?: number;
 
-  // XY chart options
+  // XY chart options (CFG-01: config.xyChart.*)
   showDataLabel?: boolean;
+  showDataLabelOutsideBar?: boolean;
   xAxisTitle?: string;
   yAxisTitle?: string;
 

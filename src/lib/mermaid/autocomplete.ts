@@ -26,6 +26,8 @@ const DIAGRAM_STARTERS: CompletionEntry[] = [
   { label: 'quadrantChart', detail: 'Quadrant matrix chart', type: 'keyword' },
   { label: 'requirementDiagram', detail: 'System requirements', type: 'keyword' },
   { label: 'timeline', detail: 'Timeline diagram', type: 'keyword' },
+  { label: 'timeline TD', detail: 'Vertical top-down timeline', type: 'keyword' },
+  { label: 'timeline LR', detail: 'Horizontal left-right timeline', type: 'keyword' },
   { label: 'sankey-beta', detail: 'Sankey flow diagram', type: 'keyword' },
   { label: 'xychart', detail: 'XY chart', type: 'keyword' },
   { label: 'xychart-beta', detail: 'XY chart (legacy beta alias)', type: 'keyword' },
@@ -52,6 +54,13 @@ const DIAGRAM_STARTERS: CompletionEntry[] = [
   { label: 'swimlane-beta', detail: 'Swimlane diagram', type: 'keyword' },
   { label: 'agentflow-beta TB', detail: 'Top-bottom Agentflow diagram', type: 'keyword' },
   { label: 'agentflow-beta LR', detail: 'Left-right Agentflow diagram', type: 'keyword' },
+];
+
+/** Global WCAG accessibility directives valid across all Mermaid diagram types (CFG-03) */
+const ACCESSIBILITY_COMPLETIONS: CompletionEntry[] = [
+  { label: 'accTitle: ', detail: 'Accessible diagram title (screen readers)', type: 'keyword' },
+  { label: 'accDescr: ', detail: 'Accessible single-line diagram description', type: 'keyword' },
+  { label: 'accDescr {\n  \n}', detail: 'Accessible multi-line diagram description', type: 'keyword' },
 ];
 
 const canonicalNameSet = new Set<string>(CANONICAL_SHAPES.map(shape => shape.shortName));
@@ -110,7 +119,15 @@ const FLOWCHART_COMPLETIONS: CompletionEntry[] = [
 
 const SEQUENCE_COMPLETIONS: CompletionEntry[] = [
   { label: 'participant', detail: 'Declare a participant', type: 'keyword' },
+  { label: 'participant A@{ "type": "boundary", "alias": "API" }', detail: 'Typed participant (boundary|control|entity|database|collections|queue)', type: 'keyword' },
+  { label: 'participant DB@{ "type": "database" }', detail: 'Database participant shape', type: 'keyword' },
+  { label: 'participant Q@{ "type": "queue" }', detail: 'Queue participant shape', type: 'keyword' },
+  { label: 'participant C@{ "type": "collections" }', detail: 'Collections participant shape', type: 'keyword' },
+  { label: 'participant E@{ "type": "entity" }', detail: 'Entity participant shape', type: 'keyword' },
+  { label: 'participant Ctrl@{ "type": "control" }', detail: 'Control participant shape', type: 'keyword' },
   { label: 'actor', detail: 'Declare an actor', type: 'keyword' },
+  { label: 'create participant', detail: 'Dynamically create participant', type: 'keyword' },
+  { label: 'destroy', detail: 'Destroy participant lifeline', type: 'keyword' },
   { label: 'activate', detail: 'Activate a lifeline', type: 'keyword' },
   { label: 'deactivate', detail: 'Deactivate a lifeline', type: 'keyword' },
   { label: 'note over', detail: 'Note over participant(s)', type: 'keyword' },
@@ -124,10 +141,18 @@ const SEQUENCE_COMPLETIONS: CompletionEntry[] = [
   { label: 'critical', detail: 'Critical block', type: 'keyword' },
   { label: 'break', detail: 'Break block', type: 'keyword' },
   { label: 'rect', detail: 'Highlight rectangle', type: 'keyword' },
+  { label: 'box', detail: 'Group participants in a box', type: 'keyword' },
   { label: 'end', detail: 'End a block', type: 'keyword' },
   { label: 'autonumber', detail: 'Auto-number messages', type: 'keyword' },
+  { label: 'autonumber 10 10', detail: 'Auto-number with start & increment', type: 'keyword' },
+  { label: 'link Alice: Dashboard @ https://example.com', detail: 'Actor popup link menu item', type: 'keyword' },
+  { label: 'links Alice: {"Dashboard": "https://example.com"}', detail: 'Actor popup links JSON map', type: 'keyword' },
   { label: '->>', detail: 'Solid arrow with head', type: 'operator' },
   { label: '-->>', detail: 'Dotted arrow with head', type: 'operator' },
+  { label: '->>()', detail: 'Central connection to target center', type: 'operator' },
+  { label: '()->>', detail: 'Central connection from source center', type: 'operator' },
+  { label: '-->>()', detail: 'Dotted central connection to target', type: 'operator' },
+  { label: '()-->>', detail: 'Dotted central connection from source', type: 'operator' },
   { label: '-x', detail: 'Lost message', type: 'operator' },
 ];
 
@@ -161,15 +186,27 @@ const ER_COMPLETIONS: CompletionEntry[] = [
   { label: '||--|{', detail: 'One-to-many (must)', type: 'operator' },
   { label: '}o--o{', detail: 'Many-to-many', type: 'operator' },
   { label: '||--||', detail: 'One-to-one', type: 'operator' },
+  { label: 'subgraph', detail: 'Group entities into a subgraph', type: 'keyword' },
+  { label: 'end', detail: 'End a subgraph block', type: 'keyword' },
+  { label: 'direction', detail: 'Set layout direction (TB, LR, RL, BT)', type: 'keyword' },
+  { label: 'style', detail: 'Style an entity', type: 'keyword' },
+  { label: 'classDef', detail: 'Define an entity style class', type: 'keyword' },
   { label: 'string', detail: 'String type', type: 'type' },
+  { label: 'string?', detail: 'Optional / nullable string type', type: 'type' },
   { label: 'int', detail: 'Integer type', type: 'type' },
+  { label: 'int?', detail: 'Optional / nullable integer type', type: 'type' },
   { label: 'uuid', detail: 'UUID type', type: 'type' },
+  { label: 'uuid?', detail: 'Optional / nullable UUID type', type: 'type' },
   { label: 'text', detail: 'Text type', type: 'type' },
   { label: 'timestamp', detail: 'Timestamp type', type: 'type' },
+  { label: 'timestamp?', detail: 'Optional / nullable timestamp type', type: 'type' },
   { label: 'boolean', detail: 'Boolean type', type: 'type' },
+  { label: 'boolean?', detail: 'Optional / nullable boolean type', type: 'type' },
   { label: 'float', detail: 'Float type', type: 'type' },
+  { label: 'float?', detail: 'Optional / nullable float type', type: 'type' },
   { label: 'PK', detail: 'Primary key', type: 'keyword' },
   { label: 'FK', detail: 'Foreign key', type: 'keyword' },
+  { label: 'UK', detail: 'Unique key', type: 'keyword' },
 ];
 
 const STATE_COMPLETIONS: CompletionEntry[] = [
@@ -184,6 +221,11 @@ const STATE_COMPLETIONS: CompletionEntry[] = [
 const CLASS_COMPLETIONS: CompletionEntry[] = [
   { label: 'class', detail: 'Define a class', type: 'keyword' },
   { label: 'namespace', detail: 'Define a namespace', type: 'keyword' },
+  { label: 'namespace Auth["Authentication"]', detail: 'Labeled namespace block', type: 'keyword' },
+  { label: 'namespace Auth.OAuth', detail: 'Dotted nested hierarchical namespace', type: 'keyword' },
+  { label: 'classDef', detail: 'Define a style class', type: 'keyword' },
+  { label: 'style', detail: 'Style an individual class', type: 'keyword' },
+  { label: 'direction', detail: 'Set diagram direction', type: 'keyword' },
   { label: '<<interface>>', detail: 'Interface stereotype', type: 'keyword' },
   { label: '<<abstract>>', detail: 'Abstract stereotype', type: 'keyword' },
   { label: '<<enumeration>>', detail: 'Enum stereotype', type: 'keyword' },
@@ -235,6 +277,8 @@ const REQUIREMENT_COMPLETIONS: CompletionEntry[] = [
 const TIMELINE_COMPLETIONS: CompletionEntry[] = [
   { label: 'title', detail: 'Timeline title', type: 'keyword' },
   { label: 'section', detail: 'Timeline section', type: 'keyword' },
+  { label: 'timeline TD', detail: 'Vertical top-down orientation', type: 'keyword' },
+  { label: 'timeline LR', detail: 'Horizontal left-right orientation', type: 'keyword' },
 ];
 
 const SANKEY_COMPLETIONS: CompletionEntry[] = [
@@ -246,12 +290,17 @@ const XYCHART_COMPLETIONS: CompletionEntry[] = [
   { label: 'x-axis', detail: 'X-axis definition', type: 'keyword' },
   { label: 'y-axis', detail: 'Y-axis definition', type: 'keyword' },
   { label: 'line', detail: 'Line data', type: 'keyword' },
+  { label: 'line "Series" [10, 20, 30]', detail: 'Named line series with legend', type: 'keyword' },
+  { label: 'line [25 "Launch", 45, 60]', detail: 'Line series with point label', type: 'keyword' },
   { label: 'bar', detail: 'Bar data', type: 'keyword' },
+  { label: 'bar "Series" [10, 20, 30]', detail: 'Named bar series with legend', type: 'keyword' },
 ];
 
 const PACKET_COMPLETIONS: CompletionEntry[] = [
   { label: 'title', detail: 'Packet title', type: 'keyword' },
-  { label: '0-15: "Field"', detail: 'Bit range field', type: 'property' },
+  { label: '0-15: "Field"', detail: 'Explicit bit range field', type: 'property' },
+  { label: '+16: "Field"', detail: 'Relative bit-count field (+N bits)', type: 'property' },
+  { label: '+8: "Byte"', detail: '8-bit relative field', type: 'property' },
 ];
 
 const KANBAN_COMPLETIONS: CompletionEntry[] = [
@@ -264,6 +313,8 @@ const ARCHITECTURE_COMPLETIONS: CompletionEntry[] = [
   { label: 'service', detail: 'Service node', type: 'keyword' },
   { label: 'junction', detail: 'Connection junction', type: 'keyword' },
   { label: 'in', detail: 'Assign to group', type: 'keyword' },
+  { label: 'align row', detail: 'Align services horizontally in a row', type: 'keyword' },
+  { label: 'align column', detail: 'Align services vertically in a column', type: 'keyword' },
 ];
 
 const C4_COMPLETIONS: CompletionEntry[] = [
@@ -403,7 +454,7 @@ const AGENTFLOW_COMPLETIONS: CompletionEntry[] = [
 ];
 
 export function mermaidCompletions(context: CompletionContext): CompletionResult | null {
-  const word = context.matchBefore(/[\w\-.|<>{}[\]():#"`~=*]+/);
+  const word = context.matchBefore(/[\w\-.|<>{}[\]():#"`~=*+?]+/);
   if (!word && !context.explicit) { return null; }
 
   // Extend backwards across `@` so accepting `@{...}` replaces `@` cleanly instead of doubling `@@{...}`
@@ -460,6 +511,7 @@ export function mermaidCompletions(context: CompletionContext): CompletionResult
         completions = MERMAID_KEYWORDS.map(k => ({ label: k, type: 'keyword' }));
         completions.push(...MERMAID_ARROWS.map(a => ({ label: a, type: 'operator' })));
     }
+    completions = [...completions, ...ACCESSIBILITY_COMPLETIONS];
   }
 
   if (text) {
@@ -468,7 +520,7 @@ export function mermaidCompletions(context: CompletionContext): CompletionResult
 
   if (completions.length === 0) { return null; }
 
-  return { from, options: completions, validFor: /^[\w\-.|<>{}[\]():#"`~=*]*$/ };
+  return { from, options: completions, validFor: /^[\w\-.|<>{}[\]():#"`~=*+?]*$/ };
 }
 
 export const mermaidAutocomplete = autocompletion({

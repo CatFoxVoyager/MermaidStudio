@@ -27,6 +27,7 @@ const DIRECTIVE_KEYWORDS = new Set([
   'animate', 'animation', 'step', 'curve', 'view', 'collapsed', 'expanded',
   'fast', 'slow', 'algorithm', 'schedule', 'cron', 'at', 'timezone',
   'instruction', 'description', 'connectorRef', 'params', 'protocol',
+  'type', 'alias', 'boundary', 'control', 'entity', 'database', 'collections', 'queue',
 ]);
 
 const FLOWCHART_KEYWORDS = new Set([
@@ -35,9 +36,9 @@ const FLOWCHART_KEYWORDS = new Set([
 ]);
 
 const SEQUENCE_KEYWORDS = new Set([
-  'participant', 'actor', 'activate', 'deactivate', 'note', 'over',
-  'loop', 'alt', 'else', 'opt', 'par', 'and', 'critical', 'break',
-  'rect', 'end', 'autonumber', 'title',
+  'participant', 'actor', 'create', 'destroy', 'activate', 'deactivate',
+  'note', 'over', 'loop', 'alt', 'else', 'opt', 'par', 'and', 'critical',
+  'break', 'rect', 'box', 'end', 'autonumber', 'title', 'link', 'links',
 ]);
 
 const GANTT_KEYWORDS = new Set([
@@ -58,6 +59,7 @@ const ER_KEYWORDS = new Set(['title', 'accTitle', 'accDescr']);
 
 const V12_FAMILY_KEYWORDS = new Set([
   'systemBoundary', 'include', 'extend', 'group', 'service', 'junction', 'in',
+  'align', 'row', 'column',
   'Person', 'System', 'Container', 'Component', 'Rel',
   'axis', 'min', 'max', 'graticule', 'ticks', 'showLegend', 'showData',
   'clear', 'complicated', 'complex', 'chaotic', 'confusion',
@@ -112,6 +114,10 @@ const mermaidMode = {
     if (stream.match(/^<\|--/)) { return 'keyword'; }
     if (stream.match(/^\*--/)) { return 'keyword'; }
 
+    // Sequence central connection arrows (v12: A->>()B, A()->>B, etc.)
+    if (stream.match(/^\(\)(?:-->>?|->>?)/)) { return 'keyword'; }
+    if (stream.match(/^(?:-->>?|->>?)\(\)/)) { return 'keyword'; }
+
     // Bidirectional and v12 Flowchart / Sequence arrows
     if (stream.match(/^<--+>/)) { return 'keyword'; }
     if (stream.match(/^<-\.-+>/)) { return 'keyword'; }
@@ -151,9 +157,14 @@ const mermaidMode = {
     if (stream.match(/^:>/)) { return 'operator'; }
     if (stream.peek() === ':') { stream.next(); return 'operator'; }
 
+    // Packet +N bit-count syntax (e.g. +16: "Field")
+    if (stream.match(/^\+\d+(?=\s*:)/)) { return 'number'; }
     if (stream.match(/^\d{4}-\d{2}-\d{2}/)) { return 'number'; }
     if (stream.match(/^\d+(\.\d+)?/)) { return 'number'; }
     if (stream.match(/^#[0-9a-fA-F]{3,8}/)) { return 'number'; }
+
+    // ER optional attribute types (e.g. string?, int?, uuid?)
+    if (stream.match(/^[a-zA-Z_][a-zA-Z0-9_]*\?/)) { return 'typeName'; }
 
     if (stream.match(/^[a-zA-Z_](?:[a-zA-Z0-9_]|-(?![->.]))*/)) {
       const word = stream.current();
@@ -198,13 +209,15 @@ export const MERMAID_KEYWORDS = Array.from(new Set([
   'treemap-beta', 'eventmodeling', 'venn-beta', 'treeView-beta',
   'wardley-beta', 'cynefin-beta', 'railroad-beta', 'railroad-ebnf-beta',
   'railroad-abnf-beta', 'railroad-peg-beta', 'swimlane-beta', 'agentflow-beta',
-  'subgraph', 'flow', 'global', 'connector', 'end', 'participant', 'actor', 'activate', 'deactivate',
+  'subgraph', 'flow', 'global', 'connector', 'end', 'participant', 'actor',
+  'create', 'destroy', 'activate', 'deactivate', 'box',
   'note', 'over', 'loop', 'alt', 'else', 'opt', 'par', 'and',
   'critical', 'break', 'rect', 'autonumber', 'title', 'section',
+  'accTitle', 'accDescr', 'align', 'row', 'column',
   'dateFormat', 'axisFormat', 'todayMarker', 'excludes',
   'done', 'active', 'crit', 'milestone', 'after',
   'state', 'direction', 'class', 'namespace', 'callback',
-  'click', 'link', 'style', 'classDef', 'linkStyle',
+  'click', 'link', 'links', 'style', 'classDef', 'linkStyle',
   'systemBoundary', 'animate', 'animation', 'step', 'curve', 'view',
   'collapsed', 'expanded', 'algorithm', 'schedule', 'icon', 'img',
   'TD', 'TB', 'BT', 'RL', 'LR',
@@ -218,7 +231,7 @@ export const MERMAID_SHAPES = Array.from(new Set([
 ]));
 
 export const MERMAID_ARROWS = Array.from(new Set([
-  '-->', '---', '-.->', '-.->>', '==>', '-->>',
+  '-->', '---', '-.->', '-.->>', '==>', '-->>', '->>()', '()->>',
   '<-->', '<-.->', '<==>', 'o--o', '--o', 'o--',
   'x--x', '--x', 'x--', '-.-', '===', '~~~',
 ]));

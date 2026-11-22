@@ -91,9 +91,57 @@ function SliderControl({ label, icon, value, min, max, step, unit, onChange, the
   );
 }
 
+function ToggleControl({ label, checked, onChange }: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border cursor-pointer"
+      style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
+      <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{label}</span>
+      <input
+        type="checkbox"
+        aria-label={label}
+        className="peer sr-only"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <div aria-hidden="true"
+        className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${checked ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${checked ? 'left-[18px]' : 'left-0.5'}`} />
+      </div>
+    </label>
+  );
+}
+
+function formatNodeColorsText(map?: Record<string, string>): string {
+  if (!map) return '';
+  return Object.entries(map)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join('\n');
+}
+
+function parseNodeColorsText(raw: string): Record<string, string> | undefined {
+  const result: Record<string, string> = {};
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const colonIdx = trimmed.lastIndexOf(':');
+    if (colonIdx <= 0) continue;
+    const key = trimmed.slice(0, colonIdx).trim();
+    const val = trimmed.slice(colonIdx + 1).trim();
+    if (key && val) {
+      result[key] = val;
+    }
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
 export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentChange, theme }: AdvancedStylePanelProps) {
   const { t } = useTranslation();
   const [styleOptions, setStyleOptions] = useState<DiagramStyleOptions>({ ...DEFAULT_STYLE_OPTIONS });
+  const [sankeyNodeColorsText, setSankeyNodeColorsText] = useState('');
 
   // The 13 mermaid config-union curves (EDGE-04, Surface 4) come from the ONE
   // shared EDGE_CURVE_OPTIONS const (40-02) — no second hand-listed copy —
@@ -176,6 +224,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
         }
 
         const existingStyles = extractStyleOptionsFromContent(currentContent);
+        setSankeyNodeColorsText(formatNodeColorsText(existingStyles.nodeColors));
         
         // ALWAYS sync our state if the change came from outside (editor or other panel)
         // This ensures the UI reflects manual code edits or Diagram Colors updates instantly
@@ -228,7 +277,8 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
 
   const handleReset = useCallback(() => {
     const defaults = { ...DEFAULT_STYLE_OPTIONS };
-    userHasChangedStyles.current = true; 
+    userHasChangedStyles.current = true;
+    setSankeyNodeColorsText('');
     setStyleOptions(defaults);
     applyStyles(defaults);
   }, [applyStyles]);
@@ -245,9 +295,42 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   const isGantt = stylingCapabilities.supportsGanttConfig;
   const isSwimlane = stylingCapabilities.supportsSwimlaneConfig;
   const isAgentflow = Boolean(stylingCapabilities.supportsAgentflowConfig);
+  const isPie = diagramType === 'pie';
+  const isXyChart = diagramType === 'xyChart';
+  const isSankey = diagramType === 'sankey';
+  const isMindmap = diagramType === 'mindmap';
+  const isClassDiagram = diagramType === 'classDiagram';
+  const isPacket = diagramType === 'packetDiagram';
+  const isArchitecture = diagramType === 'architectureDiagram';
+  const isC4 = diagramType === 'c4';
+  const isTreeView = diagramType === 'treeView';
+  const isTimeline = diagramType === 'timeline';
+  const isGitGraph = diagramType === 'gitGraph';
+  const isKanban = diagramType === 'kanban';
+  const isTreemap = diagramType === 'treemap';
   const canUseElk = supportsElkLayout(diagramType);
   const canUseTidyTree = supportsTidyTreeLayout(diagramType);
-  const hasConfigOptions = isFlowchart || isSequence || isGantt || isSwimlane || isAgentflow || canUseElk || canUseTidyTree;
+  const hasConfigOptions =
+    isFlowchart ||
+    isSequence ||
+    isGantt ||
+    isSwimlane ||
+    isAgentflow ||
+    isPie ||
+    isXyChart ||
+    isSankey ||
+    isMindmap ||
+    isClassDiagram ||
+    isPacket ||
+    isArchitecture ||
+    isC4 ||
+    isTreeView ||
+    isTimeline ||
+    isGitGraph ||
+    isKanban ||
+    isTreemap ||
+    canUseElk ||
+    canUseTidyTree;
   const isElkLayout = isElkLayoutEngine(styleOptions.layoutEngine);
   // diagramType is a DiagramType; detectDiagramType normalizes `graph …`
   // sources to 'flowchart', so no separate 'graph' branch exists.
@@ -1131,6 +1214,461 @@ end`}
               theme={theme}
             />
           </>
+        )}
+
+        {/* Pie chart controls (CFG-01: config.pie.*) */}
+        {isPie && (
+          <div className="space-y-3">
+            <SliderControl
+              label={t('advancedStyle.pieDonutHole')}
+              icon={<Square size={11} />}
+              value={styleOptions.donutHole ?? 0}
+              min={0} max={0.9} step={0.05} unit=""
+              onChange={(v) => update({ donutHole: v })}
+              theme={theme}
+            />
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.pieLegendPosition')}</span>
+              <select
+                aria-label={t('advancedStyle.pieLegendPosition')}
+                value={styleOptions.legendPosition ?? ''}
+                onChange={(e) => {
+                  const val = e.target.value as '' | 'top' | 'bottom' | 'left' | 'right' | 'center';
+                  update({ legendPosition: val === '' ? undefined : val });
+                }}
+                className={`w-full text-[11px] px-2 py-1.5 rounded-sm border outline-hidden ${FOCUS_RING_CLASSES}`}
+                style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+              >
+                <option value="">{t('advancedStyle.optionDefault')}</option>
+                <option value="right">{t('advancedStyle.posRight')}</option>
+                <option value="left">{t('advancedStyle.posLeft')}</option>
+                <option value="top">{t('advancedStyle.posTop')}</option>
+                <option value="bottom">{t('advancedStyle.posBottom')}</option>
+                <option value="center">{t('advancedStyle.posCenter')}</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.pieHighlightSlice')}</span>
+              <input
+                type="text"
+                aria-label={t('advancedStyle.pieHighlightSlice')}
+                placeholder={t('advancedStyle.pieHighlightSlicePlaceholder')}
+                value={styleOptions.highlightSlice ?? ''}
+                onChange={(e) => update({ highlightSlice: e.target.value.trim() ? e.target.value : undefined })}
+                className={`w-full text-[11px] px-2 py-1.5 rounded-sm border outline-hidden ${FOCUS_RING_CLASSES}`}
+                style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            <SliderControl
+              label={t('advancedStyle.pieTextPosition')}
+              icon={<Type size={11} />}
+              value={styleOptions.textPosition ?? 0.75}
+              min={0} max={1} step={0.05} unit=""
+              onChange={(v) => update({ textPosition: v })}
+              theme={theme}
+            />
+          </div>
+        )}
+
+        {/* XY Chart controls (CFG-01: config.xyChart.*) */}
+        {isXyChart && (
+          <div className="space-y-2">
+            <ToggleControl
+              label={t('advancedStyle.xyShowDataLabel')}
+              checked={styleOptions.showDataLabel ?? false}
+              onChange={(v) => update({ showDataLabel: v })}
+            />
+            <ToggleControl
+              label={t('advancedStyle.xyShowDataLabelOutsideBar')}
+              checked={styleOptions.showDataLabelOutsideBar ?? false}
+              onChange={(v) => update({ showDataLabelOutsideBar: v })}
+            />
+          </div>
+        )}
+
+        {/* Sankey controls (CFG-01: config.sankey.*) */}
+        {isSankey && (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.sankeyLabelStyle')}</span>
+              <div className="grid grid-cols-2 gap-1">
+                {([
+                  { value: 'legacy' as const, label: t('advancedStyle.sankeyLabelLegacy') },
+                  { value: 'outlined' as const, label: t('advancedStyle.sankeyLabelOutlined') },
+                ]).map(opt => {
+                  const active = (styleOptions.labelStyle ?? 'legacy') === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => update({ labelStyle: opt.value })}
+                      className={`py-1.5 rounded-sm border transition-all text-center ${FOCUS_RING_CLASSES}`}
+                      style={{
+                        background: active ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)') : 'transparent',
+                        borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
+                        color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      <span className="text-[11px] font-medium">{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <SliderControl
+              label={t('advancedStyle.sankeyNodeWidth')}
+              icon={<ArrowLeftRight size={11} />}
+              value={styleOptions.sankeyNodeWidth ?? 10}
+              min={4} max={60} step={1} unit="px"
+              onChange={(v) => update({ sankeyNodeWidth: v })}
+              theme={theme}
+            />
+            <SliderControl
+              label={t('advancedStyle.sankeyNodePadding')}
+              icon={<ArrowUpDown size={11} />}
+              value={styleOptions.sankeyNodePadding ?? 10}
+              min={0} max={60} step={1} unit="px"
+              onChange={(v) => update({ sankeyNodePadding: v })}
+              theme={theme}
+            />
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.sankeyNodeAlignment')}</span>
+              <select
+                aria-label={t('advancedStyle.sankeyNodeAlignment')}
+                value={styleOptions.nodeAlignment ?? 'justify'}
+                onChange={(e) => update({ nodeAlignment: e.target.value as 'left' | 'right' | 'center' | 'justify' })}
+                className={`w-full text-[11px] px-2 py-1.5 rounded-sm border outline-hidden ${FOCUS_RING_CLASSES}`}
+                style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+              >
+                <option value="justify">{t('advancedStyle.alignJustify')}</option>
+                <option value="left">{t('advancedStyle.posLeft')}</option>
+                <option value="center">{t('advancedStyle.posCenter')}</option>
+                <option value="right">{t('advancedStyle.posRight')}</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.sankeyLinkColor')}</span>
+              <input
+                type="text"
+                aria-label={t('advancedStyle.sankeyLinkColor')}
+                placeholder="gradient | source | target | #hex"
+                value={styleOptions.linkColor ?? ''}
+                onChange={(e) => update({ linkColor: e.target.value.trim() ? e.target.value : undefined })}
+                className={`w-full text-[11px] px-2 py-1.5 rounded-sm border outline-hidden ${FOCUS_RING_CLASSES}`}
+                style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            <ToggleControl
+              label={t('advancedStyle.showValues')}
+              checked={styleOptions.showValues ?? true}
+              onChange={(v) => update({ showValues: v })}
+            />
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.sankeyNodeColors')}</span>
+              <textarea
+                aria-label={t('advancedStyle.sankeyNodeColors')}
+                rows={3}
+                spellCheck={false}
+                placeholder={t('advancedStyle.sankeyNodeColorsPlaceholder')}
+                value={sankeyNodeColorsText}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setSankeyNodeColorsText(raw);
+                  update({ nodeColors: parseNodeColorsText(raw) });
+                }}
+                className={`w-full font-mono text-[11px] px-2 py-1.5 rounded-sm border outline-hidden resize-y ${FOCUS_RING_CLASSES}`}
+                style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Mindmap controls (CFG-01: config.mindmap.colorBy) */}
+        {isMindmap && (
+          <div className="space-y-1.5">
+            <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.mindmapColorBy')}</span>
+            <div className="grid grid-cols-2 gap-1">
+              {([
+                { value: 'branch' as const, label: t('advancedStyle.mindmapColorBranch') },
+                { value: 'depth' as const, label: t('advancedStyle.mindmapColorDepth') },
+              ]).map(opt => {
+                const active = (styleOptions.colorBy ?? 'branch') === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => update({ colorBy: opt.value })}
+                    className={`py-1.5 rounded-sm border transition-all text-center ${FOCUS_RING_CLASSES}`}
+                    style={{
+                      background: active ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)') : 'transparent',
+                      borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
+                      color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    <span className="text-[11px] font-medium">{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Class diagram controls (CFG-02: config.class.*) */}
+        {isClassDiagram && (
+          <div className="space-y-2">
+            <ToggleControl
+              label={t('advancedStyle.classHierarchicalNamespaces')}
+              checked={styleOptions.hierarchicalNamespaces ?? true}
+              onChange={(v) => update({ hierarchicalNamespaces: v })}
+            />
+            <ToggleControl
+              label={t('advancedStyle.classHideEmptyMembersBox')}
+              checked={styleOptions.hideEmptyMembersBox ?? false}
+              onChange={(v) => update({ hideEmptyMembersBox: v })}
+            />
+          </div>
+        )}
+
+        {/* Packet diagram controls (CFG-02: config.packet.*) */}
+        {isPacket && (
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.packetBitOrder')}</span>
+              <div className="grid grid-cols-2 gap-1">
+                {([
+                  { value: 'ascending' as const, label: t('advancedStyle.packetBitOrderAsc') },
+                  { value: 'descending' as const, label: t('advancedStyle.packetBitOrderDesc') },
+                ]).map(opt => {
+                  const active = (styleOptions.bitOrder ?? 'ascending') === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => update({ bitOrder: opt.value })}
+                      className={`py-1.5 rounded-sm border transition-all text-center ${FOCUS_RING_CLASSES}`}
+                      style={{
+                        background: active ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)') : 'transparent',
+                        borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
+                        color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      <span className="text-[11px] font-medium">{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <SliderControl
+              label={t('advancedStyle.packetBitsPerRow')}
+              icon={<Maximize2 size={11} />}
+              value={styleOptions.bitsPerRow ?? 32}
+              min={8} max={128} step={8} unit=""
+              onChange={(v) => update({ bitsPerRow: v })}
+              theme={theme}
+            />
+            <ToggleControl
+              label={t('advancedStyle.packetShowBits')}
+              checked={styleOptions.showBits ?? true}
+              onChange={(v) => update({ showBits: v })}
+            />
+          </div>
+        )}
+
+        {/* Architecture controls (CFG-02: config.architecture.*) */}
+        {isArchitecture && (
+          <div className="space-y-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+            <span className="block text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {t('advancedStyle.architectureOptions')}
+            </span>
+            <ToggleControl
+              label={t('advancedStyle.archRandomize')}
+              checked={styleOptions.randomize ?? false}
+              onChange={(v) => update({ randomize: v })}
+            />
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.archSeed')}</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                aria-label={t('advancedStyle.archSeed')}
+                value={styleOptions.seed ?? ''}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === '') {
+                    update({ seed: undefined });
+                    return;
+                  }
+                  const n = Number(raw);
+                  if (!Number.isInteger(n) || n < 0) return;
+                  update({ seed: n });
+                }}
+                className={`w-20 text-xs px-2 py-1 rounded-sm border text-right tabular-nums outline-hidden ${FOCUS_RING_CLASSES}`}
+                style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            <SliderControl
+              label={t('advancedStyle.archNodeSeparation')}
+              icon={<ArrowLeftRight size={11} />}
+              value={styleOptions.nodeSeparation ?? 40}
+              min={10} max={200} step={5} unit="px"
+              onChange={(v) => update({ nodeSeparation: v })}
+              theme={theme}
+            />
+            <SliderControl
+              label={t('advancedStyle.archIdealEdgeLength')}
+              icon={<Spline size={11} />}
+              value={styleOptions.idealEdgeLengthMultiplier ?? 1}
+              min={0.5} max={5} step={0.1} unit="x"
+              onChange={(v) => update({ idealEdgeLengthMultiplier: v })}
+              theme={theme}
+            />
+            <SliderControl
+              label={t('advancedStyle.archEdgeElasticity')}
+              icon={<Spline size={11} />}
+              value={styleOptions.edgeElasticity ?? 0.45}
+              min={0.1} max={2} step={0.05} unit=""
+              onChange={(v) => update({ edgeElasticity: v })}
+              theme={theme}
+            />
+            <SliderControl
+              label={t('advancedStyle.archNumIter')}
+              icon={<Maximize2 size={11} />}
+              value={styleOptions.numIter ?? 2500}
+              min={100} max={5000} step={100} unit=""
+              onChange={(v) => update({ numIter: v })}
+              theme={theme}
+            />
+          </div>
+        )}
+
+        {/* C4 diagram controls (CFG-02: config.c4.wrap) */}
+        {isC4 && (
+          <ToggleControl
+            label={t('advancedStyle.c4Wrap')}
+            checked={styleOptions.wrap ?? true}
+            onChange={(v) => update({ wrap: v })}
+          />
+        )}
+
+        {/* TreeView controls (CFG-02: config.treeView.*) */}
+        {isTreeView && (
+          <div className="space-y-3">
+            <ToggleControl
+              label={t('advancedStyle.treeViewShowIcons')}
+              checked={styleOptions.showIcons ?? true}
+              onChange={(v) => update({ showIcons: v })}
+            />
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.treeViewDefaultIconPack')}</span>
+              <input
+                type="text"
+                aria-label={t('advancedStyle.treeViewDefaultIconPack')}
+                placeholder="fa | mdi | logos"
+                value={styleOptions.defaultIconPack ?? ''}
+                onChange={(e) => update({ defaultIconPack: e.target.value.trim() ? e.target.value : undefined })}
+                className={`w-full text-[11px] px-2 py-1.5 rounded-sm border outline-hidden ${FOCUS_RING_CLASSES}`}
+                style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Timeline controls (CFG-02: config.timeline.disableMulticolor) */}
+        {isTimeline && (
+          <ToggleControl
+            label={t('advancedStyle.timelineDisableMulticolor')}
+            checked={styleOptions.disableMulticolor ?? false}
+            onChange={(v) => update({ disableMulticolor: v })}
+          />
+        )}
+
+        {/* GitGraph controls (CFG-02: config.gitGraph.*) */}
+        {isGitGraph && (
+          <div className="space-y-2">
+            <ToggleControl
+              label={t('advancedStyle.gitShowBranches')}
+              checked={styleOptions.showBranches ?? true}
+              onChange={(v) => update({ showBranches: v })}
+            />
+            <ToggleControl
+              label={t('advancedStyle.gitShowCommitLabel')}
+              checked={styleOptions.showCommitLabel ?? true}
+              onChange={(v) => update({ showCommitLabel: v })}
+            />
+            <ToggleControl
+              label={t('advancedStyle.gitRotateCommitLabel')}
+              checked={styleOptions.rotateCommitLabel ?? true}
+              onChange={(v) => update({ rotateCommitLabel: v })}
+            />
+            <ToggleControl
+              label={t('advancedStyle.gitParallelCommits')}
+              checked={styleOptions.parallelCommits ?? false}
+              onChange={(v) => update({ parallelCommits: v })}
+            />
+            <div className="space-y-1.5 pt-1">
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.gitMainBranchName')}</span>
+              <input
+                type="text"
+                aria-label={t('advancedStyle.gitMainBranchName')}
+                placeholder="main"
+                value={styleOptions.mainBranchName ?? ''}
+                onChange={(e) => update({ mainBranchName: e.target.value.trim() ? e.target.value : undefined })}
+                className={`w-full text-[11px] px-2 py-1.5 rounded-sm border outline-hidden ${FOCUS_RING_CLASSES}`}
+                style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Kanban controls (CFG-02: config.kanban.ticketBaseUrl) */}
+        {isKanban && (
+          <div className="space-y-1.5">
+            <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.kanbanTicketBaseUrl')}</span>
+            <input
+              type="text"
+              aria-label={t('advancedStyle.kanbanTicketBaseUrl')}
+              placeholder="https://example.com/browse/#TICKET#"
+              value={styleOptions.ticketBaseUrl ?? ''}
+              onChange={(e) => update({ ticketBaseUrl: e.target.value.trim() ? e.target.value : undefined })}
+              className={`w-full text-[11px] px-2 py-1.5 rounded-sm border outline-hidden ${FOCUS_RING_CLASSES}`}
+              style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+            />
+          </div>
+        )}
+
+        {/* Treemap controls (CFG-02: config.treemap.*) */}
+        {isTreemap && (
+          <div className="space-y-3">
+            <ToggleControl
+              label={t('advancedStyle.showValues')}
+              checked={styleOptions.showValues ?? true}
+              onChange={(v) => update({ showValues: v })}
+            />
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.treemapValueFormat')}</span>
+              <input
+                type="text"
+                aria-label={t('advancedStyle.treemapValueFormat')}
+                placeholder=","
+                value={styleOptions.valueFormat ?? ''}
+                onChange={(e) => update({ valueFormat: e.target.value.trim() ? e.target.value : undefined })}
+                className={`w-full font-mono text-[11px] px-2 py-1.5 rounded-sm border outline-hidden ${FOCUS_RING_CLASSES}`}
+                style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+              />
+            </div>
+            <SliderControl
+              label={t('advancedStyle.diagramPadding')}
+              icon={<Square size={11} />}
+              value={styleOptions.diagramPadding ?? 8}
+              min={0} max={48} step={2} unit="px"
+              onChange={(v) => update({ diagramPadding: v })}
+              theme={theme}
+            />
+          </div>
         )}
 
         {/* Custom CSS (THM-04: Mermaid root config.themeCSS) */}

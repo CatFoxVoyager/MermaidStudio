@@ -130,13 +130,11 @@ describe('media node render oracle (39-01 ICON-01)', { timeout: 30000 }, () => {
   it('renders an unregistered icon node via the unknownIcon fallback (render resolves, no throw)', async () => {
     let host: HTMLElement | null = null;
     try {
-      // 39-02 registered the FA6 packs (fa/fas/far/fab) on the core doInit
-      // path, so `fa:user` now renders the REAL glyph (39-02's oracle pins
-      // that). The unknownIcon fallback premise needs a prefix that stays
-      // unregistered: `logos` is RESEARCH Out-of-Scope (the 8.74 MB
-      // @iconify-json/logos pack is banned), so logos:* can never resolve.
+      // 39-02 registered FA6 packs (fa/fas/far/fab) and Phase 45 (LAY-04)
+      // added on-demand registration for `logos` and `mdi`. The unknownIcon
+      // fallback premise therefore uses a genuinely unregistered prefix.
       const { svg, error } = await renderDiagram(
-        'flowchart TD\nA@{ icon: "logos:react", form: "square" }',
+        'flowchart TD\nA@{ icon: "unregisteredpack:nonexistent", form: "square" }',
         'p39_icon_oracle',
       );
 

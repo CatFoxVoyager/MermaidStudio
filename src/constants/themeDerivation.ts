@@ -31,6 +31,7 @@ const RESTRICTED_THEME_VARIABLES = new Set([
   'pie',
   'mindmap',
   'git',
+  'gitGraph',
   'quadrantChart',
   'xyChart',
   'sankey',
@@ -1225,23 +1226,29 @@ export function injectThemeComment(content: string, themeId: string | null): str
   return `${comment}${cleaned}`;
 }
 
+function formatYamlKey(key: string): string {
+  if (/^[\w.-]+$/.test(key)) return key;
+  return `'${key.replace(/'/g, "''")}'`;
+}
+
 export function objectToYaml(obj: Record<string, any>, indent: number = 0): string {
   const spaces = ' '.repeat(indent);
   let result = '';
   for (const [key, value] of Object.entries(obj)) {
     if (value === undefined || value === null) continue;
+    const yamlKey = formatYamlKey(key);
     if (typeof value === 'object' && !Array.isArray(value)) {
-      result += `${spaces}${key}:\n${objectToYaml(value, indent + 2)}`;
+      result += `${spaces}${yamlKey}:\n${objectToYaml(value, indent + 2)}`;
     } else if (Array.isArray(value)) {
-      result += `${spaces}${key}:\n${spaces}  - ${value.join('\n' + spaces + '  - ')}\n`;
+      result += `${spaces}${yamlKey}:\n${spaces}  - ${value.join('\n' + spaces + '  - ')}\n`;
     } else if (typeof value === 'string') {
       if (value.includes('\n') || value.includes('\r')) {
-        result += `${spaces}${key}: ${JSON.stringify(value)}\n`;
+        result += `${spaces}${yamlKey}: ${JSON.stringify(value)}\n`;
       } else {
-        result += `${spaces}${key}: '${value.replace(/'/g, "''")}'\n`;
+        result += `${spaces}${yamlKey}: '${value.replace(/'/g, "''")}'\n`;
       }
     } else {
-      result += `${spaces}${key}: ${value}\n`;
+      result += `${spaces}${yamlKey}: ${value}\n`;
     }
   }
   return result;
@@ -1288,10 +1295,22 @@ function parseYamlConfig(text: string): YamlConfig {
     const indent = indentMatch ? indentMatch[1].length : 0;
     while (stack.length > 1 && stack[stack.length - 1].indent >= indent) stack.pop();
     const current = stack[stack.length - 1].obj;
-    const kvMatch = trimmed.match(/^([\w.-]+):(?:\s+(.*))?$/);
+    const kvMatch = trimmed.match(/^(?:'((?:''|[^'])*)'|"((?:\\.|[^"\\])*)"|([^:]+?)):(?:\s+(.*))?$/);
     if (!kvMatch) continue;
-    const key = kvMatch[1];
-    const rest = kvMatch[2]?.trim() ?? '';
+    let key: string;
+    if (kvMatch[1] !== undefined) {
+      key = kvMatch[1].replace(/''/g, "'");
+    } else if (kvMatch[2] !== undefined) {
+      try {
+        key = String(JSON.parse(`"${kvMatch[2]}"`));
+      } catch {
+        key = kvMatch[2];
+      }
+    } else {
+      key = kvMatch[3].trim();
+    }
+    if (!key) continue;
+    const rest = kvMatch[4]?.trim() ?? '';
     if (rest === '') {
       const newSection: YamlConfig = {};
       current[key] = newSection;
@@ -2168,6 +2187,249 @@ export function applyStyleToContent(
       }
       hasChanges = true;
     }
+  } else {
+    // CFG-01 & CFG-02: Per-diagram Mermaid 12.3.0 config namespaces
+    const syncSection = (
+      sectionKey: string,
+      mutate: (cfg: Record<string, unknown>) => boolean
+    ) => {
+      const existingSection =
+        newConfig[sectionKey] && typeof newConfig[sectionKey] === 'object'
+          ? (newConfig[sectionKey] as Record<string, unknown>)
+          : {};
+      const cfg: Record<string, unknown> = { ...existingSection };
+      if (mutate(cfg)) {
+        if (Object.keys(cfg).length === 0) {
+          delete newConfig[sectionKey];
+        } else {
+          newConfig[sectionKey] = cfg;
+        }
+        hasChanges = true;
+      }
+    };
+
+    const syncBool = (
+      cfg: Record<string, unknown>,
+      optKey: keyof DiagramStyleOptions,
+      cfgKey: string
+    ): boolean => {
+      const val = styleOptions[optKey];
+      if (typeof val === 'boolean' && cfg[cfgKey] !== val) {
+        cfg[cfgKey] = val;
+        return true;
+      }
+      if (optKey in styleOptions && val === undefined && cfgKey in cfg) {
+        delete cfg[cfgKey];
+        return true;
+      }
+      return false;
+    };
+
+    const syncNumber = (
+      cfg: Record<string, unknown>,
+      optKey: keyof DiagramStyleOptions,
+      cfgKey: string,
+      opts?: { min?: number; max?: number; integer?: boolean; exclusiveMin?: boolean }
+    ): boolean => {
+      const val = styleOptions[optKey];
+      if (typeof val === 'number' && Number.isFinite(val)) {
+        const minOk =
+          opts?.min === undefined
+            ? true
+            : opts.exclusiveMin
+              ? val > opts.min
+              : val >= opts.min;
+        const maxOk = opts?.max === undefined ? true : val <= opts.max;
+        const intOk = opts?.integer ? Number.isInteger(val) : true;
+        if (minOk && maxOk && intOk && cfg[cfgKey] !== val) {
+          cfg[cfgKey] = val;
+          return true;
+        }
+        return false;
+      }
+      if (optKey in styleOptions && val === undefined && cfgKey in cfg) {
+        delete cfg[cfgKey];
+        return true;
+      }
+      return false;
+    };
+
+    const syncEnum = (
+      cfg: Record<string, unknown>,
+      optKey: keyof DiagramStyleOptions,
+      cfgKey: string,
+      allowed: ReadonlySet<string>
+    ): boolean => {
+      const val = styleOptions[optKey];
+      if (typeof val === 'string' && allowed.has(val) && cfg[cfgKey] !== val) {
+        cfg[cfgKey] = val;
+        return true;
+      }
+      if (optKey in styleOptions && val === undefined && cfgKey in cfg) {
+        delete cfg[cfgKey];
+        return true;
+      }
+      return false;
+    };
+
+    const syncString = (
+      cfg: Record<string, unknown>,
+      optKey: keyof DiagramStyleOptions,
+      cfgKey: string
+    ): boolean => {
+      const val = styleOptions[optKey];
+      if (typeof val === 'string') {
+        const trimmed = val.trim();
+        if (trimmed.length > 0 && cfg[cfgKey] !== trimmed) {
+          cfg[cfgKey] = trimmed;
+          return true;
+        }
+        if (trimmed.length === 0 && cfgKey in cfg) {
+          delete cfg[cfgKey];
+          return true;
+        }
+        return false;
+      }
+      if (optKey in styleOptions && val === undefined && cfgKey in cfg) {
+        delete cfg[cfgKey];
+        return true;
+      }
+      return false;
+    };
+
+    if (diagramType === 'pie') {
+      const validLegendPos = new Set(['top', 'bottom', 'left', 'right', 'center']);
+      syncSection('pie', cfg => {
+        let changed = false;
+        changed = syncNumber(cfg, 'donutHole', 'donutHole', { min: 0, max: 0.9 }) || changed;
+        changed = syncEnum(cfg, 'legendPosition', 'legendPosition', validLegendPos) || changed;
+        changed = syncString(cfg, 'highlightSlice', 'highlightSlice') || changed;
+        changed = syncNumber(cfg, 'textPosition', 'textPosition', { min: 0, max: 1 }) || changed;
+        return changed;
+      });
+    } else if (diagramType === 'xyChart') {
+      syncSection('xyChart', cfg => {
+        let changed = false;
+        changed = syncBool(cfg, 'showDataLabel', 'showDataLabel') || changed;
+        changed = syncBool(cfg, 'showDataLabelOutsideBar', 'showDataLabelOutsideBar') || changed;
+        return changed;
+      });
+    } else if (diagramType === 'sankey') {
+      const validLabelStyle = new Set(['legacy', 'outlined']);
+      const validAlign = new Set(['left', 'right', 'center', 'justify']);
+      syncSection('sankey', cfg => {
+        let changed = false;
+        changed = syncEnum(cfg, 'labelStyle', 'labelStyle', validLabelStyle) || changed;
+        changed =
+          syncNumber(cfg, 'sankeyNodeWidth', 'nodeWidth', { min: 0, exclusiveMin: true }) || changed;
+        changed = syncNumber(cfg, 'sankeyNodePadding', 'nodePadding', { min: 0 }) || changed;
+        changed = syncString(cfg, 'linkColor', 'linkColor') || changed;
+        changed = syncEnum(cfg, 'nodeAlignment', 'nodeAlignment', validAlign) || changed;
+        changed = syncBool(cfg, 'showValues', 'showValues') || changed;
+
+        if ('nodeColors' in styleOptions) {
+          const nextMap: Record<string, string> = {};
+          if (styleOptions.nodeColors && typeof styleOptions.nodeColors === 'object') {
+            for (const [k, v] of Object.entries(styleOptions.nodeColors)) {
+              const nk = k.trim();
+              const nv = typeof v === 'string' ? v.trim() : '';
+              if (nk && nv) nextMap[nk] = nv;
+            }
+          }
+          const prevMap =
+            cfg.nodeColors && typeof cfg.nodeColors === 'object'
+              ? (cfg.nodeColors as Record<string, unknown>)
+              : undefined;
+          const nextKeys = Object.keys(nextMap);
+          if (nextKeys.length === 0) {
+            if ('nodeColors' in cfg) {
+              delete cfg.nodeColors;
+              changed = true;
+            }
+          } else {
+            const prevKeys = prevMap ? Object.keys(prevMap) : [];
+            const same =
+              prevKeys.length === nextKeys.length &&
+              nextKeys.every(k => prevMap && prevMap[k] === nextMap[k]);
+            if (!same) {
+              cfg.nodeColors = nextMap;
+              changed = true;
+            }
+          }
+        }
+        return changed;
+      });
+    } else if (diagramType === 'mindmap') {
+      const validColorBy = new Set(['branch', 'depth']);
+      syncSection('mindmap', cfg => syncEnum(cfg, 'colorBy', 'colorBy', validColorBy));
+    } else if (diagramType === 'classDiagram') {
+      syncSection('class', cfg => {
+        let changed = false;
+        changed = syncBool(cfg, 'hierarchicalNamespaces', 'hierarchicalNamespaces') || changed;
+        changed = syncBool(cfg, 'hideEmptyMembersBox', 'hideEmptyMembersBox') || changed;
+        return changed;
+      });
+    } else if (diagramType === 'packetDiagram') {
+      const validBitOrder = new Set(['ascending', 'descending']);
+      syncSection('packet', cfg => {
+        let changed = false;
+        changed = syncEnum(cfg, 'bitOrder', 'bitOrder', validBitOrder) || changed;
+        changed =
+          syncNumber(cfg, 'bitsPerRow', 'bitsPerRow', { min: 1, integer: true }) || changed;
+        changed = syncBool(cfg, 'showBits', 'showBits') || changed;
+        return changed;
+      });
+    } else if (diagramType === 'architectureDiagram') {
+      syncSection('architecture', cfg => {
+        let changed = false;
+        changed = syncBool(cfg, 'randomize', 'randomize') || changed;
+        changed = syncNumber(cfg, 'seed', 'seed', { min: 0, integer: true }) || changed;
+        changed =
+          syncNumber(cfg, 'nodeSeparation', 'nodeSeparation', { min: 0, exclusiveMin: true }) ||
+          changed;
+        changed =
+          syncNumber(cfg, 'idealEdgeLengthMultiplier', 'idealEdgeLengthMultiplier', {
+            min: 0,
+            exclusiveMin: true,
+          }) || changed;
+        changed =
+          syncNumber(cfg, 'edgeElasticity', 'edgeElasticity', { min: 0, exclusiveMin: true }) ||
+          changed;
+        changed = syncNumber(cfg, 'numIter', 'numIter', { min: 1, integer: true }) || changed;
+        return changed;
+      });
+    } else if (diagramType === 'c4') {
+      syncSection('c4', cfg => syncBool(cfg, 'wrap', 'wrap'));
+    } else if (diagramType === 'treeView') {
+      syncSection('treeView', cfg => {
+        let changed = false;
+        changed = syncBool(cfg, 'showIcons', 'showIcons') || changed;
+        changed = syncString(cfg, 'defaultIconPack', 'defaultIconPack') || changed;
+        return changed;
+      });
+    } else if (diagramType === 'timeline') {
+      syncSection('timeline', cfg => syncBool(cfg, 'disableMulticolor', 'disableMulticolor'));
+    } else if (diagramType === 'gitGraph') {
+      syncSection('gitGraph', cfg => {
+        let changed = false;
+        changed = syncBool(cfg, 'showBranches', 'showBranches') || changed;
+        changed = syncBool(cfg, 'showCommitLabel', 'showCommitLabel') || changed;
+        changed = syncBool(cfg, 'rotateCommitLabel', 'rotateCommitLabel') || changed;
+        changed = syncBool(cfg, 'parallelCommits', 'parallelCommits') || changed;
+        changed = syncString(cfg, 'mainBranchName', 'mainBranchName') || changed;
+        return changed;
+      });
+    } else if (diagramType === 'kanban') {
+      syncSection('kanban', cfg => syncString(cfg, 'ticketBaseUrl', 'ticketBaseUrl'));
+    } else if (diagramType === 'treemap') {
+      syncSection('treemap', cfg => {
+        let changed = false;
+        changed = syncBool(cfg, 'showValues', 'showValues') || changed;
+        changed = syncString(cfg, 'valueFormat', 'valueFormat') || changed;
+        changed = syncNumber(cfg, 'diagramPadding', 'diagramPadding', { min: 0 }) || changed;
+        return changed;
+      });
+    }
   }
 
   // 4b. Layout engine & ELK options (LAY-01/02/03)
@@ -2283,6 +2545,19 @@ export function applyStyleToContent(
     !newConfig.gantt &&
     !newConfig.swimlane &&
     !newConfig.agentflow &&
+    !newConfig.pie &&
+    !newConfig.xyChart &&
+    !newConfig.sankey &&
+    !newConfig.mindmap &&
+    !newConfig.class &&
+    !newConfig.packet &&
+    !newConfig.architecture &&
+    !newConfig.c4 &&
+    !newConfig.treeView &&
+    !newConfig.timeline &&
+    !newConfig.gitGraph &&
+    !newConfig.kanban &&
+    !newConfig.treemap &&
     !newConfig.elk &&
     !newConfig.layout &&
     !newConfig.look &&
@@ -2447,6 +2722,186 @@ export function extractStyleOptionsFromContent(
         if (minNodeWidth !== undefined) options.minNodeWidth = minNodeWidth;
         const diagramPadding = parseFiniteNumber(af.diagramPadding);
         if (diagramPadding !== undefined) options.diagramPadding = diagramPadding;
+      }
+
+      // Extract pie specific options (CFG-01)
+      if (config.pie && typeof config.pie === 'object') {
+        const pie = config.pie as Record<string, any>;
+        const donutHole = parseFiniteNumber(pie.donutHole);
+        if (donutHole !== undefined && donutHole >= 0 && donutHole <= 0.9) {
+          options.donutHole = donutHole;
+        }
+        if (
+          pie.legendPosition === 'top' ||
+          pie.legendPosition === 'bottom' ||
+          pie.legendPosition === 'left' ||
+          pie.legendPosition === 'right' ||
+          pie.legendPosition === 'center'
+        ) {
+          options.legendPosition = pie.legendPosition;
+        }
+        if (typeof pie.highlightSlice === 'string' && pie.highlightSlice.trim().length > 0) {
+          options.highlightSlice = pie.highlightSlice.trim();
+        }
+        const textPosition = parseFiniteNumber(pie.textPosition);
+        if (textPosition !== undefined && textPosition >= 0 && textPosition <= 1) {
+          options.textPosition = textPosition;
+        }
+      }
+
+      // Extract xyChart specific options (CFG-01)
+      if (config.xyChart && typeof config.xyChart === 'object') {
+        const xy = config.xyChart as Record<string, any>;
+        const showDataLabel = parseBooleanValue(xy.showDataLabel);
+        if (showDataLabel !== undefined) options.showDataLabel = showDataLabel;
+        const outsideBar = parseBooleanValue(xy.showDataLabelOutsideBar);
+        if (outsideBar !== undefined) options.showDataLabelOutsideBar = outsideBar;
+      }
+
+      // Extract sankey specific options (CFG-01)
+      if (config.sankey && typeof config.sankey === 'object') {
+        const sk = config.sankey as Record<string, any>;
+        if (sk.labelStyle === 'legacy' || sk.labelStyle === 'outlined') {
+          options.labelStyle = sk.labelStyle;
+        }
+        const nodeWidth = parseFiniteNumber(sk.nodeWidth);
+        if (nodeWidth !== undefined && nodeWidth > 0) options.sankeyNodeWidth = nodeWidth;
+        const nodePadding = parseFiniteNumber(sk.nodePadding);
+        if (nodePadding !== undefined && nodePadding >= 0) options.sankeyNodePadding = nodePadding;
+        if (sk.nodeColors && typeof sk.nodeColors === 'object') {
+          const colors: Record<string, string> = {};
+          for (const [k, v] of Object.entries(sk.nodeColors)) {
+            if (typeof v === 'string' && v.trim()) colors[k] = v.trim();
+          }
+          if (Object.keys(colors).length > 0) options.nodeColors = colors;
+        }
+        if (typeof sk.linkColor === 'string' && sk.linkColor.trim().length > 0) {
+          options.linkColor = sk.linkColor.trim();
+        }
+        if (
+          sk.nodeAlignment === 'left' ||
+          sk.nodeAlignment === 'right' ||
+          sk.nodeAlignment === 'center' ||
+          sk.nodeAlignment === 'justify'
+        ) {
+          options.nodeAlignment = sk.nodeAlignment;
+        }
+        const showValues = parseBooleanValue(sk.showValues);
+        if (showValues !== undefined) options.showValues = showValues;
+      }
+
+      // Extract mindmap specific options (CFG-01)
+      if (config.mindmap && typeof config.mindmap === 'object') {
+        const mm = config.mindmap as Record<string, any>;
+        if (mm.colorBy === 'branch' || mm.colorBy === 'depth') {
+          options.colorBy = mm.colorBy;
+        }
+      }
+
+      // Extract class specific options (CFG-02)
+      if (config.class && typeof config.class === 'object') {
+        const cls = config.class as Record<string, any>;
+        const hier = parseBooleanValue(cls.hierarchicalNamespaces);
+        if (hier !== undefined) options.hierarchicalNamespaces = hier;
+        const hideEmpty = parseBooleanValue(cls.hideEmptyMembersBox);
+        if (hideEmpty !== undefined) options.hideEmptyMembersBox = hideEmpty;
+      }
+
+      // Extract packet specific options (CFG-02)
+      if (config.packet && typeof config.packet === 'object') {
+        const pkt = config.packet as Record<string, any>;
+        if (pkt.bitOrder === 'ascending' || pkt.bitOrder === 'descending') {
+          options.bitOrder = pkt.bitOrder;
+        }
+        const bitsPerRow = parseFiniteNumber(pkt.bitsPerRow);
+        if (bitsPerRow !== undefined && Number.isInteger(bitsPerRow) && bitsPerRow >= 1) {
+          options.bitsPerRow = bitsPerRow;
+        }
+        const showBits = parseBooleanValue(pkt.showBits);
+        if (showBits !== undefined) options.showBits = showBits;
+      }
+
+      // Extract architecture specific options (CFG-02)
+      if (config.architecture && typeof config.architecture === 'object') {
+        const arch = config.architecture as Record<string, any>;
+        const randomize = parseBooleanValue(arch.randomize);
+        if (randomize !== undefined) options.randomize = randomize;
+        const archSeed = parseFiniteNumber(arch.seed);
+        if (archSeed !== undefined && Number.isInteger(archSeed) && archSeed >= 0) {
+          options.seed = archSeed;
+        }
+        const nodeSep = parseFiniteNumber(arch.nodeSeparation);
+        if (nodeSep !== undefined && nodeSep > 0) options.nodeSeparation = nodeSep;
+        const idealLen = parseFiniteNumber(arch.idealEdgeLengthMultiplier);
+        if (idealLen !== undefined && idealLen > 0) options.idealEdgeLengthMultiplier = idealLen;
+        const elasticity = parseFiniteNumber(arch.edgeElasticity);
+        if (elasticity !== undefined && elasticity > 0) options.edgeElasticity = elasticity;
+        const numIter = parseFiniteNumber(arch.numIter);
+        if (numIter !== undefined && Number.isInteger(numIter) && numIter >= 1) {
+          options.numIter = numIter;
+        }
+      }
+
+      // Extract C4 specific options (CFG-02)
+      if (config.c4 && typeof config.c4 === 'object') {
+        const c4 = config.c4 as Record<string, any>;
+        const wrap = parseBooleanValue(c4.wrap);
+        if (wrap !== undefined) options.wrap = wrap;
+      }
+
+      // Extract treeView specific options (CFG-02)
+      if (config.treeView && typeof config.treeView === 'object') {
+        const tv = config.treeView as Record<string, any>;
+        const showIcons = parseBooleanValue(tv.showIcons);
+        if (showIcons !== undefined) options.showIcons = showIcons;
+        if (typeof tv.defaultIconPack === 'string' && tv.defaultIconPack.trim().length > 0) {
+          options.defaultIconPack = tv.defaultIconPack.trim();
+        }
+      }
+
+      // Extract timeline specific options (CFG-02)
+      if (config.timeline && typeof config.timeline === 'object') {
+        const tl = config.timeline as Record<string, any>;
+        const disableMulti = parseBooleanValue(tl.disableMulticolor);
+        if (disableMulti !== undefined) options.disableMulticolor = disableMulti;
+      }
+
+      // Extract gitGraph specific options (CFG-02)
+      if (config.gitGraph && typeof config.gitGraph === 'object') {
+        const gg = config.gitGraph as Record<string, any>;
+        const showBranches = parseBooleanValue(gg.showBranches);
+        if (showBranches !== undefined) options.showBranches = showBranches;
+        const showCommitLabel = parseBooleanValue(gg.showCommitLabel);
+        if (showCommitLabel !== undefined) options.showCommitLabel = showCommitLabel;
+        const rotateCommitLabel = parseBooleanValue(gg.rotateCommitLabel);
+        if (rotateCommitLabel !== undefined) options.rotateCommitLabel = rotateCommitLabel;
+        const parallelCommits = parseBooleanValue(gg.parallelCommits);
+        if (parallelCommits !== undefined) options.parallelCommits = parallelCommits;
+        if (typeof gg.mainBranchName === 'string' && gg.mainBranchName.trim().length > 0) {
+          options.mainBranchName = gg.mainBranchName.trim();
+        }
+      }
+
+      // Extract kanban specific options (CFG-02)
+      if (config.kanban && typeof config.kanban === 'object') {
+        const kb = config.kanban as Record<string, any>;
+        if (typeof kb.ticketBaseUrl === 'string' && kb.ticketBaseUrl.trim().length > 0) {
+          options.ticketBaseUrl = kb.ticketBaseUrl.trim();
+        }
+      }
+
+      // Extract treemap specific options (CFG-02)
+      if (config.treemap && typeof config.treemap === 'object') {
+        const tm = config.treemap as Record<string, any>;
+        const showValues = parseBooleanValue(tm.showValues);
+        if (showValues !== undefined) options.showValues = showValues;
+        if (typeof tm.valueFormat === 'string' && tm.valueFormat.trim().length > 0) {
+          options.valueFormat = tm.valueFormat.trim();
+        }
+        const diagramPadding = parseFiniteNumber(tm.diagramPadding);
+        if (diagramPadding !== undefined && diagramPadding >= 0) {
+          options.diagramPadding = diagramPadding;
+        }
       }
 
       // Extract ELK sub-options (LAY-02)

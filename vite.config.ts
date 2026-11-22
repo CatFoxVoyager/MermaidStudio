@@ -49,6 +49,7 @@ export default defineConfig({
   ],
   resolve: {
     tsconfigPaths: true,
+    dedupe: ['react', 'react-dom'],
   },
   define: {
     __APP_VERSION__: JSON.stringify(APP_VERSION),
@@ -216,12 +217,17 @@ export default defineConfig({
               name: 'parsing-libs',
               test: (id: string) => id.includes('node_modules') && (id.includes('langium') || id.includes('chevrotain')),
             },
-            // Iconify JSON icon packs (LAZY: 39-02, ICON-02 + PERF-01). Only
-            // reached through the dynamic import() inside the loader closures
-            // in src/lib/mermaid/iconPacks.ts. The vendor catch-all below
-            // carries the negative clause excluding `@iconify-json` — without
-            // this group ahead of it, the eager vendor file would inline the
-            // ~1.5 MB of FA6 pack JSON into first paint.
+            // Iconify JSON icon packs (LAZY: 39-02 + 45-02, ICON-02 / LAY-04 / PERF-01).
+            // Split logos and mdi ahead of FA6 (`icon-packs`) so each pack downloads
+            // strictly on-demand when its prefix is used, never pulling 13 MB at once.
+            {
+              name: 'icon-pack-logos',
+              test: (id: string) => id.includes('node_modules') && id.includes('@iconify-json/logos'),
+            },
+            {
+              name: 'icon-pack-mdi',
+              test: (id: string) => id.includes('node_modules') && id.includes('@iconify-json/mdi'),
+            },
             {
               name: 'icon-packs',
               test: (id: string) => id.includes('node_modules') && id.includes('@iconify-json'),

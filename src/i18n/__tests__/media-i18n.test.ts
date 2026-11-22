@@ -70,9 +70,23 @@ describe('media i18n parity battery (39-04 + 39-05)', () => {
       expect(typeof enVisual[key]).toBe('string');
       expect(typeof frVisual[key]).toBe('string');
     }
-    // The pack headers are a nested proper-noun object, identical EN/FR.
-    expect(enVisual.iconPacks).toEqual({ solid: 'Solid', regular: 'Regular', brands: 'Brands' });
-    expect(frVisual.iconPacks).toEqual({ solid: 'Solid', regular: 'Regular', brands: 'Brands' });
+    // Phase 45 (LAY-04) expanded iconPacks with All/Logos/MDI and localized labels.
+    expect(enVisual.iconPacks).toEqual({
+      all: 'All',
+      solid: 'Solid',
+      regular: 'Regular',
+      brands: 'Brands',
+      logos: 'Logos',
+      mdi: 'MDI',
+    });
+    expect(frVisual.iconPacks).toEqual({
+      all: 'Tous',
+      solid: 'Solide',
+      regular: 'Régulier',
+      brands: 'Marques',
+      logos: 'Logos',
+      mdi: 'MDI',
+    });
   });
 
   it('keeps EN and FR non-empty for every declared nodeStyle key and locks the copy verbatim', () => {
