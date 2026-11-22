@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { builtinThemes, getThemeById, getThemeByName } from '../themes';
+import { builtinThemes, NATIVE_MERMAID_THEMES, getThemeById, getThemeByName } from '../themes';
 import { getSwatchColors, DEFAULT_DARK_THEME, deriveThemeVariables } from '../themeDerivation';
 import { CUSTOM_PALETTE_A, CUSTOM_PALETTE_B } from './fixtures/palettes';
 import type { ThemeCoreColors } from '@/types';
@@ -7,6 +7,29 @@ import type { ThemeCoreColors } from '@/types';
 describe('themes', () => {
   it('builtinThemes has 10 entries', () => {
     expect(builtinThemes.length).toBe(10);
+  });
+
+  it('NATIVE_MERMAID_THEMES exposes all 11 official Mermaid v12 themes and resolves via getThemeById/Name', () => {
+    const expected = [
+      'redux-color',
+      'redux-dark-color',
+      'redux',
+      'redux-dark',
+      'neo',
+      'neo-dark',
+      'default',
+      'neutral',
+      'dark',
+      'forest',
+      'base',
+    ];
+    expect(NATIVE_MERMAID_THEMES.length).toBe(11);
+    expect(NATIVE_MERMAID_THEMES.map(t => t.baseTheme)).toEqual(expected);
+    for (const theme of NATIVE_MERMAID_THEMES) {
+      expect(theme.isNativeMermaidTheme).toBe(true);
+      expect(getThemeById(theme.id)).toBe(theme);
+      expect(getThemeByName(theme.name)).toBe(theme);
+    }
   });
 
   it('each theme has required fields', () => {

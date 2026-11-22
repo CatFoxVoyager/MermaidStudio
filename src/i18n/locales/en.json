@@ -687,7 +687,18 @@
     "swimlaneLineHopsGap": "Gap",
     "swimlaneLineHopsOff": "Off",
     "swimlaneAutoOrder": "Auto-order lanes",
-    "compactDisplayMode": "Compact display mode"
+    "compactDisplayMode": "Compact display mode",
+    "look": "Visual Look",
+    "lookNeo": "Neo",
+    "lookClassic": "Classic",
+    "lookHandDrawn": "Hand-Drawn",
+    "handDrawnSeed": "Hand-Drawn Seed",
+    "useRecursiveFont": "Use Recursive font",
+    "wardleyHandDrawnUnsupported": "Mermaid Wardley maps do not support the Hand-Drawn look.",
+    "useGradient": "Neo Gradients",
+    "stepNumbers": "Show step numbers",
+    "themeCSS": "Custom CSS (themeCSS)",
+    "themeCSSPlaceholder": ".edge-step-badge { fill: #2563eb; }"
   },
   "mermaidConfig": {
     "title": "Mermaid Diagram Configuration",
@@ -722,7 +733,9 @@
     "preview": "Preview",
     "loadingPreview": "Loading preview...",
     "createTheme": "Create Custom Theme",
-    "editTheme": "Edit Theme"
+    "editTheme": "Edit Theme",
+    "studioPalettes": "Studio & Custom Palettes",
+    "nativeMermaidThemes": "Mermaid Native Themes (v12)"
   },
   "preview": {
     "title": "Preview",

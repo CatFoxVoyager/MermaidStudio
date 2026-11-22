@@ -35,6 +35,20 @@ export interface ThemeCoreColors {
   fontSize?: string;
 }
 
+/** All 11 official Mermaid 12.3.0 native themes */
+export type MermaidBuiltinTheme =
+  | 'redux-color'
+  | 'redux-dark-color'
+  | 'redux'
+  | 'redux-dark'
+  | 'neo'
+  | 'neo-dark'
+  | 'default'
+  | 'neutral'
+  | 'dark'
+  | 'forest'
+  | 'base';
+
 /** A complete theme with metadata and core colors */
 export interface MermaidTheme {
   id: string;
@@ -42,8 +56,10 @@ export interface MermaidTheme {
   description: string;
   isBuiltin: boolean;
   coreColors: ThemeCoreColors;
-  /** Mermaid base theme to use (e.g., 'base', 'default', 'forest', 'neutral', 'dark') */
-  baseTheme?: 'base' | 'default' | 'forest' | 'neutral' | 'dark';
+  /** Mermaid base theme to use (any of the 11 official Mermaid 12.3 native themes) */
+  baseTheme?: MermaidBuiltinTheme;
+  /** True for official Mermaid built-in themes applied directly via config.theme without derived themeVariables overrides */
+  isNativeMermaidTheme?: boolean;
 }
 
 /** Group definition for the theme editor UI */

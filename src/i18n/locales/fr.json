@@ -690,7 +690,18 @@
     "swimlaneLineHopsGap": "Coupure",
     "swimlaneLineHopsOff": "Désactivé",
     "swimlaneAutoOrder": "Ordre auto des couloirs",
-    "compactDisplayMode": "Mode d'affichage compact"
+    "compactDisplayMode": "Mode d'affichage compact",
+    "look": "Style visuel (Look)",
+    "lookNeo": "Neo",
+    "lookClassic": "Classique",
+    "lookHandDrawn": "Dessiné à la main",
+    "handDrawnSeed": "Graine dessin à la main",
+    "useRecursiveFont": "Utiliser la police Recursive",
+    "wardleyHandDrawnUnsupported": "Les cartes Wardley Mermaid ne prennent pas en charge le style dessiné à la main.",
+    "useGradient": "Dégradés Neo",
+    "stepNumbers": "Afficher les numéros d'étape",
+    "themeCSS": "CSS personnalisé (themeCSS)",
+    "themeCSSPlaceholder": ".edge-step-badge { fill: #2563eb; }"
   },
   "mermaidConfig": {
     "title": "Configuration du diagramme Mermaid",
@@ -725,7 +736,9 @@
     "preview": "Aperçu",
     "loadingPreview": "Chargement de l'aperçu...",
     "createTheme": "Créer un Thème Personnalisé",
-    "editTheme": "Modifier le Thème"
+    "editTheme": "Modifier le Thème",
+    "studioPalettes": "Palettes Studio & Personnalisées",
+    "nativeMermaidThemes": "Thèmes natifs Mermaid (v12)"
   },
   "preview": {
     "title": "Aperçu",

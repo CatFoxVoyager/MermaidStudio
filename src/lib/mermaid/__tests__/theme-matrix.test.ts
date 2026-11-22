@@ -550,3 +550,34 @@ describe('Phase 41 themeable families — family-scoped themeVariables render (D
     );
   }
 });
+
+describe('Phase 44 THM-01 — all 11 official Mermaid v12 native themes render cleanly', { timeout: 60000 }, () => {
+  const NATIVE_THEMES = [
+    'redux-color',
+    'redux-dark-color',
+    'redux',
+    'redux-dark',
+    'neo',
+    'neo-dark',
+    'default',
+    'neutral',
+    'dark',
+    'forest',
+    'base',
+  ] as const;
+
+  it.each(NATIVE_THEMES)('renders flowchart with native theme "%s" via renderDiagram', async (nativeTheme) => {
+    initMermaid(nativeTheme.includes('dark') ? 'dark' : 'light', nativeTheme, null);
+    const id = `tmx44_native_${nativeTheme.replace(/-/g, '_')}`;
+    try {
+      const { svg, error } = await renderDiagram(FAMILY_FIXTURES.flowchart, id, `mermaid-${nativeTheme}`);
+      expect(error, `native theme "${nativeTheme}" returned an error: ${error}`).toBeNull();
+      expect(svg).toContain('<svg');
+      expect(svg).toMatch(/<(path|rect|polygon)[\s>]/);
+    } finally {
+      document.getElementById(id)?.remove();
+      document.getElementById(`d${id}`)?.remove();
+    }
+  });
+});
+

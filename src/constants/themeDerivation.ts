@@ -1200,7 +1200,11 @@ export function objectToYaml(obj: Record<string, any>, indent: number = 0): stri
     } else if (Array.isArray(value)) {
       result += `${spaces}${key}:\n${spaces}  - ${value.join('\n' + spaces + '  - ')}\n`;
     } else if (typeof value === 'string') {
-      result += `${spaces}${key}: '${value.replace(/'/g, "''")}'\n`;
+      if (value.includes('\n') || value.includes('\r')) {
+        result += `${spaces}${key}: ${JSON.stringify(value)}\n`;
+      } else {
+        result += `${spaces}${key}: '${value.replace(/'/g, "''")}'\n`;
+      }
     } else {
       result += `${spaces}${key}: ${value}\n`;
     }
@@ -1216,12 +1220,17 @@ interface YamlConfig {
 
 function parseYamlScalar(raw: string): YamlScalar {
   const trimmed = raw.trim();
-  if (
-    (trimmed.startsWith("'") && trimmed.endsWith("'") && trimmed.length >= 2) ||
-    (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2)
-  ) {
-    const inner = trimmed.slice(1, -1);
-    return trimmed.startsWith("'") ? inner.replace(/''/g, "'") : inner;
+  if (trimmed.startsWith("'") && trimmed.endsWith("'") && trimmed.length >= 2) {
+    return trimmed.slice(1, -1).replace(/''/g, "'");
+  }
+  if (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed === 'string') return parsed;
+    } catch {
+      // Fall through to raw unquoted slice for non-JSON double-quoted YAML escapes
+    }
+    return trimmed.slice(1, -1);
   }
   if (trimmed === 'true') return true;
   if (trimmed === 'false') return false;
@@ -1314,7 +1323,11 @@ export function applyThemeToFrontmatter(
           if (typeof value === 'object' && value !== null) {
             for (const [tvKey, tvValue] of Object.entries(value)) {
               existingThemeVars[tvKey] =
-                typeof tvValue === 'object' && tvValue !== null ? tvValue : String(tvValue);
+                typeof tvValue === 'object' && tvValue !== null
+                  ? tvValue
+                  : typeof tvValue === 'boolean'
+                    ? tvValue
+                    : String(tvValue);
             }
           }
         } else if (key !== 'theme') {
@@ -1324,6 +1337,26 @@ export function applyThemeToFrontmatter(
     } catch {
       // Silently ignore parsing errors
     }
+  }
+
+  // Native Mermaid 12.3 themes (THM-01): apply directly via config.theme without
+  // injecting derived color overrides that would mask Mermaid's built-in palette.
+  if (theme.isNativeMermaidTheme && theme.baseTheme) {
+    const preservedNonColorVars: Record<string, unknown> = {};
+    if (existingThemeVars.fontFamily) preservedNonColorVars.fontFamily = existingThemeVars.fontFamily;
+    if (existingThemeVars.fontSize) preservedNonColorVars.fontSize = existingThemeVars.fontSize;
+    if (typeof existingThemeVars.useGradient === 'boolean') {
+      preservedNonColorVars.useGradient = existingThemeVars.useGradient;
+    }
+    const mergedConfig: Record<string, unknown> = {
+      theme: theme.baseTheme,
+      ...(Object.keys(preservedNonColorVars).length > 0
+        ? { themeVariables: preservedNonColorVars }
+        : {}),
+      ...layoutConfig,
+    };
+    const yamlConfig = serializeFrontmatter(frontmatterSiblings, mergedConfig);
+    return `${yamlConfig}\n%% @theme ${theme.id}\n${cleanBody}`;
   }
 
   // Theme switch: drop the previous apply's derived overrides so they are
@@ -1765,6 +1798,72 @@ export function applyStyleToContent(
     hasChanges = true;
   }
 
+  if (
+    typeof styleOptions.useGradient === 'boolean' &&
+    existingConfig.themeVariables?.useGradient !== styleOptions.useGradient
+  ) {
+    ensureThemeVariables();
+    newConfig.themeVariables.useGradient = styleOptions.useGradient;
+    hasChanges = true;
+  }
+
+  // Root-level Mermaid look (THM-02): 'neo' | 'classic' | 'handDrawn'.
+  // Mermaid Wardley maps do not support handDrawn; ignore handDrawn on wardley.
+  if (
+    styleOptions.look === 'neo' ||
+    styleOptions.look === 'classic' ||
+    (styleOptions.look === 'handDrawn' && diagramType !== 'wardley')
+  ) {
+    if (newConfig.look !== styleOptions.look) {
+      newConfig.look = styleOptions.look;
+      hasChanges = true;
+    }
+  } else if (
+    'look' in styleOptions &&
+    styleOptions.look === undefined &&
+    'look' in newConfig
+  ) {
+    delete newConfig.look;
+    hasChanges = true;
+  }
+
+  // Root-level handDrawnSeed (integer >= 0)
+  if (
+    typeof styleOptions.handDrawnSeed === 'number' &&
+    Number.isInteger(styleOptions.handDrawnSeed) &&
+    styleOptions.handDrawnSeed >= 0 &&
+    newConfig.handDrawnSeed !== styleOptions.handDrawnSeed
+  ) {
+    newConfig.handDrawnSeed = styleOptions.handDrawnSeed;
+    hasChanges = true;
+  } else if (
+    'handDrawnSeed' in styleOptions &&
+    styleOptions.handDrawnSeed === undefined &&
+    'handDrawnSeed' in newConfig
+  ) {
+    delete newConfig.handDrawnSeed;
+    hasChanges = true;
+  }
+
+  // Root-level themeCSS (THM-04): strip </style tag breakout attempts for SVG safety.
+  if (typeof styleOptions.themeCSS === 'string') {
+    const safeCss = styleOptions.themeCSS.replace(/<\/style/gi, '').trim();
+    if (safeCss.length > 0 && newConfig.themeCSS !== safeCss) {
+      newConfig.themeCSS = safeCss;
+      hasChanges = true;
+    } else if (safeCss.length === 0 && 'themeCSS' in newConfig) {
+      delete newConfig.themeCSS;
+      hasChanges = true;
+    }
+  } else if (
+    'themeCSS' in styleOptions &&
+    styleOptions.themeCSS === undefined &&
+    'themeCSS' in newConfig
+  ) {
+    delete newConfig.themeCSS;
+    hasChanges = true;
+  }
+
   // Root-level Mermaid option: markdownAutoWrap (default true in Mermaid 12.3).
   if (typeof styleOptions.markdownAutoWrap === 'boolean') {
     if (newConfig.markdownAutoWrap !== styleOptions.markdownAutoWrap) {
@@ -1809,6 +1908,13 @@ export function applyStyleToContent(
       'stepDuration' in flowchartCfg
     ) {
       delete flowchartCfg.stepDuration;
+      hasFlowchartChanges = true;
+    }
+    if (
+      typeof styleOptions.stepNumbers === 'boolean' &&
+      flowchartCfg.stepNumbers !== styleOptions.stepNumbers
+    ) {
+      flowchartCfg.stepNumbers = styleOptions.stepNumbers;
       hasFlowchartChanges = true;
     }
     if (
@@ -2019,6 +2125,9 @@ export function applyStyleToContent(
     !newConfig.gantt &&
     !newConfig.swimlane &&
     !newConfig.layout &&
+    !newConfig.look &&
+    newConfig.handDrawnSeed === undefined &&
+    !newConfig.themeCSS &&
     newConfig.markdownAutoWrap === undefined
   ) {
     return content;
@@ -2028,7 +2137,9 @@ export function applyStyleToContent(
     return stripped;
   }
 
-  if (hasThemeVars) newConfig.theme = 'base';
+  // Preserve an explicit native Mermaid theme (e.g. redux-color, neo) if already configured;
+  // default to 'base' only when custom themeVariables are introduced with no existing theme.
+  if (hasThemeVars && !newConfig.theme) newConfig.theme = 'base';
 
   const yamlConfig = serializeFrontmatter(newSiblings, newConfig);
   return yamlConfig + '\n\n' + stripped;
@@ -2076,6 +2187,20 @@ export function extractStyleOptionsFromContent(
           options.fontSize = parseInt(fs, 10);
         }
         if (tv.primaryColor) options.primaryColor = String(tv.primaryColor);
+        const useGrad = parseBooleanValue(tv.useGradient);
+        if (useGrad !== undefined) options.useGradient = useGrad;
+      }
+
+      // Extract root look, handDrawnSeed, themeCSS, markdownAutoWrap
+      if (config.look === 'neo' || config.look === 'classic' || config.look === 'handDrawn') {
+        options.look = config.look;
+      }
+      const seed = parseFiniteNumber(config.handDrawnSeed);
+      if (seed !== undefined && Number.isInteger(seed) && seed >= 0) {
+        options.handDrawnSeed = seed;
+      }
+      if (typeof config.themeCSS === 'string' && config.themeCSS.trim().length > 0) {
+        options.themeCSS = config.themeCSS;
       }
 
       // Root markdownAutoWrap (preferred in Mermaid 12.3)
@@ -2093,6 +2218,8 @@ export function extractStyleOptionsFromContent(
         if (fc.rankSpacing !== undefined) options.rankSpacing = parseInt(String(fc.rankSpacing), 10);
         const sd = parseFiniteNumber(fc.stepDuration);
         if (sd !== undefined && sd > 0) options.stepDuration = sd;
+        const stepNums = parseBooleanValue(fc.stepNumbers);
+        if (stepNums !== undefined) options.stepNumbers = stepNums;
         // Backward-compatible read of legacy nested flowchart.markdownAutoWrap
         if (options.markdownAutoWrap === undefined) {
           const legacyWrap = parseBooleanValue(fc.markdownAutoWrap);

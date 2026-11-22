@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Type, Maximize2, ArrowLeftRight, ArrowUpDown, Spline, Square, RotateCcw, LayoutGrid, X, SlidersHorizontal, Compass, Waypoints, Rows3 } from 'lucide-react';
+import { Type, Maximize2, ArrowLeftRight, ArrowUpDown, Spline, Square, RotateCcw, LayoutGrid, X, SlidersHorizontal, Compass, Waypoints, Rows3, Sparkles, Code2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { DEFAULT_STYLE_OPTIONS, type DiagramStyleOptions, type DiagramDirection, type LayoutEngine, type DiagramType, getStylingCapabilities } from '@/types';
+import { DEFAULT_STYLE_OPTIONS, type DiagramStyleOptions, type DiagramDirection, type DiagramLook, type LayoutEngine, type DiagramType, getStylingCapabilities } from '@/types';
 import { applyStyleToContent, extractStyleOptionsFromContent } from '@/constants/themeDerivation';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 import { detectDiagramType } from '@/lib/mermaid/diagramType';
@@ -297,6 +297,113 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
           onChange={v => update({ primaryColor: v })}
         />
 
+        {/* Visual Look (THM-02): Neo / Classic / Hand-Drawn */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <Sparkles size={11} style={{ color: 'var(--text-tertiary)' }} />
+            <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.look')}</span>
+          </div>
+          <div className="grid grid-cols-3 gap-1">
+            {([
+              { value: 'neo' as DiagramLook, label: t('advancedStyle.lookNeo') },
+              { value: 'classic' as DiagramLook, label: t('advancedStyle.lookClassic') },
+              { value: 'handDrawn' as DiagramLook, label: t('advancedStyle.lookHandDrawn') },
+            ]).map(opt => {
+              const effectiveLook: DiagramLook = styleOptions.look ?? 'neo';
+              const isWardleyBlocked = opt.value === 'handDrawn' && diagramType === 'wardley';
+              const active = !isWardleyBlocked && effectiveLook === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  disabled={isWardleyBlocked}
+                  aria-pressed={active}
+                  title={isWardleyBlocked ? t('advancedStyle.wardleyHandDrawnUnsupported') : undefined}
+                  onClick={() => update({ look: opt.value })}
+                  className={`py-1.5 rounded-sm border transition-all text-center ${FOCUS_RING_CLASSES} ${isWardleyBlocked ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  style={{
+                    background: active
+                      ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
+                      : 'transparent',
+                    borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
+                    color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                  }}
+                >
+                  <span className="text-[11px] font-medium">{opt.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          {diagramType === 'wardley' && (
+            <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+              {t('advancedStyle.wardleyHandDrawnUnsupported')}
+            </p>
+          )}
+        </div>
+
+        {/* Hand-Drawn options: deterministic seed + Recursive font shortcut */}
+        {styleOptions.look === 'handDrawn' && diagramType !== 'wardley' && (
+          <div className="space-y-2 px-2.5 py-2 rounded-lg border" style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.handDrawnSeed')}</span>
+              <input
+                type="number"
+                min={0}
+                step={1}
+                aria-label={t('advancedStyle.handDrawnSeed')}
+                value={styleOptions.handDrawnSeed ?? ''}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === '') {
+                    update({ handDrawnSeed: undefined });
+                    return;
+                  }
+                  const n = Number(raw);
+                  if (!Number.isInteger(n) || n < 0) return;
+                  update({ handDrawnSeed: n });
+                }}
+                className={`w-20 text-xs px-2 py-1 rounded-sm border text-right tabular-nums outline-hidden ${FOCUS_RING_CLASSES}`}
+                style={{
+                  background: 'var(--surface-raised)',
+                  borderColor: 'var(--border-subtle)',
+                  color: 'var(--text-primary)',
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                ensureGoogleFontsForFamily('Recursive, sans-serif');
+                update({ fontFamily: 'Recursive, sans-serif' });
+              }}
+              className={`w-full text-[11px] py-1 px-2 rounded-sm border transition-colors hover:bg-[var(--hover)] ${FOCUS_RING_CLASSES}`}
+              style={{
+                borderColor: 'var(--border-subtle)',
+                color: 'var(--accent)',
+              }}
+            >
+              {t('advancedStyle.useRecursiveFont')}
+            </button>
+          </div>
+        )}
+
+        {/* Neo Gradients toggle (applies in Neo look) */}
+        {(styleOptions.look ?? 'neo') === 'neo' && (
+          <label className="flex items-center justify-between gap-2 cursor-pointer">
+            <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.useGradient')}</span>
+            <input
+              type="checkbox"
+              className="peer sr-only"
+              checked={styleOptions.useGradient ?? true}
+              onChange={(e) => update({ useGradient: e.target.checked })}
+            />
+            <div aria-hidden="true"
+              className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.useGradient ?? true) ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+              <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.useGradient ?? true) ? 'left-[18px]' : 'left-0.5'}`} />
+            </div>
+          </label>
+        )}
+
         {!hasConfigOptions && (
           <div className="text-center py-6 px-3 rounded-lg border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-floating)' }}>
             <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
@@ -504,6 +611,21 @@ end`}
                   }}
                 />
               </div>
+
+              {/* Flowchart step numbers (THM-03: Mermaid 12.3 flowchart.stepNumbers) */}
+              <label className="flex items-center justify-between gap-2 cursor-pointer">
+                <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.stepNumbers')}</span>
+                <input
+                  type="checkbox"
+                  className="peer sr-only"
+                  checked={styleOptions.stepNumbers ?? false}
+                  onChange={(e) => update({ stepNumbers: e.target.checked })}
+                />
+                <div aria-hidden="true"
+                  className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.stepNumbers ?? false) ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+                  <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.stepNumbers ?? false) ? 'left-[18px]' : 'left-0.5'}`} />
+                </div>
+              </label>
 
               {/* Markdown auto-wrap (Mermaid root config.markdownAutoWrap,
                   default true; undefined writes no config key until toggled). */}
@@ -821,6 +943,31 @@ end`}
             </label>
           </>
         )}
+
+        {/* Custom CSS (THM-04: Mermaid root config.themeCSS) */}
+        <div className="space-y-1.5 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+          <div className="flex items-center gap-1.5">
+            <Code2 size={11} style={{ color: 'var(--text-tertiary)' }} />
+            <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.themeCSS')}</span>
+          </div>
+          <textarea
+            aria-label={t('advancedStyle.themeCSS')}
+            rows={3}
+            spellCheck={false}
+            placeholder={t('advancedStyle.themeCSSPlaceholder')}
+            value={styleOptions.themeCSS ?? ''}
+            onChange={(e) => {
+              const raw = e.target.value;
+              update({ themeCSS: raw.trim().length === 0 ? undefined : raw });
+            }}
+            className={`w-full font-mono text-[11px] px-2 py-1.5 rounded-sm border outline-hidden resize-y ${FOCUS_RING_CLASSES}`}
+            style={{
+              background: 'var(--surface-base)',
+              borderColor: 'var(--border-subtle)',
+              color: 'var(--text-primary)',
+            }}
+          />
+        </div>
 
         {!isDefault && (
           <button

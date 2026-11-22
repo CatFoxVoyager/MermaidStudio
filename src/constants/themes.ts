@@ -339,13 +339,231 @@ export const THEME_SLOT_GROUPS: ThemeSlotGroup[] = [
 ];
 
 /**
+ * All 11 official Mermaid 12.3.0 native themes, rendered directly via `config.theme`
+ * without derived `themeVariables` overrides.
+ */
+export const NATIVE_MERMAID_THEMES: MermaidTheme[] = [
+  {
+    id: 'mermaid-redux-color',
+    name: 'Mermaid Redux Color',
+    description: 'Official Mermaid v12 colorful modern Neo/Redux theme',
+    isBuiltin: true,
+    isNativeMermaidTheme: true,
+    baseTheme: 'redux-color',
+    coreColors: {
+      primaryColor: '#ECECFF',
+      secondaryColor: '#FFF5AD',
+      background: '#FFFFFF',
+      lineColor: '#333333',
+      primaryTextColor: '#1E1E1E',
+      successColor: '#22C55E',
+      warningColor: '#F59E0B',
+      errorColor: '#EF4444',
+      infoColor: '#3B82F6',
+    },
+  },
+  {
+    id: 'mermaid-redux-dark-color',
+    name: 'Mermaid Redux Dark Color',
+    description: 'Official Mermaid v12 colorful dark Neo/Redux theme',
+    isBuiltin: true,
+    isNativeMermaidTheme: true,
+    baseTheme: 'redux-dark-color',
+    coreColors: {
+      primaryColor: '#2E3440',
+      secondaryColor: '#3B4252',
+      background: '#12151C',
+      lineColor: '#A3BE8C',
+      primaryTextColor: '#ECEFF4',
+      successColor: '#4ADE80',
+      warningColor: '#FBBF24',
+      errorColor: '#F87171',
+      infoColor: '#60A5FA',
+    },
+  },
+  {
+    id: 'mermaid-redux',
+    name: 'Mermaid Redux',
+    description: 'Official Mermaid v12 clean monochrome light Redux theme',
+    isBuiltin: true,
+    isNativeMermaidTheme: true,
+    baseTheme: 'redux',
+    coreColors: {
+      primaryColor: '#F4F4F5',
+      secondaryColor: '#E4E4E7',
+      background: '#FFFFFF',
+      lineColor: '#27272A',
+      primaryTextColor: '#18181B',
+      successColor: '#16A34A',
+      warningColor: '#D97706',
+      errorColor: '#DC2626',
+      infoColor: '#2563EB',
+    },
+  },
+  {
+    id: 'mermaid-redux-dark',
+    name: 'Mermaid Redux Dark',
+    description: 'Official Mermaid v12 clean monochrome dark Redux theme',
+    isBuiltin: true,
+    isNativeMermaidTheme: true,
+    baseTheme: 'redux-dark',
+    coreColors: {
+      primaryColor: '#27272A',
+      secondaryColor: '#3F3F46',
+      background: '#09090B',
+      lineColor: '#D4D4D8',
+      primaryTextColor: '#FAFAFA',
+      successColor: '#22C55E',
+      warningColor: '#F59E0B',
+      errorColor: '#EF4444',
+      infoColor: '#3B82F6',
+    },
+  },
+  {
+    id: 'mermaid-neo',
+    name: 'Mermaid Neo',
+    description: 'Official Mermaid v12 crisp light Neo theme with subtle depth',
+    isBuiltin: true,
+    isNativeMermaidTheme: true,
+    baseTheme: 'neo',
+    coreColors: {
+      primaryColor: '#F3F0FF',
+      secondaryColor: '#E9D5FF',
+      background: '#FFFFFF',
+      lineColor: '#5B21B6',
+      primaryTextColor: '#1F2937',
+      successColor: '#10B981',
+      warningColor: '#F59E0B',
+      errorColor: '#EF4444',
+      infoColor: '#6366F1',
+    },
+  },
+  {
+    id: 'mermaid-neo-dark',
+    name: 'Mermaid Neo Dark',
+    description: 'Official Mermaid v12 crisp dark Neo theme',
+    isBuiltin: true,
+    isNativeMermaidTheme: true,
+    baseTheme: 'neo-dark',
+    coreColors: {
+      primaryColor: '#262135',
+      secondaryColor: '#342B4A',
+      background: '#0F111A',
+      lineColor: '#A78BFA',
+      primaryTextColor: '#F3F4F6',
+      successColor: '#34D399',
+      warningColor: '#FBBF24',
+      errorColor: '#F87171',
+      infoColor: '#818CF8',
+    },
+  },
+  {
+    id: 'mermaid-default',
+    name: 'Mermaid Default',
+    description: 'Classic Mermaid default lavender theme',
+    isBuiltin: true,
+    isNativeMermaidTheme: true,
+    baseTheme: 'default',
+    coreColors: {
+      primaryColor: '#ECECFF',
+      secondaryColor: '#FFFFDE',
+      background: '#FFFFFF',
+      lineColor: '#333333',
+      primaryTextColor: '#333333',
+      successColor: '#22C55E',
+      warningColor: '#F59E0B',
+      errorColor: '#EF4444',
+      infoColor: '#3B82F6',
+    },
+  },
+  {
+    id: 'mermaid-neutral',
+    name: 'Mermaid Neutral',
+    description: 'Official Mermaid grayscale theme ideal for print and docs',
+    isBuiltin: true,
+    isNativeMermaidTheme: true,
+    baseTheme: 'neutral',
+    coreColors: {
+      primaryColor: '#EEEEEE',
+      secondaryColor: '#DDDDDD',
+      background: '#FFFFFF',
+      lineColor: '#666666',
+      primaryTextColor: '#111111',
+      successColor: '#4B5563',
+      warningColor: '#6B7280',
+      errorColor: '#374151',
+      infoColor: '#9CA3AF',
+    },
+  },
+  {
+    id: 'mermaid-dark',
+    name: 'Mermaid Dark',
+    description: 'Official Mermaid classic dark theme',
+    isBuiltin: true,
+    isNativeMermaidTheme: true,
+    baseTheme: 'dark',
+    coreColors: {
+      primaryColor: '#1F2020',
+      secondaryColor: '#333333',
+      background: '#121212',
+      lineColor: '#81B1DB',
+      primaryTextColor: '#CCCCCC',
+      successColor: '#4ADE80',
+      warningColor: '#FACC15',
+      errorColor: '#F87171',
+      infoColor: '#60A5FA',
+    },
+  },
+  {
+    id: 'mermaid-forest',
+    name: 'Mermaid Forest',
+    description: 'Official Mermaid vibrant green forest theme',
+    isBuiltin: true,
+    isNativeMermaidTheme: true,
+    baseTheme: 'forest',
+    coreColors: {
+      primaryColor: '#CDE498',
+      secondaryColor: '#93C47D',
+      background: '#FFFFFF',
+      lineColor: '#13540C',
+      primaryTextColor: '#1B3B18',
+      successColor: '#15803D',
+      warningColor: '#CA8A04',
+      errorColor: '#DC2626',
+      infoColor: '#0D9488',
+    },
+  },
+  {
+    id: 'mermaid-base',
+    name: 'Mermaid Base',
+    description: 'Official Mermaid minimal base theme for custom overrides',
+    isBuiltin: true,
+    isNativeMermaidTheme: true,
+    baseTheme: 'base',
+    coreColors: {
+      primaryColor: '#F4F4F4',
+      secondaryColor: '#E5E7EB',
+      background: '#FFFFFF',
+      lineColor: '#555555',
+      primaryTextColor: '#222222',
+      successColor: '#22C55E',
+      warningColor: '#F59E0B',
+      errorColor: '#EF4444',
+      infoColor: '#3B82F6',
+    },
+  },
+];
+
+/**
  * Find a theme by its ID.
- * Searches in builtin themes first, then in localStorage custom themes.
+ * Searches in builtin studio themes, native Mermaid v12 themes, then localStorage custom themes.
  */
 export function getThemeById(id: string): MermaidTheme | undefined {
-  // First, search in builtin themes
   const builtinTheme = builtinThemes.find(t => t.id === id);
   if (builtinTheme) return builtinTheme;
+
+  const nativeTheme = NATIVE_MERMAID_THEMES.find(t => t.id === id);
+  if (nativeTheme) return nativeTheme;
 
   // Then, search in localStorage custom themes
   try {
@@ -366,5 +584,8 @@ export function getThemeById(id: string): MermaidTheme | undefined {
  */
 export function getThemeByName(name: string): MermaidTheme | undefined {
   const lowerName = name.toLowerCase();
-  return builtinThemes.find(t => t.name.toLowerCase() === lowerName);
+  return (
+    builtinThemes.find(t => t.name.toLowerCase() === lowerName) ??
+    NATIVE_MERMAID_THEMES.find(t => t.name.toLowerCase() === lowerName)
+  );
 }

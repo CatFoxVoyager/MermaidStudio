@@ -92,6 +92,11 @@ export const SUPPORTED_GOOGLE_FONTS: GoogleFont[] = [
     family: 'Architects Daughter, cursive',
     url: 'https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap',
   },
+  {
+    name: 'Recursive',
+    family: 'Recursive, sans-serif',
+    url: 'https://fonts.googleapis.com/css2?family=Recursive:wght@300..800&display=swap',
+  },
 ];
 
 export const FONT_FAMILY_OPTIONS = SUPPORTED_GOOGLE_FONTS.map(f => f.family);

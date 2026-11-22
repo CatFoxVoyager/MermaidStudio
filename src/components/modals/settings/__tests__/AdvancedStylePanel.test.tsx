@@ -33,6 +33,18 @@ vi.mock('react-i18next', () => ({
         'advancedStyle.swimlaneLineHopsGap': 'Gap',
         'advancedStyle.swimlaneLineHopsOff': 'Off',
         'advancedStyle.swimlaneAutoOrder': 'Auto-order lanes',
+        // Phase 44 THM-02/03/04 controls.
+        'advancedStyle.look': 'Visual Look',
+        'advancedStyle.lookNeo': 'Neo',
+        'advancedStyle.lookClassic': 'Classic',
+        'advancedStyle.lookHandDrawn': 'Hand-Drawn',
+        'advancedStyle.handDrawnSeed': 'Hand-Drawn Seed',
+        'advancedStyle.useRecursiveFont': 'Use Recursive font',
+        'advancedStyle.wardleyHandDrawnUnsupported': 'Mermaid Wardley maps do not support the Hand-Drawn look.',
+        'advancedStyle.useGradient': 'Neo Gradients',
+        'advancedStyle.stepNumbers': 'Show step numbers',
+        'advancedStyle.themeCSS': 'Custom CSS (themeCSS)',
+        'advancedStyle.themeCSSPlaceholder': '.edge-step-badge { fill: #2563eb; }',
       };
       return map[key] ?? (typeof fallbackOrOpts === 'string' ? fallbackOrOpts : key);
     },
@@ -284,3 +296,48 @@ describe('AdvancedStylePanel Swimlane config (41-01 DIAG-03)', () => {
     expect(screen.queryByLabelText('Auto-order lanes')).toBeNull();
   });
 });
+
+describe('AdvancedStylePanel Phase 44 THM-02/03/04 controls', () => {
+  it('writes look, handDrawnSeed, Recursive font shortcut, and useGradient into frontmatter', () => {
+    const { onContentChange } = renderPanel(FLOWCHART_CONTENT);
+
+    // Neo Gradients visible by default in Neo look
+    const gradToggle = screen.getByLabelText('Neo Gradients') as HTMLInputElement;
+    expect(gradToggle.checked).toBe(true);
+    fireEvent.click(gradToggle);
+    expect(lastAppliedContent(onContentChange)).toContain('useGradient: false');
+
+    // Switch to Hand-Drawn look -> reveals seed + Recursive shortcut
+    fireEvent.click(screen.getByRole('button', { name: 'Hand-Drawn' }));
+    expect(lastAppliedContent(onContentChange)).toContain("look: 'handDrawn'");
+
+    const seedInput = screen.getByLabelText('Hand-Drawn Seed');
+    fireEvent.change(seedInput, { target: { value: '7' } });
+    expect(lastAppliedContent(onContentChange)).toContain('handDrawnSeed: 7');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Use Recursive font' }));
+    expect(lastAppliedContent(onContentChange)).toContain("fontFamily: 'Recursive, sans-serif'");
+  });
+
+  it('disables Hand-Drawn look on Wardley maps with explanatory notice', () => {
+    renderPanel(`wardley-beta\n  anchor User [0.95, 0.5]\n  component App [0.7, 0.5]`);
+    const handDrawnBtn = screen.getByRole('button', { name: 'Hand-Drawn' }) as HTMLButtonElement;
+    expect(handDrawnBtn.disabled).toBe(true);
+    expect(screen.getByText('Mermaid Wardley maps do not support the Hand-Drawn look.')).toBeTruthy();
+  });
+
+  it('toggles flowchart.stepNumbers and writes custom themeCSS', () => {
+    const { onContentChange } = renderPanel(FLOWCHART_CONTENT);
+
+    const stepToggle = screen.getByLabelText('Show step numbers') as HTMLInputElement;
+    expect(stepToggle.checked).toBe(false);
+    fireEvent.click(stepToggle);
+    expect(lastAppliedContent(onContentChange)).toMatch(/flowchart:\n[\s\S]*stepNumbers: true/);
+
+    const cssInput = screen.getByLabelText('Custom CSS (themeCSS)');
+    fireEvent.change(cssInput, { target: { value: '.node rect { rx: 8px; }' } });
+    expect(lastAppliedContent(onContentChange)).toContain('themeCSS:');
+    expect(lastAppliedContent(onContentChange)).toContain('.node rect { rx: 8px; }');
+  });
+});
+

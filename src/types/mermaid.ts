@@ -48,6 +48,7 @@ export interface Template {
 
 export type LayoutEngine = 'dagre' | 'elk' | 'elk.stress';
 export type DiagramDirection = 'TD' | 'TB' | 'BT' | 'LR' | 'RL';
+export type DiagramLook = 'neo' | 'classic' | 'handDrawn';
 
 // Base style options that apply to all diagram types
 export interface BaseStyleOptions {
@@ -105,8 +106,12 @@ export interface GanttStyleOptions {
 
 // Combined style options for all types
 export interface DiagramStyleOptions extends BaseStyleOptions {
-  // Theme variables (apply to all diagram types)
+  // Theme variables & global Mermaid look/CSS options (apply to all diagram types)
   primaryColor?: string;
+  look?: DiagramLook;
+  handDrawnSeed?: number;
+  useGradient?: boolean;
+  themeCSS?: string;
 
   // Global Edge options
   edgeStrokeWidth?: number;
@@ -138,6 +143,7 @@ export interface DiagramStyleOptions extends BaseStyleOptions {
     | 'stepBefore'
     | 'rounded';
   stepDuration?: number;
+  stepNumbers?: boolean;
   markdownAutoWrap?: boolean;
   borderRadius?: number;
   borderWidth?: number;

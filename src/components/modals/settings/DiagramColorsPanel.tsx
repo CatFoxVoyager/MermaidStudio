@@ -1,5 +1,5 @@
 import { RotateCcw, X, Palette, Check, Plus, Pencil, Star, Trash2 } from 'lucide-react';
-import { builtinThemes, getThemeById } from '@/constants/themes';
+import { builtinThemes, NATIVE_MERMAID_THEMES } from '@/constants/themes';
 import { applyC4FromTheme, stripThemeDirective, getSwatchColors, applyThemeToFrontmatter, removeThemeColorsFromFrontmatter } from '@/constants/themeDerivation';
 import type { MermaidTheme, DiagramType } from '@/types';
 import { getStylingCapabilities } from '@/types';
@@ -228,136 +228,203 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
           </button>
         )}
 
-        {/* Themes List */}
-        {allThemes.map((themeItem) => {
-          const isActive = currentThemeId === themeItem.id;
-          const isSelected = selectedTheme?.id === themeItem.id;
-          const showPreview = isSelected && previewSvg;
-          const swatchColors = getSwatchColors(themeItem.coreColors, isDark);
-
-          return (
-            <div
-              key={themeItem.id}
-              data-testid="theme-item"
-              onClick={() => setSelectedTheme(themeItem)}
-              className="rounded-lg border transition-all overflow-hidden cursor-pointer"
-              style={{
-                background: isActive
-                  ? (isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)')
-                  : (isSelected ? 'var(--surface-floating)' : 'var(--surface-base)'),
-                borderColor: isActive ? 'var(--accent)' : (isSelected ? 'var(--accent)' : 'var(--border-subtle)'),
-              }}
-              title={themeItem.description}
+        {/* Studio & Custom Palettes + Official Mermaid v12 Native Themes */}
+        {(
+          [
+            {
+              key: 'studio',
+              heading: t('themeEditor.studioPalettes'),
+              themes: allThemes,
+            },
+            {
+              key: 'native',
+              heading: t('themeEditor.nativeMermaidThemes'),
+              themes: NATIVE_MERMAID_THEMES,
+            },
+          ] as const
+        ).map(section => (
+          <div key={section.key} className="space-y-2.5">
+            <h3
+              className="text-[10px] font-bold uppercase tracking-wider px-0.5 pt-1"
+              style={{ color: 'var(--text-tertiary)' }}
             >
-              <div className="p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-[11px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    {themeItem.name}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    {isActive && (
-                      <span className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
-                        style={{ color: 'var(--accent)', background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' }}>
-                        Active
-                      </span>
-                    )}
-                    {!themeItem.isBuiltin && (
-                      <>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditTheme(themeItem);
-                          }}
-                          className="p-1 rounded transition-colors hover:bg-[var(--hover)]"
-                          style={{ color: 'var(--text-secondary)' }}
-                          title={t('themeEditor.editTheme')}
-                        >
-                          <Pencil size={10} />
-                        </button>
-                        <button
-                          onClick={(e) => handleDeleteTheme(e, themeItem.id)}
-                          className="p-1 rounded transition-colors hover:bg-red-500/20 hover:text-red-500"
-                          style={{ color: 'var(--text-tertiary)' }}
-                          title="Delete theme"
-                        >
-                          <Trash2 size={10} />
-                        </button>
-                      </>
-                    )}
-                    {isSelected && !isActive && (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleApplyTheme(themeItem);
-                          }}
-                          className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium text-white transition-colors hover:opacity-90"
-                          style={{ background: 'var(--accent)' }}
-                        >
-                          <Check size={10} />
-                          Apply
-                        </button>
-                        {onSetDefaultTheme && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onSetDefaultTheme(themeItem);
+              {section.heading}
+            </h3>
+            {section.themes.map(themeItem => {
+              const isActive = currentThemeId === themeItem.id;
+              const isSelected = selectedTheme?.id === themeItem.id;
+              const showPreview = isSelected && previewSvg;
+              const swatchColors = getSwatchColors(themeItem.coreColors, isDark);
+
+              return (
+                <div
+                  key={themeItem.id}
+                  data-testid="theme-item"
+                  data-native-theme={themeItem.isNativeMermaidTheme ? themeItem.baseTheme : undefined}
+                  onClick={() => setSelectedTheme(themeItem)}
+                  className="rounded-lg border transition-all overflow-hidden cursor-pointer"
+                  style={{
+                    background: isActive
+                      ? isDark
+                        ? 'rgba(255,255,255,0.05)'
+                        : 'rgba(0,0,0,0.03)'
+                      : isSelected
+                        ? 'var(--surface-floating)'
+                        : 'var(--surface-base)',
+                    borderColor: isActive
+                      ? 'var(--accent)'
+                      : isSelected
+                        ? 'var(--accent)'
+                        : 'var(--border-subtle)',
+                  }}
+                  title={themeItem.description}
+                >
+                  <div className="p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <p className="text-[11px] font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                          {themeItem.name}
+                        </p>
+                        {themeItem.isNativeMermaidTheme && themeItem.baseTheme && (
+                          <span
+                            className="text-[9px] font-mono px-1 py-0.5 rounded shrink-0"
+                            style={{
+                              color: 'var(--text-tertiary)',
+                              background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
                             }}
-                            className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-                              defaultThemeId === themeItem.id
-                                ? 'text-green-400 bg-green-500/10'
-                                : 'hover:bg-[var(--hover)]'
-                            }`}
-                            style={{ color: defaultThemeId === themeItem.id ? '#4ade80' : 'var(--text-secondary)' }}
-                            title={defaultThemeId === themeItem.id ? 'Current default theme' : 'Set as app default'}
                           >
-                            <Star size={10} />
-                            {defaultThemeId === themeItem.id ? 'Default' : 'Set Default'}
-                          </button>
+                            {themeItem.baseTheme}
+                          </span>
                         )}
                       </div>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-8 gap-0.5">
-                  {swatchColors.map((color, i) => (
-                    <div
-                      key={i}
-                      className="h-5 rounded-sm border"
-                      style={{ backgroundColor: color, borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)' }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Preview Section - Below the theme colors, shown on click */}
-              {showPreview && (
-                <div className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
-                  <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                    <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>
-                      Preview
-                    </span>
-                  </div>
-                  <div className="relative">
-                    {/* Preview Diagram */}
-                    <div
-                      className="flex justify-center items-center overflow-auto"
-                      style={{
-                        background: themeItem.coreColors.background,
-                        maxHeight: '180px'
-                      }}
-                    >
-                      <div
-                        className="pointer-events-none p-2"
-                        dangerouslySetInnerHTML={{ __html: sanitizeSVG(previewSvg) }}
-                      />
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isActive && (
+                          <span
+                            className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                            style={{
+                              color: 'var(--accent)',
+                              background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                            }}
+                          >
+                            Active
+                          </span>
+                        )}
+                        {!themeItem.isBuiltin && (
+                          <>
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                handleEditTheme(themeItem);
+                              }}
+                              className="p-1 rounded transition-colors hover:bg-[var(--hover)]"
+                              style={{ color: 'var(--text-secondary)' }}
+                              title={t('themeEditor.editTheme')}
+                            >
+                              <Pencil size={10} />
+                            </button>
+                            <button
+                              onClick={e => handleDeleteTheme(e, themeItem.id)}
+                              className="p-1 rounded transition-colors hover:bg-red-500/20 hover:text-red-500"
+                              style={{ color: 'var(--text-tertiary)' }}
+                              title="Delete theme"
+                            >
+                              <Trash2 size={10} />
+                            </button>
+                          </>
+                        )}
+                        {isSelected && !isActive && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                handleApplyTheme(themeItem);
+                              }}
+                              className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium text-white transition-colors hover:opacity-90"
+                              style={{ background: 'var(--accent)' }}
+                            >
+                              <Check size={10} />
+                              Apply
+                            </button>
+                            {onSetDefaultTheme && (
+                              <button
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  onSetDefaultTheme(themeItem);
+                                }}
+                                className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                                  defaultThemeId === themeItem.id
+                                    ? 'text-green-400 bg-green-500/10'
+                                    : 'hover:bg-[var(--hover)]'
+                                }`}
+                                style={{
+                                  color:
+                                    defaultThemeId === themeItem.id
+                                      ? '#4ade80'
+                                      : 'var(--text-secondary)',
+                                }}
+                                title={
+                                  defaultThemeId === themeItem.id
+                                    ? 'Current default theme'
+                                    : 'Set as app default'
+                                }
+                              >
+                                <Star size={10} />
+                                {defaultThemeId === themeItem.id ? 'Default' : 'Set Default'}
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-8 gap-0.5">
+                      {swatchColors.map((color, i) => (
+                        <div
+                          key={i}
+                          className="h-5 rounded-sm border"
+                          style={{
+                            backgroundColor: color,
+                            borderColor: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)',
+                          }}
+                        />
+                      ))}
                     </div>
                   </div>
+
+                  {/* Preview Section - Below the theme colors, shown on click */}
+                  {showPreview && (
+                    <div className="border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                      <div
+                        className="px-3 py-2 border-b"
+                        style={{ borderColor: 'var(--border-subtle)' }}
+                      >
+                        <span
+                          className="text-[11px] font-medium"
+                          style={{ color: 'var(--text-secondary)' }}
+                        >
+                          Preview
+                        </span>
+                      </div>
+                      <div className="relative">
+                        <div
+                          className="flex justify-center items-center overflow-auto"
+                          style={{
+                            background: themeItem.coreColors.background,
+                            maxHeight: '180px',
+                          }}
+                        >
+                          <div
+                            className="pointer-events-none p-2"
+                            dangerouslySetInnerHTML={{ __html: sanitizeSVG(previewSvg) }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          );
-        })}
+              );
+            })}
+          </div>
+        ))}
       </div>
       )}
 

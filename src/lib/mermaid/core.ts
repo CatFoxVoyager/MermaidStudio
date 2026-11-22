@@ -9,9 +9,9 @@ import { getThemeById } from '@/constants/themes';
 import { sanitizeMermaidSVG } from '@/utils/sanitization';
 import { detectDiagramType } from './diagramType';
 import { registerFaIconPacks } from './iconPacks';
-import type { DiagramType, MermaidTheme } from '@/types';
+import type { DiagramLook, DiagramType, MermaidBuiltinTheme, MermaidTheme } from '@/types';
 
-export type MermaidBuiltinTheme = 'default' | 'dark' | 'forest' | 'neutral' | 'base';
+export type { MermaidBuiltinTheme };
 
 const FAMILY_SCOPED_THEME_TYPES: ReadonlySet<DiagramType> = new Set<DiagramType>([
   'ishikawa',
@@ -29,6 +29,7 @@ const FAMILY_SCOPED_THEME_TYPES: ReadonlySet<DiagramType> = new Set<DiagramType>
 
 let currentTheme: 'dark' | 'light' = 'light';
 let currentMermaidTheme: MermaidBuiltinTheme = 'base';
+let currentDefaultLook: DiagramLook = 'neo';
 let defaultTheme: MermaidTheme | null = null;
 let diagramTheme: MermaidTheme | null = null;
 
@@ -45,13 +46,16 @@ function doInit(
   // closures (PERF-01: 0 B eager boot impact), and its run-once guard makes
   // the repeated doInit calls below a no-op after the first.
   registerFaIconPacks(mermaid);
-  const resolvedMermaidTheme =
-    mermaidTheme ?? (useBase ? 'base' : theme === 'dark' ? 'dark' : 'default');
   const isDark = theme === 'dark';
 
   const activeTheme = diagramTheme ?? defaultTheme;
+  const isNative = Boolean(!useBase && activeTheme?.isNativeMermaidTheme && activeTheme.baseTheme);
+  const resolvedMermaidTheme: MermaidBuiltinTheme = isNative
+    ? activeTheme!.baseTheme!
+    : (mermaidTheme ?? (useBase ? 'base' : isDark ? 'dark' : 'default'));
+
   let themeVars: Record<string, unknown> | undefined;
-  if (!useBase && activeTheme) {
+  if (!useBase && activeTheme && !isNative) {
     // Use family-scoped derivation (preserving nested objects & contrast-safe
     // overrides) for the 10 new families + radar/xyChart while keeping the
     // legacy 8 theme-matrix families bound directly to deriveThemeVariables.
@@ -60,16 +64,20 @@ function doInit(
         ? deriveThemeVariablesForDiagramType(activeTheme.coreColors, isDark, diagramType)
         : deriveThemeVariables(activeTheme.coreColors, isDark);
   } else if (!useBase) {
-    // Fallback: use Mermaid's built-in theme (no custom themeVariables)
+    // Fallback / native Mermaid theme: let Mermaid's built-in theme stylesheet paint natively
     themeVars = undefined;
   }
   // When useBase is true, don't pass themeVariables (frontmatter controls theming)
+
+  // Mermaid Wardley maps do not support handDrawn look; gracefully fall back to 'neo'.
+  const effectiveLook: DiagramLook =
+    diagramType === 'wardley' && currentDefaultLook === 'handDrawn' ? 'neo' : currentDefaultLook;
 
   mermaid.initialize({
     startOnLoad: false,
     theme: resolvedMermaidTheme,
     layout: 'dagre', // v11-default pin — v12 would default 7 diagram types to ELK
-    look: 'neo', // v12 neo/redux-color look — flips the Phase-21 classic pin (revert-safe)
+    look: effectiveLook,
     darkMode: isDark,
     htmlLabels: true,
     maxTextSize: maxTextSize ?? LIMITS.MAX_DIAGRAM_SIZE,
@@ -80,6 +88,15 @@ function doInit(
     swimlane: { layout: 'swimlane' },
     ...(themeVars && { themeVariables: themeVars }),
   });
+}
+
+export function setDefaultLook(look: DiagramLook): void {
+  currentDefaultLook = look;
+  doInit(currentTheme, false, currentMermaidTheme);
+}
+
+export function getDefaultLook(): DiagramLook {
+  return currentDefaultLook;
 }
 
 export function initMermaid(

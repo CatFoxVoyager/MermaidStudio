@@ -1671,3 +1671,86 @@ describe('DIAG-04 family-scoped themeDerivation rules (41-02)', () => {
     expect(reset).not.toContain('complexBg');
   });
 });
+
+describe('Phase 44 THM-01..04: native themes, look, handDrawnSeed, useGradient, stepNumbers & themeCSS', () => {
+  const flowchartSource = `flowchart TD
+  A[Start] --> B[End]
+`;
+
+  it('THM-01: native Mermaid theme writes config.theme without derived color dump and preserves typography/useGradient', () => {
+    const nativeNeoDark = {
+      id: 'mermaid-neo-dark',
+      name: 'Mermaid Neo Dark',
+      description: 'Native neo-dark',
+      isBuiltin: true,
+      isNativeMermaidTheme: true,
+      baseTheme: 'neo-dark' as const,
+      coreColors: { primaryColor: '#1f2937', background: '#0b0f19' },
+    };
+    const withTypography = `---
+config:
+  themeVariables:
+    fontFamily: 'Inter, sans-serif'
+    fontSize: '15px'
+    useGradient: false
+---
+flowchart TD
+  A --> B`;
+    const applied = applyThemeToFrontmatter(withTypography, nativeNeoDark, true);
+    expect(applied).toContain("theme: 'neo-dark'");
+    expect(applied).not.toContain('primaryColor:');
+    expect(applied).toContain("fontFamily: 'Inter, sans-serif'");
+    expect(applied).toContain("fontSize: '15px'");
+    expect(applied).toContain('useGradient: false');
+  });
+
+  it('THM-02: look, handDrawnSeed, and useGradient round-trip cleanly and wardley ignores handDrawn', () => {
+    const styled = applyStyleToContent(flowchartSource, {
+      look: 'handDrawn',
+      handDrawnSeed: 42,
+      useGradient: false,
+    });
+    expect(styled).toContain("look: 'handDrawn'");
+    expect(styled).toContain('handDrawnSeed: 42');
+    expect(styled).toContain('useGradient: false');
+
+    const extracted = extractStyleOptionsFromContent(styled);
+    expect(extracted.look).toBe('handDrawn');
+    expect(extracted.handDrawnSeed).toBe(42);
+    expect(extracted.useGradient).toBe(false);
+
+    // Clearing handDrawnSeed removes it cleanly
+    const cleared = applyStyleToContent(styled, { handDrawnSeed: undefined });
+    expect(cleared).not.toContain('handDrawnSeed');
+
+    // Wardley blocks handDrawn look
+    const wardley = `wardley-beta\n  anchor User [0.95, 0.5]`;
+    const wardleyStyled = applyStyleToContent(wardley, { look: 'handDrawn' });
+    expect(wardleyStyled).not.toContain('handDrawn');
+  });
+
+  it('THM-03: flowchart.stepNumbers round-trips cleanly', () => {
+    const enabled = applyStyleToContent(flowchartSource, { stepNumbers: true });
+    expect(enabled).toMatch(/flowchart:\n[\s\S]*stepNumbers: true/);
+    expect(extractStyleOptionsFromContent(enabled).stepNumbers).toBe(true);
+
+    const disabled = applyStyleToContent(enabled, { stepNumbers: false });
+    expect(disabled).toMatch(/flowchart:\n[\s\S]*stepNumbers: false/);
+    expect(extractStyleOptionsFromContent(disabled).stepNumbers).toBe(false);
+  });
+
+  it('THM-04: multiline themeCSS round-trips losslessly and strips </style breakout attempts', () => {
+    const css = `.edge-step-badge {\n  fill: #2563eb;\n}\n</style><script>alert(1)</script>`;
+    const styled = applyStyleToContent(flowchartSource, { themeCSS: css });
+    expect(styled).toContain('themeCSS:');
+    expect(styled).not.toMatch(/<\/style/i);
+
+    const extracted = extractStyleOptionsFromContent(styled);
+    expect(extracted.themeCSS).toContain('.edge-step-badge {\n  fill: #2563eb;\n}');
+    expect(extracted.themeCSS).not.toMatch(/<\/style/i);
+
+    const cleared = applyStyleToContent(styled, { themeCSS: undefined });
+    expect(cleared).not.toContain('themeCSS');
+  });
+});
+
