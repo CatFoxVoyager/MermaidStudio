@@ -1,5 +1,88 @@
 # Changelog
 
+## [3.0.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.7.0...mermaid-studio-v3.0.0) (2026-11-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* **shapes:** Icon and Image are now unified as shapes in ShapePicker and the node inspectors, removing the separate Content (Text | Icon | Image) tabs.
+
+### Features
+
+* **38-01:** complete 53-shape SSOT registry with drift test ([780e3bd](https://github.com/CatFoxVoyager/MermaidStudio/commit/780e3bdfca4b865ee20e0b12924f0ffb9e4dff0a))
+* **38-01:** re-key toolbar asymmetric entry to canonical odd ([e41bd9b](https://github.com/CatFoxVoyager/MermaidStudio/commit/e41bd9be06c211f51f9494377e4379d83e678863))
+* **38-01:** wire canonical odd shape through directive pipeline ([d623133](https://github.com/CatFoxVoyager/MermaidStudio/commit/d623133138cd886e7fdf648cca171e5be62fa53c))
+* **38-02:** prove full-domain round-trip with 53-key render sweep ([1d97d87](https://github.com/CatFoxVoyager/MermaidStudio/commit/1d97d87b09ec845a0302177d3df0b97bb1b037e3))
+* **38-02:** re-key codeUtils to canonical shapes with authoredShape ([0df3a95](https://github.com/CatFoxVoyager/MermaidStudio/commit/0df3a951c14ee1ee8cc02bbe80afc02bc27c052a))
+* **38-03:** img: fence hardening and single-mutation-vocabulary canvas ([dbdd270](https://github.com/CatFoxVoyager/MermaidStudio/commit/dbdd270eac3a298656135e5081fbe67a804e4ecb))
+* **38-03:** two-pass directive-line cascade and guarded removeNode ([524a490](https://github.com/CatFoxVoyager/MermaidStudio/commit/524a4909afd81f69fffa350cdcdc1fa0c32c8c9c))
+* **38-04:** re-key shape labels to the canonical 53 slugs ([7a02b2c](https://github.com/CatFoxVoyager/MermaidStudio/commit/7a02b2caaf7e30eba16c44ea924de4924aa1b6bb))
+* **38-05:** shared ShapePreview table + ShapePicker popover ([f5e75f0](https://github.com/CatFoxVoyager/MermaidStudio/commit/f5e75f0f8ba19bb386442a9e2e2f1841035e6cab))
+* **38-05:** toolbar derives 53 shapes from SSOT, atomic 53 lock ([b8b6227](https://github.com/CatFoxVoyager/MermaidStudio/commit/b8b622778d7d38f841e027c2759ae987de135d08))
+* **38-06:** close migration window - union equals registry 53 ([152458f](https://github.com/CatFoxVoyager/MermaidStudio/commit/152458fb67c53212233a529751db6ba9f9faa4a3))
+* **38-06:** node style panel shape row wired through preview panel ([974577b](https://github.com/CatFoxVoyager/MermaidStudio/commit/974577b8608d1897065dcfc37eaf39029f2df653))
+* **38-06:** properties panel picker swap with mixed idiom + tests ([b5d338d](https://github.com/CatFoxVoyager/MermaidStudio/commit/b5d338d08a7eaa217fbc677fff9852882a4f36df))
+* **39-01:** icon/img mutators with Surface-1 cross-strip semantics ([c049e2d](https://github.com/CatFoxVoyager/MermaidStudio/commit/c049e2db4f59a7a16d6a9eb0cfaea590bc657a96))
+* **39-01:** typed icon/img spans, narrowed fence, render oracle ([0b4d800](https://github.com/CatFoxVoyager/MermaidStudio/commit/0b4d800b4c50ad33858d64db21fa181c4caed04f))
+* **39-02:** lazy FA6 icon packs with vendor lock and render oracle ([e7c982f](https://github.com/CatFoxVoyager/MermaidStudio/commit/e7c982fda390b00f2db7e16a14b43fedb989ad8f))
+* **39-03:** add PNG export CORS inlining with counted-failure warning ([eb20394](https://github.com/CatFoxVoyager/MermaidStudio/commit/eb20394652a2e20ce325ba32ebf691aeac5796c2))
+* **39-03:** image-href allowlist + SMIL on* hardening ([54b021c](https://github.com/CatFoxVoyager/MermaidStudio/commit/54b021c6f3a82cf14af9d252c8e80fcdefb36006))
+* **39-03:** narrow event-handler pattern to tag/exec-value shapes ([1420a86](https://github.com/CatFoxVoyager/MermaidStudio/commit/1420a869fd9ca0cac18ed118b341959cf35a1e70))
+* **39-04:** add media-mode tabs and icon param rows to NodeStylePanel ([fbed6e4](https://github.com/CatFoxVoyager/MermaidStudio/commit/fbed6e4eb3c7d8b62a4f5c373601844cff857e73))
+* **39-04:** recognize icon/img node groups at all three selector sites ([d5296c1](https://github.com/CatFoxVoyager/MermaidStudio/commit/d5296c17528c28d3e4e28f44b60fa7be44f1da21))
+* **39-04:** thread media tabs through both editors with VisualNode data ([5258ed8](https://github.com/CatFoxVoyager/MermaidStudio/commit/5258ed839e0392b8f13ca1d849cbe06ca88a2b0f))
+* **39-05:** lazy-pack IconPicker with bounded grid and declared states ([4b6a960](https://github.com/CatFoxVoyager/MermaidStudio/commit/4b6a960593a94b8cce55e5af2f1d602d0b1dbd74))
+* **39-05:** paste, advisory, fit switch, i18n, both-panel parity ([ed16424](https://github.com/CatFoxVoyager/MermaidStudio/commit/ed164245578c0456366d2aad4f759abfb5fc14f1))
+* **39-05:** upload -&gt; compress -&gt; emit -&gt; thumbnail tracer slice ([b5fda36](https://github.com/CatFoxVoyager/MermaidStudio/commit/b5fda36c03b126779028814c424f2ef46b3affef))
+* **40-01:** edge metadata grammar promotion with Animate toggle tracer ([322a469](https://github.com/CatFoxVoyager/MermaidStudio/commit/322a4694eee8871ee7491366e91cb0862872983c))
+* **40-01:** edge params, comma escapes, markdown survival ([5b678a9](https://github.com/CatFoxVoyager/MermaidStudio/commit/5b678a98d51293c4b5e3749daca10ee81dae2ff3))
+* **40-01:** land all 35 phase-40 i18n keys with parity battery ([5905bfb](https://github.com/CatFoxVoyager/MermaidStudio/commit/5905bfb084a8f11d9e6b1e18e3579df744724c2b))
+* **40-02:** edge-inspector rows, animate preset, selector pins ([2611e5c](https://github.com/CatFoxVoyager/MermaidStudio/commit/2611e5cbec5fe61be0f381262a7901b877671390))
+* **40-02:** length-aware arrow grammar, amp chains, surgical mutators ([e646112](https://github.com/CatFoxVoyager/MermaidStudio/commit/e646112b05f2664b9652f9236498952b4ea17d5f))
+* **40-02:** shared 16-token picker, dead strip deleted, EdgePanel i18n ([66f0993](https://github.com/CatFoxVoyager/MermaidStudio/commit/66f0993535140355e45581a64c9979a66bee1c38))
+* **40-03:** 13-curve grid + step/markdown config plumbing ([6a85d8b](https://github.com/CatFoxVoyager/MermaidStudio/commit/6a85d8b611531119a3665580c980e38eaad52312))
+* **40-03:** badges z-order + selector-scope source pins ([92f76d8](https://github.com/CatFoxVoyager/MermaidStudio/commit/92f76d8833be7c47e019fae7f493ab26d7ab4c11))
+* **40-03:** export-scoped stepNumbers PNG badge toggle ([8082cc8](https://github.com/CatFoxVoyager/MermaidStudio/commit/8082cc8a2d8ef3fe24729495c5eb21f6c3a0863b))
+* **40-04:** subgraph view toggle and collapsed-group routing ([7f0113b](https://github.com/CatFoxVoyager/MermaidStudio/commit/7f0113b667cb186dafa418403afdd75e48bfbc1b))
+* **40-04:** view directive parse + updateSubgraphView mutator ([50a03a5](https://github.com/CatFoxVoyager/MermaidStudio/commit/50a03a530be7edb474b127fb727d010ebd279087))
+* **40-04:** visual subgraph bands and collapsed drop guard ([85bad41](https://github.com/CatFoxVoyager/MermaidStudio/commit/85bad41cbb2a0b24fc5decf9b6693b950bf4ff41))
+* **41:** add 10 missing families, themes, sweeps and templates ([593bc63](https://github.com/CatFoxVoyager/MermaidStudio/commit/593bc63a268ac4ecfc063082caf9af6e2b7cda05))
+* **42:** modernize codemirror syntax, autocomplete and ai prompts ([992f467](https://github.com/CatFoxVoyager/MermaidStudio/commit/992f4676311cbccdffe2498480f49551bead1a9b))
+* **agentflow:** add family, diagnostics, template & AI support ([c84f429](https://github.com/CatFoxVoyager/MermaidStudio/commit/c84f429ab8454654c64d84781b26647bc76320f6))
+* **config:** add v12 per-diagram configs, syntax & e2e parity ([a3bb359](https://github.com/CatFoxVoyager/MermaidStudio/commit/a3bb35918d11dfa7d8aa2857fa717876a328666b))
+* **layouts:** add 7 ELK algos, ELK options, tidy-tree & logos/mdi packs ([a02dccb](https://github.com/CatFoxVoyager/MermaidStudio/commit/a02dccb3cd30e6e489a5c31c21f1eeddd747c301))
+* **shapes:** unify icon and image as shapes in picker and panels ([daaecef](https://github.com/CatFoxVoyager/MermaidStudio/commit/daaecef673185b11bf82bd18d9f6b7eebc7cc761))
+* **styling:** gate border-radius by shape & sync visual node styles ([8d5a5ae](https://github.com/CatFoxVoyager/MermaidStudio/commit/8d5a5aece6e00966b54ac1c7212f7ca7784ee9d0))
+* **styling:** refine style panels & add global edge styling ([84ba11b](https://github.com/CatFoxVoyager/MermaidStudio/commit/84ba11b479a662e59ce81bf34538105a7617d7e7))
+* **themes:** add v12 native themes, look, step numbers & themeCSS ([abb1468](https://github.com/CatFoxVoyager/MermaidStudio/commit/abb146849180444e7d02246cab652f4921d7ef68))
+
+
+### Bug Fixes
+
+* **38-05:** re-key downstream toolbar test mocks to canonical slugs ([3b7e97e](https://github.com/CatFoxVoyager/MermaidStudio/commit/3b7e97ee600c7c0c354b786e0b439411ab7730c7))
+* **38:** span-aware legacy shape rewrite on edge lines ([248da2d](https://github.com/CatFoxVoyager/MermaidStudio/commit/248da2dc0dfb17a3555bdde1a72f9165037308f4))
+* **38:** wr-01 close PERF-01 gate bypass import forms ([1d07284](https://github.com/CatFoxVoyager/MermaidStudio/commit/1d07284a8ff51973b95f8ab40b69da9ec1494ea9))
+* **38:** wr-02 guard visual canvas keys from contenteditable targets ([1a01eeb](https://github.com/CatFoxVoyager/MermaidStudio/commit/1a01eebff1ce4eef520a3d3f5bcc46a95b31cf06))
+* **38:** wr-03 un-guard PreviewPanel test assertions ([65f0c71](https://github.com/CatFoxVoyager/MermaidStudio/commit/65f0c7170804d8ab567fa5afddf76d5666c56d6a))
+* **39-02:** fallback oracle fixture follows fa packs registration ([b458112](https://github.com/CatFoxVoyager/MermaidStudio/commit/b458112f19a36e62ec6772ee8f8438b82d117fda))
+* **39:** wR-01 gate HTML img src with the image-href allowlist ([9ef55b3](https://github.com/CatFoxVoyager/MermaidStudio/commit/9ef55b37f0262c2f9744b0097e2caaef8a8a275e))
+* **39:** wR-02 update ExportModal doubles to the validated-mime contract ([219fc09](https://github.com/CatFoxVoyager/MermaidStudio/commit/219fc09b8d5ad63003be470582d6afc53a4f54a8))
+* **39:** wR-02 validate inline mime before SVG substitution ([fb71a76](https://github.com/CatFoxVoyager/MermaidStudio/commit/fb71a76b61f490de8210165ebff79f960d345533))
+* **39:** wR-03 typed error for image decode failure ([12895f0](https://github.com/CatFoxVoyager/MermaidStudio/commit/12895f0ed1e59a9d86c6d22ea5647141f7dff33a))
+* **39:** wR-04 cap decoded pixels before canvas encode ([edd3260](https://github.com/CatFoxVoyager/MermaidStudio/commit/edd3260da8abce88b96fa9819eeb6def1fadbdfe))
+* **39:** wR-05 correct legacy-span migration comments ([f84fae6](https://github.com/CatFoxVoyager/MermaidStudio/commit/f84fae670330e15ca820728cd0fa0f1b03b0bbae))
+* **39:** wR-06 gate media attribute carriers in the sanitizer hook ([6370500](https://github.com/CatFoxVoyager/MermaidStudio/commit/63705002e803c2c120e015dfb7209ba7972c0441))
+* **40:** clear stepDuration on undefined and tighten review fixes ([46a30cb](https://github.com/CatFoxVoyager/MermaidStudio/commit/46a30cb7389dd06c5e4acd2d7817faf56b0b7030))
+* **40:** resolve live uat collapsed-group, touch floor & loop bugs ([31b865d](https://github.com/CatFoxVoyager/MermaidStudio/commit/31b865df65eaab79fd6f8162e7fa90115b9db85c))
+* **media:** allow pasted raster data URIs and fallback PNG to WebP ([c06c5e9](https://github.com/CatFoxVoyager/MermaidStudio/commit/c06c5e93dca24cdbd6f47935b0ee789da79a672d))
+* **mermaid:** complete phase 43 P0 fixes, math, frontmatter and polish ([ca5775d](https://github.com/CatFoxVoyager/MermaidStudio/commit/ca5775d5750f4d26573f5640cdccff9bccea598d))
+* **mobile:** enlarge IconPicker pack tabs to 44px & add v1.9 mobile E2E ([06dd529](https://github.com/CatFoxVoyager/MermaidStudio/commit/06dd529c918584205b866d697deff38620b5d01c))
+
+
+### Performance Improvements
+
+* **rendering:** optimize diagram render pipeline (-40% composite) ([1ea81c1](https://github.com/CatFoxVoyager/MermaidStudio/commit/1ea81c14bae4d25fa081a7c09665f7c49b99ec9b))
+
 ## [2.7.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.6.0...mermaid-studio-v2.7.0) (2026-11-20)
 
 
