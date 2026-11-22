@@ -30,6 +30,25 @@ import { FOCUS_RING_CLASSES } from './touchTargets';
  * shown.
  */
 
+export type SpecialMediaShape = 'icon' | 'img';
+
+const SPECIAL_MEDIA_SHAPES: readonly {
+  kind: SpecialMediaShape;
+  labelKey: string;
+  searchTerms: readonly string[];
+}[] = [
+  {
+    kind: 'icon',
+    labelKey: 'nodeStyle.tabIcon',
+    searchTerms: ['icon', 'icône', 'icone', 'fa', 'fontawesome', 'mdi', 'logos', 'logo', 'symbol', 'symbole'],
+  },
+  {
+    kind: 'img',
+    labelKey: 'nodeStyle.tabImage',
+    searchTerms: ['image', 'img', 'photo', 'picture', 'upload', 'media', 'média'],
+  },
+];
+
 export interface ShapePickerAnchor {
   /** Viewport-space offset from the right edge (window.innerWidth - r.right). */
   right: number;
@@ -47,11 +66,27 @@ interface ShapePickerProps {
   onDragStart?: (shape: NodeShapeCanonical) => void;
   /** Currently-selected canonical shape — carries the accent treatment. */
   selected?: NodeShape | null;
+  /** Optional Mermaid special media shapes (`icon`, `img`) surfaced in a Media section. */
+  onPickSpecial?: (shape: SpecialMediaShape) => void;
+  /** Optional drag placement for special media shapes (toolbar). */
+  onDragStartSpecial?: (shape: SpecialMediaShape) => void;
+  /** Currently-selected special media shape (`icon` or `img`). */
+  selectedSpecial?: SpecialMediaShape | null;
   /** The trigger that opened this picker — its taps toggle, never dismiss. */
   triggerRef?: RefObject<HTMLElement | null>;
 }
 
-export function ShapePicker({ anchor, onClose, onPick, onDragStart, selected, triggerRef }: ShapePickerProps) {
+export function ShapePicker({
+  anchor,
+  onClose,
+  onPick,
+  onDragStart,
+  selected,
+  onPickSpecial,
+  onDragStartSpecial,
+  selectedSpecial,
+  triggerRef,
+}: ShapePickerProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const rootRef = useRef<HTMLDivElement>(null);
@@ -70,6 +105,17 @@ export function ShapePicker({ anchor, onClose, onPick, onDragStart, selected, tr
       }),
     }))
     .filter((section) => section.shapes.length > 0);
+
+  const mediaShapes = onPickSpecial
+    ? SPECIAL_MEDIA_SHAPES.filter((item) => {
+        if (!q) {return true;}
+        const en = t(item.labelKey, { lng: 'en' });
+        const fr = t(item.labelKey, { lng: 'fr' });
+        return [en, fr, item.kind, ...item.searchTerms].some((candidate) => candidate.toLowerCase().includes(q));
+      })
+    : [];
+
+  const hasAnyResults = sections.length > 0 || mediaShapes.length > 0;
 
   // Outside-tap + Escape dismissal. Events originating inside the popover
   // root — the search input and its clear button included — and inside the
@@ -144,13 +190,51 @@ export function ShapePicker({ anchor, onClose, onPick, onDragStart, selected, tr
           the whole popover; flex-1 + min-h-0 keep the grid region scrolling
           under the fixed search row. */}
       <div className="flex-1 min-h-0 overflow-y-auto p-4">
-        {sections.length === 0 ? (
+        {!hasAnyResults ? (
           <div className="py-6 text-center" style={{ color: 'var(--text-tertiary)' }}>
             <p className="text-xs font-medium">{t('visual.shapeSearchEmpty')}</p>
             <p className="text-[11px] leading-[1.5] mt-1">{t('visual.shapeSearchEmptyHint', { query: trimmed })}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
+            {mediaShapes.length > 0 && onPickSpecial && (
+              <section key="media" data-shape-section="media">
+                <h3
+                  className="text-[11px] font-medium uppercase tracking-wider leading-[1.2]"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  {t('visual.shapeCategoryMedia', 'Media')}
+                </h3>
+                <div className="grid grid-cols-3 gap-1 mt-1">
+                  {mediaShapes.map((item) => {
+                    const label = t(item.labelKey);
+                    const isSelected = selectedSpecial === item.kind;
+                    return (
+                      <button
+                        key={item.kind}
+                        type="button"
+                        data-special-shape={item.kind}
+                        data-selected={isSelected ? 'true' : undefined}
+                        draggable={onDragStartSpecial ? true : undefined}
+                        onDragStart={onDragStartSpecial ? (e) => { e.dataTransfer?.setData('text/plain', item.kind); onDragStartSpecial(item.kind); } : undefined}
+                        onClick={() => onPickSpecial(item.kind)}
+                        title={label}
+                        aria-label={label}
+                        className={`${cellBase} ${onDragStartSpecial ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${FOCUS_RING_CLASSES}`}
+                        style={{
+                          background: isSelected ? 'var(--accent-dim)' : 'var(--surface-raised)',
+                          borderColor: isSelected ? 'var(--accent)' : 'var(--border-subtle)',
+                          color: isSelected ? 'var(--accent)' : 'var(--text-secondary)',
+                        }}
+                      >
+                        <ShapePreview shape={item.kind} />
+                        <span className="text-xs font-medium leading-none line-clamp-2">{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
             {sections.map(({ category, shapes }) => (
               <section key={category}>
                 <h3

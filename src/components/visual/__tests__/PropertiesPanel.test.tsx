@@ -47,6 +47,7 @@ vi.mock('react-i18next', async () => {
       t: (key: string, args?: Record<string, unknown>) => {
         const map: Record<string, string> = {
           'visual.shapeChangeHint': en.visual.shapeChangeHint,
+          'visual.shapeCategoryMedia': 'Media',
           'visual.shapeSearch': 'Search shapes…',
           'visual.shapeSearchClear': 'Clear search',
           'visual.shapeSearchEmpty': 'No matching shape',
@@ -247,26 +248,34 @@ describe('PropertiesPanel media tabs (39-04 ICON-03)', () => {
     mediaHandlers.onImageChange.mockClear();
   });
 
-  it('hides the media section when the mutator props are absent (absent-props callers unchanged)', () => {
+  const pickShape = (container: HTMLElement, selector: string) => {
+    fireEvent.click(container.querySelector('[data-shape-trigger]')!);
+    fireEvent.click(container.querySelector(selector)!);
+  };
+
+  it('hides special media shapes when the mutator props are absent (absent-props callers unchanged)', () => {
     const { container } = renderPanel([mkNode('a', 'rect', 'Start')]);
     expect(container.querySelector('[data-media-tab]')).toBeNull();
+    fireEvent.click(container.querySelector('[data-shape-trigger]')!);
+    expect(container.querySelector('[data-special-shape]')).toBeNull();
   });
 
-  it('renders the three segments and lights Text for an all-plain selection', () => {
+  it('exposes Icon and Image in ShapePicker without a separate Content tab bar', () => {
     const { container } = renderWithMedia([mkNode('a', 'rect', 'Start')]);
-    expect(container.querySelector('[data-media-tab="text"]')).not.toBeNull();
-    expect(container.querySelector('[data-media-tab="icon"]')).not.toBeNull();
-    expect(container.querySelector('[data-media-tab="image"]')).not.toBeNull();
-    expect(container.querySelector('[data-media-tab="text"]')!.getAttribute('aria-selected')).toBe('true');
+    expect(container.querySelector('[data-media-tab]')).toBeNull();
+    expect(container.querySelector('[data-shape-trigger]')!.getAttribute('data-shape-kind')).toBe('rect');
+    fireEvent.click(container.querySelector('[data-shape-trigger]')!);
+    expect(container.querySelector('[data-special-shape="icon"]')).not.toBeNull();
+    expect(container.querySelector('[data-special-shape="img"]')).not.toBeNull();
   });
 
-  it('active state parity: all-icon lights Icon, all-img lights Image, mixed shows the chip and no segment', () => {
+  it('active state parity: all-icon shows Icon, all-img shows Image, mixed shows the chip and Mixed', () => {
     const iconOnly = renderWithMedia([mkNode('a', 'rect', 'A')], { nodeIcon: ICON_A, nodeImage: null });
-    expect(iconOnly.container.querySelector('[data-media-tab="icon"]')!.getAttribute('aria-selected')).toBe('true');
+    expect(iconOnly.container.querySelector('[data-shape-trigger]')!.getAttribute('data-shape-kind')).toBe('icon');
     iconOnly.unmount();
 
     const imgOnly = renderWithMedia([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: IMG_A });
-    expect(imgOnly.container.querySelector('[data-media-tab="image"]')!.getAttribute('aria-selected')).toBe('true');
+    expect(imgOnly.container.querySelector('[data-shape-trigger]')!.getAttribute('data-shape-kind')).toBe('img');
     imgOnly.unmount();
 
     const { container } = render(
@@ -285,34 +294,33 @@ describe('PropertiesPanel media tabs (39-04 ICON-03)', () => {
         onDeleteEdge={vi.fn()}
       />,
     );
-    for (const tab of ['text', 'icon', 'image']) {
-      expect(container.querySelector(`[data-media-tab="${tab}"]`)!.getAttribute('aria-selected')).toBe('false');
-    }
+    expect(container.querySelector('[data-shape-trigger]')!.getAttribute('data-shape-kind')).toBe('mixed');
     expect(container.querySelector('[data-media-mixed]')).not.toBeNull();
   });
 
-  it('switch parity with the preview panel: Icon strips img via onImageChange(null)', () => {
+  it('switch parity with the preview panel: picking Icon strips img via onImageChange(null)', () => {
     const { container } = renderWithMedia([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: IMG_A });
-    fireEvent.click(container.querySelector('[data-media-tab="icon"]')!);
+    pickShape(container, '[data-special-shape="icon"]');
     expect(mediaHandlers.onImageChange).toHaveBeenCalledTimes(1);
     expect(mediaHandlers.onImageChange).toHaveBeenCalledWith(['a'], null);
     expect(mediaHandlers.onIconChange).not.toHaveBeenCalled();
   });
 
-  it('switch parity: Image strips icon via onIconChange(null); Text clears both on a mixed selection', () => {
+  it('switch parity: picking Image strips icon; picking a geometric shape clears both on a mixed selection', () => {
     const { container } = renderWithMedia([mkNode('a', 'rect', 'A')], { nodeIcon: ICON_A, nodeImage: null });
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     expect(mediaHandlers.onIconChange).toHaveBeenCalledWith(['a'], null);
     expect(mediaHandlers.onImageChange).not.toHaveBeenCalled();
 
     mediaHandlers.onIconChange.mockClear();
     mediaHandlers.onImageChange.mockClear();
+    const onShapeChange = vi.fn();
     const mixed = render(
       <PropertiesPanel
         selectedNodes={[mkNode('a', 'rect', 'A'), mkNode('b', 'circle', 'B')]}
         selectedEdge={NO_EDGE}
         onLabelChange={vi.fn()}
-        onShapeChange={vi.fn()}
+        onShapeChange={onShapeChange}
         onStyleChange={vi.fn()}
         nodeIcon={undefined}
         nodeImage={undefined}
@@ -323,9 +331,11 @@ describe('PropertiesPanel media tabs (39-04 ICON-03)', () => {
         onDeleteEdge={vi.fn()}
       />,
     );
-    fireEvent.click(mixed.container.querySelector('[data-media-tab="text"]')!);
+    pickShape(mixed.container, '[data-shape-cell="diam"]');
     expect(mediaHandlers.onIconChange).toHaveBeenCalledWith(['a', 'b'], null);
     expect(mediaHandlers.onImageChange).toHaveBeenCalledWith(['a', 'b'], null);
+    expect(onShapeChange).toHaveBeenCalledWith('a', 'diam');
+    expect(onShapeChange).toHaveBeenCalledWith('b', 'diam');
   });
 
   it('icon param rows render with the 12.3 enum Form control and the Auto placeholder on empty H', () => {
@@ -350,7 +360,7 @@ describe('PropertiesPanel media tabs (39-04 ICON-03)', () => {
 
   it('the new interactive controls carry the explicit max-md:min-h-[44px] touch floor (no .style-panel class here)', () => {
     const { container } = renderWithMedia([mkNode('a', 'rect', 'A')], { nodeIcon: ICON_A, nodeImage: null });
-    for (const selector of ['[data-media-tab="text"]', '[data-icon-trigger]', '[data-icon-form="square"]', '[data-icon-pos="t"]', '[data-icon-remove]']) {
+    for (const selector of ['[data-shape-trigger]', '[data-icon-trigger]', '[data-icon-form="square"]', '[data-icon-pos="t"]', '[data-icon-remove]']) {
       const el = container.querySelector(selector) as HTMLElement;
       expect(el).not.toBeNull();
       expect(el.className).toContain('max-md:min-h-[44px]');
@@ -458,13 +468,18 @@ describe('PropertiesPanel image tab parity (39-05 ICON-03)', () => {
     imageMediaHandlers.onImageChange.mockClear();
   });
 
+  const pickShape = (container: HTMLElement, selector: string) => {
+    fireEvent.click(container.querySelector('[data-shape-trigger]')!);
+    fireEvent.click(container.querySelector(selector)!);
+  };
+
   it('empty state parity: the upload CTA + paste hint pair render on an armed plain selection', () => {
     const { container } = renderImagePanel([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: null });
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     expect(container.querySelector('[data-image-upload]')).not.toBeNull();
     expect(container.querySelector('[data-image-hint]')).not.toBeNull();
     expect(container.querySelector('[data-image-thumbnail]')).toBeNull();
-    expect(container.querySelector('[data-media-tab="text"]')!.getAttribute('aria-selected')).toBe('true');
+    expect(container.querySelector('[data-shape-trigger]')!.getAttribute('data-shape-kind')).toBe('img');
   });
 
   it('populated parity: thumbnail + readout + Replace/Remove with the 44px floors', () => {
@@ -519,7 +534,7 @@ describe('PropertiesPanel image tab parity (39-05 ICON-03)', () => {
   it('validation parity: the typed codes render the declared inline danger rows (never a toast)', async () => {
     vi.mocked(fileToCompressedDataUri).mockRejectedValue(new ImageCompressError('invalid-type', 'bad mime'));
     const { container } = renderImagePanel([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: null });
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     const input = container.querySelector('[data-image-input]') as HTMLInputElement;
     Object.defineProperty(input, 'files', { value: [makePng()], configurable: true });
     await act(async () => {
@@ -534,7 +549,7 @@ describe('PropertiesPanel image tab parity (39-05 ICON-03)', () => {
   it('upload parity: a picked file flows through fileToCompressedDataUri and emits the compressed URI', async () => {
     vi.mocked(fileToCompressedDataUri).mockResolvedValue(IMG_COMPRESSED);
     const { container } = renderImagePanel([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: null });
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     const input = container.querySelector('[data-image-input]') as HTMLInputElement;
     const file = makePng();
     Object.defineProperty(input, 'files', { value: [file], configurable: true });
@@ -545,22 +560,22 @@ describe('PropertiesPanel image tab parity (39-05 ICON-03)', () => {
     expect(imageMediaHandlers.onImageChange).toHaveBeenCalledWith(['a'], { img: IMG_COMPRESSED });
   });
 
-  it('paste parity: a pasted image routes through the compression path while the tab is open (ICON-03 bind/unbind lifecycle)', async () => {
+  it('paste parity: a pasted image routes through the compression path while the Image shape is active (ICON-03 bind/unbind lifecycle)', async () => {
     vi.mocked(fileToCompressedDataUri).mockResolvedValue(IMG_COMPRESSED);
     const { container } = renderImagePanel([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: null });
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     const file = makePng('pasted.png');
     await pasteEvent(file);
     expect(fileToCompressedDataUri).toHaveBeenCalledWith(file);
     expect(imageMediaHandlers.onImageChange).toHaveBeenCalledWith(['a'], { img: IMG_COMPRESSED });
   });
 
-  it('paste parity: the listener is removed on tab switch and unmount (ICON-03 bind/unbind lifecycle)', async () => {
+  it('paste parity: the listener is removed on shape switch and unmount (ICON-03 bind/unbind lifecycle)', async () => {
     vi.mocked(fileToCompressedDataUri).mockResolvedValue(IMG_COMPRESSED);
     const { container, unmount } = renderImagePanel([mkNode('a', 'rect', 'A')], { nodeIcon: null, nodeImage: null });
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
-    // Tab switch unbinds.
-    fireEvent.click(container.querySelector('[data-media-tab="text"]')!);
+    pickShape(container, '[data-special-shape="img"]');
+    // Shape switch unbinds.
+    pickShape(container, '[data-shape-cell="rect"]');
     await pasteEvent(makePng());
     expect(fileToCompressedDataUri).not.toHaveBeenCalled();
     expect(imageMediaHandlers.onImageChange).not.toHaveBeenCalled();
@@ -576,7 +591,7 @@ describe('PropertiesPanel image tab parity (39-05 ICON-03)', () => {
       [mkNode('a', 'rect', 'A'), mkNode('b', 'circle', 'B')],
       { nodeIcon: null, nodeImage: null },
     );
-    fireEvent.click(container.querySelector('[data-media-tab="icon"]')!);
+    pickShape(container, '[data-special-shape="icon"]');
     fireEvent.click(container.querySelector('[data-icon-trigger]') as HTMLElement);
     const root = container.querySelector('[data-icon-picker]') as HTMLElement;
     expect(root).not.toBeNull();

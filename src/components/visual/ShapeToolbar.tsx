@@ -6,6 +6,7 @@ import { CANONICAL_SHAPES, SHAPE_CATEGORIES } from '@/lib/mermaid/shapes';
 import type { CategoryKey } from '@/lib/mermaid/shapes';
 import { ShapePreview } from '@/components/shared/ShapePreview';
 import { ShapePicker } from '@/components/shared/ShapePicker';
+import type { SpecialMediaShape } from '@/components/shared/ShapePicker';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
 
 interface ShapeButtonProps {
@@ -65,13 +66,25 @@ interface Props {
   onToolMode: (m: ToolMode) => void;
   onAddShape: (shape: NodeShape) => void;
   onDragStart: (shape: NodeShape) => void;
+  /** Optional special Mermaid media shapes (`icon`, `img`) surfaced in ShapePicker. */
+  onAddSpecialShape?: (shape: SpecialMediaShape) => void;
+  onDragStartSpecial?: (shape: SpecialMediaShape) => void;
   /** Optional inline delete (visual editor keeps it; PreviewPanel moved
    *  deletion into its detail panels, so it no longer passes these). */
   onDeleteSelected?: () => void;
   hasSelection?: boolean;
 }
 
-export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, onDeleteSelected, hasSelection }: Props) {
+export function ShapeToolbar({
+  toolMode,
+  onToolMode,
+  onAddShape,
+  onDragStart,
+  onAddSpecialShape,
+  onDragStartSpecial,
+  onDeleteSelected,
+  hasSelection,
+}: Props) {
   const { t } = useTranslation();
   const [moreOpen, setMoreOpen] = useState(false);
   // Adaptive primary count (desktop ask: the fixed count of 2 wasted a wide
@@ -218,6 +231,13 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
     onAddShape(shape);
   };
 
+  const pickSpecial = onAddSpecialShape
+    ? (shape: SpecialMediaShape) => {
+        setMoreOpen(false);
+        onAddSpecialShape(shape);
+      }
+    : undefined;
+
   return (
     <div className="relative shrink-0 border-b" style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
       {/* Root wrapper is NOT masked: a mask-image on an ancestor paints its
@@ -337,6 +357,8 @@ export function ShapeToolbar({ toolMode, onToolMode, onAddShape, onDragStart, on
           onClose={() => setMoreOpen(false)}
           onPick={pickSecondary}
           onDragStart={onDragStart}
+          onPickSpecial={pickSpecial}
+          onDragStartSpecial={onDragStartSpecial}
           triggerRef={moreBtnRef}
         />
       )}

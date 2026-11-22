@@ -15,6 +15,7 @@ import type { ParsedDiagram, ParsedEdge, IconConfig, ImgConfig, EdgeMetadata } f
 import { detectDiagramType } from '@/lib/mermaid/diagramType';
 import { ShapeToolbar } from './ShapeToolbar';
 import { PropertiesPanel } from './PropertiesPanel';
+import type { SpecialMediaShape } from '../shared/ShapePicker';
 import type { NodeShape, NodeStyle, VisualNode, VisualEdge, SelectionState, ToolMode } from './types';
 
 interface NodeOverlay {
@@ -293,6 +294,8 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const [toolMode, setToolMode] = useState<ToolMode>('select');
   const [connectFirst, setConnectFirst] = useState<string | null>(null);
   const [dragShape, setDragShape] = useState<NodeShape | null>(null);
+  const [dragSpecialShape, setDragSpecialShape] = useState<SpecialMediaShape | null>(null);
+  const [pendingSpecialShape, setPendingSpecialShape] = useState<{ nodeId: string; mode: SpecialMediaShape } | null>(null);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   // Drag-to-connect: source anchor (node center) + current pointer position
   // (viewport coords) for the ghost line. The anchor is captured at arm time
@@ -775,22 +778,57 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   // mode so no path can hand body-metadata content to a codeUtils mutator —
   // the affordance hiding in the JSX is the first fence, these are the second.
 
+  // 39-04 (ICON-03, T-39-09): media & shape mutations route ONLY through
+  // codeUtils mutators, behind the same readOnly guard as every sibling
+  // handler. The ref chains synchronous calls (e.g. clearing icon/img then
+  // applying a geometric shape in one click) without lost updates.
+  const mediaContentRef = useRef(content);
+  useEffect(() => {
+    mediaContentRef.current = content;
+  }, [content]);
+
   function handleAddShape(shape: NodeShape) {
     if (readOnly) {return;}
     const id = generateNodeId(parsed.nodes.map(n => n.id));
-    onChange(addNode(content, id, 'New Node', shape));
+    const result = addNode(content, id, 'New Node', shape);
+    mediaContentRef.current = result;
+    setPendingSpecialShape(null);
+    onChange(result);
+    setSelection({ nodeIds: [id], edgeKey: null, subgraphId: null });
+  }
+
+  function handleAddSpecialShape(kind: SpecialMediaShape) {
+    if (readOnly) {return;}
+    const id = generateNodeId(parsed.nodes.map(n => n.id));
+    let result = addNode(content, id, 'New Node', 'rect');
+    if (kind === 'icon') {
+      result = updateNodeIcon(result, id, { icon: 'fa:star' });
+      setPendingSpecialShape(null);
+    } else {
+      setPendingSpecialShape({ nodeId: id, mode: 'img' });
+    }
+    mediaContentRef.current = result;
+    onChange(result);
     setSelection({ nodeIds: [id], edgeKey: null, subgraphId: null });
   }
 
   function handleDropOnCanvas(e: React.DragEvent) {
     e.preventDefault();
-    if (readOnly || !dragShape) {return;}
+    if (readOnly || (!dragShape && !dragSpecialShape)) {return;}
     if (isPointInCollapsedGroup(svgContainerRef.current, e.clientX, e.clientY)) {
       setDragShape(null);
+      setDragSpecialShape(null);
       return;
     }
-    handleAddShape(dragShape);
-    setDragShape(null);
+    if (dragSpecialShape) {
+      handleAddSpecialShape(dragSpecialShape);
+      setDragSpecialShape(null);
+      return;
+    }
+    if (dragShape) {
+      handleAddShape(dragShape);
+      setDragShape(null);
+    }
   }
 
   function handleDeleteSelected() {
@@ -808,29 +846,18 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
 
   function handleShapeChange(id: string, shape: NodeShape) {
     if (readOnly) {return;}
-    onChange(updateNodeShape(content, id, shape));
+    const result = updateNodeShape(mediaContentRef.current, id, shape);
+    mediaContentRef.current = result;
+    setPendingSpecialShape(null);
+    onChange(result);
   }
 
-  // 39-04 (ICON-03, T-39-09): media mutations route ONLY through the 39-01
-  // mutators, behind the same readOnly guard as every sibling handler — a
-  // fenced document (bodyHasUnparsedAtDirective) can never mutate media.
-  // The media content ref chains SEQUENTIAL mutator calls: the panel's
-  // switch-to-Text on a mixed selection fires onIconChange(null) then
-  // onImageChange(null) synchronously; the second call must mutate the
-  // first call's result, not the stale `content` prop.
-  const mediaContentRef = useRef(content);
-  useEffect(() => {
-    // The ref syncs from the prop here (not during render — refs are
-    // render-off-limits per the correctness lint) and inline inside the
-    // handlers below, so a synchronous second media call always chains on
-    // the first call's result.
-    mediaContentRef.current = content;
-  }, [content]);
   function handleIconChange(nodeIds: string[], icon: IconConfig | null) {
     if (readOnly) {return;}
     let result = mediaContentRef.current;
     for (const id of nodeIds) {result = updateNodeIcon(result, id, icon);}
     mediaContentRef.current = result;
+    setPendingSpecialShape(null);
     onChange(result);
   }
   function handleImageChange(nodeIds: string[], img: ImgConfig | null) {
@@ -838,6 +865,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     let result = mediaContentRef.current;
     for (const id of nodeIds) {result = updateNodeImg(result, id, img);}
     mediaContentRef.current = result;
+    setPendingSpecialShape(null);
     onChange(result);
   }
 
@@ -954,6 +982,8 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
           onToolMode={m => { setToolMode(m); setConnectFirst(null); }}
           onAddShape={handleAddShape}
           onDragStart={shape => setDragShape(shape)}
+          onAddSpecialShape={handleAddSpecialShape}
+          onDragStartSpecial={shape => setDragSpecialShape(shape)}
           onDeleteSelected={handleDeleteSelected}
           hasSelection={selection.nodeIds.length > 0}
         />
@@ -1179,6 +1209,11 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
               nodeImage={sharedNodeImage}
               onIconChange={handleIconChange}
               onImageChange={handleImageChange}
+              initialMediaMode={
+                selection.nodeIds.length === 1 && pendingSpecialShape?.nodeId === selection.nodeIds[0]
+                  ? pendingSpecialShape.mode
+                  : null
+              }
               onArrowChange={handleArrowChange}
               onEdgeLabelChange={handleEdgeLabelChange}
               onDeleteEdge={handleDeleteEdge}

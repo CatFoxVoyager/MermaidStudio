@@ -16,6 +16,7 @@ import { NodeStylePanel } from './NodeStylePanel';
 import { EdgeStylePanel } from './EdgeStylePanel';
 import { SubgraphStylePanel } from './SubgraphStylePanel';
 import { ShapeToolbar } from '../visual/ShapeToolbar';
+import type { SpecialMediaShape } from '../shared/ShapePicker';
 import { getStylingCapabilities } from '@/types';
 import { DIAGRAM_LABELS } from '@/constants/diagramLabels';
 
@@ -332,6 +333,8 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [connectFirst, setConnectFirst] = useState<string | null>(null);
   const [dragShape, setDragShape] = useState<NodeShape | null>(null);
+  const [dragSpecialShape, setDragSpecialShape] = useState<SpecialMediaShape | null>(null);
+  const [pendingSpecialShape, setPendingSpecialShape] = useState<{ nodeId: string; mode: SpecialMediaShape } | null>(null);
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
   const [dragOverSubgraphId, setDragOverSubgraphId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1233,35 +1236,37 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     onChange(result);
   }, [onChange, content, bodyHasMetadata]);
 
-  // 38-06 (SHP-04): node shape change handler — the NodeStylePanel Shape
-  // row's delegate, gated like its sibling mutators and threaded per the
-  // existing codeUtils pattern (one updateNodeShape call per selected id,
-  // chaining the intermediate results).
-  const handleNodeShapeChange = useCallback((nodeIds: string[], shape: NodeShape) => {
-    if (!onChange) return;
-    if (bodyHasMetadata) return; // D6 fence
-    let result = content;
-    for (const id of nodeIds) {
-      result = updateNodeShape(result, id, shape);
-    }
-    onChange(result);
-  }, [onChange, content, bodyHasMetadata]);
-
   // 39-04 (ICON-03, T-39-09): media-mutation delegates — the ONLY write
   // path is the 39-01 updateNodeIcon/updateNodeImg mutators (components
   // never regex-edit directive spans). The media content ref chains
-  // SEQUENTIAL mutator calls: the panel's switch-to-Text on a mixed
-  // selection fires onIconChange(null) then onImageChange(null)
-  // synchronously, and the second handler must mutate the first call's
-  // result, not the stale `content` prop (a lost-update otherwise).
+  // SEQUENTIAL mutator calls: switching from an Icon/Image shape to a
+  // geometric shape fires onIconChange(null), onImageChange(null), and
+  // onShapeChange(shape) synchronously, and each handler must mutate the
+  // prior call's result, not the stale `content` prop (a lost-update otherwise).
   const mediaContentRef = useRef(content);
   useEffect(() => {
     // The ref syncs from the prop here (not during render — refs are
     // render-off-limits per the correctness lint) and inline inside the
-    // handlers below, so a synchronous second media call always chains on
-    // the first call's result.
+    // handlers below, so synchronous chained calls always compose cleanly.
     mediaContentRef.current = content;
   }, [content]);
+
+  // 38-06 (SHP-04): node shape change handler — the NodeStylePanel Shape
+  // row's delegate, gated like its sibling mutators and threaded through
+  // mediaContentRef so clearing active icon/img media and setting the new
+  // geometric shape compose synchronously without lost updates.
+  const handleNodeShapeChange = useCallback((nodeIds: string[], shape: NodeShape) => {
+    if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
+    let result = mediaContentRef.current;
+    for (const id of nodeIds) {
+      result = updateNodeShape(result, id, shape);
+    }
+    mediaContentRef.current = result;
+    setPendingSpecialShape(null);
+    onChange(result);
+  }, [onChange, bodyHasMetadata]);
+
   const handleNodeIconChange = useCallback((nodeIds: string[], icon: IconConfig | null) => {
     if (!onChange) return;
     if (bodyHasMetadata) return; // D6 fence
@@ -1270,6 +1275,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       result = updateNodeIcon(result, id, icon);
     }
     mediaContentRef.current = result;
+    setPendingSpecialShape(null);
     onChange(result);
   }, [onChange, bodyHasMetadata]);
   const handleNodeImageChange = useCallback((nodeIds: string[], img: ImgConfig | null) => {
@@ -1280,6 +1286,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       result = updateNodeImg(result, id, img);
     }
     mediaContentRef.current = result;
+    setPendingSpecialShape(null);
     onChange(result);
   }, [onChange, bodyHasMetadata]);
 
@@ -1326,6 +1333,28 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     const existingIds = parsedDiagram.nodes.map(n => n.id);
     const id = generateNodeId(existingIds);
     const result = addNode(content, id, 'New Node', shape);
+    mediaContentRef.current = result;
+    setPendingSpecialShape(null);
+    onChange(result);
+    setSelectedNodeIds(new Set([id]));
+    setSelectedEdgeIndex(null);
+  }, [onChange, content, parsedDiagram, bodyHasMetadata]);
+
+  // Media shape insertion handler: Icon inserts a ready-to-render fa:star node;
+  // Image inserts a node and arms the inspector directly on Image upload.
+  const handleAddSpecialShape = useCallback((kind: SpecialMediaShape) => {
+    if (!onChange) return;
+    if (bodyHasMetadata) return; // D6 fence
+    const existingIds = parsedDiagram.nodes.map(n => n.id);
+    const id = generateNodeId(existingIds);
+    let result = addNode(content, id, 'New Node', 'rect');
+    if (kind === 'icon') {
+      result = updateNodeIcon(result, id, { icon: 'fa:star' });
+      setPendingSpecialShape(null);
+    } else {
+      setPendingSpecialShape({ nodeId: id, mode: 'img' });
+    }
+    mediaContentRef.current = result;
     onChange(result);
     setSelectedNodeIds(new Set([id]));
     setSelectedEdgeIndex(null);
@@ -1412,10 +1441,15 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       setDragOverSubgraphId(null);
       return;
     }
+    if (dragSpecialShape) {
+      handleAddSpecialShape(dragSpecialShape);
+      setDragSpecialShape(null);
+      return;
+    }
     if (!dragShape) return;
     handleAddShape(dragShape);
     setDragShape(null);
-  }, [dragShape, dragNodeId, handleAddShape, onChange, content, bodyHasMetadata]);
+  }, [dragShape, dragSpecialShape, dragNodeId, handleAddShape, handleAddSpecialShape, onChange, content, bodyHasMetadata]);
 
   // Pan handlers for drag navigation
   const handlePanMouseDown = useCallback((e: React.MouseEvent) => {
@@ -1630,6 +1664,8 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           onToolMode={setToolMode}
           onAddShape={handleAddShape}
           onDragStart={shape => setDragShape(shape)}
+          onAddSpecialShape={handleAddSpecialShape}
+          onDragStartSpecial={shape => setDragSpecialShape(shape)}
         />
       )}
 
@@ -1917,6 +1953,11 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           nodeImage={sharedNodeImage}
           onIconChange={handleNodeIconChange}
           onImageChange={handleNodeImageChange}
+          initialMediaMode={
+            selectedNodeList.length === 1 && pendingSpecialShape?.nodeId === selectedNodeList[0]
+              ? pendingSpecialShape.mode
+              : null
+          }
           onLabelChange={handleNodeLabelChange}
           onReset={handleResetStyles}
           hideBorderRadius={hideNodeBorderRadius}

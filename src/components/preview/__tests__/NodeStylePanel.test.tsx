@@ -93,6 +93,7 @@ vi.mock('react-i18next', async () => {
           'nodeStyle.fontLighter': 'Lighter',
           'nodeStyle.fontBolder': 'Bolder',
           'visual.shapeChangeHint': en.visual.shapeChangeHint,
+          'visual.shapeCategoryMedia': 'Media',
           'visual.shapeSearch': 'Search shapes…',
           'visual.shapeSearchClear': 'Clear search',
           'visual.shapeSearchEmpty': 'No matching shape',
@@ -665,138 +666,159 @@ describe('NodeStylePanel media tabs (39-04 ICON-03)', () => {
     mediaProps.onImageChange.mockClear();
   });
 
-  it('hides the media section entirely when the mutator props are absent (absent-props callers unchanged)', () => {
-    const { container } = render(<NodeStylePanel {...defaultProps} />);
+  const pickShape = (container: HTMLElement, selector: string) => {
+    fireEvent.click(container.querySelector('[data-shape-trigger]')!);
+    fireEvent.click(container.querySelector(selector)!);
+  };
+
+  it('hides special media shapes when the mutator props are absent (absent-props callers unchanged)', () => {
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} nodeShapes={['rect']} onShapeChange={vi.fn()} />,
+    );
     expect(container.querySelector('[data-media-tab]')).toBeNull();
     expect(container.querySelector('[role="tablist"]')).toBeNull();
+    fireEvent.click(container.querySelector('[data-shape-trigger]')!);
+    expect(container.querySelector('[data-special-shape]')).toBeNull();
   });
 
-  it('renders the three Text | Icon | Image segments when media support is wired', () => {
+  it('exposes Icon and Image as shapes inside ShapePicker without a separate Content tab bar', () => {
     const { container } = render(
-      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeShapes={['rect']} onShapeChange={vi.fn()} nodeIcon={null} nodeImage={null} />,
     );
-    expect(screen.getByText('Content')).toBeInTheDocument();
-    expect(container.querySelector('[data-media-tab="text"]')).not.toBeNull();
-    expect(container.querySelector('[data-media-tab="icon"]')).not.toBeNull();
-    expect(container.querySelector('[data-media-tab="image"]')).not.toBeNull();
+    expect(container.querySelector('[data-media-tab]')).toBeNull();
+    expect(container.querySelector('[role="tablist"]')).toBeNull();
+    fireEvent.click(container.querySelector('[data-shape-trigger]')!);
+    expect(container.querySelector('[data-special-shape="icon"]')).not.toBeNull();
+    expect(container.querySelector('[data-special-shape="img"]')).not.toBeNull();
   });
 
-  it('active state: all-icon selection lights the Icon segment', () => {
+  it('active state: all-icon selection shows Icon as the active shape', () => {
     const { container } = render(
-      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={ICON_A} nodeImage={null} />,
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeShapes={['rect']} onShapeChange={vi.fn()} nodeIcon={ICON_A} nodeImage={null} />,
     );
-    expect(container.querySelector('[data-media-tab="icon"]')!.getAttribute('aria-selected')).toBe('true');
-    expect(container.querySelector('[data-media-tab="text"]')!.getAttribute('aria-selected')).toBe('false');
-    expect(container.querySelector('[data-media-tab="image"]')!.getAttribute('aria-selected')).toBe('false');
+    const trigger = container.querySelector('[data-shape-trigger]') as HTMLElement;
+    expect(trigger.getAttribute('data-shape-kind')).toBe('icon');
+    expect(trigger.textContent).toContain('Icon');
   });
 
-  it('active state: all-img selection lights the Image segment', () => {
+  it('active state: all-img selection shows Image as the active shape', () => {
     const { container } = render(
-      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={IMG_A} />,
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeShapes={['rect']} onShapeChange={vi.fn()} nodeIcon={null} nodeImage={IMG_A} />,
     );
-    expect(container.querySelector('[data-media-tab="image"]')!.getAttribute('aria-selected')).toBe('true');
+    const trigger = container.querySelector('[data-shape-trigger]') as HTMLElement;
+    expect(trigger.getAttribute('data-shape-kind')).toBe('img');
+    expect(trigger.textContent).toContain('Image');
   });
 
-  it('active state: all-plain selection lights the Text segment', () => {
+  it('active state: all-plain selection shows the geometric shape on the trigger', () => {
     const { container } = render(
-      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeShapes={['rect']} onShapeChange={vi.fn()} nodeIcon={null} nodeImage={null} />,
     );
-    expect(container.querySelector('[data-media-tab="text"]')!.getAttribute('aria-selected')).toBe('true');
+    const trigger = container.querySelector('[data-shape-trigger]') as HTMLElement;
+    expect(trigger.getAttribute('data-shape-kind')).toBe('rect');
   });
 
-  it('active state: mixed media kinds show no active segment and the nodeStyle.mixed chip', () => {
+  it('active state: mixed media kinds show Mixed on the shape trigger and the nodeStyle.mixed chip', () => {
     const { container } = render(
       <NodeStylePanel
         {...defaultProps}
         {...mediaProps}
         selectedNodeIds={['A', 'B']}
         nodeStyles={[{}, {}]}
+        nodeShapes={['rect', 'rect']}
+        onShapeChange={vi.fn()}
         nodeIcon={undefined}
         nodeImage={undefined}
       />,
     );
-    for (const tab of ['text', 'icon', 'image']) {
-      expect(container.querySelector(`[data-media-tab="${tab}"]`)!.getAttribute('aria-selected')).toBe('false');
-    }
+    const trigger = container.querySelector('[data-shape-trigger]') as HTMLElement;
+    expect(trigger.getAttribute('data-shape-kind')).toBe('mixed');
     expect(container.querySelector('[data-media-mixed]')).not.toBeNull();
   });
 
-  it('switch to Icon strips the img params through the img mutator (onImageChange(ids, null))', () => {
+  it('picking Icon shape strips img params through the img mutator (onImageChange(ids, null))', () => {
     const onIconChange = vi.fn();
     const onImageChange = vi.fn<(nodeIds: string[], img: ImgConfig | null) => void>();
     const { container } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} onImageChange={onImageChange} nodeIcon={null} nodeImage={IMG_A} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="icon"]')!);
+    pickShape(container, '[data-special-shape="icon"]');
     expect(onImageChange).toHaveBeenCalledTimes(1);
     expect(onImageChange).toHaveBeenCalledWith(['A'], null);
     expect(onIconChange).not.toHaveBeenCalled();
   });
 
-  it('switch to Image strips the icon params through the icon mutator (onIconChange(ids, null))', () => {
+  it('picking Image shape strips icon params through the icon mutator (onIconChange(ids, null))', () => {
     const onIconChange = vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>();
     const onImageChange = vi.fn();
     const { container } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} onImageChange={onImageChange} nodeIcon={ICON_A} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     expect(onIconChange).toHaveBeenCalledTimes(1);
     expect(onIconChange).toHaveBeenCalledWith(['A'], null);
     expect(onImageChange).not.toHaveBeenCalled();
   });
 
-  it('switch to Text on an icon selection clears icon only', () => {
+  it('picking a geometric shape on an icon selection clears icon AND emits onShapeChange', () => {
     const onIconChange = vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>();
     const onImageChange = vi.fn();
+    const onShapeChange = vi.fn<(nodeIds: string[], shape: NodeShape) => void>();
     const { container } = render(
-      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} onImageChange={onImageChange} nodeIcon={ICON_A} nodeImage={null} />,
+      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} onImageChange={onImageChange} onShapeChange={onShapeChange} nodeShapes={['rect']} nodeIcon={ICON_A} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="text"]')!);
+    pickShape(container, '[data-shape-cell="diam"]');
     expect(onIconChange).toHaveBeenCalledWith(['A'], null);
     expect(onImageChange).not.toHaveBeenCalled();
+    expect(onShapeChange).toHaveBeenCalledWith(['A'], 'diam');
   });
 
-  it('switch to Text on a mixed selection clears BOTH media kinds (two mutator calls)', () => {
+  it('picking a geometric shape on a mixed selection clears BOTH media kinds AND emits onShapeChange', () => {
     const onIconChange = vi.fn<(nodeIds: string[], icon: IconConfig | null) => void>();
     const onImageChange = vi.fn<(nodeIds: string[], img: ImgConfig | null) => void>();
+    const onShapeChange = vi.fn<(nodeIds: string[], shape: NodeShape) => void>();
     const { container } = render(
       <NodeStylePanel
         {...defaultProps}
         {...mediaProps}
         onIconChange={onIconChange}
         onImageChange={onImageChange}
+        onShapeChange={onShapeChange}
+        nodeShapes={['rect', 'rect']}
         selectedNodeIds={['A', 'B']}
         nodeStyles={[{}, {}]}
         nodeIcon={undefined}
         nodeImage={undefined}
       />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="text"]')!);
+    pickShape(container, '[data-shape-cell="rect"]');
     expect(onIconChange).toHaveBeenCalledWith(['A', 'B'], null);
     expect(onImageChange).toHaveBeenCalledWith(['A', 'B'], null);
+    expect(onShapeChange).toHaveBeenCalledWith(['A', 'B'], 'rect');
   });
 
-  it('switch to Text on an all-plain selection is a no-op (no source rewrite)', () => {
+  it('picking a geometric shape on an all-plain selection does not call media mutators', () => {
+    const onIconChange = vi.fn();
+    const onImageChange = vi.fn();
+    const onShapeChange = vi.fn<(nodeIds: string[], shape: NodeShape) => void>();
+    const { container } = render(
+      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} onImageChange={onImageChange} onShapeChange={onShapeChange} nodeShapes={['rect']} nodeIcon={null} nodeImage={null} />,
+    );
+    pickShape(container, '[data-shape-cell="circle"]');
+    expect(onIconChange).not.toHaveBeenCalled();
+    expect(onImageChange).not.toHaveBeenCalled();
+    expect(onShapeChange).toHaveBeenCalledWith(['A'], 'circle');
+  });
+
+  it('picking Icon shape on a plain selection writes NO scaffolding and opens the icon CTA', () => {
     const onIconChange = vi.fn();
     const onImageChange = vi.fn();
     const { container } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} onImageChange={onImageChange} nodeIcon={null} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="text"]')!);
+    pickShape(container, '[data-special-shape="icon"]');
     expect(onIconChange).not.toHaveBeenCalled();
     expect(onImageChange).not.toHaveBeenCalled();
-  });
-
-  it('switch to Icon on a plain selection writes NO scaffolding (empty state; picker picks in 39-05)', () => {
-    const onIconChange = vi.fn();
-    const onImageChange = vi.fn();
-    const { container } = render(
-      <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} onImageChange={onImageChange} nodeIcon={null} nodeImage={null} />,
-    );
-    fireEvent.click(container.querySelector('[data-media-tab="icon"]')!);
-    expect(onIconChange).not.toHaveBeenCalled();
-    expect(onImageChange).not.toHaveBeenCalled();
-    // Empty state: the declared CTA copy shows in the opened tab body.
     expect(screen.getByText('Choose an icon…')).toBeInTheDocument();
   });
 
@@ -968,25 +990,28 @@ describe('NodeStylePanel image tab (39-05 Task 1 ICON-03)', () => {
     defaultProps.onStyleChange.mockClear();
   });
 
+  const pickShape = (container: HTMLElement, selector: string) => {
+    fireEvent.click(container.querySelector('[data-shape-trigger]')!);
+    fireEvent.click(container.querySelector(selector)!);
+  };
+
   it('empty state on a plain selection: the upload CTA + paste hint pair render — no dropzone chrome, no thumbnail', () => {
     const { container } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     expect(container.querySelector('[data-image-upload]')).not.toBeNull();
     expect(container.querySelector('[data-image-hint]')).not.toBeNull();
     expect(container.querySelector('[data-image-thumbnail]')).toBeNull();
     expect(container.querySelector('[data-image-busy]')).toBeNull();
-    // The highlight still follows the DATA (the locked switch table).
-    expect(container.querySelector('[data-media-tab="text"]')!.getAttribute('aria-selected')).toBe('true');
-    expect(container.querySelector('[data-media-tab="image"]')!.getAttribute('aria-selected')).toBe('false');
+    expect(container.querySelector('[data-shape-trigger]')!.getAttribute('data-shape-kind')).toBe('img');
   });
 
   it('the hidden file input is limited to the declared four image mimes', () => {
     const { container } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     const input = container.querySelector('[data-image-input]') as HTMLInputElement;
     expect(input.accept).toBe('image/png,image/jpeg,image/webp,image/gif');
   });
@@ -1017,7 +1042,7 @@ describe('NodeStylePanel image tab (39-05 Task 1 ICON-03)', () => {
     const { container } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     await upload(container, makePng());
     expect(fileToCompressedDataUri).toHaveBeenCalledTimes(1);
     expect(vi.mocked(fileToCompressedDataUri).mock.calls[0][0].type).toBe('image/png');
@@ -1051,7 +1076,7 @@ describe('NodeStylePanel image tab (39-05 Task 1 ICON-03)', () => {
       );
     }
     const { container } = render(<Host />);
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     await upload(container, makePng());
     expect(container.querySelector('[data-image-busy]')).not.toBeNull();
     expect(container.querySelector('[data-image-busy]')!.textContent).toContain('Compressing…');
@@ -1069,7 +1094,7 @@ describe('NodeStylePanel image tab (39-05 Task 1 ICON-03)', () => {
     const { container } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     await upload(container, makePng());
     const row = container.querySelector('[data-image-error="invalid-type"]') as HTMLElement;
     expect(row).not.toBeNull();
@@ -1083,7 +1108,7 @@ describe('NodeStylePanel image tab (39-05 Task 1 ICON-03)', () => {
     const { container } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     await upload(container, makePng());
     const row = container.querySelector('[data-image-error="too-large"]') as HTMLElement;
     expect(row.textContent).toContain('Image too large — pick one under 8 MB.');
@@ -1097,7 +1122,7 @@ describe('NodeStylePanel image tab (39-05 Task 1 ICON-03)', () => {
     const { container } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     await upload(container, makePng());
     const row = container.querySelector('[data-image-error="too-large"]') as HTMLElement;
     expect(row.textContent).toContain('Image too large — pick one under 300 KB.');
@@ -1109,7 +1134,7 @@ describe('NodeStylePanel image tab (39-05 Task 1 ICON-03)', () => {
     const { container } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     await upload(container, makePng());
     expect(container.querySelector('[data-image-error]')).not.toBeNull();
     // The next attempt clears the row (and succeeds).
@@ -1218,7 +1243,7 @@ describe('NodeStylePanel image tab (39-05 Task 1 ICON-03)', () => {
     const { container } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} onIconChange={onIconChange} nodeIcon={null} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="icon"]')!);
+    pickShape(container, '[data-special-shape="icon"]');
     fireEvent.click(container.querySelector('[data-icon-trigger]') as HTMLElement);
     const root = container.querySelector('[data-icon-picker]') as HTMLElement;
     expect(root).not.toBeNull();
@@ -1257,8 +1282,8 @@ describe('NodeStylePanel image tab (39-05 Task 1 ICON-03)', () => {
 });
 
 // ===== 39-05 Task 3 (ICON-03): the paste flow — the ICON-03 concurrency
-// resolution: the clipboard listener is bound ONLY while the Image tab is
-// open, and removed on tab switch and unmount (the bind/unbind lifecycle
+// resolution: the clipboard listener is bound ONLY while the Image shape body is
+// open, and removed on shape switch and unmount (the bind/unbind lifecycle
 // the checker info names).
 describe('NodeStylePanel paste flow (39-05 ICON-03 bind/unbind lifecycle)', () => {
   const IMG_COMPRESSED = 'data:image/jpeg;base64,aaBBccDD';
@@ -1267,6 +1292,11 @@ describe('NodeStylePanel paste flow (39-05 ICON-03 bind/unbind lifecycle)', () =
     onImageChange: vi.fn<(nodeIds: string[], img: ImgConfig | null) => void>(),
   };
   const makePng = (name = 'pasted.png'): File => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' });
+
+  const pickShape = (container: HTMLElement, selector: string) => {
+    fireEvent.click(container.querySelector('[data-shape-trigger]')!);
+    fireEvent.click(container.querySelector(selector)!);
+  };
 
   const pasteEvent = async (file: File | null) => {
     await act(async () => {
@@ -1283,25 +1313,25 @@ describe('NodeStylePanel paste flow (39-05 ICON-03 bind/unbind lifecycle)', () =
     defaultProps.onStyleChange.mockClear();
   });
 
-  it('a pasted image routes through fileToCompressedDataUri while the Image tab is open', async () => {
+  it('a pasted image routes through fileToCompressedDataUri while the Image shape is active', async () => {
     vi.mocked(fileToCompressedDataUri).mockResolvedValue(IMG_COMPRESSED);
     const { container } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     const file = makePng();
     await pasteEvent(file);
     expect(fileToCompressedDataUri).toHaveBeenCalledWith(file);
     expect(mediaProps.onImageChange).toHaveBeenCalledWith(['A'], { img: IMG_COMPRESSED });
   });
 
-  it('the paste listener is removed on tab switch (ICON-03 bind/unbind lifecycle)', async () => {
+  it('the paste listener is removed on shape switch (ICON-03 bind/unbind lifecycle)', async () => {
     vi.mocked(fileToCompressedDataUri).mockResolvedValue(IMG_COMPRESSED);
     const { container } = render(
-      <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
+      <NodeStylePanel {...defaultProps} {...mediaProps} nodeShapes={['rect']} onShapeChange={vi.fn()} nodeIcon={null} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
-    fireEvent.click(container.querySelector('[data-media-tab="text"]')!);
+    pickShape(container, '[data-special-shape="img"]');
+    pickShape(container, '[data-shape-cell="rect"]');
     vi.mocked(fileToCompressedDataUri).mockClear();
     await pasteEvent(makePng());
     expect(fileToCompressedDataUri).not.toHaveBeenCalled();
@@ -1313,7 +1343,7 @@ describe('NodeStylePanel paste flow (39-05 ICON-03 bind/unbind lifecycle)', () =
     const { container, unmount } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     unmount();
     vi.mocked(fileToCompressedDataUri).mockClear();
     await pasteEvent(makePng());
@@ -1326,7 +1356,7 @@ describe('NodeStylePanel paste flow (39-05 ICON-03 bind/unbind lifecycle)', () =
     const { container } = render(
       <NodeStylePanel {...defaultProps} {...mediaProps} nodeIcon={null} nodeImage={null} />,
     );
-    fireEvent.click(container.querySelector('[data-media-tab="image"]')!);
+    pickShape(container, '[data-special-shape="img"]');
     await pasteEvent(null);
     expect(fileToCompressedDataUri).not.toHaveBeenCalled();
     expect(mediaProps.onImageChange).not.toHaveBeenCalled();

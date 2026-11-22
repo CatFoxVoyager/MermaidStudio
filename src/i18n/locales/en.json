@@ -127,6 +127,7 @@
       "devices": "Devices & Interfaces",
       "symbols": "Symbols & Status"
     },
+    "shapeCategoryMedia": "Media",
     "shapeChangeHint": "Set shape: {{shape}}",
     "shapeSearch": "Search shapes…",
     "shapeSearchClear": "Clear search",

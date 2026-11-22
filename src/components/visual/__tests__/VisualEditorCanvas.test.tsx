@@ -1544,13 +1544,14 @@ describe('media threading and readOnly fence (39-04 ICON-03)', () => {
       pointerId: 1, pointerType: 'mouse', button: 0, buttons: 0, clientX: 150, clientY: 125, shiftKey: false,
     });
 
-    // The properties panel mounts with the media section wired; the Image
-    // segment is the active one (the selection carries a parsed img config).
+    // The properties panel mounts with Image unified as the active shape
+    // (the selection carries a parsed img config, no separate Content tab bar).
     await waitFor(() => {
-      const imageTab = container.querySelector('[data-media-tab="image"]');
-      expect(imageTab).not.toBeNull();
-      expect(imageTab!.getAttribute('aria-selected')).toBe('true');
+      const shapeTrigger = container.querySelector('[data-shape-trigger]');
+      expect(shapeTrigger).not.toBeNull();
+      expect(shapeTrigger!.getAttribute('data-shape-kind')).toBe('img');
     });
+    expect(container.querySelector('[data-media-tab]')).toBeNull();
     // The icon rows do NOT render (no icon config on the img node).
     expect(container.querySelector('[data-icon-w]')).toBeNull();
     } finally {
@@ -1558,7 +1559,7 @@ describe('media threading and readOnly fence (39-04 ICON-03)', () => {
     }
   });
 
-  it('a fenced/read-only document refuses media edits: no properties panel, hence no media tabs', async () => {
+  it('a fenced/read-only document refuses media edits: no properties panel, hence no shape/media controls', async () => {
     // The malformed directive trips bodyHasUnparsedAtDirective -> readOnly;
     // the D6 fence contract from 39-01 holds on the canvas side too.
     const { container } = render(
@@ -1574,7 +1575,7 @@ describe('media threading and readOnly fence (39-04 ICON-03)', () => {
       // editable panel — and with it every media control — never mounts.
       expect(container.querySelector('svg')).not.toBeNull();
     });
-    expect(container.querySelector('[data-media-tab]')).toBeNull();
+    expect(container.querySelector('[data-shape-trigger]')).toBeNull();
     expect(container.querySelector('[data-icon-trigger]')).toBeNull();
   });
 });

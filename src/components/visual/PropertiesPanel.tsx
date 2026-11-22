@@ -1,5 +1,5 @@
 import { useState, useLayoutEffect, useEffect, useCallback, useRef } from 'react';
-import { Settings2, ChevronDown, Zap, Type, Smile, Image as ImageIcon, LoaderCircle, TriangleAlert, ImagePlus, ExternalLink } from 'lucide-react';
+import { Settings2, ChevronDown, Zap, Smile, LoaderCircle, TriangleAlert, ImagePlus, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { logger } from '@/utils/logger';
 import { ColorPicker } from './ColorPicker';
@@ -10,7 +10,7 @@ import { ColorPicker } from './ColorPicker';
 // (VisualEditorCanvas.tsx:884-885) would clip an absolutely-positioned
 // dropdown, but cannot clip a fixed host.
 import { ShapePicker } from '@/components/shared/ShapePicker';
-import type { ShapePickerAnchor } from '@/components/shared/ShapePicker';
+import type { ShapePickerAnchor, SpecialMediaShape } from '@/components/shared/ShapePicker';
 // 40-02 (EDGE-01, UI-SPEC Surface 1): the ONE shared 16-token picker list —
 // the hardcoded-EN local ARROW_OPTIONS (which carried the Sequence-only
 // double-arrow entry) is deleted; this panel and EdgeStylePanel consume the
@@ -21,6 +21,7 @@ import type { EdgeMetadata } from '@/lib/mermaid/codeUtils';
 // icon trigger — the fixed-position sibling recipe, never a nested popover.
 import { IconPicker } from '@/components/shared/IconPicker';
 import { ShapePreview } from '@/components/shared/ShapePreview';
+import type { ShapePreviewKind } from '@/components/shared/ShapePreview';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
 // 39-05 Task 3 (ICON-03, Surface 3): the upload/paste compression pipeline —
 // the ONLY route an image takes from file picker to node directive.
@@ -63,6 +64,7 @@ interface NodePanelProps {
   nodeImage?: ImgConfig | null;
   onIconChange?: (nodeIds: string[], icon: IconConfig | null) => void;
   onImageChange?: (nodeIds: string[], img: ImgConfig | null) => void;
+  initialMediaMode?: SpecialMediaShape | null;
 }
 
 function getSharedStyleValue(nodes: VisualNode[], field: keyof NodeStyle): string | 'mixed' | undefined {
@@ -74,7 +76,7 @@ function getSharedStyleValue(nodes: VisualNode[], field: keyof NodeStyle): strin
 
 function NodePanel({
   nodes, onLabelChange, onShapeChange, onStyleChange,
-  nodeIcon, nodeImage, onIconChange, onImageChange,
+  nodeIcon, nodeImage, onIconChange, onImageChange, initialMediaMode,
 }: NodePanelProps) {
   const { t } = useTranslation();
   const single = nodes.length === 1 ? nodes[0] : null;
@@ -176,23 +178,37 @@ function NodePanel({
       : nodeImage
         ? 'image'
         : 'text';
-  const [iconTabArmed, setIconTabArmed] = useState(false);
-  const [imageTabArmed, setImageTabArmed] = useState(false);
+  const [iconTabArmed, setIconTabArmed] = useState(initialMediaMode === 'icon');
+  const [imageTabArmed, setImageTabArmed] = useState(initialMediaMode === 'img');
   const [imageBusy, setImageBusy] = useState(false);
   const [imageError, setImageError] = useState<ImageCompressErrorCode | null>(null);
   const [imageErrorLimit, setImageErrorLimit] = useState<number | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    setIconTabArmed(false);
-    setImageTabArmed(false);
+    setIconTabArmed(initialMediaMode === 'icon');
+    setImageTabArmed(initialMediaMode === 'img');
     setImageBusy(false);
     setImageError(null);
     setImageErrorLimit(null);
-  }, [nodes.map(n => n.id).join(','), nodes.length]);
+  }, [nodes.map(n => n.id).join(','), nodes.length, initialMediaMode]);
   const iconBodyVisible =
     activeMedia === 'icon' || (iconTabArmed && mediaWired && !mediaMixed && !nodeIcon && !nodeImage);
   const imageBodyVisible =
     activeMedia === 'image' || (imageTabArmed && mediaWired && !mediaMixed && !nodeIcon && !nodeImage);
+
+  // Unified Shape row display: Icon and Image replace the node's geometric shape in Mermaid.
+  const activeSpecialShape: SpecialMediaShape | null =
+    iconBodyVisible ? 'icon' : imageBodyVisible ? 'img' : null;
+  const triggerShapePreview: ShapePreviewKind = mediaMixed
+    ? 'rect'
+    : activeSpecialShape ?? (sharedShape === 'mixed' ? 'rect' : sharedShape);
+  const triggerShapeLabel = mediaMixed
+    ? t('nodeStyle.mixed')
+    : activeSpecialShape === 'icon'
+      ? t('nodeStyle.tabIcon')
+      : activeSpecialShape === 'img'
+        ? t('nodeStyle.tabImage')
+        : shapeLabel;
 
   const toggleIconPicker = () => {
     if (!iconPickerOpen && iconBtnRef.current) {
@@ -223,13 +239,24 @@ function NodePanel({
     setImageTabArmed(true);
     if (nodeIcon !== null) {onIconChange(nodes.map(n => n.id), null);}
   };
-  const switchToText = () => {
-    if (!onIconChange || !onImageChange) {return;}
+  const pickGeometricShape = (shape: NodeShape) => {
     setIconTabArmed(false);
     setImageTabArmed(false);
     const ids = nodes.map(n => n.id);
-    if (nodeIcon !== null) {onIconChange(ids, null);}
-    if (nodeImage !== null) {onImageChange(ids, null);}
+    if (mediaWired) {
+      if (nodeIcon !== null) {onIconChange?.(ids, null);}
+      if (nodeImage !== null) {onImageChange?.(ids, null);}
+    }
+    nodes.forEach(n => onShapeChange(n.id, shape));
+    closeShapePicker();
+  };
+  const pickSpecialShape = (kind: SpecialMediaShape) => {
+    if (kind === 'icon') {
+      switchToIcon();
+    } else {
+      switchToImage();
+    }
+    closeShapePicker();
   };
 
   const setIconParam = (patch: Partial<Omit<IconConfig, 'icon' | 'label'>>) => {
@@ -344,95 +371,48 @@ function NodePanel({
       )}
 
       <div className="flex flex-col gap-1">
-        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('nodeStyle.shape', 'Shape')}</span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('nodeStyle.shape', 'Shape')}</span>
+          {mediaMixed && (
+            <span
+              data-media-mixed
+              className="text-[10px] leading-none px-2 py-1 rounded-full border shrink-0"
+              style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}
+            >
+              {t('nodeStyle.mixed')}
+            </span>
+          )}
+        </div>
         <button
           ref={shapeBtnRef}
           type="button"
           data-shape-trigger
+          data-shape-kind={mediaMixed ? 'mixed' : (activeSpecialShape ?? sharedShape)}
           onClick={toggleShapePicker}
-          title={t('visual.shapeChangeHint', { shape: shapeLabel })}
-          aria-label={t('visual.shapeChangeHint', { shape: shapeLabel })}
+          title={t('visual.shapeChangeHint', { shape: triggerShapeLabel })}
+          aria-label={t('visual.shapeChangeHint', { shape: triggerShapeLabel })}
           className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
           style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}>
           <span className="shrink-0 flex items-center">
-            {/* Mixed state carries the neutral rect preview (the old
-                "Mixed shapes" select-option precedent, carried to the
-                trigger). */}
-            <ShapePreview shape={sharedShape === 'mixed' ? 'rect' : sharedShape} />
+            <ShapePreview shape={triggerShapePreview} />
           </span>
-          <span className="truncate">{shapeLabel}</span>
+          <span className="truncate">{triggerShapeLabel}</span>
           <ChevronDown size={11} className="ml-auto shrink-0 pointer-events-none" style={{ color: 'var(--text-tertiary)' }} />
         </button>
         {shapeOpen && shapeAnchor && (
           <ShapePicker
             anchor={shapeAnchor}
             onClose={closeShapePicker}
-            onPick={(shape) => {
-              // Mixed multi-select: apply the chosen shape to every selected
-              // node (the old select's onChange.forEach idiom, unchanged).
-              nodes.forEach(n => onShapeChange(n.id, shape));
-              closeShapePicker();
-            }}
-            selected={sharedShape === 'mixed' ? null : sharedShape}
+            onPick={pickGeometricShape}
+            selected={activeSpecialShape || mediaMixed || sharedShape === 'mixed' ? null : sharedShape}
+            onPickSpecial={mediaWired ? pickSpecialShape : undefined}
+            selectedSpecial={mediaMixed ? null : activeSpecialShape}
             triggerRef={shapeBtnRef}
           />
         )}
-      </div>
 
-      {/* 39-04 (ICON-03, Surfaces 1+6): the Text | Icon | Image media tabs —
-          the identical section NodeStylePanel ships, adapted to this 220px
-          panel (explicit max-md touch floors; no .style-panel class here).
-          Shape and media stay orthogonal: this section never hides the
-          shape row. */}
-      {mediaWired && (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
-              {t('nodeStyle.media')}
-            </span>
-            {mediaMixed && (
-              <span
-                data-media-mixed
-                className="text-[10px] leading-none px-2 py-1 rounded-full border shrink-0"
-                style={{ color: 'var(--text-secondary)', borderColor: 'var(--border-subtle)' }}
-              >
-                {t('nodeStyle.mixed')}
-              </span>
-            )}
-          </div>
-          <div className="grid grid-cols-3 gap-1" role="tablist" aria-label={t('nodeStyle.media')}>
-            {([
-              { tab: 'text' as MediaTab, key: 'nodeStyle.tabText', Glyph: Type, onPick: switchToText },
-              { tab: 'icon' as MediaTab, key: 'nodeStyle.tabIcon', Glyph: Smile, onPick: switchToIcon },
-              { tab: 'image' as MediaTab, key: 'nodeStyle.tabImage', Glyph: ImageIcon, onPick: switchToImage },
-            ]).map(({ tab, key, Glyph, onPick }) => {
-              const active = activeMedia === tab;
-              return (
-                <button
-                  key={tab}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  data-media-tab={tab}
-                  onClick={onPick}
-                  className={`flex flex-col items-center justify-center gap-1 rounded-md border px-1 py-1.5 text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
-                  style={
-                    active
-                      ? { background: 'var(--accent-dim)', borderColor: 'transparent', color: 'var(--accent)' }
-                      : { background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }
-                  }
-                >
-                  <Glyph size={14} />
-                  <span>{t(key)}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Icon tab body — the same trigger/param rows as the preview
-              panel; the IconPicker opens from this trigger via the
-              fixed-anchor measurement (39-05, no nested popover). */}
-          {iconBodyVisible && (
+        {/* Icon shape configuration rows — directly beneath Shape when Icon shape is active */}
+        {mediaWired && iconBodyVisible && (
             <div className="flex flex-col gap-2 pt-1">
               <button
                 ref={iconBtnRef}
@@ -592,7 +572,10 @@ function NodePanel({
                   <button
                     type="button"
                     data-icon-remove
-                    onClick={() => onIconChange?.(nodes.map(n => n.id), null)}
+                    onClick={() => {
+                      setIconTabArmed(false);
+                      onIconChange?.(nodes.map(n => n.id), null);
+                    }}
                     className={`text-xs px-1 py-1.5 text-left max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
                     style={{ color: 'var(--danger)', background: 'transparent', border: 'none', outline: 'none' }}
                   >
@@ -603,11 +586,8 @@ function NodePanel({
             </div>
           )}
 
-          {/* 39-05 Task 3 (ICON-03, Surface 3): the Image tab body — the
-              pixel-for-pixel semantics of the preview panel's body, adapted
-              to the 220px panel (explicit max-md:min-h-[44px] floors on
-              every interactive control; no .style-panel class here). */}
-          {imageBodyVisible && (
+          {/* Image shape configuration rows — directly beneath Shape when Image shape is active */}
+          {mediaWired && imageBodyVisible && (
             <div className="flex flex-col gap-2 pt-1">
               <input
                 ref={imageInputRef}
@@ -786,7 +766,10 @@ function NodePanel({
                     <button
                       type="button"
                       data-image-remove
-                      onClick={() => onImageChange?.(nodes.map(n => n.id), null)}
+                      onClick={() => {
+                        setImageTabArmed(false);
+                        onImageChange?.(nodes.map(n => n.id), null);
+                      }}
                       className={`text-xs px-1 py-1.5 max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
                       style={{ color: 'var(--danger)', background: 'transparent', border: 'none', outline: 'none' }}
                     >
@@ -841,8 +824,7 @@ function NodePanel({
               )}
             </div>
           )}
-        </div>
-      )}
+      </div>
 
       <ColorPicker label={t('nodeStyle.fillColor', 'Fill Color')} labelVariant="inspector-sm" value={sharedStyle.fill ?? ''} onChange={v => handleStyleField('fill', v)} />
       <ColorPicker label={t('nodeStyle.borderColor', 'Border Color')} labelVariant="inspector-sm" value={sharedStyle.stroke ?? ''} onChange={v => handleStyleField('stroke', v)} />
@@ -1424,6 +1406,7 @@ interface Props {
   nodeImage?: ImgConfig | null;
   onIconChange?: (nodeIds: string[], icon: IconConfig | null) => void;
   onImageChange?: (nodeIds: string[], img: ImgConfig | null) => void;
+  initialMediaMode?: SpecialMediaShape | null;
   onArrowChange: (source: string, target: string, arrowType: string) => void;
   onEdgeLabelChange: (source: string, target: string, label: string) => void;
   onDeleteEdge: (source: string, target: string) => void;
@@ -1443,7 +1426,7 @@ interface Props {
 export function PropertiesPanel({
   selectedNodes, selectedEdge,
   onLabelChange, onShapeChange, onStyleChange,
-  nodeIcon, nodeImage, onIconChange, onImageChange,
+  nodeIcon, nodeImage, onIconChange, onImageChange, initialMediaMode,
   onArrowChange, onEdgeLabelChange, onDeleteEdge,
   edgeMeta, onEdgeMetaChange, onEdgeIdChange, onEdgeLengthChange, onAnimatePreset,
   selectedSubgraphId, selectedSubgraphLabel, subgraphView, onViewChange,
@@ -1493,6 +1476,7 @@ export function PropertiesPanel({
             nodeImage={nodeImage}
             onIconChange={onIconChange}
             onImageChange={onImageChange}
+            initialMediaMode={initialMediaMode}
           />
         ) : hasSubgraph && selectedSubgraphId && onViewChange ? (
           <SubgraphPanel

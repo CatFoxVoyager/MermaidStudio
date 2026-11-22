@@ -127,6 +127,7 @@
       "devices": "Appareils et interfaces",
       "symbols": "Symboles et états"
     },
+    "shapeCategoryMedia": "Médias",
     "shapeChangeHint": "Définir la forme : {{shape}}",
     "shapeSearch": "Rechercher une forme…",
     "shapeSearchClear": "Effacer la recherche",

@@ -49,6 +49,9 @@ vi.mock('react-i18next', () => ({
         'visual.shapeSearchClear': 'Clear search',
         'visual.shapeSearchEmpty': 'No matching shape',
         'visual.shapeSearchEmptyHint': 'No shape matches “{{query}}”. Try a shorter term or browse the categories.',
+        'visual.shapeCategoryMedia': 'Media',
+        'nodeStyle.tabIcon': lng === 'fr' ? 'Icône' : 'Icon',
+        'nodeStyle.tabImage': 'Image',
         ...Object.fromEntries(SHAPE_CATEGORIES.map(c => [`visual.shapeCategories.${c}`, c])),
       };
       const shapeMatch = /^visual\.shapes\.(.+)$/.exec(key);
@@ -258,6 +261,66 @@ describe('ShapePicker', () => {
       fireEvent.pointerDown(trigger);
       expect(onClose).not.toHaveBeenCalled();
       trigger.remove();
+    });
+  });
+
+  describe('special media shapes (Icon & Image)', () => {
+    it('omits the Media section when onPickSpecial is not provided', () => {
+      const { container } = renderPicker();
+      expect(container.querySelector('[data-shape-section="media"]')).toBeNull();
+      expect(container.querySelectorAll('button[data-special-shape]')).toHaveLength(0);
+    });
+
+    it('renders Icon and Image under Media when onPickSpecial is wired while keeping canonical shape cells at 53', () => {
+      const onPickSpecial = vi.fn();
+      const { container } = renderPicker({ onPickSpecial });
+
+      expect(container.querySelector('[data-shape-section="media"]')).not.toBeNull();
+      expect(container.querySelectorAll('button[data-shape-cell]')).toHaveLength(53);
+
+      const iconBtn = container.querySelector('button[data-special-shape="icon"]') as HTMLElement;
+      const imgBtn = container.querySelector('button[data-special-shape="img"]') as HTMLElement;
+      expect(iconBtn).not.toBeNull();
+      expect(imgBtn).not.toBeNull();
+
+      fireEvent.click(iconBtn);
+      expect(onPickSpecial).toHaveBeenCalledWith('icon');
+      fireEvent.click(imgBtn);
+      expect(onPickSpecial).toHaveBeenCalledWith('img');
+    });
+
+    it('marks the active special shape with accent styling when selectedSpecial is set', () => {
+      const { container } = renderPicker({ onPickSpecial: vi.fn(), selectedSpecial: 'icon' });
+      const iconBtn = container.querySelector('button[data-special-shape="icon"]') as HTMLElement;
+      const imgBtn = container.querySelector('button[data-special-shape="img"]') as HTMLElement;
+      expect(iconBtn.getAttribute('data-selected')).toBe('true');
+      expect(iconBtn.style.borderColor).toBe('var(--accent)');
+      expect(imgBtn.getAttribute('data-selected')).toBeNull();
+    });
+
+    it('filters special media shapes via EN/FR labels and aliases and hides Media when unmatched', () => {
+      const { container } = renderPicker({ onPickSpecial: vi.fn() });
+      const input = screen.getByLabelText('Search shapes…');
+
+      fireEvent.change(input, { target: { value: 'icône' } });
+      expect(container.querySelector('button[data-special-shape="icon"]')).not.toBeNull();
+      expect(container.querySelector('button[data-special-shape="img"]')).toBeNull();
+
+      fireEvent.change(input, { target: { value: 'photo' } });
+      expect(container.querySelector('button[data-special-shape="img"]')).not.toBeNull();
+      expect(container.querySelector('button[data-special-shape="icon"]')).toBeNull();
+
+      fireEvent.change(input, { target: { value: 'losange' } });
+      expect(container.querySelector('[data-shape-section="media"]')).toBeNull();
+    });
+
+    it('supports dragging special shapes when onDragStartSpecial is wired', () => {
+      const onDragStartSpecial = vi.fn();
+      const { container } = renderPicker({ onPickSpecial: vi.fn(), onDragStartSpecial });
+      const iconBtn = container.querySelector('button[data-special-shape="icon"]') as HTMLElement;
+      expect(iconBtn.getAttribute('draggable')).toBe('true');
+      fireEvent.dragStart(iconBtn);
+      expect(onDragStartSpecial).toHaveBeenCalledWith('icon');
     });
   });
 });

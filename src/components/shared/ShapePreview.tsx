@@ -17,9 +17,13 @@ import type { NodeShape } from '@/lib/mermaid/codeUtils';
 // remains the one superseded geometry: the SSOT maps asymmetric→odd, and
 // the old banner arm retired instead of surviving as a second geometry for
 // the same canonical shape.
-function ShapePreview({ shape }: { shape: NodeShape }) {
+export type ShapePreviewKind = NodeShape | 'icon' | 'img';
+
+function ShapePreview({ shape }: { shape: ShapePreviewKind }) {
   const props = { stroke: 'currentColor', strokeWidth: 1.5, fill: 'none' };
   switch (shape) {
+    case 'icon':          return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="4" y="2.5" width="20" height="15" rx="3" {...props} /><polygon points="14,5.5 15.6,8.8 19.2,9.3 16.6,11.8 17.2,15.3 14,13.6 10.8,15.3 11.4,11.8 8.8,9.3 12.4,8.8" stroke="currentColor" strokeWidth="1.2" fill="none" strokeLinejoin="round" /></svg>;
+    case 'img':           return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="3" y="3" width="22" height="14" rx="2" {...props} /><circle cx="9.5" cy="7.5" r="1.4" stroke="currentColor" strokeWidth="1.2" fill="none" /><polyline points="4.5,15.5 10.5,10.5 15,14 19,11 23.5,15.5" stroke="currentColor" strokeWidth="1.3" fill="none" strokeLinejoin="round" /></svg>;
     case 'rect':          return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="2" {...props} /></svg>;
     case 'rounded':       return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="7" {...props} /></svg>;
     case 'stadium':       return <svg width="28" height="20" viewBox="0 0 28 20"><rect x="2" y="3" width="24" height="14" rx="7" {...props} /><line x1="9" y1="3" x2="9" y2="17" {...props} /><line x1="19" y1="3" x2="19" y2="17" {...props} /></svg>;
