@@ -686,7 +686,8 @@
     "swimlaneLineHopsArc": "Arc",
     "swimlaneLineHopsGap": "Gap",
     "swimlaneLineHopsOff": "Off",
-    "swimlaneAutoOrder": "Auto-order lanes"
+    "swimlaneAutoOrder": "Auto-order lanes",
+    "compactDisplayMode": "Compact display mode"
   },
   "mermaidConfig": {
     "title": "Mermaid Diagram Configuration",

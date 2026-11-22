@@ -89,8 +89,8 @@ export function detectDiagramType(content: string): DiagramType {
     return 'sankey';
   }
 
-  // XY Chart
-  if (first.startsWith('xychart-beta')) {
+  // XY Chart (v11.14+ supports both `xychart` and `xychart-beta`)
+  if (/^xychart(?:-beta)?(?:\s|$)/.test(first)) {
     return 'xyChart';
   }
 

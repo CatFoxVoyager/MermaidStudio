@@ -689,7 +689,8 @@
     "swimlaneLineHopsArc": "Arc",
     "swimlaneLineHopsGap": "Coupure",
     "swimlaneLineHopsOff": "Désactivé",
-    "swimlaneAutoOrder": "Ordre auto des couloirs"
+    "swimlaneAutoOrder": "Ordre auto des couloirs",
+    "compactDisplayMode": "Mode d'affichage compact"
   },
   "mermaidConfig": {
     "title": "Configuration du diagramme Mermaid",

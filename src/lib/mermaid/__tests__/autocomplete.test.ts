@@ -663,5 +663,13 @@ describe('phase 42 EDIT-01 — 53 shapes, v12 directives, arrows & 32 families',
     expect(runCompletions('wardley-beta\n').map(o => o.label)).toContain('anchor');
     expect(runCompletions('---\ntitle: Demo\n---\nvenn-beta\n').map(o => o.label)).toContain('set');
   });
+
+  it('FIX-05 offers non-beta xychart/packet/block starters and omits dead zenuml', () => {
+    const starters = runCompletions('').map(o => o.label);
+    expect(starters).toContain('xychart');
+    expect(starters).toContain('packet');
+    expect(starters).toContain('block');
+    expect(starters).not.toContain('zenuml');
+  });
 });
 

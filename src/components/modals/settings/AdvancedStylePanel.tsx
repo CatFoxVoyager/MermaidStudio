@@ -57,6 +57,7 @@ function SliderControl({ label, icon, value, min, max, step, unit, onChange, the
         </div>
         <input
           type="range"
+          aria-label={label}
           min={min}
           max={max}
           step={step}
@@ -114,6 +115,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
     { value: '%Y/%m/%d', label: 'YYYY/MM/DD' },
     { value: '%d-%m-%Y', label: 'DD-MM-YYYY' },
     { value: '%m/%d/%Y', label: 'MM/DD/YYYY' },
+    { value: '%H:%M', label: 'HH:MM' },
     { value: '%W%Y', label: 'Week YYYY' },
     { value: '%Q %Y', label: 'Quarter YYYY' },
   ];
@@ -473,16 +475,15 @@ end`}
                 ))}
               </div>
 
-              {/* Step duration (EDGE-04, Surface 4): empty input keeps the
-                  option key undefined so applyStyleToContent omits the config
-                  key and mermaid's default applies; non-integer input is
-                  ignored on commit (the writer's typed formatter gate). */}
+              {/* Step duration (Mermaid 12.3 flowchart.stepDuration in seconds):
+                  empty input leaves the option undefined so Mermaid's default
+                  applies; positive finite decimals (e.g. 0.5) are accepted. */}
               <div className="flex items-center justify-between gap-2 pt-1">
                 <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.stepDuration')}</span>
                 <input
                   type="number"
-                  min={1}
-                  step={1}
+                  min={0.1}
+                  step={0.1}
                   aria-label={t('advancedStyle.stepDuration')}
                   value={styleOptions.stepDuration ?? ''}
                   onChange={(e) => {
@@ -492,7 +493,7 @@ end`}
                       return;
                     }
                     const n = Number(raw);
-                    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) return;
+                    if (!Number.isFinite(n) || n <= 0) return;
                     update({ stepDuration: n });
                   }}
                   className={`w-20 text-xs px-2 py-1.5 rounded-sm border text-right tabular-nums outline-hidden ${FOCUS_RING_CLASSES}`}
@@ -504,20 +505,19 @@ end`}
                 />
               </div>
 
-              {/* Markdown auto-wrap (EDGE-04, Surface 4): the ExportModal
-                  pill-switch idiom at panel scale, default off (undefined
-                  writes no config key). */}
+              {/* Markdown auto-wrap (Mermaid root config.markdownAutoWrap,
+                  default true; undefined writes no config key until toggled). */}
               <label className="flex items-center justify-between gap-2 cursor-pointer">
                 <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.markdownAutoWrap')}</span>
                 <input
                   type="checkbox"
                   className="peer sr-only"
-                  checked={styleOptions.markdownAutoWrap ?? false}
+                  checked={styleOptions.markdownAutoWrap ?? true}
                   onChange={(e) => update({ markdownAutoWrap: e.target.checked })}
                 />
                 <div aria-hidden="true"
-                  className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.markdownAutoWrap ?? false) ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
-                  <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.markdownAutoWrap ?? false) ? 'left-[18px]' : 'left-0.5'}`} />
+                  className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.markdownAutoWrap ?? true) ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+                  <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.markdownAutoWrap ?? true) ? 'left-[18px]' : 'left-0.5'}`} />
                 </div>
               </label>
             </div>
@@ -667,24 +667,20 @@ end`}
               theme={theme}
             />
 
-            <div className="flex items-center justify-between px-3 py-2 rounded-lg border"
+            <label className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border cursor-pointer"
               style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
               <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.mirrorActors')}</span>
-              <button
-                onClick={() => update({ mirrorActors: !(styleOptions.mirrorActors ?? false) })}
-                className={`w-8 h-4 rounded-full transition-colors relative`}
-                style={{
-                  background: (styleOptions.mirrorActors ?? false) ? 'var(--accent)' : 'var(--border-subtle)',
-                }}
-              >
-                <div
-                  className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform"
-                  style={{
-                    transform: (styleOptions.mirrorActors ?? false) ? 'translateX(16px)' : 'translateX(2px)',
-                  }}
-                />
-              </button>
-            </div>
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={styleOptions.mirrorActors ?? true}
+                onChange={(e) => update({ mirrorActors: e.target.checked })}
+              />
+              <div aria-hidden="true"
+                className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.mirrorActors ?? true) ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.mirrorActors ?? true) ? 'left-[18px]' : 'left-0.5'}`} />
+              </div>
+            </label>
           </>
         )}
 
@@ -733,6 +729,7 @@ end`}
                 <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.axisFormat')}</span>
               </div>
               <select
+                aria-label={t('advancedStyle.axisFormat')}
                 value={styleOptions.axisFormat ?? '%Y-%m-%d'}
                 onChange={(e) => update({ axisFormat: e.target.value })}
                 className="w-full text-[11px] px-2 py-1.5 rounded-sm border outline-hidden transition-colors"
@@ -749,6 +746,21 @@ end`}
                 ))}
               </select>
             </div>
+
+            <label className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border cursor-pointer"
+              style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
+              <span className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.compactDisplayMode')}</span>
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={styleOptions.displayMode === 'compact'}
+                onChange={(e) => update({ displayMode: e.target.checked ? 'compact' : undefined })}
+              />
+              <div aria-hidden="true"
+                className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${styleOptions.displayMode === 'compact' ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${styleOptions.displayMode === 'compact' ? 'left-[18px]' : 'left-0.5'}`} />
+              </div>
+            </label>
           </>
         )}
 

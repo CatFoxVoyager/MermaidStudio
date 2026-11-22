@@ -924,8 +924,8 @@ function applyNodeFontStylesInDoc(
   const svg = doc.querySelector('svg');
   if (!svg) return;
 
-  // Get all nodes in the SVG
-  const nodes = Array.from(doc.querySelectorAll('.node'));
+  // Get all nodes in the SVG (including v12 special icon/image shapes)
+  const nodes = Array.from(doc.querySelectorAll('.node, .icon-shape, .image-shape'));
 
   for (const nodeEl of nodes) {
     const nodeId = nodeEl.getAttribute('id') || nodeEl.getAttribute('data-id');
@@ -938,8 +938,8 @@ function applyNodeFontStylesInDoc(
     if (nodeStyles.has(nodeId)) {
       matchedStyle = nodeStyles.get(nodeId);
     } else {
-      // Try simple ID match (extracted from any prefix-flowchart-{ID}-{NUM} pattern)
-      const simpleIdMatch = nodeId.match(/-flowchart-([A-Za-z0-9_-]+)-\d+$/);
+      // Try simple ID match (extracted from flowchart-{ID}-{NUM} or prefix-flowchart-{ID}-{NUM})
+      const simpleIdMatch = nodeId.match(/(?:^|-)flowchart-([A-Za-z0-9_-]+)-\d+$/);
       if (simpleIdMatch) {
         const simpleId = simpleIdMatch[1];
         if (nodeStyles.has(simpleId)) {

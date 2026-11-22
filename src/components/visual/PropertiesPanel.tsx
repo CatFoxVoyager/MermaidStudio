@@ -193,7 +193,13 @@ function NodePanel({
 
   const setIconParam = (patch: Partial<Omit<IconConfig, 'icon' | 'label'>>) => {
     if (!onIconChange || !nodeIcon) {return;}
-    onIconChange(nodes.map(n => n.id), { ...nodeIcon, ...patch });
+    const next: IconConfig = { ...nodeIcon, ...patch };
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === undefined) {
+        delete next[k as keyof IconConfig];
+      }
+    }
+    onIconChange(nodes.map(n => n.id), next);
   };
   const setIconSize = (field: 'w' | 'h', raw: string) => {
     if (!onIconChange || !nodeIcon) {return;}
@@ -460,7 +466,7 @@ function NodePanel({
                             type="button"
                             data-icon-form={value}
                             aria-pressed={active}
-                            onClick={() => setIconParam({ form: value })}
+                            onClick={() => setIconParam({ form: active ? undefined : value })}
                             className={`rounded-md border px-1 py-1.5 text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
                             style={
                               active

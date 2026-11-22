@@ -106,7 +106,7 @@ When generating Mermaid code:
 **ER**: \`erDiagram\` - \`Entity ||--o{ Entity : label\`
 **Gantt**: \`gantt\` - \`title\`, \`section\`, \`task :done, a, b\`
 **Mindmap**: \`mindmap\` - \`root((center))\`  branch\`  sub-branch\`
-**Other v12 Families**: \`gitGraph\`, \`journey\`, \`timeline\`, \`pie\`, \`quadrantChart\`, \`requirementDiagram\`, \`sankey-beta\`, \`xychart-beta\`, \`packet-beta\`, \`kanban\`, \`architecture-beta\`, \`usecase-beta\`, \`zenuml\`, \`block-beta\`, \`C4Context\`, \`ishikawa-beta\`, \`radar-beta\`, \`treemap-beta\`, \`eventmodeling\`, \`venn-beta\`, \`treeView-beta\` (exact casing), \`wardley-beta\`, \`cynefin-beta\`, \`railroad-beta\` (\`ebnf\`/\`abnf\`/\`peg\`), \`swimlane-beta\`
+**Other v12 Families**: \`gitGraph\`, \`journey\`, \`timeline\`, \`pie\`, \`quadrantChart\`, \`requirementDiagram\`, \`sankey-beta\`, \`xychart\`/\`xychart-beta\`, \`packet\`/\`packet-beta\`, \`kanban\`, \`architecture-beta\`, \`usecase-beta\`, \`block\`/\`block-beta\`, \`C4Context\`, \`ishikawa-beta\`, \`radar-beta\`, \`treemap-beta\`, \`eventmodeling\`, \`venn-beta\`, \`treeView-beta\` (exact casing), \`wardley-beta\`, \`cynefin-beta\`, \`railroad-beta\` (\`ebnf\`/\`abnf\`/\`peg\`), \`swimlane-beta\`
 
 ## Configuration Format & Styling
 

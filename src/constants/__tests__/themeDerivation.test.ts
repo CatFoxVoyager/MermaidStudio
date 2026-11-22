@@ -513,34 +513,44 @@ graph TD
       expect(extractStyleOptionsFromContent(cleared).stepDuration).toBeUndefined();
     });
 
-    it('markdownAutoWrap true writes and extracts the boolean back', () => {
+    it('markdownAutoWrap true writes at root config and extracts the boolean back', () => {
       const result = applyStyleToContent(flowchartSource, { markdownAutoWrap: true });
-      expect(result).toMatch(/markdownAutoWrap: true/);
+      expect(result).toMatch(/config:\n\s{2}markdownAutoWrap: true/);
       const extracted = extractStyleOptionsFromContent(result);
       expect(extracted.markdownAutoWrap).toBe(true);
     });
 
-    it('markdownAutoWrap default state writes no key and invalid values are refused', () => {
+    it('stepDuration accepts positive finite decimals (e.g. 0.5, 2.5) and rejects invalid values', () => {
+      const decimal = applyStyleToContent(flowchartSource, { stepDuration: 0.5 });
+      expect(decimal).toMatch(/stepDuration: 0\.5/);
+      expect(extractStyleOptionsFromContent(decimal).stepDuration).toBe(0.5);
+
       const untouched = applyStyleToContent(flowchartSource, { nodePadding: 20 });
       expect(untouched).not.toContain('markdownAutoWrap');
-      // Typed formatters (T-40-05): a non-boolean and a non-positive-integer
-      // stepDuration never reach the frontmatter block.
       const invalid = applyStyleToContent(flowchartSource, {
         markdownAutoWrap: 'yes' as unknown as boolean,
-        stepDuration: 2.5 as unknown as number,
+        stepDuration: 0,
       });
       expect(invalid).not.toContain('markdownAutoWrap');
       expect(invalid).not.toContain('stepDuration');
+      const negative = applyStyleToContent(flowchartSource, { stepDuration: -2 });
+      expect(negative).not.toContain('stepDuration');
     });
 
-    it('markdownAutoWrap false round-trips (explicit off is a real value)', () => {
+    it('markdownAutoWrap false round-trips at root config and migrates legacy flowchart.markdownAutoWrap', () => {
       const result = applyStyleToContent(flowchartSource, { markdownAutoWrap: false });
-      expect(result).toMatch(/markdownAutoWrap: false/);
+      expect(result).toMatch(/config:\n\s{2}markdownAutoWrap: false/);
       const extracted = extractStyleOptionsFromContent(result);
       expect(extracted.markdownAutoWrap).toBe(false);
+
+      const legacy = `---\nconfig:\n  flowchart:\n    markdownAutoWrap: false\n---\nflowchart TD\n  A --> B`;
+      expect(extractStyleOptionsFromContent(legacy).markdownAutoWrap).toBe(false);
+      const migrated = applyStyleToContent(legacy, { markdownAutoWrap: true });
+      expect(migrated).toMatch(/config:\n\s{2}markdownAutoWrap: true/);
+      expect(migrated).not.toMatch(/flowchart:\n[\s\S]*markdownAutoWrap/);
     });
 
-    it('a non-flowchart (sequence) source gains neither key (diagramType gate holds)', () => {
+    it('a non-flowchart (sequence) source gates flowchart keys while allowing root markdownAutoWrap', () => {
       const result = applyStyleToContent(sequenceSource, {
         curveStyle: 'rounded',
         stepDuration: 400,
@@ -548,7 +558,80 @@ graph TD
       });
       expect(result).not.toContain('flowchart:');
       expect(result).not.toContain('stepDuration');
-      expect(result).not.toContain('markdownAutoWrap');
+      expect(result).toMatch(/config:\n\s{2}markdownAutoWrap: true/);
+    });
+
+    it('FIX-02 preserves top-level frontmatter siblings (title with colon, displayMode) losslessly', () => {
+      const withSiblings = `---\ntitle: 'System: Overview'\ndisplayMode: compact\n---\nflowchart TD\n  A --> B`;
+      const styled = applyStyleToContent(withSiblings, { curveStyle: 'linear' });
+      expect(styled).toContain("title: 'System: Overview'");
+      expect(styled).toContain("displayMode: 'compact'");
+      expect(styled).toContain("curve: 'linear'");
+
+      const themed = applyThemeToFrontmatter(withSiblings, DEFAULT_LIGHT_THEME, false);
+      expect(themed).toContain("title: 'System: Overview'");
+      expect(themed).toContain("displayMode: 'compact'");
+
+      const removed = removeThemeColorsFromFrontmatter(themed);
+      expect(removed).toContain("title: 'System: Overview'");
+      expect(removed).toContain("displayMode: 'compact'");
+    });
+
+    it('FIX-04 writes and extracts all Sequence config controls (mapping actorWidth/Height to width/height)', () => {
+      const result = applyStyleToContent(sequenceSource, {
+        actorMargin: 80,
+        diagramMarginX: 40,
+        diagramMarginY: 20,
+        actorWidth: 180,
+        actorHeight: 70,
+        mirrorActors: false,
+      });
+      expect(result).toMatch(/sequence:\n/);
+      expect(result).toContain('actorMargin: 80');
+      expect(result).toContain('diagramMarginX: 40');
+      expect(result).toContain('diagramMarginY: 20');
+      expect(result).toContain('width: 180');
+      expect(result).toContain('height: 70');
+      expect(result).toContain('mirrorActors: false');
+
+      const extracted = extractStyleOptionsFromContent(result);
+      expect(extracted.actorMargin).toBe(80);
+      expect(extracted.diagramMarginX).toBe(40);
+      expect(extracted.diagramMarginY).toBe(20);
+      expect(extracted.actorWidth).toBe(180);
+      expect(extracted.actorHeight).toBe(70);
+      expect(extracted.mirrorActors).toBe(false);
+    });
+
+    it('FIX-04 writes and extracts all Gantt config controls (including colon axisFormat and top-level displayMode)', () => {
+      const ganttSource = `gantt\n  title Plan\n  section A\n  Task 1 :a1, 2026-01-01, 3d`;
+      const result = applyStyleToContent(ganttSource, {
+        barHeight: 30,
+        barGap: 8,
+        topPadding: 60,
+        leftPadding: 100,
+        axisFormat: '%H:%M',
+        displayMode: 'compact',
+      });
+      expect(result).toContain("displayMode: 'compact'");
+      expect(result).toMatch(/gantt:\n/);
+      expect(result).toContain('barHeight: 30');
+      expect(result).toContain('barGap: 8');
+      expect(result).toContain('topPadding: 60');
+      expect(result).toContain('leftPadding: 100');
+      expect(result).toContain("axisFormat: '%H:%M'");
+
+      const extracted = extractStyleOptionsFromContent(result);
+      expect(extracted.barHeight).toBe(30);
+      expect(extracted.barGap).toBe(8);
+      expect(extracted.topPadding).toBe(60);
+      expect(extracted.leftPadding).toBe(100);
+      expect(extracted.axisFormat).toBe('%H:%M');
+      expect(extracted.displayMode).toBe('compact');
+
+      const uncompacted = applyStyleToContent(result, { displayMode: undefined });
+      expect(uncompacted).not.toContain('displayMode');
+      expect(extractStyleOptionsFromContent(uncompacted).displayMode).toBeUndefined();
     });
   });
 

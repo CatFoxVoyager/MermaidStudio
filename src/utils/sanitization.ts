@@ -255,7 +255,7 @@ export function sanitizeMermaidSVG(svg: string): string {
       // reinjected into the sanitized document.
       foContents.push(
         DOMPurify.sanitize(content, {
-          USE_PROFILES: { html: true },
+          USE_PROFILES: { html: true, mathMl: true },
           FORBID_TAGS: forbiddenTags,
           FORBID_ATTR: forbiddenAttrs,
         })
@@ -265,7 +265,7 @@ export function sanitizeMermaidSVG(svg: string): string {
   );
 
   const sanitized = DOMPurify.sanitize(withPlaceholders, {
-    USE_PROFILES: { html: true, svg: true, svgFilters: true },
+    USE_PROFILES: { html: true, svg: true, svgFilters: true, mathMl: true },
     ADD_TAGS: ['foreignObject'],
     FORBID_TAGS: forbiddenTags,
     FORBID_ATTR: forbiddenAttrs,

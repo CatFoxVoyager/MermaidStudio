@@ -93,5 +93,12 @@ describe('detectDiagramType (core-free module parity)', () => {
         detectDiagramType("%%{init: {'theme': 'dark'}}%%\nswimlane-beta\n  subgraph S\n    A\n  end")
       ).toBe('swimlane');
     });
+
+    it('FIX-05 detects non-beta xychart, packet, and block headers', () => {
+      expect(detectDiagramType('xychart\n  title "Sales"\n  bar [1, 2]')).toBe('xyChart');
+      expect(detectDiagramType('xychart-beta\n  bar [1, 2]')).toBe('xyChart');
+      expect(detectDiagramType('packet\n  0-7: "Header"')).toBe('packetDiagram');
+      expect(detectDiagramType('block\n  a["Box"]')).toBe('blockDiagram');
+    });
   });
 });

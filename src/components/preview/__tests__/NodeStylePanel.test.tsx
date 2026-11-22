@@ -1330,4 +1330,18 @@ describe('NodeStylePanel paste flow (39-05 ICON-03 bind/unbind lifecycle)', () =
     expect(fileToCompressedDataUri).not.toHaveBeenCalled();
     expect(mediaProps.onImageChange).not.toHaveBeenCalled();
   });
+
+  it('FIX-06 clicking an active icon form button deselects it and omits form from IconConfig', () => {
+    render(
+      <NodeStylePanel
+        {...defaultProps}
+        {...mediaProps}
+        nodeIcon={{ icon: 'fa:cloud', form: 'circle' }}
+        nodeImage={null}
+      />,
+    );
+    const circleBtn = screen.getByRole('button', { name: /circle/i });
+    fireEvent.click(circleBtn);
+    expect(mediaProps.onIconChange).toHaveBeenCalledWith(['A'], { icon: 'fa:cloud' });
+  });
 });

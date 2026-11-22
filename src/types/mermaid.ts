@@ -165,6 +165,7 @@ export interface DiagramStyleOptions extends BaseStyleOptions {
   leftPadding?: number;
   axisFormat?: string;
   sectionMargin?: number;
+  displayMode?: 'compact';
 
   // Mindmap options
   maxNodeWidth?: number;

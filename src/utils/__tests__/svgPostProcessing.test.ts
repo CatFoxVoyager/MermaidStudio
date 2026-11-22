@@ -590,4 +590,29 @@ describe('selector-scope source pins (40-03 Surface 7)', () => {
     expect(SOURCE).not.toContain('edge-step-highlight');
     expect(SOURCE).not.toContain('edge-step-dot');
   });
+
+  it('FIX-06 covers .icon-shape and .image-shape nodes in node font styling and geometric edge matching', () => {
+    const svgString = `<svg xmlns="http://www.w3.org/2000/svg">
+      <g class="nodes">
+        <g class="icon-shape" id="flowchart-ICON1-0" transform="translate(0,0)"><text>Cloud</text></g>
+        <g class="image-shape" id="flowchart-IMG1-1" transform="translate(100,0)"><text>Photo</text></g>
+      </g>
+      <g class="edgeLabels"><g class="edgeLabel"><text>Link</text></g></g>
+      <g class="edgePaths"><path class="flowchart-link" d="M 5 5 L 95 5"/></g>
+    </svg>`.replace(/>\s+</g, '><');
+
+    const nodeStyles = new Map([
+      ['ICON1', { fontSize: '22px' }],
+      ['IMG1', { fontWeight: 'bold' }],
+    ]);
+    const styledNodes = applyNodeFontStyles(svgString, nodeStyles);
+    expect(styledNodes).toContain('font-size: 22px');
+    expect(styledNodes).toContain('font-weight: bold');
+
+    const edgeStyles = new Map([[0, { stroke: '#00aaff' }]]);
+    const styledEdges = applyEdgeFontStyles(svgString, edgeStyles, [
+      { source: 'ICON1', target: 'IMG1', label: 'Link' },
+    ]);
+    expect(styledEdges).toContain('stroke="#00aaff"');
+  });
 });

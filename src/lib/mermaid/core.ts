@@ -71,10 +71,11 @@ function doInit(
     layout: 'dagre', // v11-default pin — v12 would default 7 diagram types to ELK
     look: 'neo', // v12 neo/redux-color look — flips the Phase-21 classic pin (revert-safe)
     darkMode: isDark,
+    htmlLabels: true,
     maxTextSize: maxTextSize ?? LIMITS.MAX_DIAGRAM_SIZE,
     fontFamily: 'Inter, system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
     fontSize: 14,
-    flowchart: { curve: 'basis', padding: 20, htmlLabels: true, useMaxWidth: false, wrappingWidth: 200 }, // v11-default pin — v12 lowers wrappingWidth to 120, freezing node width so bigger fonts grow node height instead of width
+    flowchart: { curve: 'basis', padding: 20, useMaxWidth: false, wrappingWidth: 200 }, // v11-default pin — v12 lowers wrappingWidth to 120, freezing node width so bigger fonts grow node height instead of width
     sequence: { useMaxWidth: true, actorMargin: 50 },
     swimlane: { layout: 'swimlane' },
     ...(themeVars && { themeVariables: themeVars }),

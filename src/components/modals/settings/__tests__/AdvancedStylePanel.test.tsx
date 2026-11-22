@@ -127,53 +127,79 @@ describe('AdvancedStylePanel (40-03 EDGE-04)', () => {
     expect(screen.getByRole('button', { name: 'Smooth' }).style.borderColor).toBe('var(--border-subtle)');
   });
 
-  it('stepDuration empty leaves the config key out of the applied frontmatter; 400 writes it; clearing removes it', () => {
+  it('stepDuration accepts positive decimals, writes to frontmatter, clears, and ignores <= 0', () => {
     const { onContentChange } = renderPanel(FLOWCHART_CONTENT);
 
     // Empty input: no stepDuration key anywhere in the initial application.
     expect(lastAppliedContent(onContentChange)).not.toContain('stepDuration');
 
     const input = screen.getByLabelText('Step duration');
-    fireEvent.change(input, { target: { value: '400' } });
-    expect(lastAppliedContent(onContentChange)).toMatch(/stepDuration: 400/);
+    fireEvent.change(input, { target: { value: '0.5' } });
+    expect(lastAppliedContent(onContentChange)).toMatch(/stepDuration: 0\.5/);
 
-    fireEvent.change(input, { target: { value: '401' } });
-    expect(lastAppliedContent(onContentChange)).toMatch(/stepDuration: 401/);
+    fireEvent.change(input, { target: { value: '2.5' } });
+    expect(lastAppliedContent(onContentChange)).toMatch(/stepDuration: 2\.5/);
 
     fireEvent.change(input, { target: { value: '' } });
     expect(lastAppliedContent(onContentChange)).not.toContain('stepDuration');
 
-    // Non-integer input is ignored on commit (jsdom keeps decimal strings on
-    // type=number — the 2.5 pin exercises the integer-only commit guard, the
-    // 40-02 Step-row pattern).
-    fireEvent.change(input, { target: { value: '2.5' } });
+    // Non-positive values are ignored on commit.
+    fireEvent.change(input, { target: { value: '0' } });
+    expect(lastAppliedContent(onContentChange)).not.toContain('stepDuration');
+    fireEvent.change(input, { target: { value: '-1' } });
     expect(lastAppliedContent(onContentChange)).not.toContain('stepDuration');
   });
 
-  it('markdownAutoWrap switch toggles the option into the applied frontmatter and back off', () => {
+  it('markdownAutoWrap defaults checked (true), toggling off writes root config false and back on writes true', () => {
     const { onContentChange } = renderPanel(FLOWCHART_CONTENT);
 
-    // Default off: no key in the applied content.
+    // Untouched default: no key written until user toggles.
     expect(lastAppliedContent(onContentChange)).not.toContain('markdownAutoWrap');
 
-    const toggle = screen.getByLabelText('Markdown auto-wrap');
-    fireEvent.click(toggle);
-    expect(lastAppliedContent(onContentChange)).toMatch(/markdownAutoWrap: true/);
+    const toggle = screen.getByLabelText('Markdown auto-wrap') as HTMLInputElement;
+    expect(toggle.checked).toBe(true);
 
     fireEvent.click(toggle);
-    expect(lastAppliedContent(onContentChange)).toMatch(/markdownAutoWrap: false/);
+    expect(lastAppliedContent(onContentChange)).toMatch(/config:\n(?:[^\n]*\n)*?\s{2}markdownAutoWrap: false/);
+
+    fireEvent.click(toggle);
+    expect(lastAppliedContent(onContentChange)).toMatch(/config:\n(?:[^\n]*\n)*?\s{2}markdownAutoWrap: true/);
   });
 
-  it('a non-flowchart (sequence) source renders no curve/step/markdown rows', () => {
+  it('a non-flowchart (sequence) source renders Sequence controls and writes config.sequence', () => {
     const { onContentChange, queryByRole } = renderPanel(SEQUENCE_CONTENT);
 
     expect(queryByRole('button', { name: 'Smooth' })).toBeNull();
     expect(screen.queryByLabelText('Step duration')).toBeNull();
     expect(screen.queryByLabelText('Markdown auto-wrap')).toBeNull();
-    // The diagramType gate holds at the data layer too.
-    if (onContentChange.mock.calls.length > 0) {
-      expect(lastAppliedContent(onContentChange)).not.toContain('flowchart:');
-    }
+
+    const mirrorToggle = screen.getByLabelText('advancedStyle.mirrorActors') as HTMLInputElement;
+    expect(mirrorToggle.checked).toBe(true);
+    fireEvent.click(mirrorToggle);
+    expect(lastAppliedContent(onContentChange)).toMatch(/sequence:\n[\s\S]*mirrorActors: false/);
+
+    const actorMarginSlider = screen.getByLabelText('advancedStyle.actorMargin');
+    fireEvent.change(actorMarginSlider, { target: { value: '90' } });
+    expect(lastAppliedContent(onContentChange)).toMatch(/actorMargin: 90/);
+    expect(lastAppliedContent(onContentChange)).not.toContain('flowchart:');
+  });
+
+  it('a Gantt source renders Gantt controls and writes config.gantt + top-level displayMode', () => {
+    const ganttContent = `gantt\n  title Roadmap\n  section Dev\n  Build :a1, 2026-01-01, 5d`;
+    const { onContentChange } = renderPanel(ganttContent);
+
+    const barHeightSlider = screen.getByLabelText('advancedStyle.barHeight');
+    fireEvent.change(barHeightSlider, { target: { value: '28' } });
+    expect(lastAppliedContent(onContentChange)).toMatch(/gantt:\n[\s\S]*barHeight: 28/);
+
+    const axisSelect = screen.getByLabelText('advancedStyle.axisFormat');
+    fireEvent.change(axisSelect, { target: { value: '%H:%M' } });
+    expect(lastAppliedContent(onContentChange)).toContain("axisFormat: '%H:%M'");
+
+    const compactToggle = screen.getByLabelText('advancedStyle.compactDisplayMode') as HTMLInputElement;
+    expect(compactToggle.checked).toBe(false);
+    fireEvent.click(compactToggle);
+    expect(lastAppliedContent(onContentChange)).toContain("displayMode: 'compact'");
   });
 
   it('clearing stepDuration in a controlled parent removes stepDuration from frontmatter (CR fix)', () => {

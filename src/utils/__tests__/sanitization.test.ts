@@ -515,4 +515,29 @@ describe('sanitizeMermaidSVG', () => {
       expect(out).not.toContain('PHN2Zy8+');
     });
   });
+
+  describe('FIX-01 KaTeX MathML sanitization', () => {
+    it('preserves KaTeX MathML elements inside foreignObject and outer SVG', () => {
+      const katexSvg =
+        '<svg xmlns="http://www.w3.org/2000/svg"><foreignObject width="120" height="40"><div xmlns="http://www.w3.org/1999/xhtml"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>x</mi><mn>2</mn></msup><mo>+</mo><msup><mi>y</mi><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">x^2 + y^2</annotation></semantics></math></span></span></div></foreignObject></svg>';
+      const out = sanitizeMermaidSVG(katexSvg);
+      expect(out).toContain('<math');
+      expect(out).toContain('<mrow');
+      expect(out).toContain('<msup');
+      expect(out).toContain('<mi>x</mi>');
+      expect(out).toContain('<mn>2</mn>');
+      expect(out).toContain('<mo>+</mo>');
+    });
+
+    it('still strips XSS payloads nested inside MathML elements', () => {
+      const xssMathSvg =
+        '<svg><foreignObject><div><math><mrow><mi onclick="alert(1)">x</mi><script>alert(2)</script><maction actiontype="statusline"><mtext>safe</mtext></maction></mrow></math></div></foreignObject></svg>';
+      const out = sanitizeMermaidSVG(xssMathSvg);
+      expect(out).toContain('<math');
+      expect(out).toContain('<mi>x</mi>');
+      expect(out).not.toContain('onclick');
+      expect(out).not.toContain('<script');
+      expect(out).not.toContain('alert(');
+    });
+  });
 });

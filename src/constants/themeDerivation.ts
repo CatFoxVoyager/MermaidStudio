@@ -1200,7 +1200,7 @@ export function objectToYaml(obj: Record<string, any>, indent: number = 0): stri
     } else if (Array.isArray(value)) {
       result += `${spaces}${key}:\n${spaces}  - ${value.join('\n' + spaces + '  - ')}\n`;
     } else if (typeof value === 'string') {
-      result += `${spaces}${key}: '${value}'\n`;
+      result += `${spaces}${key}: '${value.replace(/'/g, "''")}'\n`;
     } else {
       result += `${spaces}${key}: ${value}\n`;
     }
@@ -1208,46 +1208,89 @@ export function objectToYaml(obj: Record<string, any>, indent: number = 0): stri
   return result;
 }
 
+type YamlScalar = string | number | boolean;
+
 interface YamlConfig {
-  [key: string]: string | number | YamlConfig | undefined;
+  [key: string]: YamlScalar | YamlConfig | undefined;
+}
+
+function parseYamlScalar(raw: string): YamlScalar {
+  const trimmed = raw.trim();
+  if (
+    (trimmed.startsWith("'") && trimmed.endsWith("'") && trimmed.length >= 2) ||
+    (trimmed.startsWith('"') && trimmed.endsWith('"') && trimmed.length >= 2)
+  ) {
+    const inner = trimmed.slice(1, -1);
+    return trimmed.startsWith("'") ? inner.replace(/''/g, "'") : inner;
+  }
+  if (trimmed === 'true') return true;
+  if (trimmed === 'false') return false;
+  if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
+    const n = Number(trimmed);
+    if (Number.isFinite(n)) return n;
+  }
+  return trimmed;
 }
 
 function parseYamlConfig(text: string): YamlConfig {
   const result: YamlConfig = {};
   const lines = text.split('\n');
   const stack: Array<{ obj: YamlConfig; indent: number }> = [{ obj: result, indent: -1 }];
-  for (const line of lines) {
+  for (const rawLine of lines) {
+    const line = rawLine.replace(/\r$/, '');
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('---')) continue;
     const indentMatch = line.match(/^(\s*)/);
     const indent = indentMatch ? indentMatch[1].length : 0;
     while (stack.length > 1 && stack[stack.length - 1].indent >= indent) stack.pop();
-    let current = stack[stack.length - 1].obj;
-    const keyMarkers: Array<{ key: string; start: number; end: number }> = [];
-    const keyRegex = /([\w.-]+):/g;
-    let match;
-    while ((match = keyRegex.exec(line)) !== null) {
-      keyMarkers.push({ key: match[1], start: match.index, end: match.index + match[0].length });
-    }
-    if (keyMarkers.length === 0) continue;
-    for (let i = 0; i < keyMarkers.length; i++) {
-      const marker = keyMarkers[i];
-      const nextMarker = keyMarkers[i + 1];
-      const val = line.substring(marker.end, nextMarker ? nextMarker.start : line.length).trim();
-      if (val === '' && i === keyMarkers.length - 1) {
-        const newSection: YamlConfig = {};
-        current[marker.key] = newSection;
-        stack.push({ obj: newSection, indent: indent });
-      } else if (val === '') {
-        const newSection: YamlConfig = {};
-        current[marker.key] = newSection;
-        current = newSection;
-      } else {
-        current[marker.key] = val.replace(/^['"]|['"]$/g, '');
-      }
+    const current = stack[stack.length - 1].obj;
+    const kvMatch = trimmed.match(/^([\w.-]+):(?:\s+(.*))?$/);
+    if (!kvMatch) continue;
+    const key = kvMatch[1];
+    const rest = kvMatch[2]?.trim() ?? '';
+    if (rest === '') {
+      const newSection: YamlConfig = {};
+      current[key] = newSection;
+      stack.push({ obj: newSection, indent });
+    } else {
+      current[key] = parseYamlScalar(rest);
     }
   }
   return result;
+}
+
+function parseFrontmatterBlock(yamlContent: string): {
+  config: YamlConfig;
+  siblings: YamlConfig;
+} {
+  const root = parseYamlConfig(yamlContent);
+  const siblings: YamlConfig = {};
+  let config: YamlConfig = {};
+  for (const [key, value] of Object.entries(root)) {
+    if (key === 'config' && value && typeof value === 'object') {
+      config = { ...(value as YamlConfig) };
+    } else if (key !== 'config' && value !== undefined) {
+      siblings[key] = value;
+    }
+  }
+  return { config, siblings };
+}
+
+function serializeFrontmatter(
+  siblings: Record<string, unknown>,
+  config: Record<string, unknown>
+): string {
+  const hasSiblings = Object.keys(siblings).length > 0;
+  const hasConfig = Object.keys(config).length > 0;
+  if (!hasSiblings && !hasConfig) return '';
+  let body = '';
+  if (hasSiblings) {
+    body += objectToYaml(siblings, 0);
+  }
+  if (hasConfig) {
+    body += `config:\n${objectToYaml(config, 2)}`;
+  }
+  return `---\n${body}---\n`;
 }
 
 export function applyThemeToFrontmatter(
@@ -1259,25 +1302,23 @@ export function applyThemeToFrontmatter(
   const cleanBody = stripped.replace(THEME_COMMENT_RE, '');
 
   const frontmatterMatch = content.match(/^\s*---([\s\S]*?)---\s*/i);
-  const layoutConfig = {};
+  const layoutConfig: Record<string, unknown> = {};
   const existingThemeVars: any = {};
+  let frontmatterSiblings: YamlConfig = {};
   if (frontmatterMatch) {
     try {
-      const yamlContent = frontmatterMatch[1];
-      const configMatch = yamlContent.match(/config:[ \t]*(?:\r?\n)?([\s\S]*)$/);
-      if (configMatch) {
-        const parsed = parseYamlConfig(configMatch[1]);
-        for (const [key, value] of Object.entries(parsed)) {
-          if (key === 'themeVariables') {
-            if (typeof value === 'object' && value !== null) {
-              for (const [tvKey, tvValue] of Object.entries(value)) {
-                existingThemeVars[tvKey] =
-                  typeof tvValue === 'object' && tvValue !== null ? tvValue : String(tvValue);
-              }
+      const { config: parsed, siblings } = parseFrontmatterBlock(frontmatterMatch[1]);
+      frontmatterSiblings = siblings;
+      for (const [key, value] of Object.entries(parsed)) {
+        if (key === 'themeVariables') {
+          if (typeof value === 'object' && value !== null) {
+            for (const [tvKey, tvValue] of Object.entries(value)) {
+              existingThemeVars[tvKey] =
+                typeof tvValue === 'object' && tvValue !== null ? tvValue : String(tvValue);
             }
-          } else if (key !== 'theme') {
-            (layoutConfig as any)[key] = value;
           }
+        } else if (key !== 'theme') {
+          layoutConfig[key] = value;
         }
       }
     } catch {
@@ -1413,10 +1454,7 @@ export function applyThemeToFrontmatter(
     ...layoutConfig,
   };
 
-  const yamlConfig = `---
-config:
-${objectToYaml(mergedConfig, 2)}---
-`;
+  const yamlConfig = serializeFrontmatter(frontmatterSiblings, mergedConfig);
   return `${yamlConfig}\n%% @theme ${theme.id}\n${cleanBody}`;
 }
 
@@ -1428,33 +1466,31 @@ export function removeThemeColorsFromFrontmatter(content: string): string {
 
   const layoutConfig: any = {};
   const preservedThemeVars: any = {};
+  let frontmatterSiblings: YamlConfig = {};
 
   try {
-    const yamlContent = frontmatterMatch[1];
-    const configMatch = yamlContent.match(/config:[ \t]*(?:\r?\n)?([\s\S]*)$/);
-    if (configMatch) {
-      const parsed = parseYamlConfig(configMatch[1]);
-      const diagramType = detectDiagramType(stripped);
-      const derivedKeys = new Set(
-        DIAGRAM_TYPE_VARIABLES[diagramType] || DIAGRAM_TYPE_VARIABLES.unknown
-      );
-      const typographyKeys = new Set(['fontFamily', 'fontSize']);
+    const { config: parsed, siblings } = parseFrontmatterBlock(frontmatterMatch[1]);
+    frontmatterSiblings = siblings;
+    const diagramType = detectDiagramType(stripped);
+    const derivedKeys = new Set(
+      DIAGRAM_TYPE_VARIABLES[diagramType] || DIAGRAM_TYPE_VARIABLES.unknown
+    );
+    const typographyKeys = new Set(['fontFamily', 'fontSize']);
 
-      for (const [key, value] of Object.entries(parsed)) {
-        if (key === 'themeVariables' && typeof value === 'object' && value !== null) {
-          for (const [tvKey, tvValue] of Object.entries(value)) {
-            // Only preserve typography OR keys NOT in derived list AND NOT restricted
-            if (
-              typographyKeys.has(tvKey) ||
-              (!derivedKeys.has(tvKey) && !RESTRICTED_THEME_VARIABLES.has(tvKey))
-            ) {
-              preservedThemeVars[tvKey] =
-                typeof tvValue === 'object' && tvValue !== null ? tvValue : String(tvValue);
-            }
+    for (const [key, value] of Object.entries(parsed)) {
+      if (key === 'themeVariables' && typeof value === 'object' && value !== null) {
+        for (const [tvKey, tvValue] of Object.entries(value)) {
+          // Only preserve typography OR keys NOT in derived list AND NOT restricted
+          if (
+            typographyKeys.has(tvKey) ||
+            (!derivedKeys.has(tvKey) && !RESTRICTED_THEME_VARIABLES.has(tvKey))
+          ) {
+            preservedThemeVars[tvKey] =
+              typeof tvValue === 'object' && tvValue !== null ? tvValue : String(tvValue);
           }
-        } else if (key !== 'theme') {
-          layoutConfig[key] = value;
         }
+      } else if (key !== 'theme') {
+        layoutConfig[key] = value;
       }
     }
   } catch {
@@ -1467,12 +1503,8 @@ export function removeThemeColorsFromFrontmatter(content: string): string {
     ...layoutConfig,
   };
 
-  const yamlConfig = `---
-config:
-${objectToYaml(mergedConfig, 2)}---
-
-${cleanBody}`;
-  return yamlConfig;
+  const yamlConfig = serializeFrontmatter(frontmatterSiblings, mergedConfig);
+  return `${yamlConfig}\n${cleanBody}`;
 }
 
 /**
@@ -1672,20 +1704,22 @@ export function applyStyleToContent(
     }
   }
 
-  // 3. Handle frontmatter/themeVariables
+  // 3. Handle frontmatter/themeVariables (lossless sibling preservation)
   const frontmatterMatch = content.match(/^\s*---([\s\S]*?)---\s*/i);
   let existingConfig: any = {};
+  let existingSiblings: YamlConfig = {};
   if (frontmatterMatch) {
     try {
-      const yamlContent = frontmatterMatch[1];
-      const configMatch = yamlContent.match(/config:[ \t]*(?:\r?\n)?([\s\S]*)$/);
-      if (configMatch) existingConfig = parseYamlConfig(configMatch[1]);
+      const parsed = parseFrontmatterBlock(frontmatterMatch[1]);
+      existingConfig = parsed.config;
+      existingSiblings = parsed.siblings;
     } catch {
       // Silently ignore parsing errors
     }
   }
 
   const newConfig: any = { ...existingConfig };
+  const newSiblings: YamlConfig = { ...existingSiblings };
 
   // Helper to ensure themeVariables exists
   const ensureThemeVariables = () => {
@@ -1731,7 +1765,25 @@ export function applyStyleToContent(
     hasChanges = true;
   }
 
-  // 4. Flowchart specific layout options
+  // Root-level Mermaid option: markdownAutoWrap (default true in Mermaid 12.3).
+  if (typeof styleOptions.markdownAutoWrap === 'boolean') {
+    if (newConfig.markdownAutoWrap !== styleOptions.markdownAutoWrap) {
+      newConfig.markdownAutoWrap = styleOptions.markdownAutoWrap;
+      hasChanges = true;
+    }
+    if (newConfig.flowchart && 'markdownAutoWrap' in newConfig.flowchart) {
+      const cleanedFlowchart = { ...newConfig.flowchart };
+      delete cleanedFlowchart.markdownAutoWrap;
+      if (Object.keys(cleanedFlowchart).length === 0) {
+        delete newConfig.flowchart;
+      } else {
+        newConfig.flowchart = cleanedFlowchart;
+      }
+      hasChanges = true;
+    }
+  }
+
+  // 4. Diagram-specific config options
   // Same detectDiagramType mapping as above: 'graph' never occurs as a
   // diagramType value, so only 'flowchart' is compared here.
   if (diagramType === 'flowchart') {
@@ -1742,13 +1794,11 @@ export function applyStyleToContent(
       flowchartCfg.curve = styleOptions.curveStyle;
       hasFlowchartChanges = true;
     }
-    // Typed formatters gate the write (T-40-05): only a positive integer
-    // reaches the frontmatter block, and the change-detection keeps
-    // hasChanges honest (same shape as the curve write above).
+    // Mermaid 12.3 flowchart.stepDuration is in seconds and accepts positive finite decimals (e.g. 0.5).
     if (
-      styleOptions.stepDuration !== undefined &&
-      Number.isInteger(styleOptions.stepDuration) &&
-      styleOptions.stepDuration >= 1 &&
+      typeof styleOptions.stepDuration === 'number' &&
+      Number.isFinite(styleOptions.stepDuration) &&
+      styleOptions.stepDuration > 0 &&
       flowchartCfg.stepDuration !== styleOptions.stepDuration
     ) {
       flowchartCfg.stepDuration = styleOptions.stepDuration;
@@ -1759,13 +1809,6 @@ export function applyStyleToContent(
       'stepDuration' in flowchartCfg
     ) {
       delete flowchartCfg.stepDuration;
-      hasFlowchartChanges = true;
-    }
-    if (
-      typeof styleOptions.markdownAutoWrap === 'boolean' &&
-      flowchartCfg.markdownAutoWrap !== styleOptions.markdownAutoWrap
-    ) {
-      flowchartCfg.markdownAutoWrap = styleOptions.markdownAutoWrap;
       hasFlowchartChanges = true;
     }
     if (
@@ -1801,6 +1844,133 @@ export function applyStyleToContent(
 
     if (styleOptions.layoutEngine && newConfig.layout !== styleOptions.layoutEngine) {
       newConfig.layout = styleOptions.layoutEngine;
+      hasChanges = true;
+    }
+  } else if (diagramType === 'sequence') {
+    const sequenceCfg: any = { ...(newConfig.sequence || {}) };
+    let hasSequenceChanges = false;
+
+    if (
+      typeof styleOptions.actorMargin === 'number' &&
+      Number.isFinite(styleOptions.actorMargin) &&
+      sequenceCfg.actorMargin !== styleOptions.actorMargin
+    ) {
+      sequenceCfg.actorMargin = styleOptions.actorMargin;
+      hasSequenceChanges = true;
+    }
+    if (
+      typeof styleOptions.diagramMarginX === 'number' &&
+      Number.isFinite(styleOptions.diagramMarginX) &&
+      sequenceCfg.diagramMarginX !== styleOptions.diagramMarginX
+    ) {
+      sequenceCfg.diagramMarginX = styleOptions.diagramMarginX;
+      hasSequenceChanges = true;
+    }
+    if (
+      typeof styleOptions.diagramMarginY === 'number' &&
+      Number.isFinite(styleOptions.diagramMarginY) &&
+      sequenceCfg.diagramMarginY !== styleOptions.diagramMarginY
+    ) {
+      sequenceCfg.diagramMarginY = styleOptions.diagramMarginY;
+      hasSequenceChanges = true;
+    }
+    // Mermaid SequenceDiagramConfig uses `width` and `height` for actor dimensions.
+    if (
+      typeof styleOptions.actorWidth === 'number' &&
+      Number.isFinite(styleOptions.actorWidth) &&
+      sequenceCfg.width !== styleOptions.actorWidth
+    ) {
+      sequenceCfg.width = styleOptions.actorWidth;
+      hasSequenceChanges = true;
+    }
+    if (
+      typeof styleOptions.actorHeight === 'number' &&
+      Number.isFinite(styleOptions.actorHeight) &&
+      sequenceCfg.height !== styleOptions.actorHeight
+    ) {
+      sequenceCfg.height = styleOptions.actorHeight;
+      hasSequenceChanges = true;
+    }
+    if (
+      typeof styleOptions.mirrorActors === 'boolean' &&
+      sequenceCfg.mirrorActors !== styleOptions.mirrorActors
+    ) {
+      sequenceCfg.mirrorActors = styleOptions.mirrorActors;
+      hasSequenceChanges = true;
+    }
+
+    if (hasSequenceChanges) {
+      if (Object.keys(sequenceCfg).length === 0) {
+        delete newConfig.sequence;
+      } else {
+        newConfig.sequence = sequenceCfg;
+      }
+      hasChanges = true;
+    }
+  } else if (diagramType === 'gantt') {
+    const ganttCfg: any = { ...(newConfig.gantt || {}) };
+    let hasGanttChanges = false;
+
+    if (
+      typeof styleOptions.barHeight === 'number' &&
+      Number.isFinite(styleOptions.barHeight) &&
+      ganttCfg.barHeight !== styleOptions.barHeight
+    ) {
+      ganttCfg.barHeight = styleOptions.barHeight;
+      hasGanttChanges = true;
+    }
+    if (
+      typeof styleOptions.barGap === 'number' &&
+      Number.isFinite(styleOptions.barGap) &&
+      ganttCfg.barGap !== styleOptions.barGap
+    ) {
+      ganttCfg.barGap = styleOptions.barGap;
+      hasGanttChanges = true;
+    }
+    if (
+      typeof styleOptions.topPadding === 'number' &&
+      Number.isFinite(styleOptions.topPadding) &&
+      ganttCfg.topPadding !== styleOptions.topPadding
+    ) {
+      ganttCfg.topPadding = styleOptions.topPadding;
+      hasGanttChanges = true;
+    }
+    if (
+      typeof styleOptions.leftPadding === 'number' &&
+      Number.isFinite(styleOptions.leftPadding) &&
+      ganttCfg.leftPadding !== styleOptions.leftPadding
+    ) {
+      ganttCfg.leftPadding = styleOptions.leftPadding;
+      hasGanttChanges = true;
+    }
+    if (
+      typeof styleOptions.axisFormat === 'string' &&
+      styleOptions.axisFormat.length > 0 &&
+      ganttCfg.axisFormat !== styleOptions.axisFormat
+    ) {
+      ganttCfg.axisFormat = styleOptions.axisFormat;
+      hasGanttChanges = true;
+    }
+
+    if (hasGanttChanges) {
+      if (Object.keys(ganttCfg).length === 0) {
+        delete newConfig.gantt;
+      } else {
+        newConfig.gantt = ganttCfg;
+      }
+      hasChanges = true;
+    }
+
+    // Mermaid Gantt compact mode lives as a top-level frontmatter sibling (`displayMode: compact`).
+    if (styleOptions.displayMode === 'compact' && newSiblings.displayMode !== 'compact') {
+      newSiblings.displayMode = 'compact';
+      hasChanges = true;
+    } else if (
+      'displayMode' in styleOptions &&
+      styleOptions.displayMode === undefined &&
+      'displayMode' in newSiblings
+    ) {
+      delete newSiblings.displayMode;
       hasChanges = true;
     }
   } else if (diagramType === 'swimlane') {
@@ -1839,17 +2009,28 @@ export function applyStyleToContent(
   // Only proceed if there are changes
   const themeVars = newConfig.themeVariables;
   const hasThemeVars = themeVars && Object.keys(themeVars).length > 0;
-  if (!hasChanges && !hasThemeVars && !newConfig.flowchart && !newConfig.swimlane && !newConfig.layout) {
+  const hasSiblings = Object.keys(newSiblings).length > 0;
+  if (
+    !hasChanges &&
+    !hasThemeVars &&
+    !hasSiblings &&
+    !newConfig.flowchart &&
+    !newConfig.sequence &&
+    !newConfig.gantt &&
+    !newConfig.swimlane &&
+    !newConfig.layout &&
+    newConfig.markdownAutoWrap === undefined
+  ) {
     return content;
   }
 
-  if (Object.keys(newConfig).length === 0) {
+  if (Object.keys(newConfig).length === 0 && !hasSiblings) {
     return stripped;
   }
 
   if (hasThemeVars) newConfig.theme = 'base';
 
-  const yamlConfig = `---\nconfig:\n${objectToYaml(newConfig, 2)}---\n`;
+  const yamlConfig = serializeFrontmatter(newSiblings, newConfig);
   return yamlConfig + '\n\n' + stripped;
 }
 
@@ -1864,68 +2045,110 @@ export function extractStyleOptionsFromContent(
   const stripped = content.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
   const diagramType = detectDiagramType(stripped);
 
-  // 1. Extract from Frontmatter (config block)
+  const parseBooleanValue = (val: unknown): boolean | undefined => {
+    if (val === true || val === 'true') return true;
+    if (val === false || val === 'false') return false;
+    return undefined;
+  };
+
+  const parseFiniteNumber = (val: unknown): number | undefined => {
+    if (val === undefined || val === null || val === '') return undefined;
+    const n = Number(val);
+    return Number.isFinite(n) ? n : undefined;
+  };
+
+  // 1. Extract from Frontmatter (siblings + config block)
   const frontmatterMatch = content.match(/^\s*---([\s\S]*?)---\s*/i);
   if (frontmatterMatch) {
     try {
-      const yamlContent = frontmatterMatch[1];
-      const configMatch = yamlContent.match(/config:[ \t]*(?:\r?\n)?([\s\S]*)$/);
-      if (configMatch) {
-        const config = parseYamlConfig(configMatch[1]);
+      const { config, siblings } = parseFrontmatterBlock(frontmatterMatch[1]);
 
-        // Extract global theme variables
-        if (config.themeVariables && typeof config.themeVariables === 'object') {
-          const tv = config.themeVariables as Record<string, any>;
-          if (tv.fontFamily) options.fontFamily = tv.fontFamily;
-          if (tv.fontSize) {
-            const fs = String(tv.fontSize);
-            options.fontSize = parseInt(fs);
-          }
-          if (tv.primaryColor) options.primaryColor = tv.primaryColor;
-        }
-
-        // Extract flowchart specific options
-        if (config.flowchart && typeof config.flowchart === 'object') {
-          const fc = config.flowchart as Record<string, any>;
-          if (fc.curve) options.curveStyle = fc.curve as any;
-          if (fc.padding) options.nodePadding = parseInt(String(fc.padding));
-          if (fc.nodeSpacing) options.nodeSpacing = parseInt(String(fc.nodeSpacing));
-          if (fc.rankSpacing) options.rankSpacing = parseInt(String(fc.rankSpacing));
-          // markdownAutoWrap must not use the truthy-if idiom: an explicit
-          // false is a real value the panel must read back. parseYamlConfig
-          // stores every scalar as a string, so the boolean forms accept both
-          // `true`/`false` and the string spellings a hand edit produces.
-          if (fc.stepDuration !== undefined && fc.stepDuration !== null) {
-            const sd = parseInt(String(fc.stepDuration), 10);
-            if (!isNaN(sd) && sd >= 1) options.stepDuration = sd;
-          }
-          if (fc.markdownAutoWrap === true || fc.markdownAutoWrap === 'true') {
-            options.markdownAutoWrap = true;
-          } else if (fc.markdownAutoWrap === false || fc.markdownAutoWrap === 'false') {
-            options.markdownAutoWrap = false;
-          }
-        }
-
-        // Extract swimlane specific options
-        if (config.swimlane && typeof config.swimlane === 'object') {
-          const sw = config.swimlane as Record<string, any>;
-          if (sw.lineHops === false || sw.lineHops === 'false') {
-            options.lineHops = false;
-          } else if (sw.lineHops === 'gap') {
-            options.lineHops = 'gap';
-          } else if (sw.lineHops === 'arc' || sw.lineHops === true || sw.lineHops === 'true') {
-            options.lineHops = 'arc';
-          }
-          if (sw.automaticLaneOrdering === true || sw.automaticLaneOrdering === 'true') {
-            options.automaticLaneOrdering = true;
-          } else if (sw.automaticLaneOrdering === false || sw.automaticLaneOrdering === 'false') {
-            options.automaticLaneOrdering = false;
-          }
-        }
-
-        // Extract layout engine
-        if (config.layout) options.layoutEngine = config.layout as any;
+      if (siblings.displayMode === 'compact') {
+        options.displayMode = 'compact';
       }
+
+      // Extract global theme variables
+      if (config.themeVariables && typeof config.themeVariables === 'object') {
+        const tv = config.themeVariables as Record<string, any>;
+        if (tv.fontFamily) options.fontFamily = String(tv.fontFamily);
+        if (tv.fontSize) {
+          const fs = String(tv.fontSize);
+          options.fontSize = parseInt(fs, 10);
+        }
+        if (tv.primaryColor) options.primaryColor = String(tv.primaryColor);
+      }
+
+      // Root markdownAutoWrap (preferred in Mermaid 12.3)
+      const rootWrap = parseBooleanValue(config.markdownAutoWrap);
+      if (rootWrap !== undefined) {
+        options.markdownAutoWrap = rootWrap;
+      }
+
+      // Extract flowchart specific options
+      if (config.flowchart && typeof config.flowchart === 'object') {
+        const fc = config.flowchart as Record<string, any>;
+        if (fc.curve) options.curveStyle = fc.curve as any;
+        if (fc.padding !== undefined) options.nodePadding = parseInt(String(fc.padding), 10);
+        if (fc.nodeSpacing !== undefined) options.nodeSpacing = parseInt(String(fc.nodeSpacing), 10);
+        if (fc.rankSpacing !== undefined) options.rankSpacing = parseInt(String(fc.rankSpacing), 10);
+        const sd = parseFiniteNumber(fc.stepDuration);
+        if (sd !== undefined && sd > 0) options.stepDuration = sd;
+        // Backward-compatible read of legacy nested flowchart.markdownAutoWrap
+        if (options.markdownAutoWrap === undefined) {
+          const legacyWrap = parseBooleanValue(fc.markdownAutoWrap);
+          if (legacyWrap !== undefined) options.markdownAutoWrap = legacyWrap;
+        }
+      }
+
+      // Extract sequence specific options
+      if (config.sequence && typeof config.sequence === 'object') {
+        const seq = config.sequence as Record<string, any>;
+        const actorMargin = parseFiniteNumber(seq.actorMargin);
+        if (actorMargin !== undefined) options.actorMargin = actorMargin;
+        const diagramMarginX = parseFiniteNumber(seq.diagramMarginX);
+        if (diagramMarginX !== undefined) options.diagramMarginX = diagramMarginX;
+        const diagramMarginY = parseFiniteNumber(seq.diagramMarginY);
+        if (diagramMarginY !== undefined) options.diagramMarginY = diagramMarginY;
+        const actorWidth = parseFiniteNumber(seq.width ?? seq.actorWidth);
+        if (actorWidth !== undefined) options.actorWidth = actorWidth;
+        const actorHeight = parseFiniteNumber(seq.height ?? seq.actorHeight);
+        if (actorHeight !== undefined) options.actorHeight = actorHeight;
+        const mirrorActors = parseBooleanValue(seq.mirrorActors);
+        if (mirrorActors !== undefined) options.mirrorActors = mirrorActors;
+      }
+
+      // Extract gantt specific options
+      if (config.gantt && typeof config.gantt === 'object') {
+        const gantt = config.gantt as Record<string, any>;
+        const barHeight = parseFiniteNumber(gantt.barHeight);
+        if (barHeight !== undefined) options.barHeight = barHeight;
+        const barGap = parseFiniteNumber(gantt.barGap);
+        if (barGap !== undefined) options.barGap = barGap;
+        const topPadding = parseFiniteNumber(gantt.topPadding);
+        if (topPadding !== undefined) options.topPadding = topPadding;
+        const leftPadding = parseFiniteNumber(gantt.leftPadding);
+        if (leftPadding !== undefined) options.leftPadding = leftPadding;
+        if (typeof gantt.axisFormat === 'string' && gantt.axisFormat.length > 0) {
+          options.axisFormat = gantt.axisFormat;
+        }
+      }
+
+      // Extract swimlane specific options
+      if (config.swimlane && typeof config.swimlane === 'object') {
+        const sw = config.swimlane as Record<string, any>;
+        if (sw.lineHops === false || sw.lineHops === 'false') {
+          options.lineHops = false;
+        } else if (sw.lineHops === 'gap') {
+          options.lineHops = 'gap';
+        } else if (sw.lineHops === 'arc' || sw.lineHops === true || sw.lineHops === 'true') {
+          options.lineHops = 'arc';
+        }
+        const autoOrder = parseBooleanValue(sw.automaticLaneOrdering);
+        if (autoOrder !== undefined) options.automaticLaneOrdering = autoOrder;
+      }
+
+      // Extract layout engine
+      if (config.layout) options.layoutEngine = config.layout as any;
     } catch (e) {
       console.warn('Failed to parse frontmatter for style extraction:', e);
     }
@@ -1951,9 +2174,9 @@ export function extractStyleOptionsFromContent(
     if (defaultStyle) {
       if (defaultStyle.stroke) options.edgeStrokeColor = defaultStyle.stroke;
       if (defaultStyle.strokeWidth)
-        options.edgeStrokeWidth = parseInt(String(defaultStyle.strokeWidth));
+        options.edgeStrokeWidth = parseInt(String(defaultStyle.strokeWidth), 10);
       if (defaultStyle.opacity) options.edgeOpacity = parseFloat(String(defaultStyle.opacity));
-      if (defaultStyle.fontSize) options.edgeFontSize = parseInt(String(defaultStyle.fontSize));
+      if (defaultStyle.fontSize) options.edgeFontSize = parseInt(String(defaultStyle.fontSize), 10);
       if (defaultStyle.strokeDasharray) options.edgeDasharray = defaultStyle.strokeDasharray;
       if (defaultStyle.color) options.edgeLabelColor = defaultStyle.color;
       if (defaultStyle.fill) options.edgeLabelBackgroundColor = defaultStyle.fill;

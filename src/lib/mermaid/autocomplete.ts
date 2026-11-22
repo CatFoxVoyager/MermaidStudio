@@ -27,13 +27,15 @@ const DIAGRAM_STARTERS: CompletionEntry[] = [
   { label: 'requirementDiagram', detail: 'System requirements', type: 'keyword' },
   { label: 'timeline', detail: 'Timeline diagram', type: 'keyword' },
   { label: 'sankey-beta', detail: 'Sankey flow diagram', type: 'keyword' },
-  { label: 'xychart-beta', detail: 'XY scatter chart', type: 'keyword' },
-  { label: 'packet-beta', detail: 'Network packet diagram', type: 'keyword' },
+  { label: 'xychart', detail: 'XY chart', type: 'keyword' },
+  { label: 'xychart-beta', detail: 'XY chart (legacy beta alias)', type: 'keyword' },
+  { label: 'packet', detail: 'Network packet diagram', type: 'keyword' },
+  { label: 'packet-beta', detail: 'Network packet diagram (legacy beta alias)', type: 'keyword' },
   { label: 'kanban', detail: 'Kanban board', type: 'keyword' },
   { label: 'architecture-beta', detail: 'Architecture diagram', type: 'keyword' },
   { label: 'usecase-beta', detail: 'Use case diagram', type: 'keyword' },
-  { label: 'zenuml', detail: 'ZenUML sequence diagram', type: 'keyword' },
-  { label: 'block-beta', detail: 'Block diagram', type: 'keyword' },
+  { label: 'block', detail: 'Block diagram', type: 'keyword' },
+  { label: 'block-beta', detail: 'Block diagram (legacy beta alias)', type: 'keyword' },
   { label: 'C4Context', detail: 'C4 context diagram', type: 'keyword' },
   { label: 'ishikawa-beta', detail: 'Ishikawa fishbone diagram', type: 'keyword' },
   { label: 'radar-beta', detail: 'Radar spider chart', type: 'keyword' },
@@ -271,15 +273,6 @@ const C4_COMPLETIONS: CompletionEntry[] = [
   { label: 'Rel(', detail: 'Declare a relationship', type: 'keyword' },
 ];
 
-const ZENUML_COMPLETIONS: CompletionEntry[] = [
-  { label: 'title', detail: 'Diagram title', type: 'keyword' },
-  { label: 'if', detail: 'Conditional block', type: 'keyword' },
-  { label: 'else', detail: 'Else block', type: 'keyword' },
-  { label: 'while', detail: 'Loop block', type: 'keyword' },
-  { label: 'par', detail: 'Parallel block', type: 'keyword' },
-  { label: 'return', detail: 'Return value', type: 'keyword' },
-];
-
 const BLOCK_COMPLETIONS: CompletionEntry[] = [
   { label: 'columns', detail: 'Grid columns', type: 'keyword' },
   { label: 'space', detail: 'Empty space', type: 'keyword' },
@@ -425,7 +418,6 @@ export function mermaidCompletions(context: CompletionContext): CompletionResult
       case 'kanban':              completions = KANBAN_COMPLETIONS; break;
       case 'architectureDiagram': completions = ARCHITECTURE_COMPLETIONS; break;
       case 'usecaseDiagram':      completions = USECASE_COMPLETIONS; break;
-      case 'zenuml':              completions = ZENUML_COMPLETIONS; break;
       case 'blockDiagram':        completions = BLOCK_COMPLETIONS; break;
       case 'c4':                  completions = C4_COMPLETIONS; break;
       case 'ishikawa':            completions = ISHIKAWA_COMPLETIONS; break;

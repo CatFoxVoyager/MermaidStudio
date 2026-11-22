@@ -47,7 +47,7 @@ export function extractPathEndpoints(
 export function collectNodeBoxes(svg: Element): Map<string, NodeBox> {
   const nodeBoxes = new Map<string, NodeBox>();
 
-  svg.querySelectorAll('.node').forEach(nodeEl => {
+  svg.querySelectorAll('.node, .icon-shape, .image-shape').forEach(nodeEl => {
     const transform = nodeEl.getAttribute('transform');
     const idAttr = nodeEl.getAttribute('id') || '';
     const dataId = nodeEl.getAttribute('data-id') || '';

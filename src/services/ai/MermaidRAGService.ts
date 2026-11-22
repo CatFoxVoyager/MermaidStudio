@@ -218,15 +218,6 @@ const KNOWLEDGE_BASE: Record<string, MermaidSnippet> = {
     ],
     example: 'usecase-beta\n  actor User\n  systemBoundary App\n    "Log in"\n  end\n  User --> "Log in"',
   },
-  zenuml: {
-    type: 'zenuml',
-    syntax: 'zenuml',
-    bestPractices: [
-      'Calls: Client->Server.method()',
-      'Control blocks: if, else, while, par, try/catch',
-    ],
-    example: 'zenuml\n  title Order Flow\n  Client->API.createOrder()',
-  },
   ishikawa: {
     type: 'ishikawa',
     syntax: 'ishikawa-beta',
