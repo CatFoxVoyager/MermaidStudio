@@ -47,12 +47,21 @@ importers:
       '@iconify-json/fa6-solid':
         specifier: 1.2.4
         version: 1.2.4
+      '@iconify-json/logos':
+        specifier: ^1.2.20
+        version: 1.2.20
+      '@iconify-json/mdi':
+        specifier: ^1.2.3
+        version: 1.2.3
       '@iconify/utils':
         specifier: 3.1.7
         version: 3.1.7
       '@mermaid-js/examples':
         specifier: 2.1.0
         version: 2.1.0
+      '@mermaid-js/layout-tidy-tree':
+        specifier: ^1.0.1
+        version: 1.0.1(mermaid@12.3.0)
       '@mlc-ai/web-llm':
         specifier: file:vendor/mlc-ai-web-llm-0.2.83.tgz
         version: file:vendor/mlc-ai-web-llm-0.2.83.tgz
@@ -467,6 +476,12 @@ packages:
   '@iconify-json/fa6-solid@1.2.4':
     resolution: {integrity: sha512-LmDNNdJVyvF5mPm1yxWvL8KjCc/E8LzoqnF1LNTVpyY2ZJRUlGOWuPIThdbuFBF2IovgttkIyumhyqfmlHdwKg==}
 
+  '@iconify-json/logos@1.2.20':
+    resolution: {integrity: sha512-HDSte2/+sgGNn9i/eYMiIRDbdigWxZe6EFauQGtxfRG/4sUtUBFgLIdxotKQysKNsFJlLYDFzPILOs3mh9viRQ==}
+
+  '@iconify-json/mdi@1.2.3':
+    resolution: {integrity: sha512-O3cLwbDOK7NNDf2ihaQOH5F9JglnulNDFV7WprU2dSoZu3h3cWH//h74uQAB87brHmvFVxIOkuBX2sZSzYhScg==}
+
   '@iconify/types@2.0.0':
     resolution: {integrity: sha512-+wluvCrRhXrhyOmRDJ3q8mux9JkKy5SJ/v8ol2tu4FVjyYvtEzkc/3pK15ET6RKg4b4w4BmTk1+gsCUhf21Ykg==}
 
@@ -673,6 +688,12 @@ packages:
   '@mermaid-js/examples@2.1.0':
     resolution: {integrity: sha512-Obn3CNIX5sGbILKc5+aKyHuN+dKqt/v4RZ1tpZ7TWai8rFNryyLv/TFx4cwc+N9KxHjF3uoY54x0j9QgC1C9rQ==}
     engines: {node: '>=22.12.0'}
+
+  '@mermaid-js/layout-tidy-tree@1.0.1':
+    resolution: {integrity: sha512-suZgFgQQHYuAxiEiNVgPJwOoXi/keXV6DghCL3rT4K9DmX7xYQ2XZI2suiBVs/fj1gn/OoXIWB2DFSmeY7trvw==}
+    engines: {node: '>=22.12.0'}
+    peerDependencies:
+      mermaid: ^11.0.2 || ^12.0.0
 
   '@mermaid-js/parser@2.0.1':
     resolution: {integrity: sha512-j37dj/h6p6pots1L7pLPPNuABEEu9WP4OYg9pW1g+nYG331j0+3canE9OagtYdytYvdSAMG+2fKU5cxep6LgjA==}
@@ -4964,6 +4985,14 @@ snapshots:
     dependencies:
       '@iconify/types': 2.0.0
 
+  '@iconify-json/logos@1.2.20':
+    dependencies:
+      '@iconify/types': 2.0.0
+
+  '@iconify-json/mdi@1.2.3':
+    dependencies:
+      '@iconify/types': 2.0.0
+
   '@iconify/types@2.0.0': {}
 
   '@iconify/utils@3.1.7':
@@ -5152,6 +5181,11 @@ snapshots:
   '@marijn/find-cluster-break@1.0.4': {}
 
   '@mermaid-js/examples@2.1.0': {}
+
+  '@mermaid-js/layout-tidy-tree@1.0.1(mermaid@12.3.0)':
+    dependencies:
+      d3: 7.9.0
+      mermaid: 12.3.0
 
   '@mermaid-js/parser@2.0.1':
     dependencies:

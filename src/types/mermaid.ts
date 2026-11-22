@@ -46,9 +46,55 @@ export interface Template {
   type: DiagramType;
 }
 
-export type LayoutEngine = 'dagre' | 'elk' | 'elk.stress';
+export type ElkLayoutAlgorithm =
+  | 'elk'
+  | 'elk.stress'
+  | 'elk.force'
+  | 'elk.mrtree'
+  | 'elk.sporeOverlap'
+  | 'elk.box'
+  | 'elk.rectpacking';
+
+export const ELK_LAYOUT_ALGORITHMS: readonly ElkLayoutAlgorithm[] = [
+  'elk',
+  'elk.stress',
+  'elk.force',
+  'elk.mrtree',
+  'elk.sporeOverlap',
+  'elk.box',
+  'elk.rectpacking',
+] as const;
+
+export type LayoutEngine = 'dagre' | ElkLayoutAlgorithm | 'tidy-tree' | 'cose-bilkent';
+export type ElkNodePlacementStrategy = 'SIMPLE' | 'NETWORK_SIMPLEX' | 'LINEAR_SEGMENTS' | 'BRANDES_KOEPF';
+export type ElkNodePlacementAlignment = 'NONE' | 'LEFTUP' | 'LEFTDOWN' | 'RIGHTUP' | 'RIGHTDOWN' | 'BALANCED';
+export type ElkPreset = 'default' | 'legacy' | 'modelOrder' | 'depthFirst';
 export type DiagramDirection = 'TD' | 'TB' | 'BT' | 'LR' | 'RL';
 export type DiagramLook = 'neo' | 'classic' | 'handDrawn';
+
+export const ELK_CAPABLE_DIAGRAM_TYPES: ReadonlySet<DiagramType> = new Set<DiagramType>([
+  'flowchart',
+  'classDiagram',
+  'stateDiagram',
+  'erDiagram',
+  'requirementDiagram',
+  'usecaseDiagram',
+  'journey',
+  'blockDiagram',
+  'architectureDiagram',
+]);
+
+export function isElkLayoutEngine(layout?: string): boolean {
+  return layout === 'elk' || (typeof layout === 'string' && layout.startsWith('elk.'));
+}
+
+export function supportsElkLayout(diagramType: DiagramType): boolean {
+  return diagramType !== 'swimlane' && ELK_CAPABLE_DIAGRAM_TYPES.has(diagramType);
+}
+
+export function supportsTidyTreeLayout(diagramType: DiagramType): boolean {
+  return diagramType === 'mindmap';
+}
 
 // Base style options that apply to all diagram types
 export interface BaseStyleOptions {
@@ -149,6 +195,12 @@ export interface DiagramStyleOptions extends BaseStyleOptions {
   borderWidth?: number;
   useMaxWidth?: boolean;
   layoutEngine?: LayoutEngine;
+
+  // ELK layout sub-options (LAY-02: config.elk.*)
+  elkMergeEdges?: boolean;
+  elkNodePlacementStrategy?: ElkNodePlacementStrategy;
+  elkNodePlacementAlignment?: ElkNodePlacementAlignment;
+  elkPreset?: ElkPreset;
 
   // Sequence diagram options
   diagramMarginX?: number;

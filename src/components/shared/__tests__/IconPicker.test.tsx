@@ -416,4 +416,21 @@ describe('IconPicker', () => {
       expect(onClose).not.toHaveBeenCalled();
     });
   });
+
+  describe('pack filter pills (45-01 LAY-04)', () => {
+    it('filters visible sections to a single pack and restores all on All', async () => {
+      const { container } = renderPicker();
+      await settle();
+      expect(container.querySelectorAll('[data-pack-section]').length).toBe(3);
+
+      fireEvent.click(container.querySelector('[data-pack-filter="brands"]')!);
+      expect(container.querySelectorAll('[data-pack-section]').length).toBe(1);
+      expect(container.querySelector('[data-pack-section="brands"]')).not.toBeNull();
+      expect(container.querySelector('[data-pack-section="solid"]')).toBeNull();
+
+      fireEvent.click(container.querySelector('[data-pack-filter="all"]')!);
+      expect(container.querySelectorAll('[data-pack-section]').length).toBe(3);
+    });
+  });
 });
+

@@ -245,6 +245,31 @@ mindmap
       AI Features`,
   },
   {
+    id: 'mindmap-tidy-tree',
+    title: 'Mindmap (Tidy Tree)',
+    description: 'Compact balanced tree mindmap using the lazy tidy-tree layout',
+    category: 'Mindmap',
+    complexity: 'simple',
+    type: 'mindmap',
+    content: `---
+config:
+  layout: tidy-tree
+---
+mindmap
+  root((System Design))
+    Frontend
+      React UI
+      Accessibility
+      State Cache
+    Backend
+      API Gateway
+      Workers
+      Event Bus
+    Data
+      PostgreSQL
+      Search Index`,
+  },
+  {
     id: 'git-feature',
     title: 'Git Feature Branch',
     description: 'Git branching strategy',

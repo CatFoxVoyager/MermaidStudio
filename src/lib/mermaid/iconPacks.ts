@@ -45,9 +45,10 @@ export interface FaIconPackLoader {
 }
 
 /**
- * The four FA6 prefixes mermaid's flowchart icon support documents, bound to
- * the three offline Iconify JSON packs. `fa` and `fas` alias the same solid
- * pack (mermaid caches the loaded data per registered prefix).
+ * Offline lazy Iconify JSON packs registered on Mermaid:
+ * - FA6 (`fa`/`fas` -> fa6-solid, `far` -> fa6-regular, `fab` -> fa6-brands)
+ * - Tech & cloud brand logos (`logos` -> @iconify-json/logos, used by official architecture-beta docs)
+ * - Material Design Icons (`mdi` -> @iconify-json/mdi, used by official treeView-beta & icon docs)
  */
 export const FA_ICON_PACKS: readonly FaIconPackLoader[] = [
   {
@@ -66,13 +67,23 @@ export const FA_ICON_PACKS: readonly FaIconPackLoader[] = [
     name: 'fab',
     loader: () => import('@iconify-json/fa6-brands/icons.json').then((m) => m.default),
   },
+  {
+    name: 'logos',
+    loader: () => import('@iconify-json/logos/icons.json').then((m) => m.default),
+  },
+  {
+    name: 'mdi',
+    loader: () => import('@iconify-json/mdi/icons.json').then((m) => m.default),
+  },
 ];
+
+export const ICON_PACKS = FA_ICON_PACKS;
 
 let registered = false;
 
 /**
- * Register the FA6 icon packs on a mermaid-like instance. Idempotent: the
- * run-once guard makes repeat calls (double doInit, hot reload) no-ops.
+ * Register the offline lazy Iconify icon packs on a mermaid-like instance.
+ * Idempotent: the run-once guard makes repeat calls (double doInit, hot reload) no-ops.
  */
 export function registerFaIconPacks(
   mermaidLike: Pick<typeof mermaid, 'registerIconPacks'>,

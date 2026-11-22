@@ -9,6 +9,7 @@ import { getThemeById } from '@/constants/themes';
 import { sanitizeMermaidSVG } from '@/utils/sanitization';
 import { detectDiagramType } from './diagramType';
 import { registerFaIconPacks } from './iconPacks';
+import { registerTidyTreeLayout } from './layoutLoaders';
 import type { DiagramLook, DiagramType, MermaidBuiltinTheme, MermaidTheme } from '@/types';
 
 export type { MermaidBuiltinTheme };
@@ -40,12 +41,10 @@ function doInit(
   diagramType?: DiagramType,
   maxTextSize?: number
 ) {
-  // 39-02 (ICON-02): register the lazy FA6 icon packs on the single init
-  // path. iconPacks.ts carries no heavy static import — it rides this lazy
-  // mermaid chunk, its pack JSONs live only inside dynamic-import loader
-  // closures (PERF-01: 0 B eager boot impact), and its run-once guard makes
-  // the repeated doInit calls below a no-op after the first.
+  // Register lazy icon packs (FA6 + logos + mdi) and lazy tidy-tree layout on
+  // the single init path (PERF-01: 0 B eager boot impact; run-once guarded).
   registerFaIconPacks(mermaid);
+  registerTidyTreeLayout(mermaid);
   const isDark = theme === 'dark';
 
   const activeTheme = diagramTheme ?? defaultTheme;

@@ -27,7 +27,7 @@ import { getIconData } from '@iconify/utils';
  */
 export type IconPack = Parameters<typeof getIconData>[0];
 
-export type IconPackKey = 'solid' | 'regular' | 'brands';
+export type IconPackKey = 'solid' | 'regular' | 'brands' | 'logos' | 'mdi';
 
 export interface IconPickerPackSection {
   key: IconPackKey;
@@ -55,5 +55,17 @@ export const ICON_PICKER_PACKS: readonly IconPickerPackSection[] = [
     headerKey: 'visual.iconPacks.brands',
     prefix: 'fab',
     load: () => import('@iconify-json/fa6-brands/icons.json').then((m) => m.default as unknown as IconPack),
+  },
+  {
+    key: 'logos',
+    headerKey: 'visual.iconPacks.logos',
+    prefix: 'logos',
+    load: () => import('@iconify-json/logos/icons.json').then((m) => m.default as unknown as IconPack),
+  },
+  {
+    key: 'mdi',
+    headerKey: 'visual.iconPacks.mdi',
+    prefix: 'mdi',
+    load: () => import('@iconify-json/mdi/icons.json').then((m) => m.default as unknown as IconPack),
   },
 ];

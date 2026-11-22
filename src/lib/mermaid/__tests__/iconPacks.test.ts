@@ -138,16 +138,55 @@ describe('registration idempotency (39-02)', { timeout: 60000 }, () => {
   });
 });
 
-describe('unregistered-prefix fallback (39-02)', { timeout: 60000 }, () => {
-  it('logos:react renders the unknownIcon fallback cleanly (render resolves, marker fill present, no throw)', async () => {
-    // No pack is (or may be) registered under `logos` — RESEARCH Out-of-Scope
-    // bans the 8.74 MB @iconify-json/logos. Matches the measured planning
-    // probe (probe-39-result.json icon_alone: rendered true, fallback true).
+describe('LAY-04 extra offline lazy packs: logos & mdi', { timeout: 60000 }, () => {
+  it('renders a REAL glyph for logos:react without unknownIcon fallback', async () => {
     let host: HTMLElement | null = null;
     try {
       const { svg, error } = await renderDiagram(
         'flowchart TD\nA@{ icon: "logos:react" }',
-        'p39_logos_fallback',
+        'p45_logos_react',
+      );
+      expect(error).toBeNull();
+      expect(svg).not.toBe('');
+      host = mountSvg(svg);
+      expect(document.querySelector('.icon-shape')).not.toBeNull();
+      expect(host.innerHTML).not.toContain('#087ebf');
+    } finally {
+      host?.remove();
+      document.getElementById('p45_logos_react')?.remove();
+      document.getElementById('dp45_logos_react')?.remove();
+    }
+  });
+
+  it('renders a REAL glyph for mdi:home without unknownIcon fallback', async () => {
+    let host: HTMLElement | null = null;
+    try {
+      const { svg, error } = await renderDiagram(
+        'flowchart TD\nA@{ icon: "mdi:home" }',
+        'p45_mdi_home',
+      );
+      expect(error).toBeNull();
+      expect(svg).not.toBe('');
+      host = mountSvg(svg);
+      const glyphPath = document.querySelector('.icon-shape path');
+      expect(glyphPath).not.toBeNull();
+      expect((glyphPath as SVGPathElement).getAttribute('d') ?? '').not.toBe('');
+      expect(host.innerHTML).not.toContain('#087ebf');
+    } finally {
+      host?.remove();
+      document.getElementById('p45_mdi_home')?.remove();
+      document.getElementById('dp45_mdi_home')?.remove();
+    }
+  });
+});
+
+describe('unregistered-prefix fallback (39-02)', { timeout: 60000 }, () => {
+  it('unknownpack:react renders the unknownIcon fallback cleanly (render resolves, marker fill present, no throw)', async () => {
+    let host: HTMLElement | null = null;
+    try {
+      const { svg, error } = await renderDiagram(
+        'flowchart TD\nA@{ icon: "unknownpack:react" }',
+        'p39_unknown_fallback',
       );
 
       expect(error).toBeNull();
@@ -157,20 +196,14 @@ describe('unregistered-prefix fallback (39-02)', { timeout: 60000 }, () => {
       expect(host.innerHTML).toContain('#087ebf');
     } finally {
       host?.remove();
-      document.getElementById('p39_logos_fallback')?.remove();
-      document.getElementById('dp39_logos_fallback')?.remove();
+      document.getElementById('p39_unknown_fallback')?.remove();
+      document.getElementById('dp39_unknown_fallback')?.remove();
     }
   });
 });
 
 describe('lazy-load failure contract (39-02)', { timeout: 60000 }, () => {
   it('a rejecting loader degrades to the unknownIcon fallback (render resolves, not rejects) and a later good registration heals', async () => {
-    // Measured contract (chunk-R3KSYZAL.mjs): getRegisteredIconData throws
-    // 'Failed to load icon set: <prefix>' on a rejecting loader, but
-    // getIconSVG try/catches that and degrades to unknownIcon — so the
-    // render-level contract the app's render error path actually sees is a
-    // RESOLVED fallback, never a rejection. (The plan's "render rejects"
-    // expectation contradicted its own cited source; the source wins.)
     const boom = vi.fn(() => Promise.reject(new Error('pack load boom')));
     mermaid.registerIconPacks([{ name: 'failpack', loader: boom }]);
 
@@ -184,7 +217,6 @@ describe('lazy-load failure contract (39-02)', { timeout: 60000 }, () => {
       expect(svg).not.toBe('');
       host = mountSvg(svg);
       expect(host.innerHTML).toContain('#087ebf');
-      // The failed load is NOT cached — exactly one attempt this render.
       expect(boom).toHaveBeenCalledTimes(1);
     } finally {
       host?.remove();
@@ -192,9 +224,6 @@ describe('lazy-load failure contract (39-02)', { timeout: 60000 }, () => {
       document.getElementById('dp39_failpack')?.remove();
     }
 
-    // Registration state is never corrupted: re-registering the same prefix
-    // with a good loader overwrites the rejecting one (loaderStore Map-set)
-    // and the next render renders the real glyph.
     mermaid.registerIconPacks([{ name: 'failpack', loader: vi.fn(async () => TINY_PACK) }]);
 
     let healedHost: HTMLElement | null = null;
@@ -217,10 +246,8 @@ describe('lazy-load failure contract (39-02)', { timeout: 60000 }, () => {
   });
 });
 
-describe('run-once registration guard (39-02)', () => {
-  it('repeat registerFaIconPacks calls make no second register call (fresh module state)', async () => {
-    // Fresh module instance so this pin exercises the guard itself, not the
-    // flag the earlier tests already set on the original instance.
+describe('run-once registration guard (39-02 + 45-01)', () => {
+  it('repeat registerFaIconPacks calls make no second register call and register all 6 prefixes', async () => {
     vi.resetModules();
     const fresh = await import('../iconPacks');
     const registerIconPacks = vi.fn();
@@ -235,6 +262,6 @@ describe('run-once registration guard (39-02)', () => {
     expect(registerIconPacks).toHaveBeenCalledTimes(1);
     expect(
       registerIconPacks.mock.calls[0][0].map((entry: { name: string }) => entry.name),
-    ).toEqual(['fa', 'fas', 'far', 'fab']);
+    ).toEqual(['fa', 'fas', 'far', 'fab', 'logos', 'mdi']);
   });
 });

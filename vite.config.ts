@@ -226,6 +226,15 @@ export default defineConfig({
               name: 'icon-packs',
               test: (id: string) => id.includes('node_modules') && id.includes('@iconify-json'),
             },
+            // Tidy-tree layout engine (LAZY: 45-01, LAY-03 + PERF-01). Only
+            // reached through the dynamic import() inside layoutLoaders.ts
+            // when a Mindmap selects `layout: tidy-tree`.
+            {
+              name: 'layout-tidy-tree',
+              test: (id: string) =>
+                id.includes('node_modules') &&
+                (id.includes('@mermaid-js/layout-tidy-tree') || id.includes('non-layered-tidy-tree-layout')),
+            },
             // vendor catch-all. Deliberately NOT capturing elkjs (nor
             // mermaid's elk-*.mjs above): under manualChunks these returned
             // undefined to stay out of every manual chunk, and letting the
@@ -235,9 +244,8 @@ export default defineConfig({
             // once the shared-libs claims freed this catch-all from the app's
             // eager deps, katex (~375 kB) would otherwise ride the eagerly
             // imported vendor file into first paint unused. Same for
-            // @iconify-json (39-02): FA6 pack JSON, dynamically imported by
-            // the icon-packs lazy group above — locked by
-            // src/__tests__/bundlePerf.test.ts.
+            // @iconify-json (39-02) and @mermaid-js/layout-tidy-tree (45-01)
+            // — locked by src/__tests__/bundlePerf.test.ts.
             {
               name: 'vendor',
               test: (id: string) =>
@@ -245,6 +253,8 @@ export default defineConfig({
                 !id.includes('elkjs') &&
                 !id.includes('katex') &&
                 !id.includes('@iconify-json') &&
+                !id.includes('@mermaid-js/layout-tidy-tree') &&
+                !id.includes('non-layered-tidy-tree-layout') &&
                 !/elk-.+\.mjs(\?|$)/.test(id),
             },
           ],

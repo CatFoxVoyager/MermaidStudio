@@ -210,9 +210,6 @@ describe('THM-04 — layout engines under mermaid 12 (Phase 23 / 23-01)', { time
     );
 
     it('emits frontmatter of the same shape the render suites consume', () => {
-      // Cross-check group 3 against groups 1-2: the write path's output must be
-      // parseable frontmatter carrying exactly the chosen engine (no quoting or
-      // ordering surprise), i.e. the literal string groups 1-2 render.
       const written = applyStyleToContent(BODY, { layoutEngine: 'elk.stress' });
       const { frontmatter, body } = parseFrontmatter(written);
       expect(frontmatter.config?.layout).toBe('elk.stress');
@@ -220,3 +217,71 @@ describe('THM-04 — layout engines under mermaid 12 (Phase 23 / 23-01)', { time
     });
   });
 });
+
+describe('Phase 45 LAY-01/02/03 — 7 ELK algorithms, ELK options & lazy tidy-tree Mindmap', { timeout: 60000 }, () => {
+  const ALL_7_ELK = [
+    'elk',
+    'elk.stress',
+    'elk.force',
+    'elk.mrtree',
+    'elk.sporeOverlap',
+    'elk.box',
+    'elk.rectpacking',
+  ] as const;
+
+  it.each(ALL_7_ELK)('renders flowchart cleanly with ELK algorithm %s', async (algo) => {
+    const doc = await renderFixture(withLayout(algo), `p45_elk_${algo.replace('.', '_')}`);
+    expectGeometryPresent(geometrySignature(doc));
+  });
+
+  it('writes and preserves config.elk sub-options on ELK-capable classDiagram and never overrides swimlane', () => {
+    const classSrc = `classDiagram\n  Animal <|-- Dog`;
+    const styledClass = applyStyleToContent(classSrc, {
+      layoutEngine: 'elk.mrtree',
+      elkMergeEdges: true,
+      elkNodePlacementStrategy: 'NETWORK_SIMPLEX',
+      elkNodePlacementAlignment: 'LEFTUP',
+      elkPreset: 'modelOrder',
+    });
+    expect(styledClass).toContain("layout: 'elk.mrtree'");
+    expect(styledClass).toContain('mergeEdges: true');
+    expect(styledClass).toContain("nodePlacementStrategy: 'NETWORK_SIMPLEX'");
+    expect(styledClass).toContain("nodePlacementAlignment: 'LEFTUP'");
+    expect(styledClass).toContain("preset: 'modelOrder'");
+
+    // Swimlane must NEVER receive config.layout or config.elk
+    const swimSrc = `swimlane-beta\n  subgraph A\n    N1[Step]\n  end`;
+    const styledSwim = applyStyleToContent(swimSrc, {
+      layoutEngine: 'elk.force',
+      elkMergeEdges: true,
+    });
+    expect(styledSwim).not.toContain('elk.force');
+    expect(styledSwim).not.toContain('mergeEdges');
+  });
+
+  it('LAY-03: renders Mindmap with lazy tidy-tree layout registered via registerTidyTreeLayout', async () => {
+    const mindmapTidy = `---
+config:
+  layout: tidy-tree
+---
+mindmap
+  root((Core))
+    Branch A
+      Leaf 1
+      Leaf 2
+    Branch B
+      Leaf 3`;
+    const warns: string[] = [];
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
+      warns.push(args.map(a => String(a)).join(' '));
+    });
+    try {
+      const doc = await renderFixture(mindmapTidy, 'p45_mindmap_tidy_tree');
+      expect(doc.querySelector('svg')).not.toBeNull();
+      expect(warns.filter(w => /tidy-tree.*not registered/i.test(w))).toEqual([]);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+});
+

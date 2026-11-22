@@ -1,7 +1,21 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Type, Maximize2, ArrowLeftRight, ArrowUpDown, Spline, Square, RotateCcw, LayoutGrid, X, SlidersHorizontal, Compass, Waypoints, Rows3, Sparkles, Code2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { DEFAULT_STYLE_OPTIONS, type DiagramStyleOptions, type DiagramDirection, type DiagramLook, type LayoutEngine, type DiagramType, getStylingCapabilities } from '@/types';
+import {
+  DEFAULT_STYLE_OPTIONS,
+  isElkLayoutEngine,
+  supportsElkLayout,
+  supportsTidyTreeLayout,
+  type DiagramStyleOptions,
+  type DiagramDirection,
+  type DiagramLook,
+  type LayoutEngine,
+  type ElkNodePlacementStrategy,
+  type ElkNodePlacementAlignment,
+  type ElkPreset,
+  type DiagramType,
+  getStylingCapabilities,
+} from '@/types';
 import { applyStyleToContent, extractStyleOptionsFromContent } from '@/constants/themeDerivation';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 import { detectDiagramType } from '@/lib/mermaid/diagramType';
@@ -94,6 +108,11 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
     { value: 'dagre', label: t('advancedStyle.layoutDagre'), description: t('advancedStyle.layoutDagreDesc') },
     { value: 'elk', label: t('advancedStyle.layoutElk'), description: t('advancedStyle.layoutElkDesc') },
     { value: 'elk.stress', label: t('advancedStyle.layoutElkStress'), description: t('advancedStyle.layoutElkStressDesc') },
+    { value: 'elk.force', label: t('advancedStyle.layoutElkForce'), description: t('advancedStyle.layoutElkForceDesc') },
+    { value: 'elk.mrtree', label: t('advancedStyle.layoutElkMrtree'), description: t('advancedStyle.layoutElkMrtreeDesc') },
+    { value: 'elk.sporeOverlap', label: t('advancedStyle.layoutElkSporeOverlap'), description: t('advancedStyle.layoutElkSporeOverlapDesc') },
+    { value: 'elk.box', label: t('advancedStyle.layoutElkBox'), description: t('advancedStyle.layoutElkBoxDesc') },
+    { value: 'elk.rectpacking', label: t('advancedStyle.layoutElkRectpacking'), description: t('advancedStyle.layoutElkRectpackingDesc') },
   ];
 
   const DIRECTION_OPTIONS: { value: DiagramDirection; label: string }[] = [
@@ -225,8 +244,10 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
   const isSequence = stylingCapabilities.supportsSequenceConfig;
   const isGantt = stylingCapabilities.supportsGanttConfig;
   const isSwimlane = stylingCapabilities.supportsSwimlaneConfig;
-  const hasConfigOptions = isFlowchart || isSequence || isGantt || isSwimlane;
-  const isElkLayout = styleOptions.layoutEngine === 'elk' || styleOptions.layoutEngine === 'elk.stress';
+  const canUseElk = supportsElkLayout(diagramType);
+  const canUseTidyTree = supportsTidyTreeLayout(diagramType);
+  const hasConfigOptions = isFlowchart || isSequence || isGantt || isSwimlane || canUseElk || canUseTidyTree;
+  const isElkLayout = isElkLayoutEngine(styleOptions.layoutEngine);
   // diagramType is a DiagramType; detectDiagramType normalizes `graph …`
   // sources to 'flowchart', so no separate 'graph' branch exists.
   const supportsDirection = diagramType === 'flowchart';
@@ -437,7 +458,7 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
 
         {supportsRectBlocks && (
           <div className="py-3 px-3 rounded-lg border" style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-floating)' }}>
-            <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+            <div className="text-[11px] leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
               <strong>{diagramType}</strong> styling: Use <code className="px-1 py-0.5 rounded text-[11px]" style={{ background: 'var(--surface-base)' }}>rect</code> blocks to highlight sections.
               <br /><br />
               <span style={{ color: 'var(--text-tertiary)' }}>Example:</span>
@@ -446,7 +467,167 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
     A->>B: Message in highlighted section
 end`}
               </pre>
-            </p>
+            </div>
+          </div>
+        )}
+
+        {/* Shared ELK / Dagre layout engine & ELK sub-options (LAY-01/02: all ELK-capable diagram types, never swimlane) */}
+        {canUseElk && (
+          <div className="space-y-2">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <LayoutGrid size={11} style={{ color: 'var(--text-tertiary)' }} />
+                <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.layoutEngine')}</span>
+              </div>
+              <select
+                aria-label={t('advancedStyle.layoutEngine')}
+                value={
+                  LAYOUT_OPTIONS.some(opt => opt.value === styleOptions.layoutEngine)
+                    ? styleOptions.layoutEngine
+                    : 'dagre'
+                }
+                onChange={(e) => update({ layoutEngine: e.target.value as LayoutEngine })}
+                className={`w-full text-[11px] px-2 py-1.5 rounded-sm border outline-hidden transition-colors ${FOCUS_RING_CLASSES}`}
+                style={{
+                  background: 'var(--surface-base)',
+                  borderColor: 'var(--border-subtle)',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {LAYOUT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value} title={opt.description}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {isElkLayout && (
+              <div className="space-y-2.5 p-2.5 rounded-lg border"
+                style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)' }}>
+                <span className="block text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                  {t('advancedStyle.elkOptions')}
+                </span>
+
+                <label className="flex items-center justify-between gap-2 cursor-pointer">
+                  <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.elkMergeEdges')}</span>
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={styleOptions.elkMergeEdges ?? false}
+                    onChange={(e) => update({ elkMergeEdges: e.target.checked })}
+                  />
+                  <div aria-hidden="true"
+                    className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.elkMergeEdges ?? false) ? 'bg-[var(--accent)]' : 'bg-[var(--border-subtle)]'}`}>
+                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-all ${(styleOptions.elkMergeEdges ?? false) ? 'left-[18px]' : 'left-0.5'}`} />
+                  </div>
+                </label>
+
+                <div className="space-y-1">
+                  <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.elkPreset')}</span>
+                  <select
+                    aria-label={t('advancedStyle.elkPreset')}
+                    value={styleOptions.elkPreset ?? 'default'}
+                    onChange={(e) => update({ elkPreset: e.target.value as ElkPreset })}
+                    className={`w-full text-[11px] px-2 py-1 rounded-sm border outline-hidden ${FOCUS_RING_CLASSES}`}
+                    style={{
+                      background: 'var(--surface-raised)',
+                      borderColor: 'var(--border-subtle)',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
+                    <option value="default">default</option>
+                    <option value="legacy">legacy</option>
+                    <option value="modelOrder">modelOrder</option>
+                    <option value="depthFirst">depthFirst</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.elkNodePlacementStrategy')}</span>
+                  <select
+                    aria-label={t('advancedStyle.elkNodePlacementStrategy')}
+                    value={styleOptions.elkNodePlacementStrategy ?? 'BRANDES_KOEPF'}
+                    onChange={(e) => update({ elkNodePlacementStrategy: e.target.value as ElkNodePlacementStrategy })}
+                    className={`w-full text-[11px] px-2 py-1 rounded-sm border outline-hidden ${FOCUS_RING_CLASSES}`}
+                    style={{
+                      background: 'var(--surface-raised)',
+                      borderColor: 'var(--border-subtle)',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
+                    <option value="BRANDES_KOEPF">BRANDES_KOEPF</option>
+                    <option value="NETWORK_SIMPLEX">NETWORK_SIMPLEX</option>
+                    <option value="LINEAR_SEGMENTS">LINEAR_SEGMENTS</option>
+                    <option value="SIMPLE">SIMPLE</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.elkNodePlacementAlignment')}</span>
+                  <select
+                    aria-label={t('advancedStyle.elkNodePlacementAlignment')}
+                    value={styleOptions.elkNodePlacementAlignment ?? 'BALANCED'}
+                    onChange={(e) => update({ elkNodePlacementAlignment: e.target.value as ElkNodePlacementAlignment })}
+                    className={`w-full text-[11px] px-2 py-1 rounded-sm border outline-hidden ${FOCUS_RING_CLASSES}`}
+                    style={{
+                      background: 'var(--surface-raised)',
+                      borderColor: 'var(--border-subtle)',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
+                    <option value="BALANCED">BALANCED</option>
+                    <option value="NONE">NONE</option>
+                    <option value="LEFTUP">LEFTUP</option>
+                    <option value="LEFTDOWN">LEFTDOWN</option>
+                    <option value="RIGHTUP">RIGHTUP</option>
+                    <option value="RIGHTDOWN">RIGHTDOWN</option>
+                  </select>
+                </div>
+
+                <p className="text-[10px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
+                  {t('advancedStyle.elkSpacingNote')}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Mindmap layout picker (LAY-03: COSE-Bilkent vs lazy Tidy Tree) */}
+        {canUseTidyTree && (
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-1.5">
+              <LayoutGrid size={11} style={{ color: 'var(--text-tertiary)' }} />
+              <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.mindmapLayout')}</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              {([
+                { value: 'cose-bilkent' as LayoutEngine, label: t('advancedStyle.layoutCoseBilkent') },
+                { value: 'tidy-tree' as LayoutEngine, label: t('advancedStyle.layoutTidyTree') },
+              ]).map(opt => {
+                const active = opt.value === 'tidy-tree'
+                  ? styleOptions.layoutEngine === 'tidy-tree'
+                  : styleOptions.layoutEngine !== 'tidy-tree';
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => update({ layoutEngine: opt.value })}
+                    className={`py-1.5 rounded-sm border transition-all text-center ${FOCUS_RING_CLASSES}`}
+                    style={{
+                      background: active
+                        ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
+                        : 'transparent',
+                      borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
+                      color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    <span className="text-[11px] font-medium">{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -514,45 +695,6 @@ end`}
                 />
               </>
             )}
-
-            {isElkLayout && (
-              <div className="px-3 py-2 rounded-lg border"
-                style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
-                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-tertiary)' }}>
-                  {t('advancedStyle.elkSpacingNote')}
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <LayoutGrid size={11} style={{ color: 'var(--text-tertiary)' }} />
-                <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.layoutEngine')}</span>
-              </div>
-              <div className="grid grid-cols-3 gap-1">
-                {LAYOUT_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => update({ layoutEngine: opt.value })}
-                    className="py-1.5 rounded-sm border transition-all text-center"
-                    style={{
-                      background: styleOptions.layoutEngine === opt.value
-                        ? (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)')
-                        : 'transparent',
-                      borderColor: styleOptions.layoutEngine === opt.value
-                        ? 'var(--accent)'
-                        : 'var(--border-subtle)',
-                      color: styleOptions.layoutEngine === opt.value
-                        ? 'var(--accent)'
-                        : 'var(--text-secondary)',
-                    }}
-                    title={opt.description}
-                  >
-                    <span className="text-[11px] font-medium">{opt.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
 
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5">

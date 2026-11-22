@@ -3,7 +3,15 @@
 // Reference: node_modules/mermaid/dist/chunks/mermaid.core/chunk-7R4GIKGN.mjs
 
 import { isDark } from 'khroma';
-import type { ThemeCoreColors, MermaidTheme, DiagramType, DiagramStyleOptions } from '@/types';
+import {
+  isElkLayoutEngine,
+  supportsElkLayout,
+  supportsTidyTreeLayout,
+  type ThemeCoreColors,
+  type MermaidTheme,
+  type DiagramType,
+  type DiagramStyleOptions,
+} from '@/types';
 import { builtinThemes } from '@/constants/themes';
 import { detectDiagramType } from '@/lib/mermaid/diagramType';
 import { updateLinkStyle, parseLinkStyles } from '@/lib/mermaid/codeUtils';
@@ -1947,11 +1955,6 @@ export function applyStyleToContent(
       }
       hasChanges = true;
     }
-
-    if (styleOptions.layoutEngine && newConfig.layout !== styleOptions.layoutEngine) {
-      newConfig.layout = styleOptions.layoutEngine;
-      hasChanges = true;
-    }
   } else if (diagramType === 'sequence') {
     const sequenceCfg: any = { ...(newConfig.sequence || {}) };
     let hasSequenceChanges = false;
@@ -2112,6 +2115,106 @@ export function applyStyleToContent(
     }
   }
 
+  // 4b. Layout engine & ELK options (LAY-01/02/03)
+  // Applied across all ELK-capable diagram types without ever overriding swimlane's native layout.
+  if (supportsElkLayout(diagramType)) {
+    const requestedLayout = styleOptions.layoutEngine;
+    if (requestedLayout) {
+      const shouldWriteLayout =
+        isElkLayoutEngine(requestedLayout) ||
+        (requestedLayout === 'dagre' && (diagramType === 'flowchart' || 'layout' in existingConfig));
+      if (shouldWriteLayout && newConfig.layout !== requestedLayout) {
+        newConfig.layout = requestedLayout;
+        hasChanges = true;
+      }
+    }
+
+    const elkCfg: Record<string, unknown> = {
+      ...(newConfig.elk && typeof newConfig.elk === 'object' ? newConfig.elk : {}),
+    };
+    let hasElkChanges = false;
+    const validStrategies = new Set(['SIMPLE', 'NETWORK_SIMPLEX', 'LINEAR_SEGMENTS', 'BRANDES_KOEPF']);
+    const validAlignments = new Set(['NONE', 'LEFTUP', 'LEFTDOWN', 'RIGHTUP', 'RIGHTDOWN', 'BALANCED']);
+    const validPresets = new Set(['default', 'legacy', 'modelOrder', 'depthFirst']);
+
+    if (typeof styleOptions.elkMergeEdges === 'boolean' && elkCfg.mergeEdges !== styleOptions.elkMergeEdges) {
+      elkCfg.mergeEdges = styleOptions.elkMergeEdges;
+      hasElkChanges = true;
+    } else if ('elkMergeEdges' in styleOptions && styleOptions.elkMergeEdges === undefined && 'mergeEdges' in elkCfg) {
+      delete elkCfg.mergeEdges;
+      hasElkChanges = true;
+    }
+
+    if (
+      typeof styleOptions.elkNodePlacementStrategy === 'string' &&
+      validStrategies.has(styleOptions.elkNodePlacementStrategy) &&
+      elkCfg.nodePlacementStrategy !== styleOptions.elkNodePlacementStrategy
+    ) {
+      elkCfg.nodePlacementStrategy = styleOptions.elkNodePlacementStrategy;
+      hasElkChanges = true;
+    } else if (
+      'elkNodePlacementStrategy' in styleOptions &&
+      styleOptions.elkNodePlacementStrategy === undefined &&
+      'nodePlacementStrategy' in elkCfg
+    ) {
+      delete elkCfg.nodePlacementStrategy;
+      hasElkChanges = true;
+    }
+
+    if (
+      typeof styleOptions.elkNodePlacementAlignment === 'string' &&
+      validAlignments.has(styleOptions.elkNodePlacementAlignment) &&
+      elkCfg.nodePlacementAlignment !== styleOptions.elkNodePlacementAlignment
+    ) {
+      elkCfg.nodePlacementAlignment = styleOptions.elkNodePlacementAlignment;
+      hasElkChanges = true;
+    } else if (
+      'elkNodePlacementAlignment' in styleOptions &&
+      styleOptions.elkNodePlacementAlignment === undefined &&
+      'nodePlacementAlignment' in elkCfg
+    ) {
+      delete elkCfg.nodePlacementAlignment;
+      hasElkChanges = true;
+    }
+
+    if (
+      typeof styleOptions.elkPreset === 'string' &&
+      validPresets.has(styleOptions.elkPreset) &&
+      elkCfg.preset !== styleOptions.elkPreset
+    ) {
+      elkCfg.preset = styleOptions.elkPreset;
+      hasElkChanges = true;
+    } else if ('elkPreset' in styleOptions && styleOptions.elkPreset === undefined && 'preset' in elkCfg) {
+      delete elkCfg.preset;
+      hasElkChanges = true;
+    }
+
+    if (hasElkChanges) {
+      if (Object.keys(elkCfg).length === 0) {
+        delete newConfig.elk;
+      } else {
+        newConfig.elk = elkCfg;
+      }
+      hasChanges = true;
+    }
+  } else if (supportsTidyTreeLayout(diagramType)) {
+    const requestedLayout = styleOptions.layoutEngine;
+    if (
+      (requestedLayout === 'tidy-tree' || requestedLayout === 'cose-bilkent') &&
+      newConfig.layout !== requestedLayout
+    ) {
+      newConfig.layout = requestedLayout;
+      hasChanges = true;
+    } else if (
+      'layoutEngine' in styleOptions &&
+      styleOptions.layoutEngine === undefined &&
+      'layout' in newConfig
+    ) {
+      delete newConfig.layout;
+      hasChanges = true;
+    }
+  }
+
   // Only proceed if there are changes
   const themeVars = newConfig.themeVariables;
   const hasThemeVars = themeVars && Object.keys(themeVars).length > 0;
@@ -2124,6 +2227,7 @@ export function applyStyleToContent(
     !newConfig.sequence &&
     !newConfig.gantt &&
     !newConfig.swimlane &&
+    !newConfig.elk &&
     !newConfig.layout &&
     !newConfig.look &&
     newConfig.handDrawnSeed === undefined &&
@@ -2272,6 +2376,39 @@ export function extractStyleOptionsFromContent(
         }
         const autoOrder = parseBooleanValue(sw.automaticLaneOrdering);
         if (autoOrder !== undefined) options.automaticLaneOrdering = autoOrder;
+      }
+
+      // Extract ELK sub-options (LAY-02)
+      if (config.elk && typeof config.elk === 'object') {
+        const elk = config.elk as Record<string, any>;
+        const mergeEdges = parseBooleanValue(elk.mergeEdges);
+        if (mergeEdges !== undefined) options.elkMergeEdges = mergeEdges;
+        if (
+          elk.nodePlacementStrategy === 'SIMPLE' ||
+          elk.nodePlacementStrategy === 'NETWORK_SIMPLEX' ||
+          elk.nodePlacementStrategy === 'LINEAR_SEGMENTS' ||
+          elk.nodePlacementStrategy === 'BRANDES_KOEPF'
+        ) {
+          options.elkNodePlacementStrategy = elk.nodePlacementStrategy;
+        }
+        if (
+          elk.nodePlacementAlignment === 'NONE' ||
+          elk.nodePlacementAlignment === 'LEFTUP' ||
+          elk.nodePlacementAlignment === 'LEFTDOWN' ||
+          elk.nodePlacementAlignment === 'RIGHTUP' ||
+          elk.nodePlacementAlignment === 'RIGHTDOWN' ||
+          elk.nodePlacementAlignment === 'BALANCED'
+        ) {
+          options.elkNodePlacementAlignment = elk.nodePlacementAlignment;
+        }
+        if (
+          elk.preset === 'default' ||
+          elk.preset === 'legacy' ||
+          elk.preset === 'modelOrder' ||
+          elk.preset === 'depthFirst'
+        ) {
+          options.elkPreset = elk.preset;
+        }
       }
 
       // Extract layout engine

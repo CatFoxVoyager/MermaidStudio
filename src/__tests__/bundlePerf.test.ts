@@ -294,3 +294,38 @@ describe('PERF-01 icon pack lazy boundary (39-02)', () => {
     }
   });
 });
+
+const STATIC_TIDY_TREE_IMPORT_PATTERNS = [
+  /from['"]@mermaid-js\/layout-tidy-tree/,
+  /import['"]@mermaid-js\/layout-tidy-tree/,
+] as const;
+
+describe('PERF-01 tidy-tree layout lazy boundary (45-01 LAY-03)', () => {
+  it('the vite vendor catch-all excludes @mermaid-js/layout-tidy-tree and non-layered-tidy-tree-layout', () => {
+    expect(viteConfigSrc).toContain("!id.includes('@mermaid-js/layout-tidy-tree')");
+    expect(viteConfigSrc).toContain("!id.includes('non-layered-tidy-tree-layout')");
+  });
+
+  it('a layout-tidy-tree lazy group exists BEFORE the vendor catch-all', () => {
+    const tidyIdx = viteConfigSrc.indexOf("name:'layout-tidy-tree'");
+    const vendorIdx = viteConfigSrc.indexOf("name:'vendor'");
+    expect(tidyIdx).toBeGreaterThan(-1);
+    expect(tidyIdx < vendorIdx).toBe(true);
+  });
+
+  it('src carries zero STATIC @mermaid-js/layout-tidy-tree import specifiers', () => {
+    const files = srcSourceFiles();
+    for (const rel of files) {
+      const flat = stripCommentLines(
+        readFileSync(resolve(__dirname, '../../src', rel), 'utf8'),
+      ).replace(/\s+/g, '');
+      for (const pattern of STATIC_TIDY_TREE_IMPORT_PATTERNS) {
+        expect(
+          flat,
+          `PERF-01 (45-01): ${rel} contains a static tidy-tree import (${pattern}) — must only use dynamic import() in layoutLoaders.ts`,
+        ).not.toMatch(pattern);
+      }
+    }
+  });
+});
+

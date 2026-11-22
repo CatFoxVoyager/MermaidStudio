@@ -77,60 +77,83 @@ type PackState = 'loading' | 'loaded' | 'error';
 const WINDOW_STEP = 120;
 
 /**
- * One lazy pack load with its own retry counter — a Retry click bumps only
- * this pack's attempt, so only its dynamic import re-triggers.
+ * Manages lazy loading + per-pack retry for every section in ICON_PICKER_PACKS
+ * so adding new packs (logos, mdi) never breaks hook ordering or test mocks.
  */
-function usePack(section: Pick<IconPickerPackSection, 'key' | 'load'>) {
-  const [state, setState] = useState<PackState>('loading');
-  const [data, setData] = useState<IconPack | null>(null);
-  const [attempt, setAttempt] = useState(0);
+interface PackLoadRecord {
+  state: PackState;
+  data: IconPack | null;
+}
+
+function useIconPacks(sections: readonly IconPickerPackSection[]) {
+  const [records, setRecords] = useState<Record<string, PackLoadRecord>>(() => {
+    const initial: Record<string, PackLoadRecord> = {};
+    for (const s of sections) {
+      initial[s.key] = { state: 'loading', data: null };
+    }
+    return initial;
+  });
+  const [attempts, setAttempts] = useState<Record<string, number>>({});
+  const loadedKeysRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
-    setState('loading');
-    section
-      .load()
-      .then((json) => {
-        if (!cancelled) {
-          setData(json);
-          setState('loaded');
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setState('error');
-        }
-      });
+    for (const section of sections) {
+      const attempt = attempts[section.key] ?? 0;
+      const runKey = `${section.key}:${attempt}`;
+      if (loadedKeysRef.current.has(runKey)) continue;
+      loadedKeysRef.current.add(runKey);
+      setRecords((prev) => ({
+        ...prev,
+        [section.key]: { state: 'loading', data: prev[section.key]?.data ?? null },
+      }));
+      section
+        .load()
+        .then((json) => {
+          if (!cancelled) {
+            setRecords((prev) => ({
+              ...prev,
+              [section.key]: { state: 'loaded', data: json },
+            }));
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setRecords((prev) => ({
+              ...prev,
+              [section.key]: { state: 'error', data: null },
+            }));
+          }
+        });
+    }
     return () => {
       cancelled = true;
     };
-  }, [section.load, attempt]);
+  }, [sections, attempts]);
 
-  return {
-    state,
-    data,
-    retry: () => setAttempt((a) => a + 1),
+  const retry = (key: IconPackKey) => {
+    setAttempts((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
   };
+
+  return { records, retry };
 }
 
 export function IconPicker({ anchor, onClose, onPick, selected, triggerRef }: IconPickerProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
+  const [activePack, setActivePack] = useState<'all' | IconPackKey>('all');
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
   const trimmed = query.trim();
   const q = trimmed.toLowerCase();
 
-  const solid = usePack(ICON_PICKER_PACKS[0]);
-  const regular = usePack(ICON_PICKER_PACKS[1]);
-  const brands = usePack(ICON_PICKER_PACKS[2]);
-  const packs: Record<IconPackKey, ReturnType<typeof usePack>> = { solid, regular, brands };
+  const { records, retry } = useIconPacks(ICON_PICKER_PACKS);
 
   // Bounded window: visible cell count per section, extended on scroll.
-  const [visible, setVisible] = useState<Record<IconPackKey, number>>({
-    solid: WINDOW_STEP,
-    regular: WINDOW_STEP,
-    brands: WINDOW_STEP,
+  const [visible, setVisible] = useState<Record<string, number>>(() => {
+    const init: Record<string, number> = {};
+    for (const s of ICON_PICKER_PACKS) init[s.key] = WINDOW_STEP;
+    return init;
   });
 
   // Outside-tap + Escape dismissal — the ShapePicker recipe verbatim (the
@@ -155,8 +178,17 @@ export function IconPicker({ anchor, onClose, onPick, selected, triggerRef }: Ic
     };
   }, [onClose, triggerRef]);
 
-  const sections = ICON_PICKER_PACKS.map((section) => {
-    const pack = packs[section.key];
+  const activeSections = activePack === 'all'
+    ? ICON_PICKER_PACKS
+    : ICON_PICKER_PACKS.filter((s) => s.key === activePack);
+
+  const sections = activeSections.map((section) => {
+    const rec = records[section.key] ?? { state: 'loading' as PackState, data: null };
+    const pack = {
+      state: rec.state,
+      data: rec.data,
+      retry: () => retry(section.key),
+    };
     const names: string[] = [];
     if (pack.state === 'loaded' && pack.data) {
       // The FULL in-memory name set — icons and aliases alike — searched
@@ -175,7 +207,7 @@ export function IconPicker({ anchor, onClose, onPick, selected, triggerRef }: Ic
   const anyError = sections.some((s) => s.pack.state === 'error');
   const loadedSections = sections.filter((s) => s.pack.state === 'loaded');
   const totalMatches = loadedSections.reduce((n, s) => n + s.names.length, 0);
-  const emptySearch = !anyLoading && !anyError && loadedSections.length === ICON_PICKER_PACKS.length && totalMatches === 0;
+  const emptySearch = !anyLoading && !anyError && loadedSections.length === activeSections.length && totalMatches === 0;
 
   const onScrollerScroll = () => {
     const el = scrollerRef.current;
@@ -185,8 +217,9 @@ export function IconPicker({ anchor, onClose, onPick, selected, triggerRef }: Ic
       const next = { ...prev };
       let changed = false;
       for (const { section, names } of sections) {
-        if (next[section.key] < names.length) {
-          next[section.key] = next[section.key] + WINDOW_STEP;
+        const current = next[section.key] ?? WINDOW_STEP;
+        if (current < names.length) {
+          next[section.key] = current + WINDOW_STEP;
           changed = true;
         }
       }
@@ -261,6 +294,53 @@ export function IconPicker({ anchor, onClose, onPick, selected, triggerRef }: Ic
           </button>
         )}
       </div>
+
+      {/* Pack filter pills (LAY-04): All / FA Solid / Regular / Brands / Logos / MDI */}
+      {ICON_PICKER_PACKS.length > 1 && (
+        <div
+          className="shrink-0 flex items-center gap-1 px-2 py-1.5 border-b overflow-x-auto"
+          style={{ borderColor: 'var(--border-subtle)' }}
+          role="tablist"
+          aria-label={t('visual.iconPackFilter')}
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activePack === 'all'}
+            data-pack-filter="all"
+            onClick={() => setActivePack('all')}
+            className={`shrink-0 px-1.5 py-0.5 rounded-sm text-[10px] font-medium border transition-colors ${FOCUS_RING_CLASSES}`}
+            style={{
+              background: activePack === 'all' ? 'var(--accent-dim)' : 'transparent',
+              borderColor: activePack === 'all' ? 'var(--accent)' : 'var(--border-subtle)',
+              color: activePack === 'all' ? 'var(--accent)' : 'var(--text-secondary)',
+            }}
+          >
+            {t('visual.iconPacks.all')}
+          </button>
+          {ICON_PICKER_PACKS.map((section) => {
+            const active = activePack === section.key;
+            return (
+              <button
+                key={section.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                data-pack-filter={section.key}
+                onClick={() => setActivePack(section.key)}
+                className={`shrink-0 px-1.5 py-0.5 rounded-sm text-[10px] font-medium border transition-colors ${FOCUS_RING_CLASSES}`}
+                style={{
+                  background: active ? 'var(--accent-dim)' : 'transparent',
+                  borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
+                  color: active ? 'var(--accent)' : 'var(--text-secondary)',
+                }}
+              >
+                {t(section.headerKey)}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Internally-scrolling categorized grid — the anchor's maxHeight
           clamps the whole popover; flex-1 + min-h-0 keep the grid scrolling

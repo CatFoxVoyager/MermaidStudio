@@ -341,3 +341,54 @@ describe('AdvancedStylePanel Phase 44 THM-02/03/04 controls', () => {
   });
 });
 
+describe('AdvancedStylePanel Phase 45 LAY-01/02/03 layout controls', () => {
+  it('exposes all 7 ELK algorithms and ELK sub-options on classDiagram and writes config.elk', () => {
+    const classSrc = `classDiagram\n  Animal <|-- Dog`;
+    const { onContentChange } = renderPanel(classSrc);
+
+    const layoutSelect = screen.getByLabelText('advancedStyle.layoutEngine') as HTMLSelectElement;
+    const optionValues = Array.from(layoutSelect.options).map(o => o.value);
+    expect(optionValues).toEqual([
+      'dagre',
+      'elk',
+      'elk.stress',
+      'elk.force',
+      'elk.mrtree',
+      'elk.sporeOverlap',
+      'elk.box',
+      'elk.rectpacking',
+    ]);
+
+    fireEvent.change(layoutSelect, { target: { value: 'elk.rectpacking' } });
+    expect(lastAppliedContent(onContentChange)).toContain("layout: 'elk.rectpacking'");
+
+    fireEvent.click(screen.getByLabelText('advancedStyle.elkMergeEdges'));
+    expect(lastAppliedContent(onContentChange)).toContain('mergeEdges: true');
+
+    fireEvent.change(screen.getByLabelText('advancedStyle.elkPreset'), { target: { value: 'modelOrder' } });
+    expect(lastAppliedContent(onContentChange)).toContain("preset: 'modelOrder'");
+
+    fireEvent.change(screen.getByLabelText('advancedStyle.elkNodePlacementStrategy'), {
+      target: { value: 'NETWORK_SIMPLEX' },
+    });
+    expect(lastAppliedContent(onContentChange)).toContain("nodePlacementStrategy: 'NETWORK_SIMPLEX'");
+
+    fireEvent.change(screen.getByLabelText('advancedStyle.elkNodePlacementAlignment'), {
+      target: { value: 'LEFTUP' },
+    });
+    expect(lastAppliedContent(onContentChange)).toContain("nodePlacementAlignment: 'LEFTUP'");
+  });
+
+  it('never exposes ELK layout engine selector on swimlane diagrams', () => {
+    renderPanel(`swimlane-beta\n  subgraph A\n    N1[Step]\n  end`);
+    expect(screen.queryByLabelText('advancedStyle.layoutEngine')).toBeNull();
+  });
+
+  it('exposes Tidy Tree layout toggle on Mindmap diagrams', () => {
+    const { onContentChange } = renderPanel(`mindmap\n  root((Root))\n    Child A`);
+    fireEvent.click(screen.getByRole('button', { name: 'advancedStyle.layoutTidyTree' }));
+    expect(lastAppliedContent(onContentChange)).toContain("layout: 'tidy-tree'");
+  });
+});
+
+
