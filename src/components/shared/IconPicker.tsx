@@ -309,7 +309,7 @@ export function IconPicker({ anchor, onClose, onPick, selected, triggerRef }: Ic
             aria-selected={activePack === 'all'}
             data-pack-filter="all"
             onClick={() => setActivePack('all')}
-            className={`shrink-0 px-1.5 py-0.5 rounded-sm text-[10px] font-medium border transition-colors ${FOCUS_RING_CLASSES}`}
+            className={`shrink-0 px-1.5 py-0.5 max-md:min-h-[44px] max-md:px-2.5 max-md:text-xs rounded-sm text-[10px] font-medium border transition-colors ${FOCUS_RING_CLASSES}`}
             style={{
               background: activePack === 'all' ? 'var(--accent-dim)' : 'transparent',
               borderColor: activePack === 'all' ? 'var(--accent)' : 'var(--border-subtle)',
@@ -328,7 +328,7 @@ export function IconPicker({ anchor, onClose, onPick, selected, triggerRef }: Ic
                 aria-selected={active}
                 data-pack-filter={section.key}
                 onClick={() => setActivePack(section.key)}
-                className={`shrink-0 px-1.5 py-0.5 rounded-sm text-[10px] font-medium border transition-colors ${FOCUS_RING_CLASSES}`}
+                className={`shrink-0 px-1.5 py-0.5 max-md:min-h-[44px] max-md:px-2.5 max-md:text-xs rounded-sm text-[10px] font-medium border transition-colors ${FOCUS_RING_CLASSES}`}
                 style={{
                   background: active ? 'var(--accent-dim)' : 'transparent',
                   borderColor: active ? 'var(--accent)' : 'var(--border-subtle)',
