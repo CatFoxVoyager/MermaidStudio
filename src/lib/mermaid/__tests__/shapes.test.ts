@@ -22,7 +22,9 @@ import {
   CANONICAL_SHORT_NAMES,
   ALIAS_TO_CANONICAL,
   SHAPE_CATEGORIES,
+  BORDER_RADIUS_SHAPES,
   toDirectiveShapeName,
+  shapeSupportsBorderRadius,
   type CategoryKey,
 } from '../shapes';
 
@@ -229,3 +231,32 @@ describe('shapes registry — category coverage', () => {
     expect(counts.get('symbols')).toBe(11);
   });
 });
+
+describe('shapes registry — border-radius capability', () => {
+  const EXPECTED_BORDER_RADIUS = ['rect', 'rounded', 'datastore', 'console', 'browser', 'person', 'text'];
+
+  it('contains exactly the 7 rect-backed Mermaid 12.3 shapes', () => {
+    expect(BORDER_RADIUS_SHAPES.size).toBe(7);
+    for (const s of EXPECTED_BORDER_RADIUS) {
+      expect(shapeSupportsBorderRadius(s)).toBe(true);
+    }
+    const unsupported = CANONICAL_SHAPES
+      .map(s => s.shortName)
+      .filter(s => !EXPECTED_BORDER_RADIUS.includes(s));
+    expect(unsupported).toHaveLength(46);
+    for (const s of unsupported) {
+      expect(shapeSupportsBorderRadius(s), `${s} should not report rx/ry support`).toBe(false);
+    }
+  });
+
+  it('resolves aliases and excludes media (icon/image) or unknown shapes', () => {
+    expect(shapeSupportsBorderRadius('round')).toBe(true);
+    expect(shapeSupportsBorderRadius('rectangle')).toBe(true);
+    expect(shapeSupportsBorderRadius('diamond')).toBe(false);
+    expect(shapeSupportsBorderRadius('rect', true)).toBe(false);
+    expect(shapeSupportsBorderRadius('browser', true)).toBe(false);
+    expect(shapeSupportsBorderRadius(undefined)).toBe(false);
+    expect(shapeSupportsBorderRadius('not-a-shape')).toBe(false);
+  });
+});
+

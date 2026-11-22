@@ -33,6 +33,7 @@ import {
   formatBytes,
 } from '@/utils/imageCompress';
 import type { ImageCompressErrorCode } from '@/utils/imageCompress';
+import { shapeSupportsBorderRadius } from '@/lib/mermaid/shapes';
 import type { NodeShape, NodeStyle, VisualNode, VisualEdge, IconConfig, ImgConfig } from './types';
 
 const PRESETS: { label: string; style: NodeStyle; color: string }[] = [
@@ -64,6 +65,13 @@ interface NodePanelProps {
   onImageChange?: (nodeIds: string[], img: ImgConfig | null) => void;
 }
 
+function getSharedStyleValue(nodes: VisualNode[], field: keyof NodeStyle): string | 'mixed' | undefined {
+  if (nodes.length === 0) return undefined;
+  const first = nodes[0].style?.[field];
+  if (first === undefined) return nodes.every(n => n.style?.[field] === undefined) ? undefined : 'mixed';
+  return nodes.every(n => n.style?.[field] === first) ? first : 'mixed';
+}
+
 function NodePanel({
   nodes, onLabelChange, onShapeChange, onStyleChange,
   nodeIcon, nodeImage, onIconChange, onImageChange,
@@ -71,6 +79,7 @@ function NodePanel({
   const { t } = useTranslation();
   const single = nodes.length === 1 ? nodes[0] : null;
   const [label, setLabel] = useState(single?.label ?? '');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [shapeOpen, setShapeOpen] = useState(false);
   const [shapeAnchor, setShapeAnchor] = useState<ShapePickerAnchor | null>(null);
   const shapeBtnRef = useRef<HTMLButtonElement>(null);
@@ -83,13 +92,45 @@ function NodePanel({
   // Sync label when single node changes
   useLayoutEffect(() => { setLabel(single?.label ?? ''); }, [single?.id, single?.label]);
 
-  function handleStyleField(field: keyof NodeStyle, value: string) {
+  function handleStyleField(field: keyof NodeStyle, value: string | undefined) {
     nodes.forEach(n => {
       onStyleChange(n.id, { ...n.style, [field]: value });
     });
   }
 
   const sharedStyle = single?.style ?? {};
+  const borderStyle = getSharedStyleValue(nodes, 'strokeDasharray');
+  const fontWeight = getSharedStyleValue(nodes, 'fontWeight');
+  const fontSize = getSharedStyleValue(nodes, 'fontSize');
+  const rx = getSharedStyleValue(nodes, 'rx');
+  const ry = getSharedStyleValue(nodes, 'ry');
+  const supportsBorderRadius = nodes.some(n =>
+    shapeSupportsBorderRadius(n.shape, Boolean(n.icon || n.img)),
+  );
+
+  const BORDER_STYLE_OPTIONS = [
+    { value: '', label: t('nodeStyle.solid'), dasharray: '' },
+    { value: '5 5', label: t('nodeStyle.dashed'), dasharray: '5 5' },
+    { value: '2 2', label: t('nodeStyle.dotted'), dasharray: '2 2' },
+  ] as const;
+
+  const FONT_WEIGHT_OPTIONS = [
+    { value: '', label: t('nodeStyle.fontDefault') },
+    { value: 'normal', label: t('nodeStyle.fontNormal') },
+    { value: 'bold', label: t('nodeStyle.fontBold') },
+    { value: 'lighter', label: t('nodeStyle.fontLighter') },
+    { value: 'bolder', label: t('nodeStyle.fontBolder') },
+    { value: '100', label: '100' },
+    { value: '200', label: '200' },
+    { value: '300', label: '300' },
+    { value: '400', label: '400' },
+    { value: '500', label: '500' },
+    { value: '600', label: '600' },
+    { value: '700', label: '700' },
+    { value: '800', label: '800' },
+    { value: '900', label: '900' },
+  ] as const;
+
   const sharedShape: NodeShape | 'mixed' = nodes.length === 1
     ? nodes[0].shape
     : (nodes.every(n => n.shape === nodes[0].shape) ? nodes[0].shape : 'mixed' as const);
@@ -827,6 +868,189 @@ function NodePanel({
           </span>
         </div>
       </div>
+
+      {/* Border Style — parity with Preview's NodeStylePanel */}
+      <div className="flex flex-col gap-1">
+        <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+          {t('nodeStyle.borderStyle')}
+        </span>
+        <div className="flex gap-1">
+          {BORDER_STYLE_OPTIONS.map(opt => {
+            const isActive =
+              borderStyle === 'mixed'
+                ? false
+                : (opt.value === '' && !borderStyle) || borderStyle === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                data-node-border-style={opt.value || 'solid'}
+                aria-pressed={isActive}
+                onClick={() => handleStyleField('strokeDasharray', opt.value || undefined)}
+                className={`flex-1 py-1.5 rounded-md border text-[11px] font-medium transition-all max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                style={{
+                  borderColor: isActive ? 'var(--accent)' : 'var(--border-subtle)',
+                  background: isActive ? 'var(--accent-dim)' : 'var(--surface-base)',
+                  color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                  borderWidth: isActive ? '2px' : '1px',
+                  borderBottomStyle: opt.dasharray
+                    ? opt.value === '5 5'
+                      ? 'dashed'
+                      : 'dotted'
+                    : 'solid',
+                }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Collapsible Advanced Styling — parity with Preview's NodeStylePanel */}
+      <button
+        type="button"
+        data-node-advanced-toggle
+        aria-expanded={advancedOpen}
+        onClick={() => setAdvancedOpen(v => !v)}
+        className={`flex items-center gap-1 py-1 text-xs font-medium uppercase tracking-wider transition-colors max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+        style={{ color: 'var(--text-tertiary)' }}
+      >
+        <ChevronDown
+          size={11}
+          style={{
+            transform: advancedOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s ease',
+          }}
+        />
+        {t('nodeStyle.advanced')}
+      </button>
+
+      {advancedOpen && (
+        <div className="flex flex-col gap-3" data-node-advanced-section>
+          {/* Font Weight */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {t('nodeStyle.fontWeight')}
+            </span>
+            <div className="relative">
+              <select
+                data-node-font-weight
+                aria-label={t('nodeStyle.fontWeight')}
+                value={fontWeight === 'mixed' ? '' : fontWeight ?? ''}
+                onChange={e => handleStyleField('fontWeight', e.target.value || undefined)}
+                className={`w-full px-2.5 py-1.5 rounded-md border text-xs appearance-none pr-8 max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                style={{
+                  background: 'var(--surface-base)',
+                  borderColor: 'var(--border-subtle)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              >
+                {fontWeight === 'mixed' && (
+                  <option value="">{t('nodeStyle.mixed')}</option>
+                )}
+                {FONT_WEIGHT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={11}
+                className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ color: 'var(--text-tertiary)' }}
+              />
+            </div>
+          </div>
+
+          {/* Font Size */}
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {t('nodeStyle.fontSize')}
+            </span>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                data-node-font-size
+                aria-label={t('nodeStyle.fontSize')}
+                min={10}
+                max={48}
+                step={1}
+                value={
+                  fontSize === 'mixed'
+                    ? ''
+                    : fontSize ? (parseInt(fontSize, 10) || 18) : 18
+                }
+                placeholder={fontSize === 'mixed' ? t('nodeStyle.mixed') : ''}
+                onChange={e => {
+                  const v = e.target.value;
+                  handleStyleField('fontSize', v ? `${v}px` : undefined);
+                }}
+                className={`flex-1 px-2 py-1.5 rounded-md border text-xs font-mono w-0 max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                style={{
+                  background: 'var(--surface-base)',
+                  borderColor: 'var(--border-subtle)',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              />
+              <span className="text-xs font-mono shrink-0" style={{ color: 'var(--text-tertiary)' }}>
+                px
+              </span>
+            </div>
+          </div>
+
+          {/* Border Radius X/Y — only for shapes backed by SVG <rect> in Mermaid 12.3 */}
+          {supportsBorderRadius && (
+            <>
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                  {t('nodeStyle.borderRadiusX')}
+                </span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    data-node-rx
+                    aria-label={t('nodeStyle.borderRadiusX')}
+                    min={0}
+                    max={50}
+                    step={1}
+                    value={rx === 'mixed' ? 0 : parseInt(rx ?? '0', 10) || 0}
+                    onChange={e => handleStyleField('rx', e.target.value)}
+                    className="flex-1 accent-teal-500 max-md:min-h-[44px]"
+                  />
+                  <span className="text-xs w-8 text-right font-mono" style={{ color: 'var(--text-secondary)' }}>
+                    {rx === 'mixed' ? t('nodeStyle.mix') : rx ?? '0'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                  {t('nodeStyle.borderRadiusY')}
+                </span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    data-node-ry
+                    aria-label={t('nodeStyle.borderRadiusY')}
+                    min={0}
+                    max={50}
+                    step={1}
+                    value={ry === 'mixed' ? 0 : parseInt(ry ?? '0', 10) || 0}
+                    onChange={e => handleStyleField('ry', e.target.value)}
+                    className="flex-1 accent-teal-500 max-md:min-h-[44px]"
+                  />
+                  <span className="text-xs w-8 text-right font-mono" style={{ color: 'var(--text-secondary)' }}>
+                    {ry === 'mixed' ? t('nodeStyle.mix') : ry ?? '0'}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-1">

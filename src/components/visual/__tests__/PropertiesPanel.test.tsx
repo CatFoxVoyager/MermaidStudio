@@ -22,13 +22,16 @@ vi.mock('react-i18next', async () => {
   const enMod = await import('../../../i18n/locales/en.json');
   const en = (enMod.default ?? enMod) as {
     visual: { shapes: Record<string, string>; shapeChangeHint: string };
-    nodeStyle: { mixed: string };
+    nodeStyle: Record<string, string>;
     edgeStyle: Record<string, string>;
     subgraphStyle: Record<string, string>;
     preview: { subgraph: string };
   };
   const shapeLabels: Record<string, string> = Object.fromEntries(
     CANONICAL_SHAPES.map((s) => [`visual.shapes.${s.shortName}`, en.visual.shapes[s.shortName] ?? s.shortName]),
+  );
+  const nodeStyleLabels: Record<string, string> = Object.fromEntries(
+    Object.entries(en.nodeStyle).map(([k, v]) => [`nodeStyle.${k}`, v]),
   );
   // 40-02 (Surface 1): the EdgePanel rows render through t() with the REAL
   // en.json copy — the whole edgeStyle namespace rides the map (38-05
@@ -48,32 +51,7 @@ vi.mock('react-i18next', async () => {
           'visual.shapeSearchClear': 'Clear search',
           'visual.shapeSearchEmpty': 'No matching shape',
           'visual.shapeSearchEmptyHint': 'No shape matches “{{query}}”.',
-          'nodeStyle.mixed': en.nodeStyle.mixed,
-          'nodeStyle.media': 'Content',
-          'nodeStyle.tabText': 'Text',
-          'nodeStyle.tabIcon': 'Icon',
-          'nodeStyle.tabImage': 'Image',
-          'nodeStyle.iconPickAction': 'Choose an icon…',
-          'nodeStyle.iconForm': 'Form',
-          'nodeStyle.iconFormSquare': 'Square',
-          'nodeStyle.iconFormCircle': 'Circle',
-          'nodeStyle.iconFormRounded': 'Rounded',
-          'nodeStyle.iconPosition': 'Position',
-          'nodeStyle.iconPositionTop': 'Top',
-          'nodeStyle.iconPositionBottom': 'Bottom',
-          'nodeStyle.iconSize': 'Size (W × H)',
-          'nodeStyle.iconSizeAuto': 'Auto',
-          'nodeStyle.iconRemove': 'Remove icon',
-          'nodeStyle.imageUpload': 'Upload image',
-          'nodeStyle.imageEmptyHint': '…or paste an image from the clipboard',
-          'nodeStyle.imageCompressing': 'Compressing…',
-          'nodeStyle.imageSizeReadout': '{{size}} after compression',
-          'nodeStyle.imageReplace': 'Replace',
-          'nodeStyle.imageRemove': 'Remove image',
-          'nodeStyle.imageInvalidType': 'Unsupported file — use PNG, JPEG, WebP, or GIF.',
-          'nodeStyle.imageTooLarge': 'Image too large — pick one under {{limit}}.',
-          'nodeStyle.imageExternalWarning': 'External image URLs can fail to render (CSP) and may be dropped from PNG export (COEP). Upload a local image for reliable results.',
-          'nodeStyle.imageConstraint': 'Fit node to image',
+          ...nodeStyleLabels,
           'visual.iconChangeHint': 'Set icon: {{icon}}',
           'visual.iconSearch': 'Search icons…',
           'visual.iconSearchClear': 'Clear search',
@@ -974,4 +952,107 @@ describe('PropertiesPanel SubgraphPanel — Collapse/Expand (40-04 EDGE-05)', ()
     }
   });
 });
+
+describe('PropertiesPanel — Border Style & Advanced styling parity', () => {
+  function renderWithStyle(nodes: VisualNode[]) {
+    const onStyleChange = vi.fn();
+    const utils = render(
+      <PropertiesPanel
+        selectedNodes={nodes}
+        selectedEdge={NO_EDGE}
+        onLabelChange={vi.fn()}
+        onShapeChange={vi.fn()}
+        onStyleChange={onStyleChange}
+        onArrowChange={vi.fn()}
+        onEdgeLabelChange={vi.fn()}
+        onDeleteEdge={vi.fn()}
+      />,
+    );
+    return { ...utils, onStyleChange };
+  }
+
+  it('edits Border Style (solid/dashed/dotted) and enforces 44px mobile touch floors', () => {
+    const { container, onStyleChange } = renderWithStyle([mkNode('a', 'rect', 'Box')]);
+
+    const solidBtn = container.querySelector('[data-node-border-style="solid"]') as HTMLElement;
+    const dashedBtn = container.querySelector('[data-node-border-style="5 5"]') as HTMLElement;
+    const dottedBtn = container.querySelector('[data-node-border-style="2 2"]') as HTMLElement;
+    expect(solidBtn.getAttribute('aria-pressed')).toBe('true');
+    for (const btn of [solidBtn, dashedBtn, dottedBtn]) {
+      expect(btn.className).toContain('max-md:min-h-[44px]');
+    }
+
+    fireEvent.click(dashedBtn);
+    expect(onStyleChange).toHaveBeenCalledWith('a', expect.objectContaining({ strokeDasharray: '5 5' }));
+
+    fireEvent.click(dottedBtn);
+    expect(onStyleChange).toHaveBeenCalledWith('a', expect.objectContaining({ strokeDasharray: '2 2' }));
+
+    fireEvent.click(solidBtn);
+    expect(onStyleChange).toHaveBeenCalledWith('a', expect.objectContaining({ strokeDasharray: undefined }));
+  });
+
+  it('toggles Advanced section and edits Font Weight, Font Size, and Border Radius X/Y on rect-backed shapes', () => {
+    const { container, onStyleChange } = renderWithStyle([mkNode('a', 'browser', 'Web App')]);
+
+    expect(container.querySelector('[data-node-advanced-section]')).toBeNull();
+    const toggle = container.querySelector('[data-node-advanced-toggle]') as HTMLElement;
+    expect(toggle.className).toContain('max-md:min-h-[44px]');
+    fireEvent.click(toggle);
+
+    expect(container.querySelector('[data-node-advanced-section]')).not.toBeNull();
+
+    const fontWeight = container.querySelector('[data-node-font-weight]') as HTMLSelectElement;
+    const fontSize = container.querySelector('[data-node-font-size]') as HTMLInputElement;
+    const rx = container.querySelector('[data-node-rx]') as HTMLInputElement;
+    const ry = container.querySelector('[data-node-ry]') as HTMLInputElement;
+    expect(fontWeight).not.toBeNull();
+    expect(fontSize).not.toBeNull();
+    expect(rx).not.toBeNull();
+    expect(ry).not.toBeNull();
+    expect(fontWeight.className).toContain('max-md:min-h-[44px]');
+    expect(fontSize.className).toContain('max-md:min-h-[44px]');
+
+    fireEvent.change(fontWeight, { target: { value: 'bold' } });
+    expect(onStyleChange).toHaveBeenCalledWith('a', expect.objectContaining({ fontWeight: 'bold' }));
+
+    fireEvent.change(fontSize, { target: { value: '22' } });
+    expect(onStyleChange).toHaveBeenCalledWith('a', expect.objectContaining({ fontSize: '22px' }));
+
+    fireEvent.change(rx, { target: { value: '14' } });
+    expect(onStyleChange).toHaveBeenCalledWith('a', expect.objectContaining({ rx: '14' }));
+
+    fireEvent.change(ry, { target: { value: '16' } });
+    expect(onStyleChange).toHaveBeenCalledWith('a', expect.objectContaining({ ry: '16' }));
+  });
+
+  it('hides Border Radius X/Y for non-rect shapes and icon/image media nodes', () => {
+    for (const node of [
+      mkNode('d', 'diam', 'Decision'),
+      mkNode('c', 'cloud', 'Cloud'),
+      mkNode('f', 'folder', 'Folder'),
+      { ...mkNode('i', 'rect', 'Icon'), icon: { icon: 'fa:user' } },
+      { ...mkNode('m', 'rect', 'Img'), img: { img: 'data:image/png;base64,x' } },
+    ]) {
+      const { container, unmount } = renderWithStyle([node]);
+      fireEvent.click(container.querySelector('[data-node-advanced-toggle]') as HTMLElement);
+      expect(container.querySelector('[data-node-font-weight]')).not.toBeNull();
+      expect(container.querySelector('[data-node-font-size]')).not.toBeNull();
+      expect(container.querySelector('[data-node-rx]')).toBeNull();
+      expect(container.querySelector('[data-node-ry]')).toBeNull();
+      unmount();
+    }
+  });
+
+  it('keeps Border Radius visible in mixed multi-select when at least one selected node supports it', () => {
+    const { container } = renderWithStyle([
+      mkNode('a', 'diam', 'Decision'),
+      mkNode('b', 'console', 'Terminal'),
+    ]);
+    fireEvent.click(container.querySelector('[data-node-advanced-toggle]') as HTMLElement);
+    expect(container.querySelector('[data-node-rx]')).not.toBeNull();
+    expect(container.querySelector('[data-node-ry]')).not.toBeNull();
+  });
+});
+
 

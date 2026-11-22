@@ -191,3 +191,36 @@ export function toDirectiveShapeName(token: string): NodeShapeCanonical | null {
   }
   return ALIAS_TO_CANONICAL.get(token) ?? null;
 }
+
+/**
+ * The 7 Mermaid 12.3.0 shapes backed by an SVG `<rect>` that honor `rx`/`ry`
+ * border-radius styles (verified live in Chromium against all 53 shapes).
+ * All other 46 shapes render via `<path>`/`<polygon>`/`<circle>`, where
+ * `rx`/`ry` has no visual effect.
+ */
+export const BORDER_RADIUS_SHAPES: ReadonlySet<NodeShapeCanonical> = Object.freeze(
+  new Set<NodeShapeCanonical>([
+    'rect',
+    'rounded',
+    'datastore',
+    'console',
+    'browser',
+    'person',
+    'text',
+  ]),
+);
+
+/**
+ * Return true when a node's shape supports `rx`/`ry` border-radius styling
+ * in Mermaid 12.3.0. Icon and image nodes render via Rough.js paths and do
+ * not honor `rx`/`ry` even when their base shape is `rect`.
+ */
+export function shapeSupportsBorderRadius(
+  shape: string | undefined,
+  hasMedia = false,
+): boolean {
+  if (hasMedia || !shape) return false;
+  const canonical = toDirectiveShapeName(shape);
+  return canonical !== null && BORDER_RADIUS_SHAPES.has(canonical);
+}
+

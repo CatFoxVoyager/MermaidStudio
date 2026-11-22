@@ -11,6 +11,7 @@ import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import { buildSvgToParsedEdgeMap } from '@/utils/svgEdgeMatching';
 import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, updateEdgeMetadata, updateEdgeId, applyEdgeAnimatePreset, parseLinkStyles, edgeStyleToString, updateNodeStyle, updateNodeShape, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, updateSubgraphView, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, EdgeMetadata, ParsedEdge, NodeShape, PresetType, PresetColors, IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
+import { shapeSupportsBorderRadius } from '@/lib/mermaid/shapes';
 import { NodeStylePanel } from './NodeStylePanel';
 import { EdgeStylePanel } from './EdgeStylePanel';
 import { SubgraphStylePanel } from './SubgraphStylePanel';
@@ -1297,6 +1298,9 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     allIcon ? selectedParsedNodes[0].icon : (allPlain || allImg) ? null : undefined;
   const sharedNodeImage: ImgConfig | null | undefined =
     allImg ? selectedParsedNodes[0].img : (allPlain || allIcon) ? null : undefined;
+  const hideNodeBorderRadius =
+    selectedParsedNodes.length > 0 &&
+    selectedParsedNodes.every(n => !shapeSupportsBorderRadius(n.shape, Boolean(n.icon || n.img)));
 
   // Edge label change handler
   const handleEdgeLabelChange = useCallback((source: string, target: string, label: string) => {
@@ -1917,6 +1921,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           onImageChange={handleNodeImageChange}
           onLabelChange={handleNodeLabelChange}
           onReset={handleResetStyles}
+          hideBorderRadius={hideNodeBorderRadius}
           nodeSubgraphIds={nodeSubgraphIds}
           subgraphs={subgraphList}
           onSubgraphChange={handleSubgraphChange}
