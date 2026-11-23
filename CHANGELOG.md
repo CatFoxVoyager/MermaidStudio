@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.1.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v3.0.0...mermaid-studio-v3.1.0) (2026-11-23)
+
+
+### Features
+
+* **canvas:** default theme to redux-color and enable unlimited pan ([43a3193](https://github.com/CatFoxVoyager/MermaidStudio/commit/43a3193847f7eacb5bda118698ea1deabdcaaeeb))
+
+
+### Bug Fixes
+
+* resolve visual overflow, auto-fit, edge styles, and redux default ([c199058](https://github.com/CatFoxVoyager/MermaidStudio/commit/c199058c4dc4d3236c86f171ce547945a104659a))
+* **templates:** include all templates in All tab and localize labels ([b3c432a](https://github.com/CatFoxVoyager/MermaidStudio/commit/b3c432a1e5614f59a15ab332a608a1d76a7104ab))
+
 ## [3.0.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v2.7.0...mermaid-studio-v3.0.0) (2026-11-22)
 
 
