@@ -293,6 +293,10 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const [selection, setSelection] = useState<SelectionState>({ nodeIds: [], edgeKey: null, subgraphId: null });
   const [toolMode, setToolMode] = useState<ToolMode>('select');
   const [connectFirst, setConnectFirst] = useState<string | null>(null);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const isPanningRef = useRef(false);
+  const panStartRef = useRef({ x: 0, y: 0 });
   const [dragShape, setDragShape] = useState<NodeShape | null>(null);
   const [dragSpecialShape, setDragSpecialShape] = useState<SpecialMediaShape | null>(null);
   const [pendingSpecialShape, setPendingSpecialShape] = useState<{ nodeId: string; mode: SpecialMediaShape } | null>(null);
@@ -692,6 +696,8 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
 
     // If we now have 2 pointers, initialize pinch gesture
     if (activePointersRef.current.size === 2) {
+      isPanningRef.current = false;
+      setIsPanning(false);
       const pointers = Array.from(activePointersRef.current.values());
       const p1 = pointers[0];
       const p2 = pointers[1];
@@ -706,6 +712,11 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     if (toolMode === 'connect') {
       setConnectFirst(null);
       return;
+    }
+    if (e.button === 0 || e.button === 1 || e.pointerType === 'touch') {
+      isPanningRef.current = true;
+      setIsPanning(true);
+      panStartRef.current = { x: e.clientX, y: e.clientY };
     }
     setSelection({ nodeIds: [], edgeKey: null, subgraphId: null });
   }
@@ -735,6 +746,16 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
 
       // Prevent default during active pinch (avoid browser zoom competition)
       e.preventDefault();
+      return;
+    }
+
+    // Unlimited single-pointer pan in all directions (up, down, left, right)
+    if (activePointersRef.current.size === 1 && isPanningRef.current) {
+      const dx = e.clientX - panStartRef.current.x;
+      const dy = e.clientY - panStartRef.current.y;
+      panStartRef.current = { x: e.clientX, y: e.clientY };
+      setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+      e.preventDefault();
     }
   }
 
@@ -754,6 +775,10 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     if (activePointersRef.current.size < 2) {
       pinchPrevDistanceRef.current = null;
     }
+    if (activePointersRef.current.size === 0) {
+      isPanningRef.current = false;
+      setIsPanning(false);
+    }
   }
 
   function handleCanvasPointerCancel(e: React.PointerEvent) {
@@ -772,7 +797,28 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     if (activePointersRef.current.size < 2) {
       pinchPrevDistanceRef.current = null;
     }
+    if (activePointersRef.current.size === 0) {
+      isPanningRef.current = false;
+      setIsPanning(false);
+    }
   }
+
+  // Unlimited wheel/trackpad panning + Ctrl/Cmd wheel zoom
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) {return;}
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.ctrlKey || e.metaKey) {
+        const clampedDeltaY = Math.max(-50, Math.min(50, e.deltaY));
+        setZoom(z => Math.max(0.25, Math.min(3, z - clampedDeltaY * 0.0025)));
+      } else {
+        setPan(prev => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
+      }
+    };
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, []);
 
   // D6 belt-and-braces: every edit callback below early-returns in read-only
   // mode so no path can hand body-metadata content to a codeUtils mutator —
@@ -992,14 +1038,18 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
       <div className="flex flex-1 overflow-hidden">
         <div
           ref={containerRef}
-          className="flex-1 relative overflow-auto preview-grid"
+          className={`flex-1 relative overflow-hidden preview-grid ${toolMode === 'connect' ? '' : isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
           onPointerDown={handleCanvasPointerDown}
           onPointerMove={handleCanvasPointerMove}
           onPointerUp={handleCanvasPointerUp}
           onPointerCancel={handleCanvasPointerCancel}
           onDragOver={e => e.preventDefault()}
           onDrop={handleDropOnCanvas}
-          style={{ cursor: toolMode === 'connect' ? 'crosshair' : 'default', touchAction: 'none' }}>
+          style={{
+            cursor: toolMode === 'connect' ? 'crosshair' : undefined,
+            touchAction: 'none',
+            backgroundPosition: `${pan.x}px ${pan.y}px`,
+          }}>
 
           <div className="absolute top-2 right-2 z-10 flex items-center gap-1 px-2 py-1 rounded-lg border shadow-xs"
             style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
@@ -1015,7 +1065,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
               className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }} title="Zoom in">
               <ZoomIn size={11} />
             </button>
-            <button onClick={() => setZoom(1)}
+            <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
               className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }} title="Reset zoom">
               <Maximize2 size={11} />
             </button>
@@ -1051,8 +1101,16 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
               </p>
             </div>
           ) : (
-            <div className="min-h-full flex items-center justify-center p-8">
-              <div className="relative" style={{ transform: `scale(${zoom})`, transformOrigin: 'center top' }}>
+            <div className="min-h-full min-w-full flex items-center justify-center p-8">
+              <div
+                data-pan-layer=""
+                className="relative shrink-0"
+                style={{
+                  transform: `translate3d(${pan.x}px, ${pan.y}px, 0) scale(${zoom})`,
+                  transformOrigin: 'center center',
+                  willChange: isPanning ? 'transform' : undefined,
+                }}
+              >
                 {/* Safe sink: `svg` was sanitized by renderDiagram (DOMPurify) and
                     the post-processing pipeline only mutates attributes via DOM APIs. */}
                 <div

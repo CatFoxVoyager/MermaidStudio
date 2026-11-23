@@ -830,20 +830,44 @@ describe('PreviewPanel Component', () => {
       expect(canvas).toHaveClass('cursor-grab');
     });
 
-    it('should handle mouse down on canvas for panning', async () => {
+    it('should handle mouse down on canvas for panning and allow unlimited drag in all directions (up, left, down, right)', async () => {
+      const { renderDiagram } = await import('@/lib/mermaid/core');
+      vi.mocked(renderDiagram).mockReset();
+      vi.mocked(renderDiagram).mockResolvedValue({ svg: '<svg width="200" height="100"></svg>', error: null });
+
       const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
 
       await waitFor(() => {
-        const svg = container.querySelector('svg');
-        expect(svg).toBeInTheDocument();
+        expect(container.querySelector('[data-pan-layer]')).toBeInTheDocument();
       });
 
-      const canvas = container.querySelector('.preview-grid');
+      const canvas = container.querySelector('.preview-grid') as HTMLElement;
+      const panLayer = container.querySelector('[data-pan-layer]') as HTMLElement;
       expect(canvas).toBeInTheDocument();
+      expect(panLayer).toBeInTheDocument();
 
-      // Simulate mouse down event
-      fireEvent.mouseDown(canvas!, { button: 0 });
-      // Should not throw any errors
+      // Drag UP and LEFT (negative X and negative Y — previously blocked at scroll 0)
+      fireEvent.mouseDown(canvas, { button: 0, clientX: 200, clientY: 200 });
+      fireEvent.mouseMove(window, { clientX: 50, clientY: 20 });
+      fireEvent.mouseUp(window);
+      expect(panLayer.style.transform).toBe('translate3d(-150px, -180px, 0)');
+
+      // Continue dragging even further UP and LEFT (unlimited)
+      fireEvent.mouseDown(canvas, { button: 0, clientX: 100, clientY: 100 });
+      fireEvent.mouseMove(window, { clientX: -200, clientY: -300 });
+      fireEvent.mouseUp(window);
+      expect(panLayer.style.transform).toBe('translate3d(-450px, -580px, 0)');
+
+      // Drag DOWN and RIGHT past origin (positive X and positive Y — also unlimited)
+      fireEvent.mouseDown(canvas, { button: 0, clientX: 0, clientY: 0 });
+      fireEvent.mouseMove(window, { clientX: 600, clientY: 700 });
+      fireEvent.mouseUp(window);
+      expect(panLayer.style.transform).toBe('translate3d(150px, 120px, 0)');
+
+      // Reset zoom (1:1) resets pan back to origin
+      const resetBtn = screen.getByLabelText('Reset zoom');
+      fireEvent.click(resetBtn);
+      expect(panLayer.style.transform).toBe('translate3d(0px, 0px, 0)');
     });
 
     it('should handle drag over on canvas', async () => {

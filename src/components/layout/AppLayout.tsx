@@ -4,6 +4,7 @@ import { Sidebar } from '@/sidebar/Sidebar';
 import { WorkspacePanel } from '@/editor/WorkspacePanel';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { MobileLayout } from './MobileLayout';
+import { DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME } from '@/constants/themeDerivation';
 import type { Tab, MermaidTheme } from '@/types';
 
 // Lazy load heavy panel components
@@ -174,7 +175,7 @@ export function AppLayout({
         }}
         themeId={activeTab?.themeId}
         onPreviewError={onPreviewError}
-        defaultThemeId={defaultTheme?.id}
+        defaultThemeId={defaultTheme?.id ?? (theme === 'dark' ? DEFAULT_DARK_THEME.id : DEFAULT_LIGHT_THEME.id)}
         onSetDefaultTheme={setDefaultTheme}
         onThemeIdChange={onThemeIdChange}
       />
@@ -263,7 +264,7 @@ export function AppLayout({
                   theme={theme}
                   currentThemeId={activeTab.themeId}
                   onThemeIdChange={onThemeIdChange}
-                  defaultThemeId={defaultTheme?.id}
+                  defaultThemeId={defaultTheme?.id ?? (theme === 'dark' ? DEFAULT_DARK_THEME.id : DEFAULT_LIGHT_THEME.id)}
                   onSetDefaultTheme={setDefaultTheme}
                 />
               </Suspense>

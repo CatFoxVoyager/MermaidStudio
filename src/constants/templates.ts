@@ -10,7 +10,7 @@ export const TEMPLATES: Template[] = [
     type: 'flowchart',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 flowchart TD
     A([Start]) --> B[Process]
@@ -29,7 +29,7 @@ flowchart TD
     type: 'flowchart',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 flowchart LR
     subgraph Source
@@ -56,7 +56,7 @@ flowchart LR
     type: 'sequence',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 sequenceDiagram
     participant C as Client
@@ -82,7 +82,7 @@ sequenceDiagram
     type: 'sequence',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 sequenceDiagram
     participant U as User
@@ -108,7 +108,7 @@ sequenceDiagram
     type: 'classDiagram',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 classDiagram
     class User {
@@ -143,7 +143,7 @@ classDiagram
     type: 'erDiagram',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 erDiagram
     USER ||--o{ POST : writes
@@ -160,7 +160,7 @@ erDiagram
     type: 'stateDiagram',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 stateDiagram-v2
     [*] --> Pending
@@ -185,7 +185,7 @@ stateDiagram-v2
     type: 'gantt',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 gantt
     title Sprint 24 — Feb 3–14
@@ -209,7 +209,7 @@ gantt
     type: 'pie',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 pie title Browser Market Share 2024
     "Chrome" : 65.4
@@ -227,7 +227,7 @@ pie title Browser Market Share 2024
     type: 'mindmap',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 mindmap
   root((Product 2024))
@@ -253,6 +253,7 @@ mindmap
     type: 'mindmap',
     content: `---
 config:
+  theme: 'redux-color'
   layout: tidy-tree
 ---
 mindmap
@@ -278,7 +279,7 @@ mindmap
     type: 'gitGraph',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 gitGraph
     commit id: "Initial commit"
@@ -307,7 +308,7 @@ gitGraph
     type: 'journey',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 journey
     title User Onboarding Journey
@@ -333,7 +334,7 @@ journey
     type: 'quadrantChart',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 quadrantChart
     title Prioritize Work Items
@@ -353,7 +354,7 @@ quadrantChart
     type: 'requirementDiagram',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 requirementDiagram
     requirement auth_req {
@@ -390,7 +391,7 @@ requirementDiagram
     type: 'timeline',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 timeline
     title Product Roadmap Timeline
@@ -416,7 +417,7 @@ timeline
     type: 'sankey',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 sankey
     Source,Target,Value
@@ -439,7 +440,7 @@ sankey
     type: 'xyChart',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 xychart-beta
     title Performance vs Load
@@ -456,7 +457,7 @@ xychart-beta
     type: 'kanban',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 kanban
     ## Kanban Board
@@ -479,7 +480,7 @@ kanban
     type: 'architectureDiagram',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 architecture-beta
     group client(cloud)[Client]
@@ -513,7 +514,7 @@ architecture-beta
     type: 'blockDiagram',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 block-beta
     columns 3
@@ -542,7 +543,7 @@ block-beta
     type: 'classDiagram',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 classDiagram
     class Vehicle {
@@ -584,7 +585,7 @@ classDiagram
     type: 'c4',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 C4Context
     title System Context - Online Shopping
@@ -607,7 +608,7 @@ C4Context
     type: 'packetDiagram',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 packet-beta
     title UDP Packet
@@ -625,7 +626,7 @@ packet-beta
     type: 'requirementDiagram',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 requirementDiagram
     requirement security_req {
@@ -663,7 +664,7 @@ requirementDiagram
     type: 'usecaseDiagram',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 usecase-beta
     actor User
@@ -684,7 +685,7 @@ usecase-beta
     type: 'flowchart',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 flowchart LR
     Start@{ shape: pill, label: "**API Request**" }
@@ -707,7 +708,7 @@ flowchart LR
     type: 'flowchart',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 flowchart LR
     Client@{ icon: "fa:user", form: "rounded", label: "Client App", pos: "b", h: 48 }
@@ -727,7 +728,7 @@ flowchart LR
     type: 'flowchart',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
   flowchart:
     curve: stepBefore
 ---
@@ -747,7 +748,7 @@ flowchart LR
     type: 'flowchart',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 flowchart TD
     Gateway[Edge Gateway] --> sg1
@@ -766,7 +767,7 @@ flowchart TD
     type: 'ishikawa',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 ishikawa-beta
     Blurry Photo
@@ -790,7 +791,7 @@ ishikawa-beta
     type: 'radar',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 radar-beta
     axis arch["Architecture"], perf["Performance"], sec["Security"]
@@ -809,7 +810,7 @@ radar-beta
     type: 'treemap',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
   treemap:
     valueFormat: '$0,0'
 ---
@@ -833,7 +834,7 @@ treemap-beta
     type: 'eventmodeling',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 eventmodeling
     tf 01 ui ShopUI
@@ -854,7 +855,7 @@ eventmodeling
     type: 'venn',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 venn-beta
     title "Finding the Product Sweet Spot"
@@ -875,7 +876,7 @@ venn-beta
     type: 'treeView',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 treeView-beta
     mermaidstudio/
@@ -897,7 +898,7 @@ treeView-beta
     type: 'wardley',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 wardley-beta
     title Tea Shop
@@ -928,7 +929,7 @@ wardley-beta
     type: 'cynefin',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 cynefin-beta
     title Incident Response
@@ -957,7 +958,7 @@ cynefin-beta
     type: 'railroad',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
 ---
 railroad-beta
     title Expression Grammar
@@ -983,7 +984,7 @@ railroad-beta
     type: 'swimlane',
     content: `---
 config:
-  theme: 'base'
+  theme: 'redux-color'
   swimlane:
     lineHops: arc
 ---
@@ -1015,6 +1016,7 @@ swimlane-beta LR
     type: 'agentflow',
     content: `---
 config:
+  theme: 'redux-color'
   layout: elk
   agentflow:
     nodeSpacing: 50

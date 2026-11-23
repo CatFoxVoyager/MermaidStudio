@@ -408,7 +408,9 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const [selectedEdgeIndex, setSelectedEdgeIndex] = useState<number | null>(null);
   const [toolMode, setToolMode] = useState<'select' | 'connect'>('select');
   const [isPanning, setIsPanning] = useState(false);
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const panStartRef = useRef({ x: 0, y: 0 });
+  const didPanRef = useRef(false);
   const [connectFirst, setConnectFirst] = useState<string | null>(null);
   const [dragShape, setDragShape] = useState<NodeShape | null>(null);
   const [dragSpecialShape, setDragSpecialShape] = useState<SpecialMediaShape | null>(null);
@@ -695,16 +697,16 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       setSubgraphOverlays(prev => prev.length === 0 ? prev : []);
       return;
     }
-    const outerContainer = containerRef.current;
+    const relContainer = relativeContainerRef.current;
     const shadowRoot = shadowHostRef.current?.shadowRoot;
-    if (!outerContainer || !shadowRoot) return;
+    if (!relContainer || !shadowRoot) return;
 
     const svgEl = shadowRoot.querySelector('svg');
     if (!svgEl) return;
 
-    const containerRect = outerContainer.getBoundingClientRect();
-    const offsetX = outerContainer.scrollLeft - containerRect.left;
-    const offsetY = outerContainer.scrollTop - containerRect.top;
+    const relRect = relContainer.getBoundingClientRect();
+    const offsetX = -relRect.left;
+    const offsetY = -relRect.top;
     const hasCollapsedGroups = svgEl.querySelector('.collapsed-group') !== null;
 
     setNodeOverlays(extractSvgNodes(svgEl, offsetX, offsetY, hasCollapsedGroups));
@@ -1020,34 +1022,9 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     };
   }, [hasSvg]);
 
-  // Update overlay positions on scroll (immediate, not debounced)
-  useEffect(() => {
-    if (!hasSvg || !containerRef.current || !shadowHostRef.current) return;
-    const scrollableContainer = containerRef.current;
-
-    const handleScroll = () => {
-      remeasureOverlays();
-    };
-
-    scrollableContainer.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      scrollableContainer.removeEventListener('scroll', handleScroll);
-    };
-  }, [hasSvg, remeasureOverlays]);
-
-  // First-paint centering (iter-20 P2 → iter-27 REVERT of the auto-fit:
-  // the fit measured the shadow-host SVG before full layout and hit the
-  // 0.25 zoom floor — diagrams rendered as illegible specks, iter-27 P1
-  // confirmed live by two independent assessors). 100% with horizontal
-  // centering is the known-good state; handleFitToScreen remains the
-  // explicit control.
-  const centeredOnceRef = useRef(false);
-  useEffect(() => {
-    if (!hasSvg || !containerRef.current || centeredOnceRef.current) {return;}
-    centeredOnceRef.current = true;
-    const c = containerRef.current;
-    c.scrollLeft = Math.max(0, (c.scrollWidth - c.clientWidth) / 2);
-  }, [hasSvg]);
+  // Unlimited drag/pan navigation uses CSS translate3d on relativeContainerRef
+  // (no scrollbars clamping negative or positive offsets), so node/subgraph/edge
+  // overlays move in lockstep with the SVG without scroll-driven re-measurement.
 
   // Settle pass: scoped strictly to zoom and visibilityTick changes so normal
   // typing edits do not trigger a redundant post-render settle rebuild while
@@ -1228,6 +1205,10 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   }, [onChange, content, selectedSubgraphId, bodyHasMetadata]);
 
   const handleCanvasClick = useCallback(() => {
+    if (didPanRef.current) {
+      didPanRef.current = false;
+      return;
+    }
     if (toolMode === 'connect') {
       setConnectFirst(null);
       return;
@@ -1639,26 +1620,28 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     setDragShape(null);
   }, [dragShape, dragSpecialShape, dragNodeId, handleAddShape, handleAddSpecialShape, onChange, content, bodyHasMetadata]);
 
-  // Pan handlers for drag navigation
+  // Pan handlers for unlimited drag navigation in all directions (up, down, left, right)
   const handlePanMouseDown = useCallback((e: React.MouseEvent) => {
-    // Only enable drag on left click when clicking on canvas background
-    if (e.button !== 0 || !containerRef.current) return;
+    // Enable drag on left or middle click when pressing on canvas background
+    if ((e.button !== 0 && e.button !== 1) || !containerRef.current) return;
+    didPanRef.current = false;
+    panStartRef.current = { x: e.clientX, y: e.clientY };
     setIsPanning(true);
-    setPanStart({ x: e.clientX, y: e.clientY });
     e.preventDefault();
   }, []);
 
-  // Add global mousemove/mouseup listeners for panning
+  // Global mousemove/mouseup listeners for unlimited 1:1 panning
   useEffect(() => {
     if (!isPanning) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-      const dx = e.clientX - panStart.x;
-      const dy = e.clientY - panStart.y;
-      containerRef.current.scrollLeft -= dx / zoomRef.current;
-      containerRef.current.scrollTop -= dy / zoomRef.current;
-      setPanStart({ x: e.clientX, y: e.clientY });
+      const dx = e.clientX - panStartRef.current.x;
+      const dy = e.clientY - panStartRef.current.y;
+      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+        didPanRef.current = true;
+      }
+      panStartRef.current = { x: e.clientX, y: e.clientY };
+      setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
     };
 
     const handleMouseUp = () => setIsPanning(false);
@@ -1669,7 +1652,54 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isPanning, panStart]);
+  }, [isPanning]);
+
+  // Single-finger touch panning in all directions on mobile/tablet
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let touchActive = false;
+    let lastTouchX = 0;
+    let lastTouchY = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) {
+        touchActive = false;
+        return;
+      }
+      const target = e.target as Element | null;
+      if (target?.closest('button, input, select, textarea, a')) return;
+      touchActive = true;
+      lastTouchX = e.touches[0].clientX;
+      lastTouchY = e.touches[0].clientY;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!touchActive || e.touches.length !== 1) return;
+      const dx = e.touches[0].clientX - lastTouchX;
+      const dy = e.touches[0].clientY - lastTouchY;
+      lastTouchX = e.touches[0].clientX;
+      lastTouchY = e.touches[0].clientY;
+      e.preventDefault();
+      setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+    };
+
+    const onTouchEnd = () => {
+      touchActive = false;
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', onTouchEnd);
+    el.addEventListener('touchcancel', onTouchEnd);
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+      el.removeEventListener('touchend', onTouchEnd);
+      el.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, []);
 
   const zoomBy = useCallback((delta: number) => {
     setZoom(z => Math.max(0.25, Math.min(10, z + delta)));
@@ -1687,10 +1717,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
       } else if (e.key === '0') {
         e.preventDefault();
         setZoom(1);
-        if (containerRef.current) {
-          containerRef.current.scrollLeft = 0;
-          containerRef.current.scrollTop = 0;
-        }
+        setPan({ x: 0, y: 0 });
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -1702,12 +1729,15 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     if (!el) {return;}
 
     const handleWheel = (e: WheelEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) {return;}
       e.preventDefault();
       e.stopPropagation();
 
-      const clampedDeltaY = Math.max(-50, Math.min(50, e.deltaY));
-      zoomBy(-clampedDeltaY * 0.0025);
+      if (e.ctrlKey || e.metaKey) {
+        const clampedDeltaY = Math.max(-50, Math.min(50, e.deltaY));
+        zoomBy(-clampedDeltaY * 0.0025);
+      } else {
+        setPan(prev => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
+      }
     };
 
     el.addEventListener('wheel', handleWheel, { passive: false });
@@ -1735,11 +1765,10 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
 
     if (naturalWidth === 0 || naturalHeight === 0) {return;}
 
-    // Find the scrollable container (parent of shadow host)
-    const scrollableContainer = shadowHostRef.current?.closest('.overflow-auto');
-    if (!scrollableContainer) {return;}
+    const viewport = containerRef.current;
+    if (!viewport) {return;}
 
-    const containerRect = scrollableContainer.getBoundingClientRect();
+    const containerRect = viewport.getBoundingClientRect();
     const padding = 32;
     const availableWidth = containerRect.width - padding * 2;
     const availableHeight = containerRect.height - padding * 2;
@@ -1754,10 +1783,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     const finalZoom = Math.max(0.25, Math.min(optimalZoom, 10));
 
     setZoom(finalZoom);
-
-    // Reset scroll position
-    scrollableContainer.scrollTop = 0;
-    scrollableContainer.scrollLeft = 0;
+    setPan({ x: 0, y: 0 });
   }, []);
 
   return (
@@ -1795,7 +1821,7 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
             className={`w-11 h-11 inline-flex items-center justify-center rounded-md shrink-0 transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] ${FOCUS_RING_CLASSES}`} style={{ color: 'var(--text-tertiary)' }}>
             <ZoomIn size={16} />
           </button>
-          <button onClick={() => setZoom(1)} title={t('preview.resetZoom')} aria-label={t('preview.resetZoom')}
+          <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} title={t('preview.resetZoom')} aria-label={t('preview.resetZoom')}
             className={`w-11 h-11 inline-flex items-center justify-center rounded-md shrink-0 transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] ${FOCUS_RING_CLASSES}`} style={{ color: 'var(--text-tertiary)' }}>
             {/* "1:1" text glyph — the standard reset-zoom affordance in
                 diagram editors (RefreshCw read as "reload page", iter-31). */}
@@ -1861,12 +1887,15 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
 
       <div
         ref={containerRef}
-        className={`flex-1 overflow-auto preview-grid ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={`flex-1 overflow-hidden preview-grid relative ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
         onClick={handleCanvasClick}
         onMouseDown={handlePanMouseDown}
         onDragOver={e => e.preventDefault()}
         onDrop={handleDropOnCanvas}
-        style={{ touchAction: isPanning ? 'none' : 'pan-x pan-y pinch-zoom' }}
+        style={{
+          touchAction: isPanning ? 'none' : 'pan-x pan-y pinch-zoom',
+          backgroundPosition: `${pan.x}px ${pan.y}px`,
+        }}
       >
         {error ? (
           <div className="flex flex-col items-center justify-center h-full p-8 text-center" data-testid="error-message" role="alert"
@@ -1913,12 +1942,23 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
             <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{t('preview.startTyping')}</p>
           </div>
         ) : (
-          <div ref={relativeContainerRef} className="relative min-h-full p-8"
-            style={{ display: 'flex', justifyContent: 'safe center', alignItems: 'safe center' }}>
+          <div
+            ref={relativeContainerRef}
+            data-pan-layer=""
+            className="relative min-h-full min-w-full p-8"
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              transform: `translate3d(${pan.x}px, ${pan.y}px, 0)`,
+              willChange: isPanning ? 'transform' : undefined,
+            }}
+          >
             <div
               ref={sizingWrapperRef}
               style={{
                 position: 'relative',
+                flexShrink: 0,
                 width: svgNaturalSize.width ? svgNaturalSize.width * zoom : '100%',
                 height: svgNaturalSize.height ? svgNaturalSize.height * zoom : '100%',
               }}

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { builtinThemes, NATIVE_MERMAID_THEMES, getThemeById, getThemeByName } from '../themes';
-import { getSwatchColors, DEFAULT_DARK_THEME, deriveThemeVariables } from '../themeDerivation';
+import { getSwatchColors, DEFAULT_LIGHT_THEME, DEFAULT_DARK_THEME, deriveThemeVariables, isDarkColor } from '../themeDerivation';
 import { CUSTOM_PALETTE_A, CUSTOM_PALETTE_B } from './fixtures/palettes';
 import type { ThemeCoreColors } from '@/types';
 
@@ -82,9 +82,16 @@ describe('themes', () => {
     expect(theme).toBeUndefined();
   });
 
-  it('DEFAULT_DARK_THEME resolves to dark-tech theme', () => {
+  it('DEFAULT_LIGHT_THEME resolves to mermaid-redux-color theme', () => {
+    expect(DEFAULT_LIGHT_THEME).toBeDefined();
+    expect(DEFAULT_LIGHT_THEME.id).toBe('mermaid-redux-color');
+    expect(DEFAULT_LIGHT_THEME.baseTheme).toBe('redux-color');
+  });
+
+  it('DEFAULT_DARK_THEME resolves to mermaid-redux-dark-color theme', () => {
     expect(DEFAULT_DARK_THEME).toBeDefined();
-    expect(DEFAULT_DARK_THEME.id).toBe('dark-tech');
+    expect(DEFAULT_DARK_THEME.id).toBe('mermaid-redux-dark-color');
+    expect(DEFAULT_DARK_THEME.baseTheme).toBe('redux-dark-color');
   });
 
   it('each theme has visually distinct swatch colors from other themes', () => {
@@ -92,9 +99,7 @@ describe('themes', () => {
     const themeSwatches = builtinThemes.map(theme => ({
       id: theme.id,
       name: theme.name,
-      // IN-03: follow the DEFAULT_DARK_THEME pointer instead of hardcoding the
-      // one dark builtin id, so a future dark theme derives swatches correctly.
-      swatches: getSwatchColors(theme.coreColors, theme.id === DEFAULT_DARK_THEME.id),
+      swatches: getSwatchColors(theme.coreColors, isDarkColor(theme.coreColors.background)),
     }));
 
     // Compare each pair of themes

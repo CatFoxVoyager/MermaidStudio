@@ -1833,5 +1833,34 @@ describe('subgraph hit-target band & collapsed drop guard (40-04 EDGE-05)', () =
     fireEvent(canvasArea, new MouseEvent('drop', { bubbles: true, cancelable: true, clientX: 240, clientY: 230 }));
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('allows unlimited single-pointer drag panning in all directions (up, left, down, right) and resets on Reset zoom', async () => {
+    const { container } = render(
+      <VisualEditorCanvas content={'flowchart TD\n  A[Start] --> B[End]'} theme="light" onChange={vi.fn()} />,
+    );
+    await waitFor(() => {
+      expect(container.querySelector('[data-pan-layer]')).not.toBeNull();
+    });
+
+    const canvasArea = container.querySelector('.preview-grid') as HTMLElement;
+    const panLayer = container.querySelector('[data-pan-layer]') as HTMLElement;
+
+    // Drag UP and LEFT (negative X, negative Y)
+    fireEvent.pointerDown(canvasArea, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 300, clientY: 300 });
+    fireEvent.pointerMove(canvasArea, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 100, clientY: 50 });
+    fireEvent.pointerUp(canvasArea, { pointerId: 1, pointerType: 'mouse', button: 0, clientX: 100, clientY: 50 });
+    expect(panLayer.style.transform).toBe('translate3d(-200px, -250px, 0) scale(1)');
+
+    // Drag DOWN and RIGHT past origin (positive X, positive Y)
+    fireEvent.pointerDown(canvasArea, { pointerId: 2, pointerType: 'mouse', button: 0, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(canvasArea, { pointerId: 2, pointerType: 'mouse', button: 0, clientX: 350, clientY: 400 });
+    fireEvent.pointerUp(canvasArea, { pointerId: 2, pointerType: 'mouse', button: 0, clientX: 350, clientY: 400 });
+    expect(panLayer.style.transform).toBe('translate3d(150px, 150px, 0) scale(1)');
+
+    // Reset zoom resets pan back to origin
+    const resetBtn = container.querySelector('button[title="Reset zoom"]') as HTMLElement;
+    fireEvent.click(resetBtn);
+    expect(panLayer.style.transform).toBe('translate3d(0px, 0px, 0) scale(1)');
+  });
 });
 

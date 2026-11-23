@@ -12,7 +12,7 @@ import {
   type DiagramType,
   type DiagramStyleOptions,
 } from '@/types';
-import { builtinThemes } from '@/constants/themes';
+import { builtinThemes, NATIVE_MERMAID_THEMES } from '@/constants/themes';
 import { detectDiagramType } from '@/lib/mermaid/diagramType';
 import { updateLinkStyle, parseLinkStyles } from '@/lib/mermaid/codeUtils';
 import {
@@ -800,8 +800,9 @@ const DIAGRAM_TYPE_VARIABLES: Record<DiagramType, string[]> = {
 };
 
 export const DEFAULT_LIGHT_THEME =
-  builtinThemes.find(t => t.id === 'corporate-blue') ?? builtinThemes[0];
-export const DEFAULT_DARK_THEME = builtinThemes.find(t => t.id === 'dark-tech') ?? builtinThemes[0];
+  NATIVE_MERMAID_THEMES.find(t => t.id === 'mermaid-redux-color') ?? builtinThemes[0];
+export const DEFAULT_DARK_THEME =
+  NATIVE_MERMAID_THEMES.find(t => t.id === 'mermaid-redux-dark-color') ?? builtinThemes[0];
 
 export function mkBorder(col: string, darkMode: boolean): string {
   return darkMode ? adjustToHex(col, { s: -40, l: 10 }) : adjustToHex(col, { s: -40, l: -10 });
