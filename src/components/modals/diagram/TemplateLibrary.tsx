@@ -202,7 +202,7 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
   );
 
   const categoryChips: { key: string; label: string }[] = [
-    { key: CAT_ALL, label: 'All' },
+    { key: CAT_ALL, label: t('templates.all') },
     { key: CAT_MINE, label: t('templates.myTemplates') },
     { key: CAT_OFFICIAL, label: t('templates.officialExamples') },
     ...[...new Set(CATEGORIES)].map(c => ({ key: c, label: c })),
@@ -219,12 +219,12 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
   // detector emits) fails the build instead of silently never matching.
   const RESTRICTED_TYPES: DiagramType[] = ['c4', 'gantt', 'architectureDiagram'];
 
-  // Official examples (~80) stay out of the unfiltered 'All' grid so opening
-  // the library does not render every preview at once; they join 'All' only
-  // while a search narrows the list.
+  // TemplateCard gates preview rendering via IntersectionObserver, so 'All'
+  // can display every template (user + built-in + official Mermaid examples)
+  // matching the header totalCount without stalling the main thread.
   const rawDisplayTemplates: (Template | UserTemplate)[] =
     cat === CAT_ALL
-      ? [...userTemplates, ...TEMPLATES, ...(query ? localizedOfficial : [])]
+      ? [...userTemplates, ...TEMPLATES, ...localizedOfficial]
       : cat === CAT_MINE
         ? userTemplates
         : cat === CAT_OFFICIAL
@@ -324,7 +324,7 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search templates..."
+              placeholder={t('templates.searchPlaceholder')}
               className="w-full pl-9 pr-3 py-2 text-xs rounded-lg border outline-hidden transition-colors"
               style={{
                 background: 'var(--surface-base)',
@@ -387,10 +387,10 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
           ) : filteredTemplates.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                No templates found
+                {t('templates.noResults')}
               </p>
               <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>
-                Try a different search term or category
+                {t('templates.noResultsHint')}
               </p>
             </div>
           ) : (

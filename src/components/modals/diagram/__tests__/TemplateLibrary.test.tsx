@@ -48,6 +48,7 @@ const OFFICIAL: Template[] = [
   },
 ];
 
+const ALL_CHIP = 'templates.all';
 const OFFICIAL_CHIP = 'templates.officialExamples';
 
 function names() {
@@ -59,21 +60,20 @@ describe('TemplateLibrary — official Mermaid examples', () => {
     loadOfficialExamples.mockReset();
   });
 
-  it('lists the official examples under their own chip, not in the unfiltered All grid', async () => {
+  it('shows all templates (built-in + official examples) in All matching the header count, and scopes official examples to their chip', async () => {
     loadOfficialExamples.mockResolvedValue(OFFICIAL);
     render(<TemplateLibrary onSelect={vi.fn()} onClose={vi.fn()} />);
 
-    // Header count includes them once loaded…
+    // Header count AND the All grid both include official examples once loaded.
     await screen.findByText(`${TEMPLATES.length + OFFICIAL.length} templates.templates`);
-    // …but 'All' (the default) still shows only the built-in templates.
-    expect(names()).toHaveLength(TEMPLATES.length);
-    expect(names()).not.toContain('Tea Shop Value Chain');
+    expect(names()).toHaveLength(TEMPLATES.length + OFFICIAL.length);
+    expect(names()).toContain('Tea Shop Value Chain');
 
     fireEvent.click(screen.getByRole('button', { name: OFFICIAL_CHIP }));
     expect(names()).toEqual(['Tea Shop Value Chain', 'Support Request']);
   });
 
-  it('includes official examples in All while a search is active', async () => {
+  it('filters across built-in and official examples in All while a search is active', async () => {
     loadOfficialExamples.mockResolvedValue(OFFICIAL);
     render(<TemplateLibrary onSelect={vi.fn()} onClose={vi.fn()} />);
     await screen.findByText(`${TEMPLATES.length + OFFICIAL.length} templates.templates`);
@@ -114,24 +114,28 @@ describe('TemplateLibrary — official Mermaid examples', () => {
         'templates.officialError'
       )
     );
+    // Built-in templates remain available in All even while official examples failed.
+    fireEvent.click(screen.getByRole('button', { name: ALL_CHIP }));
+    expect(names()).toHaveLength(TEMPLATES.length);
+
     // The retry button re-runs the (cache-cleared) load and recovers.
+    fireEvent.click(screen.getByRole('button', { name: OFFICIAL_CHIP }));
     loadOfficialExamples.mockResolvedValue(OFFICIAL);
     fireEvent.click(screen.getByTestId('official-examples-retry'));
-    fireEvent.click(screen.getByRole('button', { name: OFFICIAL_CHIP }));
     await screen.findByText('Tea Shop Value Chain');
     expect(screen.queryByTestId('official-examples-retry')).toBeNull();
-    // Built-in templates are unaffected by the failure.
-    fireEvent.click(screen.getByRole('button', { name: 'All' }));
-    expect(names()).toHaveLength(TEMPLATES.length);
+    // Returning to All now shows built-in + recovered official examples.
+    fireEvent.click(screen.getByRole('button', { name: ALL_CHIP }));
+    expect(names()).toHaveLength(TEMPLATES.length + OFFICIAL.length);
   });
 
-  it('does not pull official examples into All for a whitespace-only search', async () => {
+  it('keeps all templates visible in All for a whitespace-only search', async () => {
     loadOfficialExamples.mockResolvedValue(OFFICIAL);
     render(<TemplateLibrary onSelect={vi.fn()} onClose={vi.fn()} />);
     await screen.findByText(`${TEMPLATES.length + OFFICIAL.length} templates.templates`);
 
     fireEvent.change(screen.getByTestId('search-input'), { target: { value: '   ' } });
-    expect(names()).toHaveLength(TEMPLATES.length);
+    expect(names()).toHaveLength(TEMPLATES.length + OFFICIAL.length);
   });
 
   it('ignores a load that settles after unmount', async () => {
