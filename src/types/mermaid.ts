@@ -155,6 +155,7 @@ export interface GanttStyleOptions {
 // Combined style options for all types
 export interface DiagramStyleOptions extends BaseStyleOptions {
   // Theme variables & global Mermaid look/CSS options (apply to all diagram types)
+  theme?: import('./theme').MermaidBuiltinTheme;
   primaryColor?: string;
   look?: DiagramLook;
   handDrawnSeed?: number;
@@ -320,7 +321,7 @@ export interface DiagramStyleOptions extends BaseStyleOptions {
 
 export const DEFAULT_STYLE_OPTIONS: DiagramStyleOptions = {
   fontFamily: 'Inter, system-ui, sans-serif',
-  fontSize: 18,
+  fontSize: 14,
   nodePadding: 15,
   nodeSpacing: 50,
   rankSpacing: 50,

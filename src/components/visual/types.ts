@@ -27,6 +27,7 @@ export interface VisualEdge {
   target: string;
   arrowType: string;
   label: string;
+  edgeIndex?: number;
   /**
    * 40-02 (EDGE-03): the parsed edge's bare 12.3 id, user-facing link length
    * (omitted at 1) and typed metadata — derived from parseDiagram's edge in

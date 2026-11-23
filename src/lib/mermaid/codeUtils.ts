@@ -1077,12 +1077,20 @@ function rebuildDirectiveSpan(parsed: ParsedAtDirective, nodeId: string, shapeKe
   return directiveWrap(shapeKey, newLabel, parsed.unknownParams, { icon: parsed.icon, img: parsed.img });
 }
 
+function shouldForceBracketQuotes(label: string): boolean {
+  return /[[\](){}<>/\\"|;]/.test(label);
+}
+
 function shapeWrap(label: string, shape: NodeShape, quoted = false, unknownParams?: string[]): string {
-  // Only add quotes when explicitly requested (quoted=true) OR when label contains special characters AND quoted is not explicitly false
-  // If quoted is explicitly false, never add quotes regardless of content
-  const needsQuotes = quoted === false ? false : (quoted || /[^a-zA-Z0-9_-]/.test(label));
+  // Add quotes when explicitly requested (quoted=true), when label contains Mermaid
+  // shape/delimiter characters that break unquoted bracket parsing, OR when label
+  // contains non-identifier characters and quoted was not explicitly false.
+  const needsQuotes =
+    shouldForceBracketQuotes(label) ||
+    (quoted === false ? false : (quoted || /[^a-zA-Z0-9_-]/.test(label)));
   const q = '"';
-  const l = needsQuotes ? `${q}${label}${q}` : label;
+  const safeLabel = needsQuotes ? label.replace(/"/g, '#quot;') : label;
+  const l = needsQuotes ? `${q}${safeLabel}${q}` : label;
   // 38-02: the directive-emission choke point — every directiveWrap route
   // resolves its shape key through toDirectiveShapeName FIRST, so an alias
   // or legacy member (manual-file → flip-tri, manual-input → sl-rect,
@@ -1736,6 +1744,25 @@ function splitAmpGroup(headId: string, groupText: string): { id: string; shapeRa
   return members;
 }
 
+function unwrapPipeEdgeLabel(raw: string): string {
+  const t = raw.trim();
+  if (t.length >= 2 && t.startsWith('"') && t.endsWith('"')) {
+    return t.slice(1, -1).replace(/#quot;/g, '"');
+  }
+  return t;
+}
+
+function formatPipeEdgeLabel(newLabel: string, previousRaw: string): string {
+  if (!newLabel) return '';
+  const prevTrimmed = previousRaw.trim();
+  const wasQuoted = prevTrimmed.length >= 2 && prevTrimmed.startsWith('"') && prevTrimmed.endsWith('"');
+  const needsQuotes = wasQuoted || /["[\]{}()<>]/.test(newLabel);
+  if (needsQuotes) {
+    return `|"${newLabel.replace(/"/g, '#quot;')}"|`;
+  }
+  return `|${newLabel}|`;
+}
+
 /** Exported for the EDGE-01 grammar battery (arrow-grammar.test.ts) — the
  * same matcher parseDiagram and every edge mutator run, pinned directly. */
 export function matchEdgeChain(trimmed: string): EdgeChain | null {
@@ -1766,7 +1793,7 @@ export function matchEdgeChain(trimmed: string): EdgeChain | null {
   let arrowIndex = first.arrowIndex;
   let edgeId = '';
   let labelRaw = first.edgeLabel ?? '';
-  let label = labelRaw.trim();
+  let label = unwrapPipeEdgeLabel(labelRaw);
   let targetId = first.targetId;
   // text after the current hop's target id (a suffix of the trimmed line —
   // absolute offsets always derive as trimmed.length - rest.length).
@@ -1812,7 +1839,7 @@ export function matchEdgeChain(trimmed: string): EdgeChain | null {
     arrowIndex = (trimmed.length - rest.length) + nextArrow.index;
     edgeId = nextEdgeId;
     labelRaw = nextLabel ?? '';
-    label = labelRaw.trim();
+    label = unwrapPipeEdgeLabel(labelRaw);
     targetId = nextId;
     rest = nextRaw;
   }
@@ -1828,7 +1855,8 @@ export function matchEdgeChain(trimmed: string): EdgeChain | null {
  * aware — a `&` target group re-emits every member).
  */
 function emitHop(hop: EdgeHop): string {
-  const arrowPart = ` ${hop.edgeId ? `${hop.edgeId}@` : ''}${hop.arrowSpan}${hop.label ? `|${hop.label}|` : ''}`;
+  const labelSpan = hop.labelRaw ? `|${hop.labelRaw}|` : (hop.label ? formatPipeEdgeLabel(hop.label, '') : '');
+  const arrowPart = ` ${hop.edgeId ? `${hop.edgeId}@` : ''}${hop.arrowSpan}${labelSpan}`;
   if (hop.targetGroup) {
     return `${arrowPart} ${hop.targetGroup.map(m => `${m.id}${m.shapeRaw.trim()}`).join(' & ')}`;
   }
@@ -2187,27 +2215,79 @@ function stripLinkedDirectiveLines(
   return outLines.filter(line => !doomed.has(line.trim())).join('\n');
 }
 
-export function removeEdge(source: string, srcId: string, tgtId: string): string {
-  const lines = source.split('\n');
-  // Backlog C: prefer the chain-aware match — on a chained line
-  // (`A --> B --> C`) only the targeted hop is dropped (the line is rebuilt,
-  // edge-line count unchanged so linkStyle indices stay valid); a single-hop
-  // line keeps the legacy whole-line delete + linkStyle renumber.
-  // 40-02: the pair match is amp aware — a pair may name a source-group
-  // member on hop 0 or a target-group member of any hop.
-  const edgeInfo = (() => {
+/**
+ * Locate a target hop in `lines`, supporting optional `edgeIndex` disambiguation
+ * for parallel edges sharing `(srcId, tgtId)` (e.g. MCLAG / redundant links).
+ * Falls back to the first `(srcId, tgtId)` match when `edgeIndex` is omitted.
+ */
+function locateEdgeHopInLines(
+  lines: string[],
+  srcId?: string,
+  tgtId?: string,
+  edgeIndex?: number,
+): { lineIndex: number; chain: EdgeChain; hopIdx: number } | null {
+  if (edgeIndex !== undefined && edgeIndex >= 0) {
+    let inFrontmatter = false;
+    let fmClosed = false;
+    let cursor = 0;
     for (let i = 0; i < lines.length; i++) {
       const trimmed = lines[i].trim();
-      if (!trimmed.startsWith(srcId) && !ARROW_RE.test(trimmed)) {continue;}
+      if (i === 0 && trimmed === '---') {
+        inFrontmatter = true;
+        continue;
+      }
+      if (inFrontmatter && !fmClosed) {
+        if (trimmed === '---') fmClosed = true;
+        continue;
+      }
+      if (!trimmed || trimmed.startsWith('%%')) continue;
+      if (/^(flowchart|graph|style|class|classDef|linkStyle|click|subgraph|direction|end)\b/i.test(trimmed)) continue;
+      if (!hasArrowToken(trimmed)) continue;
       const chain = matchEdgeChain(trimmed);
-      if (!chain) {continue;}
-      const hopIdx = findHopIndex(chain, srcId, tgtId);
-      if (hopIdx !== -1) {return { index: i, chain, hopIdx }; }
+      if (!chain) continue;
+
+      const sourceCount = chain.sourceGroup ? chain.sourceGroup.length : 1;
+      for (let hIdx = 0; hIdx < chain.hops.length; hIdx++) {
+        const hop = chain.hops[hIdx];
+        const hopSrcCount = hIdx === 0 ? sourceCount : 1;
+        const hopTgtCount = hop.targetGroup ? hop.targetGroup.length : 1;
+        const count = hopSrcCount * hopTgtCount;
+        if (edgeIndex >= cursor && edgeIndex < cursor + count) {
+          if (!srcId || !tgtId) {
+            return { lineIndex: i, chain, hopIdx: hIdx };
+          }
+          const srcMatch = hIdx === 0
+            ? chain.sourceId === srcId || (chain.sourceGroup?.some(m => m.id === srcId) ?? false)
+            : chain.hops[hIdx - 1].targetId === srcId;
+          const tgtMatch = hop.targetId === tgtId || (hop.targetGroup?.some(m => m.id === tgtId) ?? false);
+          if (srcMatch && tgtMatch) {
+            return { lineIndex: i, chain, hopIdx: hIdx };
+          }
+        }
+        cursor += count;
+      }
     }
-    return null;
-  })();
-  if (!edgeInfo) {return source; }
-  const { index: edgeIdx, chain, hopIdx } = edgeInfo;
+  }
+
+  if (!srcId || !tgtId) return null;
+  for (let i = 0; i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (!trimmed.startsWith(srcId) && !ARROW_RE.test(trimmed)) continue;
+    const chain = matchEdgeChain(trimmed);
+    if (!chain) continue;
+    const hopIdx = findHopIndex(chain, srcId, tgtId);
+    if (hopIdx !== -1) {
+      return { lineIndex: i, chain, hopIdx };
+    }
+  }
+  return null;
+}
+
+export function removeEdge(source: string, srcId: string, tgtId: string, edgeIndex?: number): string {
+  const lines = source.split('\n');
+  const located = locateEdgeHopInLines(lines, srcId, tgtId, edgeIndex);
+  if (!located) {return source; }
+  const { lineIndex: edgeIdx, chain, hopIdx } = located;
   // 38-03 (SHP-06): the dead hop's 12.3 edge id cascades its linked
   // `id@{...}` metadata lines (generic by id — orphaned `e1@{ animate: true }`
   // ghost lines die with their edge).
@@ -2363,52 +2443,57 @@ export function updateEdgeArrowType(
   tgtId: string,
   newType: string,
   length = 1,
+  edgeIndex?: number,
 ): string {
   const emitted = emitArrowToken(newType, length);
   if (emitted === null) {return source; }
   const lines = source.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    const chain = matchEdgeChain(trimmed);
-    if (!chain) {continue; }
-    const hopIdx = findHopIndex(chain, srcId, tgtId);
-    if (hopIdx === -1) {continue; }
-    if (chain.isAmp && chain.hops.length > 1) {return source; }
-    const hop = chain.hops[hopIdx];
-    const indent = lines[i].match(/^\s*/)?.[0] ?? '';
-    const at = indent.length + hop.arrowIndex;
-    lines[i] = lines[i].slice(0, at) + emitted + lines[i].slice(at + hop.arrowSpan.length);
-    return lines.join('\n');
-  }
-  return source;
+  const located = locateEdgeHopInLines(lines, srcId, tgtId, edgeIndex);
+  if (!located) {return source; }
+  const { lineIndex: i, chain, hopIdx } = located;
+  if (chain.isAmp && chain.hops.length > 1) {return source; }
+  const hop = chain.hops[hopIdx];
+  const indent = lines[i].match(/^\s*/)?.[0] ?? '';
+  const at = indent.length + hop.arrowIndex;
+  lines[i] = lines[i].slice(0, at) + emitted + lines[i].slice(at + hop.arrowSpan.length);
+  return lines.join('\n');
 }
 
 /**
  * 40-02: relabel ONE pair's hop with the same surgical splice contract as
  * updateEdgeArrowType — the label span (authored, whitespace-exact via
  * labelRaw) is the only bytes touched; an empty newLabel removes the
- * `|...|` span entirely.
+ * `|...|` span entirely. Preserves or adds quotes when needed.
  */
-export function updateEdgeLabel(source: string, srcId: string, tgtId: string, newLabel: string): string {
+export function updateEdgeLabel(
+  source: string,
+  srcId: string,
+  tgtId: string,
+  newLabel: string,
+  edgeIndex?: number,
+): string {
   const lines = source.split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    const chain = matchEdgeChain(trimmed);
-    if (!chain) {continue; }
-    const hopIdx = findHopIndex(chain, srcId, tgtId);
-    if (hopIdx === -1) {continue; }
-    if (chain.isAmp && chain.hops.length > 1) {return source; }
-    const hop = chain.hops[hopIdx];
-    const indent = lines[i].match(/^\s*/)?.[0] ?? '';
-    const arrowEnd = indent.length + hop.arrowIndex + hop.arrowSpan.length;
-    const hadLabel = hop.labelRaw.length > 0;
-    const labelOut = newLabel ? `|${newLabel}|` : '';
-    lines[i] = hadLabel
-      ? lines[i].slice(0, arrowEnd) + labelOut + lines[i].slice(arrowEnd + hop.labelRaw.length + 2)
-      : lines[i].slice(0, arrowEnd) + labelOut + lines[i].slice(arrowEnd);
-    return lines.join('\n');
+  const located = locateEdgeHopInLines(lines, srcId, tgtId, edgeIndex);
+  if (!located) {return source; }
+  const { lineIndex: i, chain, hopIdx } = located;
+  if (chain.isAmp && chain.hops.length > 1) {return source; }
+  const hop = chain.hops[hopIdx];
+  const indent = lines[i].match(/^\s*/)?.[0] ?? '';
+  const arrowEnd = indent.length + hop.arrowIndex + hop.arrowSpan.length;
+  // Detect whether `|...|` is physically present right after the arrow (incl. empty `||`)
+  const afterArrow = lines[i].slice(arrowEnd);
+  const pipeMatch = afterArrow.match(/^(\s*)\|([^|]*)\|/);
+  const labelOut = formatPipeEdgeLabel(newLabel, hop.labelRaw);
+  if (pipeMatch) {
+    lines[i] =
+      lines[i].slice(0, arrowEnd) +
+      pipeMatch[1] +
+      labelOut +
+      lines[i].slice(arrowEnd + pipeMatch[0].length);
+  } else {
+    lines[i] = lines[i].slice(0, arrowEnd) + labelOut + lines[i].slice(arrowEnd);
   }
-  return source;
+  return lines.join('\n');
 }
 
 /**
@@ -2457,13 +2542,13 @@ export function updateEdgeId(source: string, oldId: string, newId: string): stri
       lines[i] = `${indent}${newId}${metaMatch[2]}`;
       continue;
     }
-    const classMatch = trimmed.match(/^class\s+([A-Za-z0-9_,\s-]+?)\s+(\S+)\s*$/);
+    const classMatch = trimmed.match(/^class\s+([A-Za-z0-9_,\s-]+?)\s+([^\s;]+)\s*(;?\s*)$/);
     if (classMatch) {
       const ids = classMatch[1].split(',').map(id => id.trim());
       if (ids.includes(oldId)) {
         const indent = lines[i].match(/^\s*/)?.[0] ?? '';
         const next = ids.map(id => (id === oldId ? newId : id)).join(',');
-        lines[i] = `${indent}class ${next} ${classMatch[2]}`;
+        lines[i] = `${indent}class ${next} ${classMatch[2]}${classMatch[3].trim()}`;
       }
       continue;
     }
@@ -2506,33 +2591,29 @@ const ANIMATE_PRESET_CLASSDEF = `classDef ${ANIMATE_PRESET_CLASS} stroke-dasharr
  * amp + multi-hop shape. Statements insert strictly after the edge
  * declaration line (the updateEdgeMetadata emission rule).
  */
-export function applyEdgeAnimatePreset(source: string, srcId: string, tgtId: string): string {
+export function applyEdgeAnimatePreset(
+  source: string,
+  srcId: string,
+  tgtId: string,
+  edgeIndex?: number,
+): string {
   const lines = source.split('\n');
-  let edgeIdx = -1;
-  let hopEdgeId = '';
-  for (let i = 0; i < lines.length; i++) {
-    const trimmed = lines[i].trim();
-    const chain = matchEdgeChain(trimmed);
-    if (!chain) {continue; }
-    const hopIdx = findHopIndex(chain, srcId, tgtId);
-    if (hopIdx === -1) {continue; }
-    if (chain.isAmp && chain.hops.length > 1) {return source; }
-    const hop = chain.hops[hopIdx];
-    edgeIdx = i;
-    hopEdgeId = hop.edgeId || chain.sourceEdgeId;
-    if (!hopEdgeId) {
-      // assign the next free id: insert `e<n>@` immediately before the hop's
-      // arrow (a space pads glued forms so the id never merges the source)
-      const newId = generateEdgeId(source);
-      const indent = lines[i].match(/^\s*/)?.[0] ?? '';
-      const at = indent.length + hop.arrowIndex;
-      const pad = at > 0 && !WS_RE.test(lines[i][at - 1] ?? '') ? ' ' : '';
-      lines[i] = lines[i].slice(0, at) + `${pad}${newId}@` + lines[i].slice(at);
-      hopEdgeId = newId;
-    }
-    break;
+  const located = locateEdgeHopInLines(lines, srcId, tgtId, edgeIndex);
+  if (!located) {return source; }
+  const { lineIndex: edgeIdx, chain, hopIdx } = located;
+  if (chain.isAmp && chain.hops.length > 1) {return source; }
+  const hop = chain.hops[hopIdx];
+  let hopEdgeId = hop.edgeId || (hopIdx === 0 ? chain.sourceEdgeId : '');
+  if (!hopEdgeId) {
+    // assign the next free id: insert `e<n>@` immediately before the hop's
+    // arrow (a space pads glued forms so the id never merges the source)
+    const newId = generateEdgeId(source);
+    const indent = lines[edgeIdx].match(/^\s*/)?.[0] ?? '';
+    const at = indent.length + hop.arrowIndex;
+    const pad = at > 0 && !WS_RE.test(lines[edgeIdx][at - 1] ?? '') ? ' ' : '';
+    lines[edgeIdx] = lines[edgeIdx].slice(0, at) + `${pad}${newId}@` + lines[edgeIdx].slice(at);
+    hopEdgeId = newId;
   }
-  if (edgeIdx === -1) {return source; }
   const out: string[] = [...lines];
   // classDef statement: written once (present-check against the source)
   const classDefIdx = out.findIndex(line => line.trim().startsWith(`classDef ${ANIMATE_PRESET_CLASS} `));
@@ -2546,7 +2627,7 @@ export function applyEdgeAnimatePreset(source: string, srcId: string, tgtId: str
   }
   // class statement: idempotent via a whole-token scan of the id lists
   const hasClass = out.some(line => {
-    const m = line.trim().match(/^class\s+([A-Za-z0-9_,\s-]+?)\s+(\S+)\s*$/);
+    const m = line.trim().match(/^class\s+([A-Za-z0-9_,\s-]+?)\s+([^\s;]+)\s*;?\s*$/);
     return m !== null && m[2] === ANIMATE_PRESET_CLASS
       && m[1].split(',').map(id => id.trim()).includes(hopEdgeId);
   });
@@ -2555,6 +2636,80 @@ export function applyEdgeAnimatePreset(source: string, srcId: string, tgtId: str
     out.splice(insertAt, 0, `${indent}class ${hopEdgeId} ${ANIMATE_PRESET_CLASS}`);
   }
   return out.join('\n');
+}
+
+/**
+ * Assign a bare 12.3 edge id (`newId@`) onto an id-less hop at `edgeIndex`,
+ * or rename the existing `edgeId` via `updateEdgeId`.
+ */
+export function assignOrUpdateEdgeId(
+  source: string,
+  edgeIndex: number,
+  newId: string,
+  srcId?: string,
+  tgtId?: string,
+): string {
+  if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(newId)) {return source; }
+  const parsed = parseDiagram(source);
+  const existingEdge = parsed.edges[edgeIndex];
+  if (existingEdge?.edgeId) {
+    return updateEdgeId(source, existingEdge.edgeId, newId);
+  }
+  // Prevent collisions with existing node, subgraph, or edge ids
+  if (
+    parsed.nodes.some(n => n.id === newId) ||
+    parsed.subgraphs.some(s => s.id === newId) ||
+    parsed.edges.some(e => e.edgeId === newId)
+  ) {
+    return source;
+  }
+  const lines = source.split('\n');
+  const located = locateEdgeHopInLines(
+    lines,
+    srcId ?? existingEdge?.source,
+    tgtId ?? existingEdge?.target,
+    edgeIndex,
+  );
+  if (!located) {return source; }
+  const { lineIndex: i, chain, hopIdx } = located;
+  if (chain.isAmp && chain.hops.length > 1) {return source; }
+  const hop = chain.hops[hopIdx];
+  const indent = lines[i].match(/^\s*/)?.[0] ?? '';
+  const at = indent.length + hop.arrowIndex;
+  const pad = at > 0 && !WS_RE.test(lines[i][at - 1] ?? '') ? ' ' : '';
+  lines[i] = lines[i].slice(0, at) + `${pad}${newId}@` + lines[i].slice(at);
+  return lines.join('\n');
+}
+
+/**
+ * Upsert or clear `EdgeMetadata` on the edge at `edgeIndex`, automatically
+ * minting a fresh `e<n>@` id when an id-less edge receives non-empty metadata.
+ */
+export function upsertEdgeMetadataAtIndex(
+  source: string,
+  edgeIndex: number,
+  metadata: EdgeMetadata | null,
+  srcId?: string,
+  tgtId?: string,
+): string {
+  const parsed = parseDiagram(source);
+  const existingEdge = parsed.edges[edgeIndex];
+  if (existingEdge?.edgeId) {
+    return updateEdgeMetadata(source, existingEdge.edgeId, metadata);
+  }
+  if (!metadata || buildEdgeMetadataSpan('e1', metadata) === null) {
+    return source;
+  }
+  const mintedId = generateEdgeId(source);
+  const withId = assignOrUpdateEdgeId(
+    source,
+    edgeIndex,
+    mintedId,
+    srcId ?? existingEdge?.source,
+    tgtId ?? existingEdge?.target,
+  );
+  if (withId === source) {return source; }
+  return updateEdgeMetadata(withId, mintedId, metadata);
 }
 
 /**
@@ -2806,10 +2961,10 @@ export function parseDiagram(source: string): ParsedDiagram {
     }
 
     if (trimmed.startsWith('class ')) {
-      const rest = trimmed.slice(6).trim();
+      const rest = trimmed.slice(6).replace(TRAILING_SEMI_RE, '').trim();
       const parts = rest.split(/\s+/);
       if (parts.length >= 2) {
-        const ids = parts[0].split(',');
+        const ids = parts[0].split(',').map(s => s.trim()).filter(Boolean);
         const cls = parts[1];
         for (let k = 0; k < ids.length; k++) {
           const id = ids[k];
@@ -3191,8 +3346,8 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
       }
       const nodeMatch = line.match(/^(\s*)([A-Za-z_][A-Za-z0-9_-]*)(\s*)((?:\(\[|\[\[|\[\(|\(\(|\{\{|\{|\(|\[\/|\[\\|>|\[|\(\[")["']?[^\n]+)/);
       if (nodeMatch && nodeMatch[2] === nodeId) {
-        const { shape } = parseNodeLabel(nodeMatch[4].trim());
-        lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${shapeWrap(newLabel, shape, false)}`;
+        const { shape, quoted } = parseNodeLabel(nodeMatch[4].trim());
+        lines[i] = `${nodeMatch[1]}${nodeId}${nodeMatch[3]}${shapeWrap(newLabel, shape, quoted)}`;
         return lines.join('\n');
       }
     }
@@ -3225,8 +3380,8 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
               return lines.join('\n');
             }
             // Node has explicit shape
-            const { shape } = parseNodeLabel(srcRaw);
-            lines[i] = `${nodeId}${shapeWrap(newLabel, shape, false)}${srcEdgePrefix}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${tailParts.hopPrefix}${tailParts.tail}`;
+            const { shape, quoted } = parseNodeLabel(srcRaw);
+            lines[i] = `${nodeId}${shapeWrap(newLabel, shape, quoted)}${srcEdgePrefix}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${tailParts.hopPrefix}${tailParts.tail}`;
           } else {
             // Node has no explicit shape, add one with the new label
             lines[i] = `${nodeId}${shapeWrap(newLabel, 'rect', false)}${srcEdgePrefix}${arrowMatch[3]}${arrowMatch[4] !== undefined ? `|${arrowMatch[4]}|` : ''}${arrowMatch[6] ? ' ' : ''}${arrowMatch[5]}${tailParts.hopPrefix}${tailParts.tail}`;
@@ -3262,8 +3417,8 @@ export function updateNodeLabel(source: string, nodeId: string, newLabel: string
               return lines.join('\n');
             }
             // Node has explicit shape
-            const { shape } = parseNodeLabel(tgtRaw);
-            lines[i] = `${beforeTarget}${nodeId}${shapeWrap(newLabel, shape, false)}${tailParts.hopPrefix}${tailParts.tail}`;
+            const { shape, quoted } = parseNodeLabel(tgtRaw);
+            lines[i] = `${beforeTarget}${nodeId}${shapeWrap(newLabel, shape, quoted)}${tailParts.hopPrefix}${tailParts.tail}`;
           } else {
             // Node has no explicit shape, add one with the new label
             lines[i] = `${beforeTarget}${nodeId}${shapeWrap(newLabel, 'rect', false)}${tailParts.hopPrefix}${tailParts.tail}`;
@@ -3509,7 +3664,20 @@ export function removeNode(source: string, nodeId: string): string {
     const trimmed = line.trim();
     if (trimmed.startsWith(`style ${nodeId} `)) {continue;}
     if (trimmed.startsWith(`style ${nodeId}\t`)) {continue;}
-    if (trimmed.startsWith(`class ${nodeId} `)) {continue;}
+    if (trimmed.startsWith('class ')) {
+      const classMatch = trimmed.match(/^class\s+([A-Za-z0-9_,\s-]+?)\s+([^\s;]+)\s*(;?\s*)$/);
+      if (classMatch) {
+        const idsInLine = classMatch[1].split(',').map(id => id.trim()).filter(Boolean);
+        if (idsInLine.includes(nodeId)) {
+          const surviving = idsInLine.filter(id => id !== nodeId);
+          if (surviving.length > 0) {
+            const indent = line.match(/^\s*/)?.[0] ?? '';
+            lines.push(`${indent}class ${surviving.join(',')} ${classMatch[2]}${classMatch[3].trim()}`);
+          }
+          continue;
+        }
+      }
+    }
 
     // 38-03: the standalone branch is guarded on edge lines exactly like
     // updateNodeLabel's — without the ARROW_RE guard it fired on lines whose
@@ -3574,63 +3742,86 @@ export function removeNode(source: string, nodeId: string): string {
 export function removeNodeStyles(source: string, nodeIds: string[]): string {
   const ids = new Set(nodeIds);
   const lines = source.split('\n');
-  const classNamesToRemove = new Set<string>();
+  const affectedClassNames = new Set<string>();
+  const survivingClassReferences = new Set<string>();
 
-  // First pass: find classDef classNames used by the target nodes
+  // First pass: inspect class assignments & inline :::cls references so shared
+  // classDefs (like `class WAN1,WAN2,FMON,FW device;`) survive for sibling nodes.
   for (const line of lines) {
     const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('%%')) continue;
     if (trimmed.startsWith('class ')) {
-      const rest = trimmed.slice(6).trim();
-      const parts = rest.split(/\s+/);
-      if (parts.length >= 2) {
-        const idsInLine = parts[0].split(',').map(id => id.trim());
-        if (idsInLine.some(id => ids.has(id))) {
-          classNamesToRemove.add(parts[1]);
-        }
+      const classMatch = trimmed.match(/^class\s+([A-Za-z0-9_,\s-]+?)\s+([^\s;]+)\s*(;?\s*)$/);
+      if (classMatch) {
+        const idsInLine = classMatch[1].split(',').map(id => id.trim()).filter(Boolean);
+        const cls = classMatch[2];
+        const hasTarget = idsInLine.some(id => ids.has(id));
+        const hasSurvivor = idsInLine.some(id => !ids.has(id));
+        if (hasTarget) affectedClassNames.add(cls);
+        if (hasSurvivor) survivingClassReferences.add(cls);
+      }
+      continue;
+    }
+    if (!trimmed.startsWith('classDef ')) {
+      for (const m of trimmed.matchAll(/:::([A-Za-z0-9_-]+)/g)) {
+        survivingClassReferences.add(m[1]);
       }
     }
   }
 
-  // Second pass: remove style, class assignment, and classDef lines
-  const filtered = lines.filter(line => {
+  const classNamesToRemove = new Set<string>();
+  for (const cls of affectedClassNames) {
+    if (!survivingClassReferences.has(cls)) {
+      classNamesToRemove.add(cls);
+    }
+  }
+
+  // Second pass: remove direct style lines, prune target IDs from class lines,
+  // and drop classDef lines ONLY when zero surviving nodes reference them.
+  const rebuilt: string[] = [];
+  for (const line of lines) {
     const trimmed = line.trim();
 
-    // Remove style lines for target nodes
+    let isTargetStyleLine = false;
     for (const id of ids) {
       if (trimmed.startsWith(`style ${id} `) || trimmed.startsWith(`style ${id}\t`)) {
-        return false;
+        isTargetStyleLine = true;
+        break;
       }
     }
+    if (isTargetStyleLine) continue;
 
-    // Remove class assignment lines for target nodes
     if (trimmed.startsWith('class ')) {
-      const rest = trimmed.slice(6).trim();
-      const parts = rest.split(/\s+/);
-      if (parts.length >= 2) {
-        const idsInLine = parts[0].split(',').map(id => id.trim());
+      const classMatch = trimmed.match(/^class\s+([A-Za-z0-9_,\s-]+?)\s+([^\s;]+)\s*(;?\s*)$/);
+      if (classMatch) {
+        const idsInLine = classMatch[1].split(',').map(id => id.trim()).filter(Boolean);
         if (idsInLine.some(id => ids.has(id))) {
-          return false;
+          const surviving = idsInLine.filter(id => !ids.has(id));
+          if (surviving.length > 0) {
+            const indent = line.match(/^\s*/)?.[0] ?? '';
+            rebuilt.push(`${indent}class ${surviving.join(',')} ${classMatch[2]}${classMatch[3].trim()}`);
+          }
+          continue;
         }
       }
     }
 
-    // Remove classDef lines that are only used by target nodes
     if (trimmed.startsWith('classDef ')) {
       const rest = trimmed.slice(9).trim();
       const spaceIdx = rest.search(/\s/);
       if (spaceIdx !== -1) {
         const className = rest.slice(0, spaceIdx);
         if (classNamesToRemove.has(className)) {
-          return false;
+          continue;
         }
       }
     }
 
-    return true;
-  });
+    rebuilt.push(line);
+  }
 
   // Clean up excessive blank lines
-  const result = filtered.join('\n').replace(/\n{3,}/g, '\n\n');
+  const result = rebuilt.join('\n').replace(/\n{3,}/g, '\n\n');
   // Preserve original trailing newline behavior
   if (source.endsWith('\n')) {
     return result.trimEnd() + '\n';

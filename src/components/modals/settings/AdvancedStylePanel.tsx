@@ -15,8 +15,10 @@ import {
   type ElkNodePlacementAlignment,
   type ElkPreset,
   type DiagramType,
+  type MermaidBuiltinTheme,
   getStylingCapabilities,
 } from '@/types';
+import { NATIVE_MERMAID_THEMES } from '@/constants/themes';
 import { applyStyleToContent, extractStyleOptionsFromContent } from '@/constants/themeDerivation';
 import { ColorPicker } from '@/components/visual/ColorPicker';
 import { detectDiagramType } from '@/lib/mermaid/diagramType';
@@ -141,7 +143,10 @@ function parseNodeColorsText(raw: string): Record<string, string> | undefined {
 
 export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentChange, theme }: AdvancedStylePanelProps) {
   const { t } = useTranslation();
-  const [styleOptions, setStyleOptions] = useState<DiagramStyleOptions>({ ...DEFAULT_STYLE_OPTIONS });
+  // Only store authored + explicitly user-edited keys here so opening the panel
+  // or toggling a single control NEVER dumps unedited defaults into YAML/linkStyle.
+  const [authoredOptions, setAuthoredOptions] = useState<Partial<DiagramStyleOptions>>({});
+  const styleOptions: DiagramStyleOptions = { ...DEFAULT_STYLE_OPTIONS, ...authoredOptions };
   const [sankeyNodeColorsText, setSankeyNodeColorsText] = useState('');
 
   // The 13 mermaid config-union curves (EDGE-04, Surface 4) come from the ONE
@@ -201,9 +206,9 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
     onContentChangeRef.current = onContentChange;
   }, [onContentChange]);
 
-  const isDefault = JSON.stringify(styleOptions) === JSON.stringify(DEFAULT_STYLE_OPTIONS);
+  const isDefault = Object.keys(authoredOptions).filter(k => k !== 'direction').length === 0;
 
-  // Store base content when panel opens and initialize styles from it
+  // Store base content when panel opens and initialize styles from it (read-only on open)
   useEffect(() => {
     if (isOpen && currentContent) {
       // If we are currently applying a style change, just update refs and skip re-extraction
@@ -216,9 +221,8 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
 
       // Check if content has changed since last time
       const contentChanged = previousContentRef.current !== currentContent;
-      
+
       if (contentChanged) {
-        // Update diagram type if it changed
         const detectedType = detectDiagramType(currentContent);
         if (detectedType !== diagramType) {
           setDiagramType(detectedType);
@@ -226,23 +230,17 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
 
         const existingStyles = extractStyleOptionsFromContent(currentContent);
         setSankeyNodeColorsText(formatNodeColorsText(existingStyles.nodeColors));
-        
-        // ALWAYS sync our state if the change came from outside (editor or other panel)
-        // This ensures the UI reflects manual code edits or Diagram Colors updates instantly
-        setStyleOptions(prev => {
-          const next = { ...DEFAULT_STYLE_OPTIONS, ...existingStyles };
-          // Simple equality check to avoid redundant state updates
-          if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
-          return next;
-        });
-        
-        // Reset the flag since we are now in sync with the current content
-        userHasChangedStyles.current = false;
 
+        setAuthoredOptions(prev => {
+          if (JSON.stringify(prev) === JSON.stringify(existingStyles)) return prev;
+          return existingStyles;
+        });
+
+        userHasChangedStyles.current = false;
         previousContentRef.current = currentContent;
         baseContentRef.current = currentContent;
       }
-      
+
       isInitialized.current = true;
     } else if (!isOpen) {
       isInitialized.current = false;
@@ -252,37 +250,44 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
     }
   }, [isOpen, currentContent, diagramType]);
 
-  // Define applyStyles function
-  const applyStyles = useCallback((opts: DiagramStyleOptions) => {
+  // Define applyStyles function — writes ONLY authored + explicitly edited options
+  const applyStyles = useCallback((opts: Partial<DiagramStyleOptions>) => {
     if (!baseContentRef.current) {return;}
-    const isDark = theme === 'dark';
-    const newContent = applyStyleToContent(baseContentRef.current, opts, isDark);
+    const isDarkMode = theme === 'dark';
+    const newContent = applyStyleToContent(baseContentRef.current, opts, isDarkMode);
     if (newContent === previousContentRef.current) {return;}
     applyingRef.current = true;
     previousContentRef.current = newContent;
+    baseContentRef.current = newContent;
     onContentChangeRef.current(newContent);
   }, [theme]);
 
-  // Apply styles in real-time when styleOptions change (but only when panel is open)
+  // Apply styles ONLY when the user explicitly interacts with a control
   useEffect(() => {
-    if (isOpen && isInitialized.current) {
-      applyStyles(styleOptions);
+    if (isOpen && isInitialized.current && userHasChangedStyles.current) {
+      applyStyles(authoredOptions);
     }
-  }, [isOpen, styleOptions, applyStyles]);
+  }, [isOpen, authoredOptions, applyStyles]);
 
   const update = useCallback((partial: Partial<DiagramStyleOptions>) => {
-    setStyleOptions(prev => {
-      return { ...prev, ...partial };
-    });
+    userHasChangedStyles.current = true;
+    setAuthoredOptions(prev => ({ ...prev, ...partial }));
   }, []);
 
-  const handleReset = useCallback(() => {
-    const defaults = { ...DEFAULT_STYLE_OPTIONS };
+  const handleReset = () => {
     userHasChangedStyles.current = true;
     setSankeyNodeColorsText('');
-    setStyleOptions(defaults);
-    applyStyles(defaults);
-  }, [applyStyles]);
+    const strippedBody = baseContentRef.current.replace(/^\s*---[\s\S]*?---\s*/i, '').trim();
+    const cleanBody = strippedBody
+      .split('\n')
+      .filter(l => !/^linkStyle\s+default\s+/.test(l.trim()))
+      .join('\n');
+    setAuthoredOptions({});
+    applyingRef.current = true;
+    previousContentRef.current = cleanBody;
+    baseContentRef.current = cleanBody;
+    onContentChangeRef.current(cleanBody);
+  };
 
   const handleClose = useCallback(() => {
     onClose();
@@ -407,9 +412,42 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
           label={t('advancedStyle.primaryColor')}
           labelVariant="compact"
           icon={<Palette size={11} />}
-          value={styleOptions.primaryColor ?? '#daeaf2'}
+          value={authoredOptions.primaryColor ?? '#2563eb'}
           onChange={v => update({ primaryColor: v })}
         />
+
+        {/* Design Theme (THM-01): shows redux-color / redux-dark-color default clearly */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5">
+            <Palette size={11} style={{ color: 'var(--text-tertiary)' }} />
+            <span className="text-[11px] font-medium" style={{ color: 'var(--text-secondary)' }}>{t('advancedStyle.designTheme')}</span>
+          </div>
+          <select
+            aria-label={t('advancedStyle.designTheme')}
+            value={authoredOptions.theme ?? ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              update({ theme: val ? (val as MermaidBuiltinTheme) : undefined });
+            }}
+            className={`w-full text-[11px] px-2 py-1.5 rounded-sm border outline-hidden transition-colors ${FOCUS_RING_CLASSES}`}
+            style={{
+              background: 'var(--surface-base)',
+              borderColor: 'var(--border-subtle)',
+              color: 'var(--text-primary)',
+            }}
+          >
+            <option value="">
+              {t('advancedStyle.themeDefault', { theme: isDark ? 'redux-dark-color' : 'redux-color' })}
+            </option>
+            {NATIVE_MERMAID_THEMES.map(nt => (
+              <option key={nt.id} value={nt.baseTheme}>
+                {nt.baseTheme === 'base' && authoredOptions.theme === 'base'
+                  ? `base — ${t('advancedStyle.themeCustomVars')}`
+                  : `${nt.name} (${nt.baseTheme})`}
+              </option>
+            ))}
+          </select>
+        </div>
 
         {/* Visual Look (THM-02): Neo / Classic / Hand-Drawn */}
         <div className="space-y-1.5">
@@ -858,7 +896,7 @@ end`}
                   type="checkbox"
                   className="peer sr-only"
                   checked={styleOptions.stepNumbers ?? false}
-                  onChange={(e) => update({ stepNumbers: e.target.checked })}
+                  onChange={(e) => update({ stepNumbers: e.target.checked ? true : undefined })}
                 />
                 <div aria-hidden="true"
                   className={`relative w-8 h-4 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[color:var(--focus-ring-color)] peer-focus-visible:ring-offset-2 ${(styleOptions.stepNumbers ?? false) ? 'bg-[var(--accent)]' : 'bg-[var(--text-tertiary)]'}`}>

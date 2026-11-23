@@ -61,6 +61,10 @@ export function EdgeStylePanel({
   const { t } = useTranslation();
   const [label, setLabel] = useState(edge.label);
 
+  useEffect(() => {
+    setLabel(edge.label);
+  }, [edge.label, edgeIndex]);
+
   // Escape closes the panel regardless of where focus sits (iter-28 P1:
   // the panel-level keydown only fired when focus was inside the panel —
   // after open, focus stayed on the page and Escape was dead 2/2 tries).
@@ -587,7 +591,7 @@ export function EdgeStylePanel({
               min={8}
               max={48}
               step={1}
-              value={parsePx(edgeStyle.fontSize) || 18}
+              value={parsePx(edgeStyle.fontSize) || 14}
               onChange={e => {
                 const v = e.target.value;
                 handleStyleChange('fontSize', v ? `${v}px` : undefined);

@@ -630,6 +630,7 @@ export function WorkspacePanel({
             <Suspense fallback={<LoadSkeleton />}>
               <LazyVisualEditorCanvas
                 content={activeTab.content}
+                diagramKey={activeTab.diagram_id ?? activeTab.id}
                 theme={theme}
                 themeId={themeId}
                 onChange={handleContentChange}
@@ -669,6 +670,7 @@ export function WorkspacePanel({
               <Suspense fallback={<LoadSkeleton />}>
                 <LazyPreviewPanel
                   content={activeTab.content}
+                  diagramKey={activeTab.diagram_id ?? activeTab.id}
                   theme={theme}
                   themeId={themeId}
                   onChange={handleContentChange}

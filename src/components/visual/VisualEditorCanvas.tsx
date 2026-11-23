@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, RefreshCw, AlertTriangle, Scan } from 'lucide-react';
 import { renderDiagram } from '@/lib/mermaid/core';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
 import { buildSvgToParsedEdgeMap } from '@/utils/svgEdgeMatching';
@@ -7,11 +7,12 @@ import {
   parseDiagram, updateNodeStyle, updateNodeLabel, updateNodeShape,
   addNode, removeNode, addEdge, generateNodeId, getNodeStyle,
   updateEdgeArrowType, updateEdgeLabel, removeEdge,
-  updateEdgeMetadata, updateEdgeId, applyEdgeAnimatePreset,
-  updateSubgraphView,
+  updateEdgeMetadata, updateEdgeId, assignOrUpdateEdgeId, upsertEdgeMetadataAtIndex, applyEdgeAnimatePreset,
+  updateLinkStyle, removeLinkStyles,
+  updateSubgraphView, updateSubgraphLabel, removeSubgraph, removeNodeStyles,
   bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg,
 } from '@/lib/mermaid/codeUtils';
-import type { ParsedDiagram, ParsedEdge, IconConfig, ImgConfig, EdgeMetadata } from '@/lib/mermaid/codeUtils';
+import type { ParsedDiagram, ParsedEdge, IconConfig, ImgConfig, EdgeMetadata, EdgeStyle } from '@/lib/mermaid/codeUtils';
 import { detectDiagramType } from '@/lib/mermaid/diagramType';
 import { ShapeToolbar } from './ShapeToolbar';
 import { PropertiesPanel } from './PropertiesPanel';
@@ -181,12 +182,33 @@ export interface EdgeOverlay {
   source: string;
   target: string;
   d: string;
+  parsedIndex: number;
 }
 
 export interface EdgeLayer {
   edges: EdgeOverlay[];
   svgBox: { left: number; top: number; width: number; height: number } | null;
   viewBox: string | null;
+}
+
+function extractSvgIntrinsicSize(svgEl: SVGSVGElement): { width: number; height: number } {
+  const wAttr = svgEl.getAttribute('width');
+  const hAttr = svgEl.getAttribute('height');
+  let w = wAttr && !wAttr.includes('%') ? parseFloat(wAttr) : 0;
+  let h = hAttr && !hAttr.includes('%') ? parseFloat(hAttr) : 0;
+  if (!Number.isFinite(w)) {w = 0;}
+  if (!Number.isFinite(h)) {h = 0;}
+  if (w === 0 || h === 0) {
+    const vb = svgEl.getAttribute('viewBox');
+    if (vb) {
+      const parts = vb.trim().split(/[\s,]+/).map(Number);
+      if (parts.length >= 4) {
+        if (w === 0 && Number.isFinite(parts[2])) {w = parts[2];}
+        if (h === 0 && Number.isFinite(parts[3])) {h = parts[3];}
+      }
+    }
+  }
+  return { width: w, height: h };
 }
 
 // Extract clickable edge hit-targets from the rendered flowchart SVG. Each
@@ -224,7 +246,12 @@ export function extractSvgEdges(
     if (!d) {return;}
 
     const parsedIdx = svgToParsed.get(svgIndex) ?? Math.min(svgIndex, parsedEdges.length - 1);
-    edges.push({ source: parsedEdges[parsedIdx].source, target: parsedEdges[parsedIdx].target, d });
+    edges.push({
+      source: parsedEdges[parsedIdx].source,
+      target: parsedEdges[parsedIdx].target,
+      d,
+      parsedIndex: parsedIdx,
+    });
   });
 
   return { edges, svgBox, viewBox: svg.getAttribute('viewBox') };
@@ -258,6 +285,7 @@ function edgeKeyAtPoint(x: number, y: number): string | null {
 
 interface Props {
   content: string;
+  diagramKey?: string;
   theme: 'dark' | 'light';
   themeId?: string;
   onChange: (content: string) => void;
@@ -278,7 +306,7 @@ const EMPTY_PARSED: ParsedDiagram = {
   linkedDirectives: new Map(),
 };
 
-export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props) {
+export function VisualEditorCanvas({ content, diagramKey, theme, themeId, onChange }: Props) {
   const [svg, setSvg] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -311,6 +339,11 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
 
   const containerRef = useRef<HTMLDivElement>(null);
   const svgContainerRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
+  const needsAutoFitRef = useRef(true);
+  const prevAutoFitSizeRef = useRef({ width: 0, height: 0 });
+  const prevDiagramKeyRef = useRef(diagramKey);
   const renderIdRef = useRef(0);
   const debounceRef = useRef<number>(0);
   const capturedPointerIdsRef = useRef<Set<number>>(new Set());
@@ -325,6 +358,18 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const overlayElsRef = useRef<Map<string, HTMLElement>>(new Map());
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const dragConnectRef = useRef<string | null>(null);
+
+  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
+  useEffect(() => { panRef.current = pan; }, [pan]);
+
+  useEffect(() => {
+    if (prevDiagramKeyRef.current !== diagramKey) {
+      prevDiagramKeyRef.current = diagramKey;
+      needsAutoFitRef.current = true;
+      prevAutoFitSizeRef.current = { width: 0, height: 0 };
+      setSelection({ nodeIds: [], edgeKey: null, subgraphId: null });
+    }
+  }, [diagramKey]);
 
   // D6 fail-safe (DIA-04), narrowed in Phase 27 to a parse-completeness
   // gate: content whose BODY (outside frontmatter) carries an at-brace line
@@ -369,6 +414,40 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     debounceRef.current = window.setTimeout(render, 300);
     return () => clearTimeout(debounceRef.current);
   }, [render, theme]);
+
+  useEffect(() => {
+    if (!svg || !svgContainerRef.current) {return;}
+    const svgEl = svgContainerRef.current.querySelector('svg');
+    const viewport = containerRef.current;
+    if (svgEl && viewport) {
+      const vpRect = viewport.getBoundingClientRect();
+      const natSize = extractSvgIntrinsicSize(svgEl);
+      if (vpRect.width >= 160 && vpRect.height >= 120 && natSize.width > 0 && natSize.height > 0) {
+        const availW = Math.max(64, vpRect.width - 64);
+        const availH = Math.max(64, vpRect.height - 64);
+        const prevSize = prevAutoFitSizeRef.current;
+        const prevFitted = prevSize.width <= availW && prevSize.height <= availH;
+        const nextOverflows = natSize.width > availW * 1.15 || natSize.height > availH * 1.15;
+        const jumpedToLarge =
+          prevFitted &&
+          nextOverflows &&
+          zoomRef.current === 1 &&
+          panRef.current.x === 0 &&
+          panRef.current.y === 0;
+        prevAutoFitSizeRef.current = natSize;
+
+        if (needsAutoFitRef.current || jumpedToLarge) {
+          needsAutoFitRef.current = false;
+          const fitScale = Math.min(1, availW / natSize.width, availH / natSize.height);
+          const targetZoom = Math.max(0.05, Math.round(fitScale * 100) / 100);
+          zoomRef.current = targetZoom;
+          panRef.current = { x: 0, y: 0 };
+          setZoom(targetZoom);
+          setPan({ x: 0, y: 0 });
+        }
+      }
+    }
+  }, [svg, visibilityTick]);
 
   useEffect(() => {
     if (!svg || !svgContainerRef.current) {return;}
@@ -465,16 +544,38 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   const sharedNodeImage: ImgConfig | null | undefined =
     allImgSel ? selectedNodes[0].img : (allPlainSel || allIconSel) ? null : undefined;
 
+  const edgePairCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of parsed.edges) {
+      const k = `${e.source}::${e.target}`;
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    return counts;
+  }, [parsed.edges]);
+
+  const selectedEdgeIndex: number = (() => {
+    if (!selection.edgeKey) {return -1;}
+    const parts = selection.edgeKey.split('::');
+    if (parts.length >= 3 && parts[2] !== '') {
+      const idx = Number(parts[2]);
+      if (Number.isInteger(idx) && idx >= 0 && idx < parsed.edges.length) {
+        return idx;
+      }
+    }
+    const [src, tgt] = parts;
+    return parsed.edges.findIndex(e => e.source === src && e.target === tgt);
+  })();
+
   const selectedEdge: VisualEdge | null = (() => {
-    if (!selection.edgeKey) {return null;}
-    const [src, tgt] = selection.edgeKey.split('::');
-    const edge = parsed.edges.find(e => e.source === src && e.target === tgt);
+    if (selectedEdgeIndex < 0) {return null;}
+    const edge = parsed.edges[selectedEdgeIndex];
     if (!edge) {return null; }
     return {
       source: edge.source,
       target: edge.target,
       arrowType: edge.arrowType,
       label: edge.label,
+      edgeIndex: selectedEdgeIndex,
       // 40-02 (EDGE-03): the inspector rows read the parsed edge's id,
       // length, and typed metadata — never a re-parse of code strings.
       ...(edge.edgeId ? { edgeId: edge.edgeId } : {}),
@@ -483,9 +584,22 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     };
   })();
 
+  const selectedEdgeStyle: EdgeStyle = useMemo(() => {
+    if (selectedEdgeIndex < 0) {return {};}
+    return {
+      ...(parsed.linkStyles.get('default') ?? {}),
+      ...(parsed.linkStyles.get(selectedEdgeIndex) ?? {}),
+    };
+  }, [parsed.linkStyles, selectedEdgeIndex]);
+
   const selectedSubgraph = selection.subgraphId
     ? parsed.subgraphs.find(s => s.id === selection.subgraphId) ?? null
     : null;
+
+  const selectedSubgraphStyle: NodeStyle | undefined = useMemo(() => {
+    if (!selectedSubgraph) {return undefined;}
+    return getNodeStyle(parsed.styles, parsed.classDefs, parsed.nodeClasses, selectedSubgraph.id);
+  }, [selectedSubgraph, parsed.styles, parsed.classDefs, parsed.nodeClasses]);
 
   function handleNodePointerDown(e: React.PointerEvent, nodeId: string) {
     e.stopPropagation();
@@ -738,8 +852,8 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
       // Calculate zoom delta from distance change
       const zoomDelta = currentDistance / pinchPrevDistanceRef.current;
 
-      // Apply zoom with existing clamp (0.25..3)
-      setZoom(z => Math.max(0.25, Math.min(3, z * zoomDelta)));
+      // Apply zoom with existing clamp (0.25..3, preserving lower auto-fit zoom if already < 0.25)
+      setZoom(z => Math.max(Math.min(z, 0.25), Math.min(3, z * zoomDelta)));
 
       // Update previous distance for next frame
       pinchPrevDistanceRef.current = currentDistance;
@@ -811,7 +925,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
       e.preventDefault();
       if (e.ctrlKey || e.metaKey) {
         const clampedDeltaY = Math.max(-50, Math.min(50, e.deltaY));
-        setZoom(z => Math.max(0.25, Math.min(3, z - clampedDeltaY * 0.0025)));
+        setZoom(z => Math.max(0.05, Math.min(3, z - clampedDeltaY * 0.0025)));
       } else {
         setPan(prev => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
       }
@@ -925,6 +1039,26 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
   // deleted, so the canvas has exactly one edge-mutation vocabulary. The
   // mutators are chain-aware (bare 12.3 edge ids, multi-hop) and decline on
   // ambiguity, which the inline regexes silently mishandled.
+  const handleFitToScreen = useCallback(() => {
+    const svgEl = svgContainerRef.current?.querySelector('svg');
+    const viewport = containerRef.current;
+    if (!svgEl || !viewport) {return;}
+    const vpRect = viewport.getBoundingClientRect();
+    let { width: natW, height: natH } = extractSvgIntrinsicSize(svgEl);
+    if (natW === 0 || natH === 0) {
+      const r = svgEl.getBoundingClientRect();
+      natW = r.width / zoomRef.current;
+      natH = r.height / zoomRef.current;
+    }
+    if (natW <= 0 || natH <= 0 || vpRect.width <= 0 || vpRect.height <= 0) {return;}
+    const availW = Math.max(64, vpRect.width - 64);
+    const availH = Math.max(64, vpRect.height - 64);
+    const optimalZoom = Math.min(availW / natW, availH / natH);
+    const finalZoom = Math.max(0.05, Math.min(3, Math.round(optimalZoom * 100) / 100));
+    setZoom(finalZoom);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
   function handleArrowChange(source: string, target: string, arrowType: string) {
     if (readOnly) {return;}
     // 40-02: the family switch preserves the selected edge's authored length
@@ -933,53 +1067,105 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     const length = current && current.source === source && current.target === target
       ? (current.length ?? 1)
       : 1;
-    onChange(updateEdgeArrowType(content, source, target, arrowType, length));
+    const idx = selectedEdgeIndex >= 0 ? selectedEdgeIndex : undefined;
+    onChange(updateEdgeArrowType(content, source, target, arrowType, length, idx));
   }
 
   function handleEdgeLabelChange(source: string, target: string, label: string) {
     if (readOnly) {return;}
-    onChange(updateEdgeLabel(content, source, target, label));
+    const idx = selectedEdgeIndex >= 0 ? selectedEdgeIndex : undefined;
+    onChange(updateEdgeLabel(content, source, target, label, idx));
   }
 
-  // 40-02 (EDGE-03): the inspector's edge-row delegates — the ONLY write
-  // paths are the codeUtils mutators (one vocabulary, like the 38-03 rule).
-  function handleEdgeMetaChange(meta: EdgeMetadata) {
-    if (readOnly) {return;}
+  function handleEdgeStyleChange(styleUpdate: Partial<EdgeStyle>) {
+    if (readOnly || selectedEdgeIndex < 0) {return;}
+    const existing = parsed.linkStyles.get(selectedEdgeIndex) ?? {};
+    onChange(updateLinkStyle(content, selectedEdgeIndex, { ...existing, ...styleUpdate }));
+  }
+
+  function handleEdgeReset() {
+    if (readOnly || selectedEdgeIndex < 0) {return;}
+    onChange(removeLinkStyles(content, [selectedEdgeIndex]));
+  }
+
+  function handleEdgeAnimateChange(animate: boolean) {
+    if (readOnly || selectedEdgeIndex < 0) {return;}
     const edge = selectedEdge;
-    if (!edge?.edgeId) {return;}
-    onChange(updateEdgeMetadata(content, edge.edgeId, meta));
+    if (!edge) {return;}
+    const { unknownParams: _fenced, ...typed } = edge.metadata ?? {};
+    onChange(upsertEdgeMetadataAtIndex(content, selectedEdgeIndex, { ...typed, animate }, edge.source, edge.target));
+  }
+
+  // 40-02 (EDGE-03): the inspector's edge-row delegates — auto-assigns a bare
+  // 12.3 edge id when editing motion metadata or id on an id-less edge.
+  function handleEdgeMetaChange(meta: EdgeMetadata) {
+    if (readOnly || selectedEdgeIndex < 0) {return;}
+    const edge = selectedEdge;
+    if (!edge) {return;}
+    onChange(upsertEdgeMetadataAtIndex(content, selectedEdgeIndex, meta, edge.source, edge.target));
   }
 
   function handleEdgeIdChange(newId: string) {
-    if (readOnly) {return;}
+    if (readOnly || selectedEdgeIndex < 0) {return;}
     const edge = selectedEdge;
-    if (!edge?.edgeId) {return;}
-    onChange(updateEdgeId(content, edge.edgeId, newId));
+    if (!edge) {return;}
+    onChange(assignOrUpdateEdgeId(content, selectedEdgeIndex, newId, edge.source, edge.target));
   }
 
   function handleEdgeLengthChange(token: string, length: number) {
-    if (readOnly) {return;}
+    if (readOnly || selectedEdgeIndex < 0) {return;}
     const edge = selectedEdge;
     if (!edge) {return;}
-    onChange(updateEdgeArrowType(content, edge.source, edge.target, token, length));
+    onChange(updateEdgeArrowType(content, edge.source, edge.target, token, length, selectedEdgeIndex));
   }
 
   function handleAnimatePreset() {
-    if (readOnly) {return;}
+    if (readOnly || selectedEdgeIndex < 0) {return;}
     const edge = selectedEdge;
     if (!edge) {return;}
-    onChange(applyEdgeAnimatePreset(content, edge.source, edge.target));
+    onChange(applyEdgeAnimatePreset(content, edge.source, edge.target, selectedEdgeIndex));
   }
 
   function handleDeleteEdge(source: string, target: string) {
     if (readOnly) {return;}
-    onChange(removeEdge(content, source, target));
+    const idx = selectedEdgeIndex >= 0 ? selectedEdgeIndex : undefined;
+    onChange(removeEdge(content, source, target, idx));
     setSelection({ nodeIds: [], edgeKey: null, subgraphId: null });
   }
 
   function handleSubgraphViewChange(view: 'collapsed' | 'expanded') {
     if (readOnly || !selection.subgraphId) {return;}
     onChange(updateSubgraphView(content, selection.subgraphId, view));
+  }
+
+  function handleSubgraphLabelChange(sgId: string, label: string) {
+    if (readOnly) {return;}
+    onChange(updateSubgraphLabel(content, sgId, label));
+  }
+
+  function handleSubgraphStyleChange(sgId: string, patch: Partial<NodeStyle>) {
+    if (readOnly) {return;}
+    const current = parsed.styles.get(sgId) ?? {};
+    onChange(updateNodeStyle(content, sgId, { ...current, ...patch }));
+  }
+
+  function handleSubgraphReset(sgId: string) {
+    if (readOnly) {return;}
+    onChange(removeNodeStyles(content, [sgId]));
+  }
+
+  function handleDeleteSubgraph(sgId: string) {
+    if (readOnly) {return;}
+    const sg = parsed.subgraphs.find(s => s.id === sgId);
+    let updated = content;
+    if (sg) {
+      parsed.nodes
+        .filter(n => n.parentSubgraphId === sgId && n.label.trim() === sg.label.trim())
+        .forEach(n => { updated = removeNode(updated, n.id); });
+    }
+    updated = removeSubgraph(updated, sgId);
+    setSelection({ nodeIds: [], edgeKey: null, subgraphId: null });
+    onChange(updated);
   }
 
   useEffect(() => {
@@ -997,10 +1183,18 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
       return typeof t.closest === 'function' && t.closest('input, textarea, [contenteditable]') !== null;
     }
     function onKey(e: KeyboardEvent) {
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selection.nodeIds.length > 0) {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
         if (isEditableTarget(document.activeElement)) {return;}
-        e.preventDefault();
-        handleDeleteSelected();
+        if (selection.nodeIds.length > 0) {
+          e.preventDefault();
+          handleDeleteSelected();
+        } else if (selectedEdge) {
+          e.preventDefault();
+          handleDeleteEdge(selectedEdge.source, selectedEdge.target);
+        } else if (selection.subgraphId) {
+          e.preventDefault();
+          handleDeleteSubgraph(selection.subgraphId);
+        }
       }
       if (e.key === 'v' || e.key === 'V') {
         if (isEditableTarget(document.activeElement)) {return;}
@@ -1018,7 +1212,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selection, readOnly]);
+  }, [selection, selectedEdge, readOnly]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -1054,16 +1248,22 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
           <div className="absolute top-2 right-2 z-10 flex items-center gap-1 px-2 py-1 rounded-lg border shadow-xs"
             style={{ background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
             {loading && <RefreshCw size={11} className="animate-spin mr-1" style={{ color: 'var(--text-tertiary)' }} />}
-            <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))}
+            <button onClick={() => setZoom(z => Math.max(0.05, z <= 0.25 ? Math.round((z - 0.05) * 100) / 100 : z - 0.25))}
               className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }} title="Zoom out">
               <ZoomOut size={11} />
             </button>
-            <span className="text-[11px] w-7 text-center" style={{ color: 'var(--text-secondary)' }}>
+            <span className="text-[11px] w-9 text-center" style={{ color: 'var(--text-secondary)' }}>
               {Math.round(zoom * 100)}%
             </span>
-            <button onClick={() => setZoom(z => Math.min(3, z + 0.25))}
+            <button onClick={() => setZoom(z => Math.min(3, z < 0.25 ? Math.min(0.25, Math.round((z + 0.05) * 100) / 100) : z + 0.25))}
               className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }} title="Zoom in">
               <ZoomIn size={11} />
+            </button>
+            <button
+              data-testid="visual-fit-button"
+              onClick={handleFitToScreen}
+              className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }} title="Fit to screen">
+              <Scan size={11} />
             </button>
             <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }}
               className="p-1 rounded-sm transition-colors hover:bg-[var(--hover)]" style={{ color: 'var(--text-tertiary)' }} title="Reset zoom">
@@ -1101,7 +1301,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
               </p>
             </div>
           ) : (
-            <div className="min-h-full min-w-full flex items-center justify-center p-8">
+            <div className="h-full w-full flex items-center justify-center p-8" style={{ overflow: 'visible' }}>
               <div
                 data-pan-layer=""
                 className="relative shrink-0"
@@ -1115,7 +1315,7 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
                     the post-processing pipeline only mutates attributes via DOM APIs. */}
                 <div
                   ref={svgContainerRef}
-                  className="mermaid-container"
+                  className="mermaid-container mermaid-canvas-svg"
                   dangerouslySetInnerHTML={{ __html: svg }}
                 />
 
@@ -1210,7 +1410,10 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
                     viewBox={edgeLayer.viewBox ?? undefined}
                   >
                     {edgeLayer.edges.map((edge, i) => {
-                      const edgeKey = `${edge.source}::${edge.target}`;
+                      const pairKey = `${edge.source}::${edge.target}`;
+                      const edgeKey = (edgePairCounts.get(pairKey) ?? 0) > 1
+                        ? `${pairKey}::${edge.parsedIndex}`
+                        : pairKey;
                       const isSelected = selection.edgeKey === edgeKey;
                       return (
                         <g key={`${edgeKey}#${i}`}>
@@ -1279,10 +1482,19 @@ export function VisualEditorCanvas({ content, theme, themeId, onChange }: Props)
               onEdgeIdChange={handleEdgeIdChange}
               onEdgeLengthChange={handleEdgeLengthChange}
               onAnimatePreset={handleAnimatePreset}
+              onEdgeAnimateChange={handleEdgeAnimateChange}
+              edgeStyle={selectedEdgeStyle}
+              onEdgeStyleChange={handleEdgeStyleChange}
+              onEdgeReset={handleEdgeReset}
               selectedSubgraphId={selectedSubgraph?.id ?? null}
               selectedSubgraphLabel={selectedSubgraph?.label}
               subgraphView={selectedSubgraph?.view}
               onViewChange={selectedSubgraph ? handleSubgraphViewChange : undefined}
+              subgraphStyle={selectedSubgraphStyle}
+              onSubgraphLabelChange={selectedSubgraph ? handleSubgraphLabelChange : undefined}
+              onSubgraphStyleChange={selectedSubgraph ? handleSubgraphStyleChange : undefined}
+              onSubgraphReset={selectedSubgraph ? handleSubgraphReset : undefined}
+              onDeleteSubgraph={selectedSubgraph ? handleDeleteSubgraph : undefined}
             />
           </div>
         )}

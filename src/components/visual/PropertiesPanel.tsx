@@ -1,5 +1,5 @@
 import { useState, useLayoutEffect, useEffect, useCallback, useRef } from 'react';
-import { Settings2, ChevronDown, Zap, Smile, LoaderCircle, TriangleAlert, ImagePlus, ExternalLink } from 'lucide-react';
+import { Settings2, ChevronDown, Zap, Smile, LoaderCircle, TriangleAlert, ImagePlus, ExternalLink, RotateCcw, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { logger } from '@/utils/logger';
 import { ColorPicker } from './ColorPicker';
@@ -16,7 +16,7 @@ import type { ShapePickerAnchor, SpecialMediaShape } from '@/components/shared/S
 // double-arrow entry) is deleted; this panel and EdgeStylePanel consume the
 // same const (Grey Area 9).
 import { EDGE_ARROW_OPTIONS, EDGE_CURVE_OPTIONS, extraArrowOption } from '@/components/shared/edgeArrowOptions';
-import type { EdgeMetadata } from '@/lib/mermaid/codeUtils';
+import type { EdgeMetadata, EdgeStyle } from '@/lib/mermaid/codeUtils';
 // 39-05 Task 3 (ICON-03, Surface 2): the lazy FA6 picker mounts from the
 // icon trigger — the fixed-position sibling recipe, never a nested popover.
 import { IconPicker } from '@/components/shared/IconPicker';
@@ -958,7 +958,7 @@ function NodePanel({
                 value={
                   fontSize === 'mixed'
                     ? ''
-                    : fontSize ? (parseInt(fontSize, 10) || 18) : 18
+                    : fontSize ? (parseInt(fontSize, 10) || 14) : 14
                 }
                 placeholder={fontSize === 'mixed' ? t('nodeStyle.mixed') : ''}
                 onChange={e => {
@@ -1077,23 +1077,38 @@ interface EdgePanelProps {
   onEdgeIdChange?: (newId: string) => void;
   onEdgeLengthChange?: (token: string, length: number) => void;
   onAnimatePreset?: () => void;
+  onAnimateChange?: (animate: boolean) => void;
+  edgeStyle?: EdgeStyle;
+  onEdgeStyleChange?: (style: Partial<EdgeStyle>) => void;
+  onEdgeReset?: () => void;
 }
 
 function EdgePanel({
   edge, onArrowChange, onLabelChange, onDeleteEdge,
   edgeMeta, onEdgeMetaChange, onEdgeIdChange, onEdgeLengthChange, onAnimatePreset,
+  onAnimateChange, edgeStyle, onEdgeStyleChange, onEdgeReset,
 }: EdgePanelProps)  {
   const { t } = useTranslation();
   const [label, setLabel] = useState(edge.label);
 
-  // Sync label when edge changes
-  useLayoutEffect(() => { setLabel(edge.label); }, [edge.label]);
+  // Sync label when edge changes (including parallel edges with distinct edgeIndex)
+  useLayoutEffect(() => {
+    setLabel(edge.label);
+  }, [edge.label, edge.source, edge.target, edge.edgeIndex]);
 
   // 40-02: the length row's min attribute follows the selected family's
   // minimum (the circle/cross start tokens are probe-invalid below it).
   const lengthOption = EDGE_ARROW_OPTIONS.find(opt => opt.value === edge.arrowType);
   const minLen = lengthOption?.minimumLength ?? 1;
   const typedMeta = edgeMeta ?? edge.metadata ?? null;
+  const currentEdgeStyle = edgeStyle ?? {};
+  const parsePx = (v: string | undefined): number => parseInt(v?.replace('px', '') ?? '', 10) || 0;
+
+  const STROKE_STYLE_OPTIONS = [
+    { value: '', label: t('edgeStyle.solid'), dasharray: '' },
+    { value: '5 5', label: t('edgeStyle.dashed'), dasharray: '5 5' },
+    { value: '2 2', label: t('edgeStyle.dotted'), dasharray: '2 2' },
+  ] as const;
 
   const commitStep = (raw: string) => {
     if (!onEdgeMetaChange) {return; }
@@ -1213,6 +1228,27 @@ function EdgePanel({
         </div>
       )}
 
+      {onAnimateChange && (
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{t('edgeStyle.animate')}</span>
+          <label className="flex items-center gap-2 cursor-pointer w-fit max-md:min-h-[44px]">
+            <input
+              type="checkbox"
+              data-edge-animate-toggle
+              checked={typedMeta?.animate ?? false}
+              onChange={e => onAnimateChange(e.target.checked)}
+              className="peer sr-only"
+            />
+            <div
+              aria-hidden="true"
+              className={`relative w-9 h-5 rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--accent)] peer-focus-visible:ring-offset-2 ${typedMeta?.animate ? 'bg-[var(--accent)]' : 'bg-[var(--text-tertiary)]'}`}
+            >
+              <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${typedMeta?.animate ? 'left-[18px]' : 'left-0.5'}`} />
+            </div>
+          </label>
+        </div>
+      )}
+
       {onEdgeMetaChange && (
         <>
           <div className="flex flex-col gap-1">
@@ -1297,6 +1333,130 @@ function EdgePanel({
         </button>
       )}
 
+      {onEdgeStyleChange && (
+        <>
+          <ColorPicker
+            label={t('edgeStyle.strokeColor')}
+            labelVariant="inspector-sm"
+            value={currentEdgeStyle.stroke ?? ''}
+            onChange={v => onEdgeStyleChange({ stroke: v || undefined })}
+          />
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {t('edgeStyle.strokeWidth')}
+            </span>
+            <div className="flex items-center gap-2">
+              <input
+                type="range"
+                data-edge-stroke-width
+                min={1}
+                max={8}
+                step={0.5}
+                value={parsePx(currentEdgeStyle.strokeWidth) || 1.5}
+                onChange={e => onEdgeStyleChange({ strokeWidth: `${parseFloat(e.target.value).toFixed(1)}px` })}
+                className="flex-1 accent-teal-500 max-md:min-h-[44px]"
+              />
+              <span className="text-xs w-8 text-right font-mono" style={{ color: 'var(--text-secondary)' }}>
+                {currentEdgeStyle.strokeWidth ?? '1.5px'}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {t('edgeStyle.strokeStyle')}
+            </span>
+            <div className="flex gap-1">
+              {STROKE_STYLE_OPTIONS.map(opt => {
+                const isActive =
+                  (opt.value === '' && !currentEdgeStyle.strokeDasharray) ||
+                  currentEdgeStyle.strokeDasharray === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    data-edge-stroke-style={opt.value || 'solid'}
+                    aria-pressed={isActive}
+                    onClick={() => onEdgeStyleChange({ strokeDasharray: opt.value || undefined })}
+                    className={`flex-1 py-1.5 rounded-md border text-[11px] font-medium transition-all max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                    style={{
+                      borderColor: isActive ? 'var(--accent)' : 'var(--border-subtle)',
+                      background: isActive ? 'var(--accent-dim)' : 'var(--surface-base)',
+                      color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                      borderWidth: isActive ? '2px' : '1px',
+                      borderBottomStyle: opt.dasharray
+                        ? opt.value === '5 5'
+                          ? 'dashed'
+                          : 'dotted'
+                        : 'solid',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <ColorPicker
+            label={t('edgeStyle.labelBackground')}
+            labelVariant="inspector-sm"
+            value={currentEdgeStyle.fill ?? ''}
+            onChange={v => onEdgeStyleChange({ fill: v || undefined })}
+          />
+
+          <ColorPicker
+            label={t('edgeStyle.labelTextColor')}
+            labelVariant="inspector-sm"
+            value={currentEdgeStyle.color ?? ''}
+            onChange={v => onEdgeStyleChange({ color: v || undefined })}
+          />
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {t('edgeStyle.labelFontSize')}
+            </span>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                data-edge-font-size
+                min={8}
+                max={48}
+                step={1}
+                value={parsePx(currentEdgeStyle.fontSize) || 14}
+                onChange={e => {
+                  const v = e.target.value;
+                  onEdgeStyleChange({ fontSize: v ? `${v}px` : undefined });
+                }}
+                className={`flex-1 px-2 py-1.5 rounded-md border text-xs font-mono w-0 max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                style={{ ...inputStyle }}
+              />
+              <span className="text-xs font-mono shrink-0" style={{ color: 'var(--text-tertiary)' }}>
+                px
+              </span>
+            </div>
+          </div>
+        </>
+      )}
+
+      {onEdgeReset && (
+        <button
+          type="button"
+          data-edge-reset
+          onClick={onEdgeReset}
+          className={`flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg text-xs font-medium transition-colors max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+          style={{
+            background: 'rgba(220,38,38,0.08)',
+            color: '#b91c1c',
+            border: '1px solid rgba(220,38,38,0.25)',
+          }}
+        >
+          <RotateCcw size={11} className="shrink-0" />
+          <span className="truncate">{t('edgeStyle.resetStyle')}</span>
+        </button>
+      )}
+
       <button
         type="button"
         onClick={() => onDeleteEdge(edge.source, edge.target)}
@@ -1310,26 +1470,51 @@ function EdgePanel({
 
 /**
  * 40-04 (EDGE-05, Grey Area #2): Visual-side subgraph section — carries the
- * readonly Subgraph ID/Label rows and the same Collapse/Expand segmented row
- * idiom as SubgraphStylePanel (same i18n keys, same accent active treatment,
- * explicit max-md:min-h-[44px] touch floor). Renders ONLY when selectedSubgraphId
- * and onViewChange are both present (39-04 contract).
+ * Subgraph ID/Label rows and the same Collapse/Expand segmented row idiom as
+ * SubgraphStylePanel, plus optional label/color/border/reset/delete controls
+ * when wired by VisualEditorCanvas. Absent props keep existing callers
+ * byte-identical (39-04 contract).
  */
 function SubgraphPanel({
   subgraphId,
   subgraphLabel,
   subgraphView,
   onViewChange,
+  subgraphStyle,
+  onSubgraphLabelChange,
+  onSubgraphStyleChange,
+  onSubgraphReset,
+  onDeleteSubgraph,
 }: {
   subgraphId: string;
   subgraphLabel?: string;
   subgraphView?: 'collapsed' | 'expanded';
   onViewChange: (view: 'collapsed' | 'expanded') => void;
+  subgraphStyle?: NodeStyle;
+  onSubgraphLabelChange?: (subgraphId: string, label: string) => void;
+  onSubgraphStyleChange?: (subgraphId: string, style: Partial<NodeStyle>) => void;
+  onSubgraphReset?: (subgraphId: string) => void;
+  onDeleteSubgraph?: (subgraphId: string) => void;
 }) {
   const { t } = useTranslation();
+  const effectiveLabel = subgraphLabel || subgraphId;
+  const [label, setLabel] = useState(effectiveLabel);
+  useLayoutEffect(() => {
+    setLabel(subgraphLabel || subgraphId);
+  }, [subgraphId, subgraphLabel]);
+
+  const currentStyle = subgraphStyle ?? {};
+  const parsePx = (v: string | undefined): number => parseInt(v?.replace('px', '') ?? '', 10) || 0;
+
   const VIEW_OPTIONS = [
     { value: 'collapsed', label: t('subgraphStyle.collapse') },
     { value: 'expanded', label: t('subgraphStyle.expand') },
+  ] as const;
+
+  const BORDER_STYLE_OPTIONS = [
+    { value: '', label: t('subgraphStyle.solid'), dasharray: '' },
+    { value: '5 5', label: t('subgraphStyle.dashed'), dasharray: '5 5' },
+    { value: '2 2', label: t('subgraphStyle.dotted'), dasharray: '2 2' },
   ] as const;
 
   return (
@@ -1351,13 +1536,27 @@ function SubgraphPanel({
         <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
           {t('subgraphStyle.label')}
         </span>
-        <div
-          className="text-xs px-2.5 py-2 rounded-md border truncate"
-          style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
-          data-subgraph-panel-label
-        >
-          {subgraphLabel || subgraphId}
-        </div>
+        {onSubgraphLabelChange ? (
+          <input
+            type="text"
+            value={label}
+            placeholder={t('subgraphStyle.labelPlaceholder')}
+            onChange={e => setLabel(e.target.value)}
+            onBlur={() => { if (label !== effectiveLabel) {onSubgraphLabelChange(subgraphId, label);} }}
+            onKeyDown={e => { if (e.key === 'Enter') {onSubgraphLabelChange(subgraphId, label);} }}
+            data-subgraph-panel-label
+            className={`w-full px-2.5 py-1.5 rounded-md border text-xs max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+            style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
+          />
+        ) : (
+          <div
+            className="text-xs px-2.5 py-2 rounded-md border truncate"
+            style={{ background: 'var(--surface-base)', borderColor: 'var(--border-subtle)', color: 'var(--text-secondary)' }}
+            data-subgraph-panel-label
+          >
+            {effectiveLabel}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-1">
@@ -1392,6 +1591,116 @@ function SubgraphPanel({
           })}
         </div>
       </div>
+
+      {onSubgraphStyleChange && (
+        <>
+          <ColorPicker
+            label={t('subgraphStyle.fillColor')}
+            labelVariant="inspector-sm"
+            value={currentStyle.fill ?? ''}
+            onChange={v => onSubgraphStyleChange(subgraphId, { fill: v || undefined })}
+          />
+
+          <ColorPicker
+            label={t('subgraphStyle.borderColor')}
+            labelVariant="inspector-sm"
+            value={currentStyle.stroke ?? ''}
+            onChange={v => onSubgraphStyleChange(subgraphId, { stroke: v || undefined })}
+          />
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {t('subgraphStyle.strokeWidth')}
+            </span>
+            <div className="flex items-center gap-2">
+              <input
+                type="range"
+                min={0}
+                max={8}
+                step={1}
+                value={parsePx(currentStyle.strokeWidth) || 1}
+                onChange={e => onSubgraphStyleChange(subgraphId, { strokeWidth: `${e.target.value}px` })}
+                className="flex-1 accent-teal-500 max-md:min-h-[44px]"
+              />
+              <span className="text-xs w-8 text-right font-mono" style={{ color: 'var(--text-secondary)' }}>
+                {currentStyle.strokeWidth ?? '1px'}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+              {t('subgraphStyle.borderStyle')}
+            </span>
+            <div className="flex gap-1">
+              {BORDER_STYLE_OPTIONS.map(opt => {
+                const isActive =
+                  (opt.value === '' && !currentStyle.strokeDasharray) ||
+                  currentStyle.strokeDasharray === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    aria-pressed={isActive}
+                    onClick={() => onSubgraphStyleChange(subgraphId, { strokeDasharray: opt.value || undefined })}
+                    className={`flex-1 py-1.5 rounded-md border text-[11px] font-medium transition-all max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+                    style={{
+                      borderColor: isActive ? 'var(--accent)' : 'var(--border-subtle)',
+                      background: isActive ? 'var(--accent-dim)' : 'var(--surface-base)',
+                      color: isActive ? 'var(--accent)' : 'var(--text-secondary)',
+                      borderWidth: isActive ? '2px' : '1px',
+                      borderBottomStyle: opt.dasharray
+                        ? opt.value === '5 5'
+                          ? 'dashed'
+                          : 'dotted'
+                        : 'solid',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <ColorPicker
+            label={t('subgraphStyle.textColor')}
+            labelVariant="inspector-sm"
+            value={currentStyle.color ?? ''}
+            onChange={v => onSubgraphStyleChange(subgraphId, { color: v || undefined })}
+          />
+        </>
+      )}
+
+      {onSubgraphReset && (
+        <button
+          type="button"
+          data-subgraph-reset
+          onClick={() => onSubgraphReset(subgraphId)}
+          className={`flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg text-xs font-medium transition-colors max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+          style={{
+            background: 'rgba(220,38,38,0.08)',
+            color: '#b91c1c',
+            border: '1px solid rgba(220,38,38,0.25)',
+          }}
+        >
+          <RotateCcw size={11} className="shrink-0" />
+          <span className="truncate">{t('subgraphStyle.resetStyle')}</span>
+        </button>
+      )}
+
+      {onDeleteSubgraph && (
+        <button
+          type="button"
+          data-subgraph-delete
+          onClick={() => onDeleteSubgraph(subgraphId)}
+          className={`flex items-center justify-center gap-1.5 w-full py-1.5 rounded-lg text-xs font-medium transition-colors max-md:min-h-[44px] ${FOCUS_RING_CLASSES}`}
+          style={{ background: 'var(--danger-dim)', color: 'var(--danger)', border: '1px solid rgba(220,38,38,0.25)' }}
+        >
+          <Trash2 size={11} className="shrink-0" />
+          <span className="truncate">{t('subgraphStyle.delete')}</span>
+        </button>
+      )}
     </div>
   );
 }
@@ -1416,11 +1725,20 @@ interface Props {
   onEdgeIdChange?: (newId: string) => void;
   onEdgeLengthChange?: (token: string, length: number) => void;
   onAnimatePreset?: () => void;
+  onEdgeAnimateChange?: (animate: boolean) => void;
+  edgeStyle?: EdgeStyle;
+  onEdgeStyleChange?: (style: Partial<EdgeStyle>) => void;
+  onEdgeReset?: () => void;
   /** 40-04 (EDGE-05): absent props hide the subgraph section (39-04 contract). */
   selectedSubgraphId?: string | null;
   selectedSubgraphLabel?: string;
   subgraphView?: 'collapsed' | 'expanded';
   onViewChange?: (view: 'collapsed' | 'expanded') => void;
+  subgraphStyle?: NodeStyle;
+  onSubgraphLabelChange?: (subgraphId: string, label: string) => void;
+  onSubgraphStyleChange?: (subgraphId: string, style: Partial<NodeStyle>) => void;
+  onSubgraphReset?: (subgraphId: string) => void;
+  onDeleteSubgraph?: (subgraphId: string) => void;
 }
 
 export function PropertiesPanel({
@@ -1429,7 +1747,9 @@ export function PropertiesPanel({
   nodeIcon, nodeImage, onIconChange, onImageChange, initialMediaMode,
   onArrowChange, onEdgeLabelChange, onDeleteEdge,
   edgeMeta, onEdgeMetaChange, onEdgeIdChange, onEdgeLengthChange, onAnimatePreset,
+  onEdgeAnimateChange, edgeStyle, onEdgeStyleChange, onEdgeReset,
   selectedSubgraphId, selectedSubgraphLabel, subgraphView, onViewChange,
+  subgraphStyle, onSubgraphLabelChange, onSubgraphStyleChange, onSubgraphReset, onDeleteSubgraph,
 }: Props) {
   const { t } = useTranslation();
   const hasNode = selectedNodes.length > 0;
@@ -1484,6 +1804,11 @@ export function PropertiesPanel({
             subgraphLabel={selectedSubgraphLabel}
             subgraphView={subgraphView}
             onViewChange={onViewChange}
+            subgraphStyle={subgraphStyle}
+            onSubgraphLabelChange={onSubgraphLabelChange}
+            onSubgraphStyleChange={onSubgraphStyleChange}
+            onSubgraphReset={onSubgraphReset}
+            onDeleteSubgraph={onDeleteSubgraph}
           />
         ) : selectedEdge ? (
           <EdgePanel
@@ -1496,6 +1821,10 @@ export function PropertiesPanel({
             onEdgeIdChange={onEdgeIdChange}
             onEdgeLengthChange={onEdgeLengthChange}
             onAnimatePreset={onAnimatePreset}
+            onAnimateChange={onEdgeAnimateChange}
+            edgeStyle={edgeStyle}
+            onEdgeStyleChange={onEdgeStyleChange}
+            onEdgeReset={onEdgeReset}
           />
         ) : null}
       </div>

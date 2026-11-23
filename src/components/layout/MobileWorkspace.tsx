@@ -401,7 +401,7 @@ export function MobileWorkspace({
         >
           <ErrorBoundary fallback={<ChunkErrorFallback />}>
             <Suspense fallback={<LoadSkeleton />}>
-              <LazyPreviewPanel content={value} theme={theme} themeId={themeId} onError={onPreviewError} onChange={onChange} onOpenCode={() => switchPane('code')} />
+              <LazyPreviewPanel content={value} diagramKey={activeDiagramId ?? undefined} theme={theme} themeId={themeId} onError={onPreviewError} onChange={onChange} onOpenCode={() => switchPane('code')} />
             </Suspense>
           </ErrorBoundary>
         </div>

@@ -53,6 +53,27 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
   // Combine builtin and custom themes
   const allThemes = useMemo(() => [...builtinThemes, ...customThemes], [customThemes]);
 
+  // Resolve effective active theme: explicit tab themeId > frontmatter native theme > app default (when no custom frontmatter palette overrides exist)
+  const effectiveActiveThemeId = useMemo(() => {
+    if (currentThemeId) return currentThemeId;
+    const fmMatch = currentContent.match(/^\s*---([\s\S]*?)---/i);
+    if (fmMatch) {
+      const block = fmMatch[1];
+      const themeMatch = block.match(/(?:^|\n)\s*theme\s*:\s*['"]?([A-Za-z0-9_-]+)['"]?/);
+      const fmTheme = themeMatch?.[1];
+      const hasCustomVars = /(?:^|\n)\s*themeVariables\s*:/.test(block);
+      if (fmTheme && fmTheme !== 'base') {
+        const nativeHit = NATIVE_MERMAID_THEMES.find(t => t.baseTheme === fmTheme);
+        if (nativeHit) return nativeHit.id;
+      }
+      if (hasCustomVars) {
+        const commentHit = currentContent.match(/%%\s*@theme\s+(\S+)/);
+        return commentHit?.[1] ?? undefined;
+      }
+    }
+    return defaultThemeId;
+  }, [currentThemeId, currentContent, defaultThemeId]);
+
   // Preview state
   const [previewSvg, setPreviewSvg] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<MermaidTheme | null>(null);
@@ -228,18 +249,18 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
           </button>
         )}
 
-        {/* Studio & Custom Palettes + Official Mermaid v12 Native Themes */}
+        {/* Official Mermaid v12 Native Themes (with redux-color first) + Studio & Custom Palettes */}
         {(
           [
-            {
-              key: 'studio',
-              heading: t('themeEditor.studioPalettes'),
-              themes: allThemes,
-            },
             {
               key: 'native',
               heading: t('themeEditor.nativeMermaidThemes'),
               themes: NATIVE_MERMAID_THEMES,
+            },
+            {
+              key: 'studio',
+              heading: t('themeEditor.studioPalettes'),
+              themes: allThemes,
             },
           ] as const
         ).map(section => (
@@ -251,7 +272,8 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
               {section.heading}
             </h3>
             {section.themes.map(themeItem => {
-              const isActive = currentThemeId === themeItem.id;
+              const isActive = effectiveActiveThemeId === themeItem.id;
+              const isDefault = defaultThemeId === themeItem.id;
               const isSelected = selectedTheme?.id === themeItem.id;
               const showPreview = isSelected && previewSvg;
               const swatchColors = getSwatchColors(themeItem.coreColors, isDark);
@@ -297,7 +319,18 @@ export function DiagramColorsPanel({ isOpen, onClose, currentContent, onContentC
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isDefault && (
+                          <span
+                            className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                            style={{
+                              color: '#16a34a',
+                              background: isDark ? 'rgba(74,222,128,0.12)' : 'rgba(22,163,74,0.1)',
+                            }}
+                          >
+                            Default
+                          </span>
+                        )}
                         {isActive && (
                           <span
                             className="text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"

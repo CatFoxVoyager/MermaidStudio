@@ -294,72 +294,13 @@ body {
 
 /* ─── Mermaid ────────────────────────────────────────────────── */
 .mermaid-container svg { max-width: 100%; height: auto; }
+.mermaid-canvas-svg svg { max-width: none; height: auto; }
 
-/* Mermaid HTML labels - ensure text is visible */
-.mermaid-container .nodeLabel,
-.mermaid-container .edgeLabel,
-.mermaid-container .cluster label,
-.mermaid-container div,
-.mermaid-container span {
-  color: inherit !important;
-}
-
-/* Ensure foreignObject content displays properly and is centered */
+/* Ensure foreignObject content is never clipped at shape boundaries;
+   Mermaid v12's own embedded <style> inside each <svg> owns label wrapping,
+   colors, themeVariables, classDef, and edgeLabel backgrounds. */
 .mermaid-container foreignObject {
-  overflow: visible !important;
-}
-
-.mermaid-container foreignObject div,
-.mermaid-container foreignObject span {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  height: 100% !important;
-  width: 100% !important;
-  text-align: center !important;
-  line-height: normal !important;
-  white-space: nowrap !important;
-}
-
-/* Fix Mermaid node labels - ensure they are visible and properly colored */
-.mermaid-container .nodeLabel {
-  color: var(--text-primary) !important;
-}
-
-.mermaid-container .edgeLabel {
-  color: var(--text-secondary) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background-color: var(--surface-raised) !important; /* Force opaque background */
-}
-
-.mermaid-container .edgeLabel rect {
-  fill: var(--surface-raised) !important;
-  fill-opacity: 1 !important;
-  stroke: none !important;
-}
-
-.mermaid-container .edgeLabel span,
-.mermaid-container .edgeLabel div {
-  background-color: var(--surface-raised) !important;
-  padding: 2px 4px !important;
-  border-radius: 2px !important;
-}
-
-.mermaid-container .cluster .label {
-  color: var(--text-primary) !important;
-}
-
-/* Dark mode fixes */
-.dark .mermaid-container .nodeLabel,
-.dark .mermaid-container foreignObject div,
-.dark .mermaid-container foreignObject span {
-  color: #f0f6fc !important;
-}
-
-.dark .mermaid-container .edgeLabel {
-  color: #8b949e !important;
+  overflow: visible;
 }
 
 /* ─── CodeMirror ─────────────────────────────────────────────── */

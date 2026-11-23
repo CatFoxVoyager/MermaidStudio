@@ -1776,7 +1776,7 @@ export function applyStyleToContent(
   }
 
   // 2. Apply global edge styles using linkStyle default
-  const edgeStyleUpdates: Record<string, string> = {};
+  const edgeStyleUpdates: Record<string, string | undefined> = {};
   if (styleOptions.edgeStrokeWidth !== undefined)
     edgeStyleUpdates.strokeWidth = `${styleOptions.edgeStrokeWidth}px`;
   if (styleOptions.edgeStrokeColor !== undefined)
@@ -1786,7 +1786,7 @@ export function applyStyleToContent(
   if (styleOptions.edgeFontSize !== undefined)
     edgeStyleUpdates.fontSize = `${styleOptions.edgeFontSize}px`;
   if (styleOptions.edgeDasharray !== undefined)
-    edgeStyleUpdates.strokeDasharray = styleOptions.edgeDasharray;
+    edgeStyleUpdates.strokeDasharray = styleOptions.edgeDasharray || undefined;
   if (styleOptions.edgeLabelColor !== undefined)
     edgeStyleUpdates.color = styleOptions.edgeLabelColor;
   if (styleOptions.edgeLabelBackgroundColor !== undefined)
@@ -1827,7 +1827,15 @@ export function applyStyleToContent(
     }
 
     if (hasEdgeChanges) {
-      stripped = updateLinkStyle(stripped, 'default', { ...currentDefault, ...edgeStyleUpdates });
+      const mergedDefault: Record<string, string> = { ...currentDefault };
+      for (const [k, v] of Object.entries(edgeStyleUpdates)) {
+        if (v === undefined || v === '') {
+          delete mergedDefault[k];
+        } else {
+          mergedDefault[k] = v;
+        }
+      }
+      stripped = updateLinkStyle(stripped, 'default', mergedDefault);
       hasChanges = true;
     }
   }
@@ -1900,6 +1908,47 @@ export function applyStyleToContent(
     ensureThemeVariables();
     newConfig.themeVariables.useGradient = styleOptions.useGradient;
     hasChanges = true;
+  }
+
+  // Root-level Mermaid native theme (THM-01): 'redux-color' | 'redux-dark-color' | 'neo' | ...
+  const VALID_MERMAID_THEMES = new Set([
+    'redux-color',
+    'redux-dark-color',
+    'redux',
+    'redux-dark',
+    'neo',
+    'neo-dark',
+    'default',
+    'neutral',
+    'dark',
+    'forest',
+    'base',
+  ]);
+  if (typeof styleOptions.theme === 'string' && VALID_MERMAID_THEMES.has(styleOptions.theme)) {
+    if (newConfig.theme !== styleOptions.theme) {
+      newConfig.theme = styleOptions.theme;
+      // Switching to a non-'base' native theme drops residual derived themeVariables colors
+      // while preserving explicit typography/gradient overrides if present.
+      if (styleOptions.theme !== 'base' && newConfig.themeVariables) {
+        const keptTv: Record<string, unknown> = {};
+        if (newConfig.themeVariables.fontFamily) keptTv.fontFamily = newConfig.themeVariables.fontFamily;
+        if (newConfig.themeVariables.fontSize) keptTv.fontSize = newConfig.themeVariables.fontSize;
+        if (newConfig.themeVariables.useGradient !== undefined) keptTv.useGradient = newConfig.themeVariables.useGradient;
+        if (Object.keys(keptTv).length > 0) {
+          newConfig.themeVariables = keptTv;
+        } else {
+          delete newConfig.themeVariables;
+        }
+      }
+      hasChanges = true;
+    }
+  } else if ('theme' in styleOptions && styleOptions.theme === undefined && 'theme' in newConfig) {
+    // Only clear theme when no custom themeVariables depend on `theme: 'base'`
+    const tvKeys = newConfig.themeVariables ? Object.keys(newConfig.themeVariables) : [];
+    if (tvKeys.length === 0) {
+      delete newConfig.theme;
+      hasChanges = true;
+    }
   }
 
   // Root-level Mermaid look (THM-02): 'neo' | 'classic' | 'handDrawn'.
@@ -2005,11 +2054,17 @@ export function applyStyleToContent(
       delete flowchartCfg.stepDuration;
       hasFlowchartChanges = true;
     }
-    if (
-      typeof styleOptions.stepNumbers === 'boolean' &&
-      flowchartCfg.stepNumbers !== styleOptions.stepNumbers
+    if (typeof styleOptions.stepNumbers === 'boolean') {
+      if (flowchartCfg.stepNumbers !== styleOptions.stepNumbers) {
+        flowchartCfg.stepNumbers = styleOptions.stepNumbers;
+        hasFlowchartChanges = true;
+      }
+    } else if (
+      'stepNumbers' in styleOptions &&
+      styleOptions.stepNumbers === undefined &&
+      'stepNumbers' in flowchartCfg
     ) {
-      flowchartCfg.stepNumbers = styleOptions.stepNumbers;
+      delete flowchartCfg.stepNumbers;
       hasFlowchartChanges = true;
     }
     if (
@@ -2601,6 +2656,7 @@ export function applyStyleToContent(
     !newConfig.treemap &&
     !newConfig.elk &&
     !newConfig.layout &&
+    !newConfig.theme &&
     !newConfig.look &&
     newConfig.handDrawnSeed === undefined &&
     !newConfig.themeCSS &&
@@ -2667,7 +2723,25 @@ export function extractStyleOptionsFromContent(
         if (useGrad !== undefined) options.useGradient = useGrad;
       }
 
-      // Extract root look, handDrawnSeed, themeCSS, markdownAutoWrap
+      // Extract root native Mermaid theme, look, handDrawnSeed, themeCSS, markdownAutoWrap
+      if (
+        typeof config.theme === 'string' &&
+        [
+          'redux-color',
+          'redux-dark-color',
+          'redux',
+          'redux-dark',
+          'neo',
+          'neo-dark',
+          'default',
+          'neutral',
+          'dark',
+          'forest',
+          'base',
+        ].includes(config.theme)
+      ) {
+        options.theme = config.theme as import('@/types').MermaidBuiltinTheme;
+      }
       if (config.look === 'neo' || config.look === 'classic' || config.look === 'handDrawn') {
         options.look = config.look;
       }

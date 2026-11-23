@@ -1275,7 +1275,7 @@ function applyEdgeFontStylesInSvg(
         if (style.stroke) {
           path.setAttribute('stroke', style.stroke);
           if (isLineOrPath) {
-            (path as any).style.stroke = style.stroke;
+            path.style.setProperty('stroke', style.stroke, 'important');
           }
           syncMarkerColorForAttr(ctx, path, 'marker-end', style.stroke);
           syncMarkerColorForAttr(ctx, path, 'marker-start', style.stroke);
@@ -1283,19 +1283,20 @@ function applyEdgeFontStylesInSvg(
         if (style.strokeWidth) {
           path.setAttribute('stroke-width', style.strokeWidth);
           if (isLineOrPath) {
-            (path as any).style.strokeWidth = style.strokeWidth;
+            path.style.setProperty('stroke-width', style.strokeWidth, 'important');
           }
         }
         if (style.strokeDasharray) {
           path.setAttribute('stroke-dasharray', style.strokeDasharray);
           if (isLineOrPath) {
-            (path as any).style.strokeDasharray = style.strokeDasharray;
+            path.style.setProperty('stroke-dasharray', style.strokeDasharray, 'important');
+            path.style.setProperty('stroke-dashoffset', '0', 'important');
           }
         }
         if (style.opacity) {
           path.setAttribute('opacity', style.opacity);
           if (isLineOrPath) {
-            (path as any).style.opacity = style.opacity;
+            path.style.setProperty('opacity', style.opacity, 'important');
           }
         }
       }
@@ -1334,11 +1335,20 @@ function applyEdgeFontStylesInSvg(
           });
         }
 
-        // Font styles
+        // Font styles (supports both legacy SVG <text> and Mermaid 11/12 foreignObject HTML labels)
         if (style.fontSize || style.fontWeight) {
+          label.querySelectorAll('foreignObject div, foreignObject span, foreignObject p').forEach(el => {
+            const htmlEl = el as HTMLElement;
+            if (style.fontSize) {
+              htmlEl.style.setProperty('font-size', style.fontSize, 'important');
+            }
+            if (style.fontWeight) {
+              htmlEl.style.setProperty('font-weight', style.fontWeight, 'important');
+            }
+          });
           const textEl = label.getElementsByTagName('text')[0];
           if (textEl) {
-            const fontSize = style.fontSize ? parseInt(style.fontSize) : 18;
+            const fontSize = style.fontSize ? parseInt(style.fontSize) : 14;
             if (style.fontSize) {
               textEl.setAttribute('font-size', style.fontSize);
             }
@@ -1355,6 +1365,23 @@ function applyEdgeFontStylesInSvg(
 
             if (rectEl) resizeBackgroundRect(textEl, rectEl, fontSize, svgFontFamily);
           }
+        }
+
+        // Mermaid 11/12 HTML edge label background (.labelBkg / span.edgeLabel inside foreignObject)
+        if (style.fill || style.fillOpacity) {
+          const htmlBgTargets = label.querySelectorAll<HTMLElement>(
+            'foreignObject .labelBkg, foreignObject span.edgeLabel'
+          );
+          htmlBgTargets.forEach(el => {
+            if (style.fill) {
+              el.style.setProperty('background-color', style.fill, 'important');
+              el.style.setProperty('border-radius', '3px');
+              el.style.setProperty('padding', '1px 4px');
+            }
+            if (style.fillOpacity) {
+              el.style.setProperty('opacity', style.fillOpacity, 'important');
+            }
+          });
         }
 
         // Background color and opacity

@@ -34,6 +34,9 @@ vi.mock('react-i18next', () => ({
         'advancedStyle.swimlaneLineHopsOff': 'Off',
         'advancedStyle.swimlaneAutoOrder': 'Auto-order lanes',
         // Phase 44 THM-02/03/04 controls.
+        'advancedStyle.designTheme': 'Design Theme',
+        'advancedStyle.themeDefault': 'Default (redux-color)',
+        'advancedStyle.themeCustomVars': 'Custom (themeVariables)',
         'advancedStyle.look': 'Visual Look',
         'advancedStyle.lookNeo': 'Neo',
         'advancedStyle.lookClassic': 'Classic',
@@ -142,8 +145,8 @@ describe('AdvancedStylePanel (40-03 EDGE-04)', () => {
   it('stepDuration accepts positive decimals, writes to frontmatter, clears, and ignores <= 0', () => {
     const { onContentChange } = renderPanel(FLOWCHART_CONTENT);
 
-    // Empty input: no stepDuration key anywhere in the initial application.
-    expect(lastAppliedContent(onContentChange)).not.toContain('stepDuration');
+    // Non-destructive mount: opening AdvancedStylePanel must NOT mutate the diagram before user edits.
+    expect(onContentChange).not.toHaveBeenCalled();
 
     const input = screen.getByLabelText('Step duration');
     fireEvent.change(input, { target: { value: '0.5' } });
@@ -166,7 +169,7 @@ describe('AdvancedStylePanel (40-03 EDGE-04)', () => {
     const { onContentChange } = renderPanel(FLOWCHART_CONTENT);
 
     // Untouched default: no key written until user toggles.
-    expect(lastAppliedContent(onContentChange)).not.toContain('markdownAutoWrap');
+    expect(onContentChange).not.toHaveBeenCalled();
 
     const toggle = screen.getByLabelText('Markdown auto-wrap') as HTMLInputElement;
     expect(toggle.checked).toBe(true);

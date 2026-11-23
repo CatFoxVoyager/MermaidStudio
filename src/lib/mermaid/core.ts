@@ -38,6 +38,138 @@ let lastInitSignature: string | null = null;
 
 const YAML_EDGE_LABEL_BG_RE = /edgeLabelBackground:\s*['"]?([^'"\n]+)/;
 const INIT_EDGE_LABEL_BG_RE = /'edgeLabelBackground'\s*:\s*'([^']+)'/;
+const YAML_FRONTMATTER_BLOCK_RE = /^---[\t ]*\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
+const YAML_HAS_THEME_RE = /(?:^|\n)\s*(?:theme|themeVariables)\s*:/;
+const YAML_STEP_NUMBERS_TRUE_RE = /(?:^|\n)\s*stepNumbers\s*:\s*true\b/;
+const INIT_HAS_THEME_RE = /['"]?(?:theme|themeVariables)['"]?\s*:/;
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function contentDefinesCustomTheme(trimmed: string): boolean {
+  if (trimmed.startsWith('---')) {
+    const fm = trimmed.match(YAML_FRONTMATTER_BLOCK_RE);
+    return fm ? YAML_HAS_THEME_RE.test(fm[1]) : false;
+  }
+  if (trimmed.startsWith('%%{init:')) {
+    const endIdx = trimmed.indexOf('}%%');
+    const block = endIdx !== -1 ? trimmed.slice(0, endIdx) : trimmed;
+    return INIT_HAS_THEME_RE.test(block);
+  }
+  return false;
+}
+
+function contentRequestsStepNumbers(trimmed: string): boolean {
+  if (!trimmed.startsWith('---')) return false;
+  const fm = trimmed.match(YAML_FRONTMATTER_BLOCK_RE);
+  return fm ? YAML_STEP_NUMBERS_TRUE_RE.test(fm[1]) : false;
+}
+
+function samplePointAlongSvgPath(pathEl: SVGPathElement, fraction: number): { x: number; y: number } | null {
+  try {
+    if (typeof pathEl.getTotalLength === 'function' && typeof pathEl.getPointAtLength === 'function') {
+      const len = pathEl.getTotalLength();
+      if (Number.isFinite(len) && len > 0) {
+        const pt = pathEl.getPointAtLength(len * fraction);
+        if (Number.isFinite(pt.x) && Number.isFinite(pt.y)) {
+          return { x: pt.x, y: pt.y };
+        }
+      }
+    }
+  } catch {
+    // Fallback to `d` coordinate parsing below (e.g. non-layout / jsdom environments)
+  }
+  const d = pathEl.getAttribute('d') ?? '';
+  const nums = Array.from(d.matchAll(/-?\d+(?:\.\d+)?/g), m => Number(m[0]));
+  const pts: Array<{ x: number; y: number }> = [];
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    if (Number.isFinite(nums[i]) && Number.isFinite(nums[i + 1])) {
+      pts.push({ x: nums[i], y: nums[i + 1] });
+    }
+  }
+  if (pts.length === 0) return null;
+  if (pts.length === 1) return pts[0];
+  const targetIdx = Math.min(pts.length - 2, Math.max(0, Math.floor((pts.length - 1) * fraction)));
+  const localT = (pts.length - 1) * fraction - targetIdx;
+  const a = pts[targetIdx];
+  const b = pts[targetIdx + 1];
+  return {
+    x: a.x + (b.x - a.x) * localT,
+    y: a.y + (b.y - a.y) * localT,
+  };
+}
+
+function injectAutoStepBadges(svgStr: string, isDark: boolean): string {
+  if (typeof document === 'undefined' || !svgStr.includes('flowchart-link')) {
+    return svgStr;
+  }
+  const tpl = document.createElement('template');
+  tpl.innerHTML = svgStr;
+  const svgEl = tpl.content.querySelector('svg');
+  if (!svgEl) return svgStr;
+
+  // Respect native Mermaid step badges whenever edges explicitly declare `step: N`
+  if (svgEl.querySelector('.edge-step-badge')) {
+    return svgStr;
+  }
+
+  const paths = Array.from(svgEl.querySelectorAll<SVGPathElement>('.edgePaths path.flowchart-link'));
+  if (paths.length === 0) return svgStr;
+
+  // Detect which edges carry a non-empty label so badges avoid midpoint label collisions
+  const labeledIndices = new Set<number>();
+  const labelEls = Array.from(svgEl.querySelectorAll('.edgeLabels .edgeLabel'));
+  labelEls.forEach((el, idx) => {
+    if ((el.textContent ?? '').trim().length > 0) {
+      labeledIndices.add(idx);
+    }
+  });
+
+  const rootGroup = svgEl.querySelector('g.root') ?? svgEl;
+  const layer = document.createElementNS(SVG_NS, 'g');
+  layer.setAttribute('class', 'edge-step-badges');
+
+  const badgeFill = isDark ? '#0f766e' : '#0d7377';
+  const badgeStroke = isDark ? '#111827' : '#ffffff';
+
+  let added = 0;
+  paths.forEach((pathEl, idx) => {
+    // Place at 22% along the path when the edge carries a midpoint label, else at 50%
+    const fraction = labeledIndices.has(idx) ? 0.22 : 0.5;
+    const pos = samplePointAlongSvgPath(pathEl, fraction);
+    if (!pos) return;
+
+    const stepNum = idx + 1;
+    const radius = stepNum >= 100 ? 12 : stepNum >= 10 ? 10.5 : 9.5;
+    const g = document.createElementNS(SVG_NS, 'g');
+    g.setAttribute('class', 'edge-step-badge');
+    g.setAttribute('transform', `translate(${pos.x.toFixed(1)},${pos.y.toFixed(1)})`);
+    g.setAttribute('pointer-events', 'none');
+    g.setAttribute('data-step', String(stepNum));
+
+    const circle = document.createElementNS(SVG_NS, 'circle');
+    circle.setAttribute('r', String(radius));
+    circle.setAttribute('fill', badgeFill);
+    circle.setAttribute('stroke', badgeStroke);
+    circle.setAttribute('stroke-width', '1.5');
+
+    const text = document.createElementNS(SVG_NS, 'text');
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'central');
+    text.setAttribute('font-size', '10');
+    text.setAttribute('font-weight', '700');
+    text.setAttribute('font-family', 'Inter, system-ui, sans-serif');
+    text.setAttribute('fill', '#ffffff');
+    text.textContent = String(stepNum);
+
+    g.appendChild(circle);
+    g.appendChild(text);
+    layer.appendChild(g);
+    added++;
+  });
+
+  if (added === 0) return svgStr;
+  rootGroup.appendChild(layer);
+  return svgEl.outerHTML;
+}
 
 function doInit(
   theme: 'dark' | 'light',
@@ -244,7 +376,7 @@ export async function renderDiagram(
   }
 
   const trimmed = content.trimStart();
-  const hasCustomTheme = trimmed.startsWith('---') || trimmed.startsWith('%%{init:');
+  const hasCustomTheme = contentDefinesCustomTheme(trimmed);
 
   // Set diagram theme: content @theme directive takes priority, then provided themeId
   const contentThemeId = extractThemeIdFromContent(content);
@@ -275,6 +407,10 @@ export async function renderDiagram(
       if (textColor) {
         svg = fixEdgeLabelTextColor(svg, textColor);
       }
+    }
+
+    if (diagramType === 'flowchart' && contentRequestsStepNumbers(trimmed)) {
+      svg = injectAutoStepBadges(svg, currentTheme === 'dark');
     }
 
     return { svg, error: null };

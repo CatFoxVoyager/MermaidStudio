@@ -9,7 +9,7 @@ import { getThemeById } from '@/constants/themes';
 import { sanitizeCssValue } from '@/utils/sanitization';
 import * as svgPostProcessing from '@/utils/svgPostProcessing';
 import { buildSvgToParsedEdgeMap } from '@/utils/svgEdgeMatching';
-import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, updateEdgeMetadata, updateEdgeId, applyEdgeAnimatePreset, parseLinkStyles, edgeStyleToString, updateNodeStyle, updateNodeShape, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, updateSubgraphView, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg } from '@/lib/mermaid/codeUtils';
+import { parseDiagram, getNodeStyle, removeNodeStyles, parseFrontmatter, updateLinkStyle, removeLinkStyles, updateEdgeArrowType, updateEdgeLabel, assignOrUpdateEdgeId, upsertEdgeMetadataAtIndex, applyEdgeAnimatePreset, parseLinkStyles, edgeStyleToString, updateNodeStyle, updateNodeShape, addNode, addEdge, generateNodeId, removeNode, removeEdge, removeSubgraph, updateNodeLabel, updateSubgraphLabel, updateSubgraphView, addSubgraph, moveNodeToSubgraph, applyNodePreset, updatePresetColors, bodyHasUnparsedAtDirective, updateNodeIcon, updateNodeImg } from '@/lib/mermaid/codeUtils';
 import type { NodeStyle, EdgeStyle, EdgeMetadata, ParsedEdge, NodeShape, PresetType, PresetColors, IconConfig, ImgConfig } from '@/lib/mermaid/codeUtils';
 import { shapeSupportsBorderRadius } from '@/lib/mermaid/shapes';
 import { NodeStylePanel } from './NodeStylePanel';
@@ -56,28 +56,40 @@ const EMPTY_NODE_PANEL_DATA: {
 };
 const EMPTY_SUBGRAPH_LIST: Array<{ id: string; label: string }> = [];
 const SHADOW_CENTERING_CSS = `
-  foreignObject > div, 
-  foreignObject > span,
-  .nodeLabel,
-  .cluster-label,
-  .label {
+  foreignObject {
+    overflow: visible;
+    pointer-events: none !important;
+  }
+
+  foreignObject > div {
     display: flex !important;
+    flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
     height: 100% !important;
     width: 100% !important;
-    line-height: 1 !important;
     text-align: center !important;
     pointer-events: auto !important;
   }
 
+  .nodeLabel,
+  .cluster-label,
+  .label {
+    text-align: center !important;
+    line-height: 1.3;
+  }
+
+  .nodeLabel p {
+    margin: 0;
+    line-height: 1.35;
+  }
+
   /* Ensure containers don't block clicks to elements behind them */
-  foreignObject,
   .cluster-label {
     pointer-events: none !important;
   }
-  
-  /* Subgraph label centering (SVG and HTML) */
+
+  /* Subgraph label centering (SVG text fallback) */
   .cluster-label text,
   .label text {
     dominant-baseline: hanging !important;
@@ -364,6 +376,8 @@ export function highlightSelectedEdge(shadowHost: HTMLDivElement, edgeIndex: num
 
 interface Props {
   content: string;
+  /** Stable identifier of the active diagram/tab so switching diagrams auto-fits & centers cleanly */
+  diagramKey?: string;
   theme: 'dark' | 'light';
   themeId?: string;
   onChange?: (content: string) => void;
@@ -382,7 +396,7 @@ interface Props {
   onOpenCode?: () => void;
 }
 
-function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRenderTime, onFullscreen, onNodeSelect, onSelectionOpen, externalPanelOpen, onError, onOpenCode }: Props) {
+function PreviewPanelInner({ content, diagramKey, theme, themeId, onChange, onExport, onRenderTime, onFullscreen, onNodeSelect, onSelectionOpen, externalPanelOpen, onError, onOpenCode }: Props) {
   const { t } = useTranslation();
   // Mobile preview drops the Copy-SVG toolbar action (redundant with the
   // Export sheet's copy actions and the toolbar's overflow casualty).
@@ -424,6 +438,10 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const svgNaturalSizeRef = useRef({ width: 0, height: 0 });
   const [svgNaturalSize, setSvgNaturalSize] = useState({ width: 0, height: 0 });
   const zoomRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
+  const needsAutoFitRef = useRef(true);
+  const prevAutoFitSizeRef = useRef({ width: 0, height: 0 });
+  const prevDiagramKeyRef = useRef(diagramKey);
   const renderIdRef = useRef(0);
   const contentRef = useRef(content);
   const debounceRef = useRef<number>(0);
@@ -608,10 +626,25 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     return parsedDiagram.subgraphs.map(sg => ({ id: sg.id, label: sg.label }));
   }, [parsedDiagram, supportsVisualEditing, needsSubgraphList]);
 
-  // Keep zoomRef in sync with zoom state
+  // Keep zoomRef & panRef in sync with state
   useEffect(() => {
     zoomRef.current = zoom;
   }, [zoom]);
+  useEffect(() => {
+    panRef.current = pan;
+  }, [pan]);
+
+  // Re-arm auto-fit & clear stale selections whenever the active diagram changes
+  useEffect(() => {
+    if (prevDiagramKeyRef.current !== diagramKey) {
+      prevDiagramKeyRef.current = diagramKey;
+      needsAutoFitRef.current = true;
+      prevAutoFitSizeRef.current = { width: 0, height: 0 };
+      setSelectedNodeIds(new Set());
+      setSelectedEdgeIndex(null);
+      setSelectedSubgraphId(null);
+    }
+  }, [diagramKey]);
 
   // Clear local selections when an external panel (diagram colors / advanced style) opens
   const prevExternalOpenRef = useRef(false);
@@ -899,6 +932,38 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         prev.width === nextSize.width && prev.height === nextSize.height ? prev : nextSize
       );
 
+      // Auto-fit & center on initial load, diagram switch, or when pasting a large
+      // diagram into an unpanned 100% tab so the entire graph is visible immediately.
+      const viewport = containerRef.current;
+      if (viewport && nextSize.width > 0 && nextSize.height > 0) {
+        const vpRect = viewport.getBoundingClientRect();
+        if (vpRect.width > 0 && vpRect.height > 0) {
+          const padding = 32;
+          const availW = Math.max(64, vpRect.width - padding * 2);
+          const availH = Math.max(64, vpRect.height - padding * 2);
+          const prevSize = prevAutoFitSizeRef.current;
+          const prevFitted = prevSize.width <= availW && prevSize.height <= availH;
+          const nextOverflows = nextSize.width > availW * 1.15 || nextSize.height > availH * 1.15;
+          const jumpedToLarge =
+            prevFitted &&
+            nextOverflows &&
+            zoomRef.current === 1 &&
+            panRef.current.x === 0 &&
+            panRef.current.y === 0;
+          prevAutoFitSizeRef.current = nextSize;
+
+          if (needsAutoFitRef.current || jumpedToLarge) {
+            needsAutoFitRef.current = false;
+            const fitScale = Math.min(1, availW / nextSize.width, availH / nextSize.height);
+            const targetZoom = Math.max(0.05, Math.round(fitScale * 100) / 100);
+            zoomRef.current = targetZoom;
+            panRef.current = { x: 0, y: 0 };
+            setZoom(targetZoom);
+            setPan({ x: 0, y: 0 });
+          }
+        }
+      }
+
       // Imperatively sync wrapper and shadow-host dimensions before synchronous
       // overlay/edge measurement so size-changing renders avoid an extra rAF.
       // Null-guarded when recovering from the error/empty ternary branch.
@@ -1048,6 +1113,22 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     const settle = () => {
       if (done) return;
       done = true;
+      // Deferred auto-fit when a previously hidden pane (e.g. mobile Visual tab) becomes visible
+      if (needsAutoFitRef.current && containerRef.current) {
+        const vpRect = containerRef.current.getBoundingClientRect();
+        const { width: natW, height: natH } = svgNaturalSizeRef.current;
+        if (vpRect.width > 0 && vpRect.height > 0 && natW > 0 && natH > 0) {
+          needsAutoFitRef.current = false;
+          const availW = Math.max(64, vpRect.width - 64);
+          const availH = Math.max(64, vpRect.height - 64);
+          const fitScale = Math.min(1, availW / natW, availH / natH);
+          const targetZoom = Math.max(0.05, Math.round(fitScale * 100) / 100);
+          zoomRef.current = targetZoom;
+          panRef.current = { x: 0, y: 0 };
+          setZoom(targetZoom);
+          setPan({ x: 0, y: 0 });
+        }
+      }
       remeasureOverlays();
       syncEdgeTargets();
     };
@@ -1334,67 +1415,61 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const handleEdgeArrowChange = useCallback((source: string, target: string, arrowType: string) => {
     if (!onChange) return;
     if (bodyHasMetadata) return; // D6 fence
-    // 40-02: the family switch preserves the selected edge's authored length
-    // (the length row owns length edits).
     const edge = parsedEdges[selectedEdgeIndex ?? -1];
     const length = edge && edge.source === source && edge.target === target
       ? (edge.length ?? 1)
       : 1;
-    const result = updateEdgeArrowType(content, source, target, arrowType, length);
+    const result = updateEdgeArrowType(content, source, target, arrowType, length, selectedEdgeIndex ?? undefined);
     onChange(result);
   }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
 
-  // 40-01 (EDGE-02 tracer): Animate toggle delegate — derives the new
-  // metadata from the PARSED edge (components never re-parse code strings)
-  // and routes through the updateEdgeMetadata mutator, mirroring the
-  // handleEdgeArrowChange gating. An id-less edge declines in the mutator
-  // (D6: nothing without an anchor is rewritten).
+  // Animate toggle delegate — automatically mints an edge id when the selected edge has none.
   const handleEdgeAnimateChange = useCallback((animate: boolean) => {
     if (!onChange) return;
     if (bodyHasMetadata) return; // D6 fence
-    const edge = parsedEdges[selectedEdgeIndex ?? -1];
-    if (!edge?.edgeId) return;
+    const idx = selectedEdgeIndex ?? -1;
+    const edge = parsedEdges[idx];
+    if (!edge) return;
     const { unknownParams: _fenced, ...typed } = edge.metadata ?? {};
-    const result = updateEdgeMetadata(content, edge.edgeId, { ...typed, animate });
+    const result = upsertEdgeMetadataAtIndex(content, idx, { ...typed, animate }, edge.source, edge.target);
     onChange(result);
   }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
 
-  // 40-02 (EDGE-03): the remaining inspector-row delegates — the same gating
-  // and parse-derived shape as the Animate tracer above. Length edits ride
-  // the length-aware updateEdgeArrowType (family token + new length); the
-  // preset routes through applyEdgeAnimatePreset (auto id + idempotent).
+  // Inspector-row delegates — auto-assigns an edge id on id-less edges when setting metadata or id.
   const handleEdgeMetaChange = useCallback((meta: EdgeMetadata) => {
     if (!onChange) return;
     if (bodyHasMetadata) return; // D6 fence
-    const edge = parsedEdges[selectedEdgeIndex ?? -1];
-    if (!edge?.edgeId) return;
-    onChange(updateEdgeMetadata(content, edge.edgeId, meta));
+    const idx = selectedEdgeIndex ?? -1;
+    const edge = parsedEdges[idx];
+    if (!edge) return;
+    onChange(upsertEdgeMetadataAtIndex(content, idx, meta, edge.source, edge.target));
   }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
 
   const handleEdgeIdChange = useCallback((newId: string) => {
     if (!onChange) return;
     if (bodyHasMetadata) return; // D6 fence
-    const edge = parsedEdges[selectedEdgeIndex ?? -1];
-    if (!edge?.edgeId) return;
-    onChange(updateEdgeId(content, edge.edgeId, newId));
+    const idx = selectedEdgeIndex ?? -1;
+    const edge = parsedEdges[idx];
+    if (!edge) return;
+    onChange(assignOrUpdateEdgeId(content, idx, newId, edge.source, edge.target));
   }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
 
   const handleEdgeLengthChange = useCallback((token: string, length: number) => {
     if (!onChange) return;
     if (bodyHasMetadata) return; // D6 fence
-    const edge = parsedEdges[selectedEdgeIndex ?? -1];
+    const idx = selectedEdgeIndex ?? -1;
+    const edge = parsedEdges[idx];
     if (!edge) return;
-    // a family switch elsewhere keeps the authored length; a length edit
-    // writes through this delegate only
-    onChange(updateEdgeArrowType(content, edge.source, edge.target, token, length));
+    onChange(updateEdgeArrowType(content, edge.source, edge.target, token, length, idx));
   }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
 
   const handleAnimatePreset = useCallback(() => {
     if (!onChange) return;
     if (bodyHasMetadata) return; // D6 fence
-    const edge = parsedEdges[selectedEdgeIndex ?? -1];
+    const idx = selectedEdgeIndex ?? -1;
+    const edge = parsedEdges[idx];
     if (!edge) return;
-    onChange(applyEdgeAnimatePreset(content, edge.source, edge.target));
+    onChange(applyEdgeAnimatePreset(content, edge.source, edge.target, idx));
   }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
 
   // Node label change handler
@@ -1482,9 +1557,9 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const handleEdgeLabelChange = useCallback((source: string, target: string, label: string) => {
     if (!onChange) return;
     if (bodyHasMetadata) return; // D6 fence
-    const result = updateEdgeLabel(content, source, target, label);
+    const result = updateEdgeLabel(content, source, target, label, selectedEdgeIndex ?? undefined);
     onChange(result);
-  }, [onChange, content, bodyHasMetadata]);
+  }, [onChange, content, selectedEdgeIndex, bodyHasMetadata]);
 
   // Edge reset handler
   const handleEdgeReset = useCallback((edgeIndex: number) => {
@@ -1544,9 +1619,10 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   const handleDeleteSelectedEdge = useCallback(() => {
     if (!onChange) return;
     if (bodyHasMetadata) return; // D6 fence
-    const edge = parsedEdges[selectedEdgeIndex ?? -1];
+    const idx = selectedEdgeIndex ?? -1;
+    const edge = parsedEdges[idx];
     if (!edge) return;
-    const updated = removeEdge(content, edge.source, edge.target);
+    const updated = removeEdge(content, edge.source, edge.target, idx);
     setSelectedEdgeIndex(null);
     onChange(updated);
   }, [onChange, content, parsedEdges, selectedEdgeIndex, bodyHasMetadata]);
@@ -1702,7 +1778,10 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
   }, []);
 
   const zoomBy = useCallback((delta: number) => {
-    setZoom(z => Math.max(0.25, Math.min(10, z + delta)));
+    setZoom(z => {
+      const step = Math.abs(delta) >= 0.2 && z <= 0.25 && delta < 0 ? -0.05 : delta;
+      return Math.max(0.05, Math.min(10, z + step));
+    });
   }, []);
 
   useEffect(() => {
@@ -1779,8 +1858,8 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
     // Use min to ensure entire diagram fits in view
     const optimalZoom = Math.min(scaleX, scaleY);
 
-    // Cap zoom between 0.25x and 10x
-    const finalZoom = Math.max(0.25, Math.min(optimalZoom, 10));
+    // Cap zoom between 0.05x (5%) and 10x so wide network/architecture topologies fit completely
+    const finalZoom = Math.max(0.05, Math.min(optimalZoom, 10));
 
     setZoom(finalZoom);
     setPan({ x: 0, y: 0 });
@@ -1810,14 +1889,14 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           {loading && <RefreshCw size={11} style={{ color: 'var(--text-tertiary)' }} className="animate-spin" />}
         </div>
         <div className="flex items-center gap-1 min-w-0 max-md:flex-1 max-md:justify-between overflow-x-auto max-md:overflow-hidden">
-          <button onClick={() => setZoom(z => Math.max(0.25, z - 0.25))} title={t('preview.zoomOut')} aria-label={t('preview.zoomOut')}
+          <button onClick={() => setZoom(z => Math.max(0.05, z <= 0.25 ? Math.round((z - 0.05) * 100) / 100 : z - 0.25))} title={t('preview.zoomOut')} aria-label={t('preview.zoomOut')}
             className={`w-11 h-11 inline-flex items-center justify-center rounded-md shrink-0 transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] ${FOCUS_RING_CLASSES}`} style={{ color: 'var(--text-tertiary)' }}>
             <ZoomOut size={16} />
           </button>
           <span className="text-xs w-8 text-center shrink-0 max-md:hidden" style={{ color: 'var(--text-secondary)' }}>
             {Math.round(zoom * 100)}%
           </span>
-          <button onClick={() => setZoom(z => Math.min(10, z + 0.25))} title={t('preview.zoomIn')} aria-label={t('preview.zoomIn')}
+          <button onClick={() => setZoom(z => Math.min(10, z < 0.25 ? Math.min(0.25, Math.round((z + 0.05) * 100) / 100) : z + 0.25))} title={t('preview.zoomIn')} aria-label={t('preview.zoomIn')}
             className={`w-11 h-11 inline-flex items-center justify-center rounded-md shrink-0 transition-colors hover:bg-[var(--state-hover)] active:bg-[var(--state-pressed)] ${FOCUS_RING_CLASSES}`} style={{ color: 'var(--text-tertiary)' }}>
             <ZoomIn size={16} />
           </button>
@@ -1945,11 +2024,12 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
           <div
             ref={relativeContainerRef}
             data-pan-layer=""
-            className="relative min-h-full min-w-full p-8"
+            className="relative h-full w-full p-8"
             style={{
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
+              overflow: 'visible',
               transform: `translate3d(${pan.x}px, ${pan.y}px, 0)`,
               willChange: isPanning ? 'transform' : undefined,
             }}
@@ -2140,7 +2220,10 @@ function PreviewPanelInner({ content, theme, themeId, onChange, onExport, onRend
         <EdgeStylePanel
           edge={parsedEdges[selectedEdgeIndex]}
           edgeIndex={selectedEdgeIndex}
-          edgeStyle={parsedLinkStyles.get(selectedEdgeIndex) ?? {}}
+          edgeStyle={{
+            ...(parsedLinkStyles.get('default') ?? {}),
+            ...(parsedLinkStyles.get(selectedEdgeIndex) ?? {}),
+          }}
           edgeMeta={parsedEdges[selectedEdgeIndex].metadata ?? null}
           onAnimateChange={handleEdgeAnimateChange}
           onEdgeMetaChange={handleEdgeMetaChange}

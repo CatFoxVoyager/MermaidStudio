@@ -35,6 +35,19 @@ function extractFontFamilyFromContent(content: string): string | null {
   }
 }
 
+/** Extract custom diagram background color from frontmatter themeVariables if authored */
+function extractBackgroundFromContent(content: string): string | null {
+  try {
+    const { frontmatter } = parseFrontmatter(content);
+    const config = frontmatter.config as Record<string, any> | undefined;
+    const themeVars = config?.themeVariables as Record<string, string> | undefined;
+    const bg = themeVars?.background?.trim();
+    return bg || null;
+  } catch {
+    return null;
+  }
+}
+
 /** Build the RENDER-SCOPED stepNumbers clone (EDGE-04, Surface 5, Grey Area
  *  6): merge flowchart.stepNumbers: true into the frontmatter config so the
  *  static badge layer freezes into the exported PNG. Every other frontmatter
@@ -303,9 +316,12 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
         .replace(/<svg([^>]*?)width="[^"]*"/, `<svg$1width="${width}"`)
         .replace(/<svg([^>]*?)height="[^"]*"/, `<svg$1height="${height}"`);
 
-      // Get the current theme's background color
-      const bgColor = transparentBg ? 'transparent' : 
-        getComputedStyle(document.documentElement).getPropertyValue('--surface-base').trim() || '#ffffff';
+      // Prefer the diagram's authored themeVariables.background (e.g. #111111 on dark topology diagrams),
+      // falling back to the current UI surface background when not transparent.
+      const authoredBg = extractBackgroundFromContent(diagramContent);
+      const bgColor = transparentBg
+        ? 'transparent'
+        : authoredBg || getComputedStyle(document.documentElement).getPropertyValue('--surface-base').trim() || '#ffffff';
 
       // Use a data URL for the image to avoid cross-origin issues
       const img = new Image();
@@ -327,10 +343,22 @@ export function ExportModal({ isOpen = true, diagramTitle, diagramContent, onClo
 
       img.onload = () => {
         try {
-          // Create canvas with image's natural dimensions
+          // Guard against browser hardware canvas limits on massive diagrams (e.g. 8000+ px topologies)
+          const MAX_CANVAS_SIDE = 16384;
+          const MAX_CANVAS_AREA = 67_108_864; // 64 MP safe cross-browser ceiling
+          let targetW = img.naturalWidth || width;
+          let targetH = img.naturalHeight || height;
+          const sideScale = Math.min(1, MAX_CANVAS_SIDE / targetW, MAX_CANVAS_SIDE / targetH);
+          const areaScale = targetW * targetH > MAX_CANVAS_AREA
+            ? Math.sqrt(MAX_CANVAS_AREA / (targetW * targetH))
+            : 1;
+          const safeScale = Math.min(sideScale, areaScale);
+          targetW = Math.max(1, Math.round(targetW * safeScale));
+          targetH = Math.max(1, Math.round(targetH * safeScale));
+
           const canvas = document.createElement('canvas');
-          canvas.width = img.naturalWidth;
-          canvas.height = img.naturalHeight;
+          canvas.width = targetW;
+          canvas.height = targetH;
           const ctx = canvas.getContext('2d');
           if (!ctx) throw new Error('Could not get canvas context');
 
