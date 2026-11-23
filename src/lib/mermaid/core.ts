@@ -6,7 +6,8 @@ import {
   extractThemeIdFromContent,
 } from '@/constants/themeDerivation';
 import { getThemeById } from '@/constants/themes';
-import { sanitizeMermaidSVG } from '@/utils/sanitization';
+import { sanitizeCssValue, sanitizeMermaidSVG } from '@/utils/sanitization';
+import { ensureGoogleFontsForFamily } from '@/utils/fontInjection';
 import { detectDiagramType } from './diagramType';
 import { registerFaIconPacks } from './iconPacks';
 import { registerTidyTreeLayout } from './layoutLoaders';
@@ -39,15 +40,44 @@ let lastInitSignature: string | null = null;
 const YAML_EDGE_LABEL_BG_RE = /edgeLabelBackground:\s*['"]?([^'"\n]+)/;
 const INIT_EDGE_LABEL_BG_RE = /'edgeLabelBackground'\s*:\s*'([^']+)'/;
 const YAML_FRONTMATTER_BLOCK_RE = /^---[\t ]*\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
-const YAML_HAS_THEME_RE = /(?:^|\n)\s*(?:theme|themeVariables)\s*:/;
+const YAML_EXPLICIT_THEME_RE = /(?:^|\n)\s*theme\s*:/;
+const YAML_THEME_VARS_SECTION_RE = /(?:^|\n)(\s*)themeVariables\s*:\s*(?:\r?\n|$)/;
 const YAML_STEP_NUMBERS_TRUE_RE = /(?:^|\n)\s*stepNumbers\s*:\s*true\b/;
+const YAML_FONT_FAMILY_RE = /(?:^|\n)\s*fontFamily\s*:\s*(?:'([^'\n]+)'|"([^"\n]+)"|([^\r\n#]+))/;
 const INIT_HAS_THEME_RE = /['"]?(?:theme|themeVariables)['"]?\s*:/;
+const INIT_FONT_FAMILY_RE = /['"]?fontFamily['"]?\s*:\s*(?:'([^']+)'|"([^"]+)")/;
+const NON_COLOR_TV_KEYS = new Set([
+  'fontFamily',
+  'fontSize',
+  'useGradient',
+  'gradientStart',
+  'gradientStop',
+]);
 const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function yamlHasColorThemeVariables(fmBody: string): boolean {
+  const m = fmBody.match(YAML_THEME_VARS_SECTION_RE);
+  if (!m || m.index === undefined) return false;
+  const baseIndent = m[1].length;
+  const after = fmBody.slice(m.index + m[0].length).split(/\r?\n/);
+  for (const line of after) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith('#')) continue;
+    const indent = line.match(/^\s*/)?.[0].length ?? 0;
+    if (indent <= baseIndent) break;
+    const keyMatch = trimmedLine.match(/^['"]?([A-Za-z0-9_.-]+)['"]?\s*:/);
+    if (keyMatch && !NON_COLOR_TV_KEYS.has(keyMatch[1])) {
+      return true;
+    }
+  }
+  return false;
+}
 
 function contentDefinesCustomTheme(trimmed: string): boolean {
   if (trimmed.startsWith('---')) {
     const fm = trimmed.match(YAML_FRONTMATTER_BLOCK_RE);
-    return fm ? YAML_HAS_THEME_RE.test(fm[1]) : false;
+    if (!fm) return false;
+    return YAML_EXPLICIT_THEME_RE.test(fm[1]) || yamlHasColorThemeVariables(fm[1]);
   }
   if (trimmed.startsWith('%%{init:')) {
     const endIdx = trimmed.indexOf('}%%');
@@ -55,6 +85,41 @@ function contentDefinesCustomTheme(trimmed: string): boolean {
     return INIT_HAS_THEME_RE.test(block);
   }
   return false;
+}
+
+function extractCustomFontFamily(trimmed: string): string | null {
+  if (trimmed.startsWith('---')) {
+    const fm = trimmed.match(YAML_FRONTMATTER_BLOCK_RE);
+    if (!fm) return null;
+    const m = fm[1].match(YAML_FONT_FAMILY_RE);
+    const raw = (m?.[1] ?? m?.[2] ?? m?.[3] ?? '').trim();
+    return raw.length > 0 ? raw : null;
+  }
+  if (trimmed.startsWith('%%{init:')) {
+    const endIdx = trimmed.indexOf('}%%');
+    const block = endIdx !== -1 ? trimmed.slice(0, endIdx) : trimmed;
+    const m = block.match(INIT_FONT_FAMILY_RE);
+    const raw = (m?.[1] ?? m?.[2] ?? '').trim();
+    return raw.length > 0 ? raw : null;
+  }
+  return null;
+}
+
+function injectCustomFontIntoSvg(svgStr: string, fontFamily: string): string {
+  const safeFont = sanitizeCssValue(fontFamily).trim();
+  if (!safeFont || typeof document === 'undefined') return svgStr;
+  const isRecursive = /\brecursive\b/i.test(safeFont);
+  const variationRule = isRecursive ? ' font-variation-settings: "CASL" 1, "CRSV" 1;' : '';
+  const tpl = document.createElement('template');
+  tpl.innerHTML = svgStr;
+  const svgEl = tpl.content.querySelector('svg');
+  if (!svgEl) return svgStr;
+  const styleEl = document.createElementNS(SVG_NS, 'style');
+  styleEl.setAttribute('data-custom-font', '');
+  const idSel = svgEl.id ? `#${sanitizeCssValue(svgEl.id)}` : 'svg';
+  styleEl.textContent = `${idSel}, ${idSel} *, ${idSel} foreignObject div, ${idSel} foreignObject span, ${idSel} foreignObject p, ${idSel} text, ${idSel} tspan { font-family: ${safeFont} !important;${variationRule} }`;
+  svgEl.insertBefore(styleEl, svgEl.firstChild);
+  return svgEl.outerHTML;
 }
 
 function contentRequestsStepNumbers(trimmed: string): boolean {
@@ -388,6 +453,10 @@ export async function renderDiagram(
   }
 
   const diagramType = detectDiagramType(content);
+  const customFontFamily = extractCustomFontFamily(trimmed);
+  if (customFontFamily && typeof document !== 'undefined') {
+    ensureGoogleFontsForFamily(customFontFamily);
+  }
   const requiredMaxTextSize = Math.max(LIMITS.MAX_DIAGRAM_SIZE, trimmed.length + 1024);
   doInit(currentTheme, hasCustomTheme, currentMermaidTheme, diagramType, requiredMaxTextSize);
 
@@ -400,7 +469,17 @@ export async function renderDiagram(
     // the code pane keep their original bytes.
     let { svg } = await mermaid.render(safeId, trimmed);
 
+    // Mermaid 12.3 insertLookDefs appends `<svg:stop>` inside `<linearGradient>`
+    // for Neo look gradients, which HTML5 / DOMPurify strips unless normalized to `<stop>`.
+    if (svg.includes('svg:stop')) {
+      svg = svg.replace(/<(\/?)svg:stop\b/g, '<$1stop');
+    }
+
     svg = sanitizeMermaidSVG(svg);
+
+    if (customFontFamily) {
+      svg = injectCustomFontIntoSvg(svg, customFontFamily);
+    }
 
     if (hasCustomTheme) {
       const textColor = extractEdgeLabelTextColor(content);

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   parseDiagram,
   getNodeStyle,
@@ -13,6 +13,8 @@ import {
 } from '@/lib/mermaid/codeUtils';
 import { applyStyleToContent, extractStyleOptionsFromContent } from '@/constants/themeDerivation';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
+import { collectNodeElements } from '@/utils/svgEdgeMatching';
+import { extractSvgNodes } from '@/components/visual/VisualEditorCanvas';
 
 describe('Wendake complex diagram regressions (B1..B14)', () => {
   it('B12 & B13: parses trailing semicolons on class statements and preserves shared classDef when resetting a single node', () => {
@@ -173,5 +175,51 @@ describe('Wendake complex diagram regressions (B1..B14)', () => {
     expect(out).toContain('stroke-dasharray: 5 5 !important');
     expect(out).toContain('background-color: rgb(34, 51, 68)');
     expect(out).toContain('font-size: 18px');
+  });
+
+  it('preserves default redux-color theme when setting Recursive fontFamily or useGradient, and populates Neo gradient stops on custom base theme', () => {
+    const clean = 'flowchart TD\n  A[Start] --> B[End]';
+
+    const withFont = applyStyleToContent(clean, { look: 'handDrawn', fontFamily: 'Recursive, sans-serif' });
+    expect(withFont).toContain("look: 'handDrawn'");
+    expect(withFont).toContain("fontFamily: 'Recursive, sans-serif'");
+    expect(withFont).not.toContain('theme:');
+
+    const withNeoGrad = applyStyleToContent(clean, { look: 'neo', useGradient: true });
+    expect(withNeoGrad).toContain("look: 'neo'");
+    expect(withNeoGrad).toContain('useGradient: true');
+    expect(withNeoGrad).not.toContain('theme:');
+
+    const customColorsWithGrad = applyStyleToContent(clean, { primaryColor: '#191919', useGradient: true });
+    expect(customColorsWithGrad).toContain("theme: 'base'");
+    expect(customColorsWithGrad).toContain("gradientStart: '#0042eb'");
+    expect(customColorsWithGrad).toContain("gradientStop: '#eb0042'");
+  });
+
+  it('enumerates g.rough-node elements in Hand-Drawn look for edge matching and visual selection', () => {
+    const container = document.createElement('div');
+    container.innerHTML = [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200">',
+      '  <g class="nodes">',
+      '    <g class="rough-node default" id="flowchart-A-0"><path d="M0 0 L80 0 L80 40 L0 40 Z"/></g>',
+      '    <g class="rough-node default" id="flowchart-B-1"><path d="M120 0 L200 0 L200 40 L120 40 Z"/></g>',
+      '  </g>',
+      '</svg>',
+    ].join('');
+    const svg = container.querySelector('svg')!;
+    const collected = collectNodeElements(svg);
+    expect(collected.length).toBe(2);
+
+    // Mock non-zero bounding rects so extractSvgNodes produces overlays in JSDOM
+    vi.spyOn(container, 'getBoundingClientRect').mockReturnValue({
+      x: 0, y: 0, left: 0, top: 0, right: 300, bottom: 200, width: 300, height: 200, toJSON: () => ({}),
+    });
+    Array.from(svg.querySelectorAll('g.rough-node')).forEach((el, idx) => {
+      vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
+        x: idx * 120, y: 0, left: idx * 120, top: 0, right: idx * 120 + 80, bottom: 40, width: 80, height: 40, toJSON: () => ({}),
+      });
+    });
+    const overlays = extractSvgNodes(container, 1);
+    expect(overlays.map(o => o.id)).toEqual(['A', 'B']);
   });
 });

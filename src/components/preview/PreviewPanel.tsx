@@ -126,7 +126,7 @@ function extractSvgNodes(
   // <g class="icon-shape default"> with NO `node` class, so g.node missed
   // them. Identical widening to VisualEditorCanvas.extractSvgNodes (parity
   // means identical); the flowchart id regex below is unchanged.
-  const nodeElements = svg.querySelectorAll('g.node, g.nodeLabel, g.icon-shape, g.image-shape');
+  const nodeElements = svg.querySelectorAll('g.node, g.rough-node, g.nodeLabel, g.icon-shape, g.image-shape');
   const overlays: NodeOverlay[] = [];
   const seen = new Set<string>();
 
@@ -834,14 +834,17 @@ function PreviewPanelInner({ content, diagramKey, theme, themeId, onChange, onEx
     // Note: font-size is only applied to .mermaid (not *) so that per-node
     // font-size set via classDef/style directives is not overridden.
     if (fontFamily || fontSize) {
+      const isRecursiveFont = /\brecursive\b/i.test(fontFamily);
       shadowCSS += '\n/* Font styles */\n';
       shadowCSS += '.mermaid {\n';
-      if (fontFamily) shadowCSS += `  font-family: ${fontFamily};\n`;
+      if (fontFamily) shadowCSS += `  font-family: ${fontFamily} !important;\n`;
+      if (isRecursiveFont) shadowCSS += '  font-variation-settings: "CASL" 1, "CRSV" 1;\n';
       if (fontSize) shadowCSS += `  font-size: ${fontSize};\n`;
       shadowCSS += '}\n';
       if (fontFamily) {
         shadowCSS += '.mermaid * {\n';
-        shadowCSS += `  font-family: ${fontFamily};\n`;
+        shadowCSS += `  font-family: ${fontFamily} !important;\n`;
+        if (isRecursiveFont) shadowCSS += '  font-variation-settings: "CASL" 1, "CRSV" 1;\n';
         shadowCSS += '}\n';
       }
     }

@@ -142,10 +142,11 @@ export function findEdgeLabelsContainer(svg: Element): Element | null {
  */
 export function collectNodeElements(svg: Element): ArrayLike<Element> {
   const nodes = svg.getElementsByClassName('node');
+  const roughNodes = svg.getElementsByClassName('rough-node');
   const iconShapes = svg.getElementsByClassName('icon-shape');
   const imageShapes = svg.getElementsByClassName('image-shape');
 
-  if (iconShapes.length === 0 && imageShapes.length === 0) {
+  if (roughNodes.length === 0 && iconShapes.length === 0 && imageShapes.length === 0) {
     return nodes;
   }
 
@@ -155,6 +156,13 @@ export function collectNodeElements(svg: Element): ArrayLike<Element> {
     const el = nodes[i];
     seen.add(el);
     result.push(el);
+  }
+  for (let i = 0; i < roughNodes.length; i++) {
+    const el = roughNodes[i];
+    if (!seen.has(el)) {
+      seen.add(el);
+      result.push(el);
+    }
   }
   for (let i = 0; i < iconShapes.length; i++) {
     const el = iconShapes[i];

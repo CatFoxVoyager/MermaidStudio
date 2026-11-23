@@ -58,7 +58,7 @@ export function extractSvgNodes(container: HTMLDivElement, zoom: number): NodeOv
   // (class substrings over-match — the 39-01 oracle lesson). The id regex
   // below is unchanged: special-shape groups carry the same
   // flowchart-<id>-<n> ids, so selection parity is selector-widening only.
-  const nodeElements = svg.querySelectorAll('g.node, g.nodeLabel, g.icon-shape, g.image-shape');
+  const nodeElements = svg.querySelectorAll('g.node, g.rough-node, g.nodeLabel, g.icon-shape, g.image-shape');
   const overlays: NodeOverlay[] = [];
   const seen = new Set<string>();
 

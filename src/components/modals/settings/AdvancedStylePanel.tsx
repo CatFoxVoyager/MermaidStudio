@@ -471,7 +471,13 @@ export function AdvancedStylePanel({ isOpen, onClose, currentContent, onContentC
                   disabled={isWardleyBlocked}
                   aria-pressed={active}
                   title={isWardleyBlocked ? t('advancedStyle.wardleyHandDrawnUnsupported') : undefined}
-                  onClick={() => update({ look: opt.value })}
+                  onClick={() =>
+                    update(
+                      opt.value === 'neo'
+                        ? { look: 'neo', useGradient: styleOptions.useGradient ?? true }
+                        : { look: opt.value }
+                    )
+                  }
                   className={`py-1.5 rounded-sm border transition-all text-center ${FOCUS_RING_CLASSES} ${isWardleyBlocked ? 'opacity-40 cursor-not-allowed' : ''}`}
                   style={{
                     background: active

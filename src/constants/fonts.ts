@@ -95,7 +95,7 @@ export const SUPPORTED_GOOGLE_FONTS: GoogleFont[] = [
   {
     name: 'Recursive',
     family: 'Recursive, sans-serif',
-    url: 'https://fonts.googleapis.com/css2?family=Recursive:wght@300..800&display=swap',
+    url: 'https://fonts.googleapis.com/css2?family=Recursive:slnt,wght,CASL,CRSV,MONO@-15..0,300..800,0..1,0..1,0..1&display=swap',
   },
 ];
 

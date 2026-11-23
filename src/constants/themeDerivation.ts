@@ -2670,8 +2670,27 @@ export function applyStyleToContent(
   }
 
   // Preserve an explicit native Mermaid theme (e.g. redux-color, neo) if already configured;
-  // default to 'base' only when custom themeVariables are introduced with no existing theme.
-  if (hasThemeVars && !newConfig.theme) newConfig.theme = 'base';
+  // default to 'base' only when custom COLOR themeVariables are introduced with no existing theme
+  // (pure typography / Neo gradient toggles must keep redux-color intact).
+  const NON_COLOR_THEME_VAR_KEYS = new Set([
+    'fontFamily',
+    'fontSize',
+    'useGradient',
+    'gradientStart',
+    'gradientStop',
+  ]);
+  const hasColorThemeVars = Boolean(
+    themeVars && Object.keys(themeVars).some(k => !NON_COLOR_THEME_VAR_KEYS.has(k))
+  );
+  if (hasColorThemeVars && !newConfig.theme) newConfig.theme = 'base';
+  // Mermaid 12.3 theme-base leaves gradientStart/gradientStop undefined even when useGradient is true
+  if (
+    newConfig.theme === 'base' &&
+    themeVars?.useGradient === true
+  ) {
+    if (!themeVars.gradientStart) themeVars.gradientStart = '#0042eb';
+    if (!themeVars.gradientStop) themeVars.gradientStop = '#eb0042';
+  }
 
   const yamlConfig = serializeFrontmatter(newSiblings, newConfig);
   return yamlConfig + '\n\n' + stripped;
@@ -2711,6 +2730,9 @@ export function extractStyleOptionsFromContent(
       }
 
       // Extract global theme variables
+      if (typeof config.fontFamily === 'string' && config.fontFamily.trim().length > 0) {
+        options.fontFamily = config.fontFamily;
+      }
       if (config.themeVariables && typeof config.themeVariables === 'object') {
         const tv = config.themeVariables as Record<string, any>;
         if (tv.fontFamily) options.fontFamily = String(tv.fontFamily);
