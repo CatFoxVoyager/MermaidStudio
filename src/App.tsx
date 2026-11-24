@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ModalProvider } from '@/components/layout/ModalProvider';
+import { NewDiagramModal } from '@/components/modals/diagram/NewDiagramModal';
 import { ServiceWorkerUpdateToast } from '@/components/shared/ServiceWorkerUpdateToast';
 import { MobileShellProvider } from '@/hooks/useMobileShell';
 import { useKeyboardShortcuts, useDiagramActions, useAppShortcuts, useToast } from '@/hooks';
@@ -107,7 +108,15 @@ export default function App() {
   }, [closeModal]);
 
   // Diagram actions
-  const { newDiagram, handleTemplateSelect, handleNewFolder } = useDiagramActions({
+  const {
+    newDiagram,
+    newDiagramInFolder,
+    handleTemplateSelect,
+    handleNewFolder,
+    newDiagramDraft,
+    confirmNewDiagram,
+    cancelNewDiagram,
+  } = useDiagramActions({
     openDiagram: appState.openDiagram,
     refresh: appState.refresh,
     showToast: showToast,
@@ -207,6 +216,7 @@ export default function App() {
           onFullscreen={modalOpen('showFullscreen')}
           onSaveTemplate={modalOpen('showSaveTemplate')}
           onNewDiagram={newDiagram}
+          onNewDiagramInFolder={newDiagramInFolder}
           onShowTemplates={modalOpen('showTemplates')}
           onShowPalette={modalOpen('showPalette')}
           onShowDiagramColors={openDiagramColors}
@@ -274,6 +284,14 @@ export default function App() {
           toasts={toasts}
           dismiss={dismiss}
         />
+        {newDiagramDraft && (
+          <NewDiagramModal
+            key={newDiagramDraft.id}
+            draft={newDiagramDraft}
+            onConfirm={confirmNewDiagram}
+            onCancel={cancelNewDiagram}
+          />
+        )}
       </MobileShellProvider>
       <ServiceWorkerUpdateToast />
     </>

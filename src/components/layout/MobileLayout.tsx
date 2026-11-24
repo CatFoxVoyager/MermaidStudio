@@ -17,6 +17,8 @@ interface MobileLayoutProps {
   theme: 'light' | 'dark';
   // TopBar actions
   onNewDiagram?: () => void;
+  /** Opens the naming-dialog draft for a Files-view creation (folder or root). */
+  onNewDiagramInFolder: (folderId: string | null) => void;
   onSave: () => void;
   onShowExport?: () => void;
   onOpenCommandPalette: () => void;
@@ -63,6 +65,7 @@ interface MobileLayoutProps {
 export function MobileLayout({
   theme,
   onNewDiagram,
+  onNewDiagramInFolder,
   onSave,
   onShowExport,
   onOpenCommandPalette,
@@ -142,6 +145,7 @@ export function MobileLayout({
           onOpenDiagram={onOpenDiagram}
           activeDiagramId={activeDiagramId}
           onRefreshFiles={onRefresh}
+          onNewDiagramInFolder={onNewDiagramInFolder}
           onDiagramDeleted={onDiagramDeleted}
           onDiagramRenamed={onDiagramRenamed}
           filesRefreshKey={refreshKey}

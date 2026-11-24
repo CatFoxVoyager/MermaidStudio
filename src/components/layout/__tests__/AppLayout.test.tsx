@@ -102,6 +102,7 @@ describe('AppLayout Component', () => {
     onFullscreen: vi.fn(),
     onSaveTemplate: vi.fn(),
     onNewDiagram: vi.fn(),
+    onNewDiagramInFolder: vi.fn(),
     onShowTemplates: vi.fn(),
     onShowPalette: vi.fn(),
     onShowDiagramColors: vi.fn(),

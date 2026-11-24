@@ -39,6 +39,8 @@ interface MobileWorkspaceProps {
   onOpenDiagram?: (id: string) => void;
   activeDiagramId?: string | null;
   onRefreshFiles?: () => void;
+  /** Opens the naming-dialog draft for a Files-view creation (folder or root). */
+  onNewDiagramInFolder: (folderId: string | null) => void;
   onDiagramDeleted?: (ids: string[]) => void;
   /** Sidebar rename → keep the active tab title (TopBar label) in sync. */
   onDiagramRenamed?: (diagramId: string, title: string) => void;
@@ -71,6 +73,7 @@ export function MobileWorkspace({
   onOpenDiagram,
   activeDiagramId,
   onRefreshFiles,
+  onNewDiagramInFolder,
   onDiagramDeleted,
   onDiagramRenamed,
   filesRefreshKey,
@@ -285,6 +288,7 @@ export function MobileWorkspace({
           activeDiagramId={activeDiagramId}
           onOpenDiagram={(id) => { onOpenDiagram?.(id); setActivePane('code'); setActiveView('editor'); }}
           onRefresh={onRefreshFiles ?? (() => {})}
+          onNewDiagramInFolder={onNewDiagramInFolder}
           onDiagramDeleted={onDiagramDeleted}
           onDiagramRenamed={onDiagramRenamed}
           key={filesRefreshKey}

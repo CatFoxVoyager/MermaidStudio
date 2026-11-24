@@ -37,6 +37,7 @@ const tags = [
 describe('Sidebar mobile screen', () => {
   const onOpenDiagram = vi.fn();
   const onRefresh = vi.fn();
+  const onNewDiagramInFolder = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -52,7 +53,14 @@ describe('Sidebar mobile screen', () => {
   });
 
   it('filters the flat diagram list by folder, tag, and search', async () => {
-    render(<Sidebar mobileScreen onOpenDiagram={onOpenDiagram} onRefresh={onRefresh} />);
+    render(
+      <Sidebar
+        mobileScreen
+        onOpenDiagram={onOpenDiagram}
+        onRefresh={onRefresh}
+        onNewDiagramInFolder={onNewDiagramInFolder}
+      />
+    );
 
     expect(await screen.findByText('Checkout Flow')).toBeInTheDocument();
     expect(screen.getByText('Release Workflow')).toBeInTheDocument();
@@ -70,8 +78,15 @@ describe('Sidebar mobile screen', () => {
     await waitFor(() => expect(screen.queryByText('Release Workflow')).not.toBeInTheDocument());
   });
 
-  it('adds a tag and creates a diagram from the floating action button', async () => {
-    render(<Sidebar mobileScreen onOpenDiagram={onOpenDiagram} onRefresh={onRefresh} />);
+  it('adds a tag and routes diagram creation through the naming draft', async () => {
+    render(
+      <Sidebar
+        mobileScreen
+        onOpenDiagram={onOpenDiagram}
+        onRefresh={onRefresh}
+        onNewDiagramInFolder={onNewDiagramInFolder}
+      />
+    );
 
     await screen.findByText('Checkout Flow');
     fireEvent.click(screen.getByRole('button', { name: 'sidebar.addTag' }));
@@ -80,7 +95,7 @@ describe('Sidebar mobile screen', () => {
     await waitFor(() => expect(db.createTag).toHaveBeenCalledWith('draft', '#3b82f6'));
 
     fireEvent.click(screen.getByRole('button', { name: 'sidebar.newDiagram' }));
-    await waitFor(() => expect(onOpenDiagram).toHaveBeenCalledWith('diagram-new'));
-    expect(db.createDiagram).toHaveBeenCalledWith('sidebar.untitled', expect.any(String), null);
+    expect(onNewDiagramInFolder).toHaveBeenCalledWith(null);
+    expect(db.createDiagram).not.toHaveBeenCalled();
   });
 });

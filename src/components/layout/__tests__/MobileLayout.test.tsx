@@ -85,6 +85,7 @@ const renderMobileLayout = (props: any, withProbe = false) => {
 const baseProps = {
   theme: 'light' as const,
   onNewDiagram: vi.fn(),
+  onNewDiagramInFolder: vi.fn(),
   onSave: vi.fn(),
   onShowExport: vi.fn(),
   onOpenCommandPalette: vi.fn(),

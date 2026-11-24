@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { FolderPlus, FilePlus, Search, ChevronRight, Folder, FolderOpen, FileText, MoreHorizontal, Trash2, CreditCard as Edit3, X, Tag as TagIcon, Plus, CheckSquare, Square, FolderOpen as FolderOpenIcon, Check } from 'lucide-react';
 import type { Diagram, Folder as FolderType, Tag } from '@/types';
 import {
-  getFolders, getDiagrams, createFolder, createDiagram,
+  getFolders, getDiagrams, createFolder,
   deleteFolder, deleteDiagram, deleteDiagrams, updateFolder, updateDiagram,
   getTags, getDiagramTags, getAllDiagramTags, toggleDiagramTag, createTag, moveDiagramsToFolder
 } from '@/services/storage/database';
@@ -22,6 +22,8 @@ interface Props {
   onDiagramDeleted?: (diagramIds: string[]) => void;
   /** Propagate a committed rename to the open tab(s) holding this diagram. */
   onDiagramRenamed?: (diagramId: string, title: string) => void;
+  /** Opens the naming-dialog draft instead of creating a diagram directly. */
+  onNewDiagramInFolder: (folderId: string | null) => void;
   /** Render as the full-screen mobile Files destination. */
   mobileScreen?: boolean;
 }
@@ -31,7 +33,7 @@ interface CtxState { x: number; y: number; items: ContextMenuItem[] }
 const TAG_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#8b5cf6', '#f97316'];
 const ROOT_FOLDER_FILTER_ID = '__root__';
 
-export function Sidebar({ onOpenDiagram, activeDiagramId, onRefresh, onDiagramDeleted, onDiagramRenamed, mobileScreen = false }: Props) {
+export function Sidebar({ onOpenDiagram, activeDiagramId, onRefresh, onDiagramDeleted, onDiagramRenamed, onNewDiagramInFolder, mobileScreen = false }: Props) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState('');
@@ -93,15 +95,8 @@ export function Sidebar({ onOpenDiagram, activeDiagramId, onRefresh, onDiagramDe
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  async function newDiagram(folderId: string | null = null) {
-    const defaultContent = `---
-config:
-  theme: base
----
-flowchart TD
-    A --> B`;
-    const d = await createDiagram(t('sidebar.untitled'), defaultContent, folderId);
-    refresh(); onOpenDiagram(d.id);
+  function newDiagram(folderId: string | null = null) {
+    onNewDiagramInFolder(folderId);
   }
 
   function toggleExpand(id: string) {

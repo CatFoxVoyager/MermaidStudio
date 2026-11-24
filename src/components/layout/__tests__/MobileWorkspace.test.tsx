@@ -64,6 +64,7 @@ describe('MobileWorkspace', () => {
     theme: 'light' as const,
     themeId: 'default',
     onPreviewError: vi.fn(),
+    onNewDiagramInFolder: vi.fn(),
   };
 
   describe('render and initial state', () => {

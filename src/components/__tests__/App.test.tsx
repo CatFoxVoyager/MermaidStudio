@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import App from '../../App';
 
 // Mock i18next
@@ -291,9 +291,18 @@ describe('App Component', () => {
       // Trigger new diagram via keyboard shortcut
       fireEvent.keyDown(window, { key: 'n', ctrlKey: true });
 
+      const nameField = await screen.findByTestId('new-diagram-name');
+      expect(createDiagram).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByTestId('new-diagram-default-name'));
+      fireEvent.click(screen.getByTestId('new-diagram-create'));
+
       await waitFor(() => {
-        expect(createDiagram).toHaveBeenCalledWith('Untitled Diagram');
+        // confirmNewDiagram calls createDiagram(name, content, folderId);
+        // the Ctrl+N draft carries no content and targets the root.
+        expect(createDiagram).toHaveBeenCalledWith('newDiagramDialog.defaultName', undefined, null);
       });
+      expect(screen.queryByTestId('new-diagram-name')).toBeNull();
     });
   });
 
@@ -438,20 +447,24 @@ describe('App Component', () => {
   describe('Tab Management', () => {
     it('should create new tab when Ctrl+N pressed', async () => {
       const { createDiagram } = await import('@/services/storage/database');
-      const mockCreateDiagram = vi.mocked(createDiagram);
-      const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
 
       render(<App />);
 
       // Fire keyboard event
       fireEvent.keyDown(window, { key: 'n', ctrlKey: true });
 
-      // Wait for async operations
-      await waitFor(() => {
-        expect(mockCreateDiagram).toHaveBeenCalledWith('Untitled Diagram');
-      });
+      const nameField = await screen.findByTestId('new-diagram-name');
+      expect(createDiagram).not.toHaveBeenCalled();
 
-      addEventListenerSpy.mockRestore();
+      fireEvent.click(screen.getByTestId('new-diagram-default-name'));
+      fireEvent.click(screen.getByTestId('new-diagram-create'));
+
+      await waitFor(() => {
+        // confirmNewDiagram calls createDiagram(name, content, folderId);
+        // the Ctrl+N draft carries no content and targets the root.
+        expect(createDiagram).toHaveBeenCalledWith('newDiagramDialog.defaultName', undefined, null);
+      });
+      expect(screen.queryByTestId('new-diagram-name')).toBeNull();
     });
 
     it('should register keyboard listener for tab shortcuts', () => {

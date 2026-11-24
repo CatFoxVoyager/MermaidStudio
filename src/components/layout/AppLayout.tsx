@@ -44,6 +44,8 @@ interface AppLayoutProps {
   onFullscreen: () => void;
   onSaveTemplate: () => void;
   onNewDiagram: () => void;
+  /** Opens the naming-dialog draft for a sidebar creation (folder or root). */
+  onNewDiagramInFolder: (folderId: string | null) => void;
   onShowTemplates: () => void;
   onShowPalette: () => void;
   onShowDiagramColors: () => void;
@@ -106,6 +108,7 @@ export function AppLayout({
   onFullscreen,
   onSaveTemplate,
   onNewDiagram,
+  onNewDiagramInFolder,
   onShowTemplates,
   onShowPalette,
   onShowDiagramColors,
@@ -142,6 +145,7 @@ export function AppLayout({
       <MobileLayout
         theme={theme}
         onNewDiagram={onNewDiagram}
+        onNewDiagramInFolder={onNewDiagramInFolder}
         onSave={() => activeTab && onSave(activeTab.id)}
         isDirty={activeTab?.is_dirty ?? false}
         lastSavedAt={activeTab?.last_saved_at}
@@ -213,6 +217,7 @@ export function AppLayout({
               onRefresh={onRefreshSidebar}
               onDiagramDeleted={onDiagramDeleted}
               onDiagramRenamed={onDiagramRenamed}
+              onNewDiagramInFolder={onNewDiagramInFolder}
               key={refreshKey}
             />
           )}
