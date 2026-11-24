@@ -19,6 +19,7 @@ import { ShapeToolbar } from '../visual/ShapeToolbar';
 import type { SpecialMediaShape } from '../shared/ShapePicker';
 import { getStylingCapabilities } from '@/types';
 import { DIAGRAM_LABELS } from '@/constants/diagramLabels';
+import { screenToLocal } from '@/utils/uiScale';
 
 interface NodeOverlay {
   id: string;
@@ -147,10 +148,10 @@ function extractSvgNodes(
       const rect = el.getBoundingClientRect();
       overlays.push({
         id: nodeId,
-        x: rect.left + offsetX,
-        y: rect.top + offsetY,
-        width: rect.width,
-        height: rect.height,
+        x: screenToLocal(rect.left) + offsetX,
+        y: screenToLocal(rect.top) + offsetY,
+        width: screenToLocal(rect.width),
+        height: screenToLocal(rect.height),
       });
     } catch {
       // skip
@@ -237,10 +238,10 @@ function extractSubgraphOverlays(
     try {
       const rect = el.getBoundingClientRect();
 
-      const clusterX = rect.left + offsetX;
-      const clusterY = rect.top + offsetY;
-      const clusterWidth = rect.width;
-      const clusterHeight = rect.height;
+      const clusterX = screenToLocal(rect.left) + offsetX;
+      const clusterY = screenToLocal(rect.top) + offsetY;
+      const clusterWidth = screenToLocal(rect.width);
+      const clusterHeight = screenToLocal(rect.height);
 
       // Click target for the label area (Strategy: use the top part of the cluster)
       const x = clusterX;
@@ -283,10 +284,10 @@ function addEdgeClickTargets(
   const overlaySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   overlaySvg.setAttribute('data-edge-overlay', 'true');
   overlaySvg.style.position = 'absolute';
-  overlaySvg.style.left = `${svgRect.left - containerRect.left}px`;
-  overlaySvg.style.top = `${svgRect.top - containerRect.top}px`;
-  overlaySvg.style.width = `${svgRect.width}px`;
-  overlaySvg.style.height = `${svgRect.height}px`;
+  overlaySvg.style.left = `${screenToLocal(svgRect.left - containerRect.left)}px`;
+  overlaySvg.style.top = `${screenToLocal(svgRect.top - containerRect.top)}px`;
+  overlaySvg.style.width = `${screenToLocal(svgRect.width)}px`;
+  overlaySvg.style.height = `${screenToLocal(svgRect.height)}px`;
   overlaySvg.style.zIndex = '10';
   overlaySvg.style.pointerEvents = 'none';
   overlaySvg.style.overflow = 'visible';
@@ -738,8 +739,8 @@ function PreviewPanelInner({ content, diagramKey, theme, themeId, onChange, onEx
     if (!svgEl) return;
 
     const relRect = relContainer.getBoundingClientRect();
-    const offsetX = -relRect.left;
-    const offsetY = -relRect.top;
+    const offsetX = -screenToLocal(relRect.left);
+    const offsetY = -screenToLocal(relRect.top);
     const hasCollapsedGroups = svgEl.querySelector('.collapsed-group') !== null;
 
     setNodeOverlays(extractSvgNodes(svgEl, offsetX, offsetY, hasCollapsedGroups));
@@ -942,8 +943,8 @@ function PreviewPanelInner({ content, diagramKey, theme, themeId, onChange, onEx
         const vpRect = viewport.getBoundingClientRect();
         if (vpRect.width > 0 && vpRect.height > 0) {
           const padding = 32;
-          const availW = Math.max(64, vpRect.width - padding * 2);
-          const availH = Math.max(64, vpRect.height - padding * 2);
+          const availW = Math.max(64, screenToLocal(vpRect.width) - padding * 2);
+          const availH = Math.max(64, screenToLocal(vpRect.height) - padding * 2);
           const prevSize = prevAutoFitSizeRef.current;
           const prevFitted = prevSize.width <= availW && prevSize.height <= availH;
           const nextOverflows = nextSize.width > availW * 1.15 || nextSize.height > availH * 1.15;
@@ -1037,10 +1038,10 @@ function PreviewPanelInner({ content, diagramKey, theme, themeId, onChange, onEx
         if (svgEl && edgeOverlay) {
           const svgRect = svgEl.getBoundingClientRect();
           const containerRect = relativeContainer.getBoundingClientRect();
-          edgeOverlay.style.left = `${svgRect.left - containerRect.left}px`;
-          edgeOverlay.style.top = `${svgRect.top - containerRect.top}px`;
-          edgeOverlay.style.width = `${svgRect.width}px`;
-          edgeOverlay.style.height = `${svgRect.height}px`;
+          edgeOverlay.style.left = `${screenToLocal(svgRect.left - containerRect.left)}px`;
+          edgeOverlay.style.top = `${screenToLocal(svgRect.top - containerRect.top)}px`;
+          edgeOverlay.style.width = `${screenToLocal(svgRect.width)}px`;
+          edgeOverlay.style.height = `${screenToLocal(svgRect.height)}px`;
         }
       }
       lastMeasuredRef.current = {
@@ -1122,8 +1123,8 @@ function PreviewPanelInner({ content, diagramKey, theme, themeId, onChange, onEx
         const { width: natW, height: natH } = svgNaturalSizeRef.current;
         if (vpRect.width > 0 && vpRect.height > 0 && natW > 0 && natH > 0) {
           needsAutoFitRef.current = false;
-          const availW = Math.max(64, vpRect.width - 64);
-          const availH = Math.max(64, vpRect.height - 64);
+          const availW = Math.max(64, screenToLocal(vpRect.width) - 64);
+          const availH = Math.max(64, screenToLocal(vpRect.height) - 64);
           const fitScale = Math.min(1, availW / natW, availH / natH);
           const targetZoom = Math.max(0.05, Math.round(fitScale * 100) / 100);
           zoomRef.current = targetZoom;
@@ -1720,7 +1721,7 @@ function PreviewPanelInner({ content, diagramKey, theme, themeId, onChange, onEx
         didPanRef.current = true;
       }
       panStartRef.current = { x: e.clientX, y: e.clientY };
-      setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+      setPan(prev => ({ x: prev.x + screenToLocal(dx), y: prev.y + screenToLocal(dy) }));
     };
 
     const handleMouseUp = () => setIsPanning(false);
@@ -1761,7 +1762,7 @@ function PreviewPanelInner({ content, diagramKey, theme, themeId, onChange, onEx
       lastTouchX = e.touches[0].clientX;
       lastTouchY = e.touches[0].clientY;
       e.preventDefault();
-      setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+      setPan(prev => ({ x: prev.x + screenToLocal(dx), y: prev.y + screenToLocal(dy) }));
     };
 
     const onTouchEnd = () => {
@@ -1818,7 +1819,7 @@ function PreviewPanelInner({ content, diagramKey, theme, themeId, onChange, onEx
         const clampedDeltaY = Math.max(-50, Math.min(50, e.deltaY));
         zoomBy(-clampedDeltaY * 0.0025);
       } else {
-        setPan(prev => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
+        setPan(prev => ({ x: prev.x - screenToLocal(e.deltaX), y: prev.y - screenToLocal(e.deltaY) }));
       }
     };
 
@@ -1852,8 +1853,8 @@ function PreviewPanelInner({ content, diagramKey, theme, themeId, onChange, onEx
 
     const containerRect = viewport.getBoundingClientRect();
     const padding = 32;
-    const availableWidth = containerRect.width - padding * 2;
-    const availableHeight = containerRect.height - padding * 2;
+    const availableWidth = screenToLocal(containerRect.width) - padding * 2;
+    const availableHeight = screenToLocal(containerRect.height) - padding * 2;
 
     const scaleX = availableWidth / naturalWidth;
     const scaleY = availableHeight / naturalHeight;

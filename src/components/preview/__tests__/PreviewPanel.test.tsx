@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { PreviewPanel, highlightSelectedEdge } from '../PreviewPanel';
 import { parseDiagram } from '@/lib/mermaid/codeUtils';
 import { renderDiagram } from '@/lib/mermaid/core';
+import { applyScale } from '@/utils/uiScale';
 
 // Mock i18n
 vi.mock('react-i18next', async () => {
@@ -1505,6 +1506,46 @@ describe('PreviewPanel Component', () => {
         await waitFor(() => {
           expect(screen.getByTestId('edge-style-panel')).toBeInTheDocument();
         });
+      });
+
+      it('keeps overlay geometry in local pixels under UI scale 0.8', async () => {
+        applyScale(0.8);
+        try {
+          const { container } = await renderWithSubgraphOverlays();
+          await waitFor(() => expect(container.querySelector('.node-overlay')).not.toBeNull());
+          expect(edgeOverlayGeometry(container)).toEqual({ left: '50px', top: '25px', width: '1000px', height: '750px' });
+          const node = container.querySelector('.node-overlay') as HTMLElement;
+          expect([node.style.left, node.style.top, node.style.width, node.style.height]).toEqual(['125px', '125px', '125px', '62.5px']);
+        } finally { applyScale(1); }
+      });
+
+      it('converts subgraph overlays, fit-to-screen, and pointer/wheel pan under UI scale 0.8', async () => {
+        applyScale(0.8);
+        try {
+          const { container } = await renderWithSubgraphOverlays();
+          await waitFor(() => expect(container.querySelector('.subgraph-overlay')).not.toBeNull());
+
+          const sg = container.querySelector('.subgraph-overlay') as HTMLElement;
+          const sgLabel = container.querySelector('.subgraph-label-hit') as HTMLElement;
+          expect([sg.style.width, sg.style.height]).toEqual(['1250px', '1000px']);
+          expect(sgLabel.style.height).toBe('30px');
+
+          // Fit button uses local viewport (1000/0.8 - 64 = 1186, /400 = 2.965 -> 297%).
+          fireEvent.click(screen.getByTestId('fit-button'));
+          await waitFor(() => expect(screen.getByText('297%')).toBeInTheDocument());
+
+          // Pointer pan: 40x20 screen px -> 50x25 local px.
+          const panLayer = container.querySelector('[data-pan-layer]') as HTMLElement;
+          const viewport = panLayer.parentElement as HTMLElement;
+          fireEvent.mouseDown(viewport, { button: 0, clientX: 0, clientY: 0 });
+          fireEvent.mouseMove(window, { clientX: 40, clientY: 20 });
+          fireEvent.mouseUp(window);
+          expect(panLayer.style.transform).toBe('translate3d(50px, 25px, 0)');
+
+          // Wheel pan: 16x32 screen px -> -20x-40 local px delta -> (30, -15).
+          fireEvent.wheel(viewport, { deltaX: 16, deltaY: 32 });
+          expect(panLayer.style.transform).toBe('translate3d(30px, -15px, 0)');
+        } finally { applyScale(1); }
       });
     });
 

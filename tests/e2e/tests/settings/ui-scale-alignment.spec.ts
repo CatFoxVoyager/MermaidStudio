@@ -97,3 +97,18 @@ test.describe('éditeur visuel', () => {
     await page.mouse.up();
   });
 });
+
+for (const scale of [0.8, 1.25]) {
+  test(`surcouches de l'aperçu alignées à l'échelle ${scale}`, async ({ page }) => {
+    await page.waitForSelector('.node-overlay');
+    await TestUtils.setUiScale(page, scale);
+    await page.getByTestId('fit-button').click(); await page.waitForTimeout(400);
+    expect(await TestUtils.worstOverlayOffset(page, '.node-overlay', '[data-testid="preview-panel"]')).toBeLessThanOrEqual(1);
+    const before = await TestUtils.overlayCenter(page, '.node-overlay >> nth=0');
+    await TestUtils.dragPreview(page, 50, 30, '[data-testid="preview-panel"]');
+    const after = await TestUtils.overlayCenter(page, '.node-overlay >> nth=0');
+    expect(Math.abs(after.x - before.x - 50)).toBeLessThanOrEqual(1);
+    expect(Math.abs(after.y - before.y - 30)).toBeLessThanOrEqual(1);
+    expect(await TestUtils.worstOverlayOffset(page, '.node-overlay', '[data-testid="preview-panel"]')).toBeLessThanOrEqual(1);
+  });
+}
