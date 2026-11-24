@@ -71,4 +71,38 @@ describe('FullscreenPreview UI scale alignment', () => {
     fireEvent.mouseUp(window);
     expect(svgHost.style.transform).toBe('translate(50px, 25px) scale(0.74)');
   });
+
+  it('ignores defaultPrevented keydown events and Alt zoom chords', async () => {
+    const onClose = vi.fn();
+    const { container } = render(<FullscreenPreview content="graph TD\nA-->B" onClose={onClose} />);
+    await waitFor(() => expect(container.querySelector('.mermaid-canvas-svg')).not.toBeNull());
+
+    fireEvent.click(screen.getByTitle('preview.fitToScreen'));
+    await waitFor(() => expect(screen.getByText('58%')).toBeInTheDocument());
+
+    // defaultPrevented events (e.g. consumed by UI scale shortcuts) must not zoom, reset, or close.
+    for (const init of [
+      { key: '-', ctrlKey: true },
+      { key: '=', ctrlKey: true },
+      { key: '+', ctrlKey: true },
+      { key: '0', ctrlKey: true },
+      { key: 'Escape' },
+    ]) {
+      const ev = new KeyboardEvent('keydown', { ...init, cancelable: true });
+      ev.preventDefault();
+      fireEvent(window, ev);
+    }
+    expect(screen.getByText('58%')).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Alt+- / Alt+= / Alt++ / Alt+0 must not zoom or reset even without defaultPrevented.
+    for (const key of ['-', '=', '+', '0']) {
+      fireEvent.keyDown(window, { key, altKey: true });
+    }
+    expect(screen.getByText('58%')).toBeInTheDocument();
+
+    // Unmodified '+' still zooms the fullscreen diagram.
+    fireEvent.keyDown(window, { key: '+' });
+    expect(screen.getByText('83%')).toBeInTheDocument();
+  });
 });

@@ -296,6 +296,25 @@ describe('UIScaleProvider', () => {
     expect(probe.current()?.pref).toBe(1.5);
   });
 
+  it('sur mobile (< 768 px), stepDown, stepUp et reset sont sans effet et n’écrivent rien dans localStorage', () => {
+    setViewport(700, 800);
+    mockMatchMedia(() => true);
+
+    const probe = renderProbe();
+    expect(probe.current()?.pref).toBe('auto');
+    expect(probe.current()?.scale).toBe(1);
+
+    act(() => {
+      probe.current()?.stepDown();
+      probe.current()?.stepUp();
+      probe.current()?.reset();
+    });
+
+    expect(probe.current()?.pref).toBe('auto');
+    expect(probe.current()?.scale).toBe(1);
+    expect(localStorage.getItem(UI_SCALE_STORAGE_KEY)).toBeNull();
+  });
+
   it('monte useUIScaleShortcuts : Alt+Minus déclenche stepDown sur window', () => {
     vi.stubGlobal('navigator', {
       ...navigator,
@@ -434,6 +453,33 @@ describe('UIScaleProvider', () => {
 
       expect(showToast).not.toHaveBeenCalled();
       expect(localStorage.getItem(UI_SCALE_NOTICE_KEY)).toBeNull();
+    });
+
+    it('si localStorage échoue, un redimensionnement entre deux largeurs auto ne relance pas showToast', () => {
+      vi.useFakeTimers();
+      vi.spyOn(log, 'debug').mockImplementation(() => {});
+      vi.spyOn(Storage.prototype, 'getItem').mockReturnValue(null);
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('storage blocked');
+      });
+      setViewport(1280, 720);
+      mockMatchMedia(() => true);
+      const showToast = vi.fn<ShowToastFn>();
+
+      renderProbe({ showToast });
+      act(() => {
+        vi.advanceTimersByTime(1600);
+      });
+      expect(showToast).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        setViewport(1024, 720);
+        window.dispatchEvent(new Event('resize'));
+      });
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(showToast).toHaveBeenCalledTimes(1);
     });
   });
 });

@@ -263,4 +263,32 @@ describe('useUIScaleShortcuts', () => {
     expect(api.reset).not.toHaveBeenCalled();
     expect(preventSpy).not.toHaveBeenCalled();
   });
+
+  it('appelle stopImmediatePropagation sur les raccourcis reconnus mais pas sur les autres', () => {
+    const api = createMockApi();
+    renderHook(() => useUIScaleShortcuts(api));
+
+    const matchedEvents = [
+      new KeyboardEvent('keydown', { code: 'Minus', altKey: true, cancelable: true }),
+      new KeyboardEvent('keydown', { code: 'Equal', altKey: true, cancelable: true }),
+      new KeyboardEvent('keydown', { code: 'Digit0', altKey: true, cancelable: true }),
+    ];
+
+    for (const event of matchedEvents) {
+      const stopImmediateSpy = vi.spyOn(event, 'stopImmediatePropagation');
+      const preventSpy = vi.spyOn(event, 'preventDefault');
+      keydownHandler!(event);
+      expect(preventSpy).toHaveBeenCalledTimes(1);
+      expect(stopImmediateSpy).toHaveBeenCalledTimes(1);
+    }
+
+    const unmatchedEvent = new KeyboardEvent('keydown', {
+      code: 'KeyA',
+      altKey: true,
+      cancelable: true,
+    });
+    const unmatchedStopSpy = vi.spyOn(unmatchedEvent, 'stopImmediatePropagation');
+    keydownHandler!(unmatchedEvent);
+    expect(unmatchedStopSpy).not.toHaveBeenCalled();
+  });
 });

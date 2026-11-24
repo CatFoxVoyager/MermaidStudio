@@ -21,11 +21,14 @@
  * - The hidden measurer row is aria-hidden + visibility:hidden, so RTL role
  *   queries never see its copies; title-attribute queries do.
  */
+import { useEffect } from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { ShapeToolbar } from '../ShapeToolbar';
 import { CANONICAL_SHAPES } from '@/lib/mermaid/shapes';
-import { applyScale } from '@/utils/uiScale';
+import { UIScaleProvider, useUIScaleContext, type UIScaleApi } from '@/hooks/useUIScale';
+import { applyScale, UI_SCALE_STORAGE_KEY } from '@/utils/uiScale';
+import { mockMatchMedia, setViewport } from '@/utils/__tests__/uiScaleTestHelpers';
 
 // 38-05: the 26 legacy-era toolbar entries at HEAD before the SSOT growth.
 // Hand-typed ONCE as the historical baseline — the it.each below derives the
@@ -253,6 +256,8 @@ describe('ShapeToolbar', () => {
   describe('UI scale greedy fit consistency', () => {
     afterEach(() => {
       applyScale(1);
+      localStorage.removeItem(UI_SCALE_STORAGE_KEY);
+      vi.unstubAllGlobals();
       vi.restoreAllMocks();
     });
 
@@ -379,6 +384,67 @@ describe('ShapeToolbar', () => {
           delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
         }
       }
+    });
+
+    it('re-anchors an open ShapePicker when uiScale changes without visibleCount changing', () => {
+      setViewport(1280, 720);
+      mockMatchMedia(() => true);
+
+      let moreBottom = 180;
+      let moreRight = 1000;
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+        if (this.getAttribute('aria-label') === 'More') {
+          return {
+            left: moreRight - 60,
+            top: moreBottom - 50,
+            right: moreRight,
+            bottom: moreBottom,
+            width: 60,
+            height: 50,
+            x: moreRight - 60,
+            y: moreBottom - 50,
+            toJSON: () => ({}),
+          } as DOMRect;
+        }
+        return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+      });
+
+      const apiRef: { current: UIScaleApi | null } = { current: null };
+      function ScaleProbe() {
+        const api = useUIScaleContext();
+        useEffect(() => {
+          apiRef.current = api;
+        });
+        return null;
+      }
+
+      const { container } = render(
+        <UIScaleProvider>
+          <ScaleProbe />
+          <ShapeToolbar
+            toolMode="select"
+            onToolMode={vi.fn()}
+            onAddShape={vi.fn()}
+            onDragStart={vi.fn()}
+          />
+        </UIScaleProvider>
+      );
+
+      expect(apiRef.current?.scale).toBe(0.8);
+      fireEvent.click(screen.getByRole('button', { name: 'More' }));
+      const picker = container.querySelector('[data-shape-picker]') as HTMLElement;
+      expect(picker).not.toBeNull();
+      expect(parseFloat(picker.style.top)).toBeCloseTo((180 + 8) / 0.8, 2);
+
+      // Change UI scale from 0.8 -> 1.25 while visibleCount stays unchanged (no ResizeObserver fire).
+      moreBottom = 260;
+      moreRight = 1120;
+      act(() => {
+        apiRef.current?.setPref(1.25);
+      });
+
+      expect(parseFloat(picker.style.top)).toBeCloseTo((260 + 8) / 1.25, 2);
+      expect(parseFloat(picker.style.right)).toBeCloseTo((1280 - 1120) / 1.25, 2);
     });
   });
 });

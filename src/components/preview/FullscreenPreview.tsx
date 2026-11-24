@@ -83,8 +83,9 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      const handled = e.key === 'Escape' || e.key === '+' || e.key === '=' ||
-        e.key === '-' || e.key === '0';
+      if (e.defaultPrevented) {return;}
+      const isZoomKey = e.key === '+' || e.key === '=' || e.key === '-' || e.key === '0';
+      const handled = e.key === 'Escape' || (isZoomKey && !e.altKey);
       if (!handled) {return;}
       // Capture phase: the preview panel keeps its own ctrl+zoom window
       // listener while this modal is open — stop the event here so the

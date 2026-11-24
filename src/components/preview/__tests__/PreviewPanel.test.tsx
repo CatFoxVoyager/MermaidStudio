@@ -293,6 +293,31 @@ describe('PreviewPanel Component', () => {
         expect(zoomPercentage).toBeInTheDocument();
       });
     });
+
+    it('should ignore defaultPrevented Ctrl/Cmd zoom and reset keydown events', async () => {
+      vi.mocked(renderDiagram).mockResolvedValue({ svg: '<svg>test</svg>', error: null });
+      const { container } = render(<PreviewPanel content="graph TD\nA-->B" theme="light" />);
+
+      await waitFor(() => {
+        expect(container.querySelector('[data-shadow-host]')).toBeInTheDocument();
+      });
+
+      const zoomInButton = container.querySelector('button[title="Zoom in"]') as HTMLButtonElement;
+      fireEvent.click(zoomInButton);
+      expect(screen.getByText('125%')).toBeInTheDocument();
+
+      // A defaultPrevented Ctrl+- / Ctrl+= / Ctrl+0 (already handled by UI scale shortcuts) must not zoom or reset.
+      for (const key of ['-', '=', '+', '0']) {
+        const event = new KeyboardEvent('keydown', { key, ctrlKey: true, cancelable: true });
+        event.preventDefault();
+        fireEvent(window, event);
+      }
+      expect(screen.getByText('125%')).toBeInTheDocument();
+
+      // A non-prevented Ctrl+= still zooms the diagram canvas.
+      fireEvent.keyDown(window, { key: '=', ctrlKey: true });
+      expect(screen.getByText('150%')).toBeInTheDocument();
+    });
   });
 
   describe('Copy SVG', () => {

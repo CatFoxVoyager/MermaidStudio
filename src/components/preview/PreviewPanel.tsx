@@ -1790,6 +1790,7 @@ function PreviewPanelInner({ content, diagramKey, theme, themeId, onChange, onEx
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) {return;}
       if (!(e.ctrlKey || e.metaKey)) {return;}
       if (e.key === '+' || e.key === '=') {
         e.preventDefault();

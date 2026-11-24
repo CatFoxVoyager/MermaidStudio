@@ -63,13 +63,26 @@ test("raccourcis : Alt+−, Alt++, Alt+0, focus dans l'éditeur", async ({ page 
   const mod = await page.evaluate(() =>
     navigator.userAgent.includes('Mac') ? 'Control' : 'Alt'
   );
+  // Wait for initial render + auto-fit (node overlays appear after auto-fit
+  // settles), then nudge diagram zoom off 100% so that Minus, Equal, and Digit0
+  // would all visibly mutate the canvas if UI scale shortcuts leaked into PreviewPanel.
+  await page.locator('.node-overlay').first().waitFor({ state: 'visible' });
+  await page.getByRole('button', { name: 'Zoom in' }).click();
+  const getDiagramTransform = () =>
+    page.locator('[data-shadow-host]').evaluate(el => (el as HTMLElement).style.transform);
+  const initialDiagramTransform = await getDiagramTransform();
+  expect(initialDiagramTransform).toMatch(/^scale\(/);
+
   await page.locator('.cm-content').click();
   await page.keyboard.press(`${mod}+Minus`);
   await TestUtils.expectZoom(page, 0.75);
+  expect(await getDiagramTransform()).toBe(initialDiagramTransform);
   await page.keyboard.press(`${mod}+Equal`);
   await TestUtils.expectZoom(page, 0.8);
+  expect(await getDiagramTransform()).toBe(initialDiagramTransform);
   await page.keyboard.press(`${mod}+Digit0`);
   await TestUtils.expectZoom(page, 1);
+  expect(await getDiagramTransform()).toBe(initialDiagramTransform);
   expect(await page.evaluate(() => document.querySelector('.cm-content')!.textContent)).not.toContain('–');
 });
 

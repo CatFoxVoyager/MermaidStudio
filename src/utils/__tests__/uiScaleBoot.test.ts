@@ -64,4 +64,14 @@ describe('ui-scale inline boot script (index.html)', () => {
       }
     }
   });
+
+  it('applique tout de même le repli auto (0.8 à 1280 px) si localStorage.getItem lève', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('storage blocked', 'SecurityError');
+    });
+    setViewport(1280, 720);
+    mockMatchMedia(() => true);
+    run();
+    expect(readApplied()).toBe(0.8);
+  });
 });

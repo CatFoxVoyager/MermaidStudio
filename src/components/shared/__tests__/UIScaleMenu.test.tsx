@@ -138,10 +138,15 @@ describe('UIScaleMenu', () => {
     expect(document.documentElement.style.getPropertyValue('--ui-scale')).toBe('');
     expect(screen.queryByTestId('ui-scale-menu')).not.toBeInTheDocument();
     expect(screen.getByTestId('ui-scale-button')).toHaveTextContent('100 %');
+    expect(screen.getByTestId('ui-scale-button')).toHaveFocus();
 
     await user.click(screen.getByTestId('ui-scale-button'));
     expect(screen.getByTestId('ui-scale-option-100')).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByTestId('ui-scale-option-auto')).toHaveAttribute('aria-checked', 'false');
+
+    await user.click(screen.getByTestId('ui-scale-option-auto'));
+    expect(screen.queryByTestId('ui-scale-menu')).not.toBeInTheDocument();
+    expect(screen.getByTestId('ui-scale-button')).toHaveFocus();
   });
 
   it('dismisses on Escape and on outside click', async () => {

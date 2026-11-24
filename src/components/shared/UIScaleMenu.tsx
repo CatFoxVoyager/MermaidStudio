@@ -91,6 +91,7 @@ function UIScaleMenuInner({ ctx }: { ctx: UIScaleApi }): ReactElement {
             onClick={() => {
               setPref('auto');
               closeMenu();
+              triggerRef.current?.focus();
             }}
             className="w-full flex items-center justify-between gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--hover)] transition-colors"
             style={{ color: pref === 'auto' ? 'var(--accent)' : 'var(--text-secondary)' }}
@@ -121,6 +122,7 @@ function UIScaleMenuInner({ ctx }: { ctx: UIScaleApi }): ReactElement {
                 onClick={() => {
                   setPref(step);
                   closeMenu();
+                  triggerRef.current?.focus();
                 }}
                 className="w-full flex items-center justify-between gap-2 text-left px-3 py-1.5 text-xs tabular-nums hover:bg-[var(--hover)] transition-colors"
                 style={{ color: selected ? 'var(--accent)' : 'var(--text-secondary)' }}

@@ -8,6 +8,7 @@ import { ShapePreview } from '@/components/shared/ShapePreview';
 import { ShapePicker } from '@/components/shared/ShapePicker';
 import type { SpecialMediaShape } from '@/components/shared/ShapePicker';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
+import { useUIScaleContext } from '@/hooks/useUIScale';
 import { getUiScale } from '@/utils/uiScale';
 
 interface ShapeButtonProps {
@@ -87,6 +88,7 @@ export function ShapeToolbar({
   hasSelection,
 }: Props) {
   const { t } = useTranslation();
+  const uiScale = useUIScaleContext()?.scale ?? 1;
   const [moreOpen, setMoreOpen] = useState(false);
   // Adaptive primary count (desktop ask: the fixed count of 2 wasted a wide
   // panel — 11 shapes sat behind "More" next to ~900px of empty toolbar).
@@ -210,6 +212,14 @@ export function ShapeToolbar({
     if (!moreOpen) {return;}
     updateMoreAnchor();
   }, [moreOpen, visibleCount, updateMoreAnchor]);
+
+  // Re-anchor after UIScaleProvider commits the new --ui-scale in its layout
+  // effect so getBoundingClientRect() and ShapePicker's screenToLocal() both
+  // observe the updated zoom even when visibleCount does not change.
+  useEffect(() => {
+    if (!moreOpen) {return;}
+    updateMoreAnchor();
+  }, [moreOpen, uiScale, updateMoreAnchor]);
 
   const toggleMore = () => {
     // Anchor from the FIXED trigger's viewport rect (it lives outside the

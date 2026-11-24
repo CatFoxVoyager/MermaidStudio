@@ -59,6 +59,7 @@ export function useUIScaleShortcuts(api: UIScaleApi): void {
       if (!matchesPrimary && !matchesBrowserZoom) return;
 
       event.preventDefault();
+      event.stopImmediatePropagation();
       if (action === 'down') {
         apiRef.current.stepDown();
       } else if (action === 'up') {

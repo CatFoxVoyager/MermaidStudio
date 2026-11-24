@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -73,9 +74,17 @@ export function UIScaleProvider({ children, showToast }: UIScaleProviderProps) {
   );
   const finePointer = useMediaQuery(DESKTOP_POINTER_QUERY);
 
+  const widthRef = useRef(width);
+  useEffect(() => {
+    widthRef.current = width;
+  }, [width]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const onResize = () => setWidth(window.innerWidth);
+    const onResize = () => {
+      widthRef.current = window.innerWidth;
+      setWidth(window.innerWidth);
+    };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -87,7 +96,7 @@ export function UIScaleProvider({ children, showToast }: UIScaleProviderProps) {
 
   const scale = width < AUTO_MIN_WIDTH ? 1 : resolveScale(pref, width, finePointer);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyScale(scale);
   }, [scale]);
 
@@ -105,16 +114,19 @@ export function UIScaleProvider({ children, showToast }: UIScaleProviderProps) {
   }, []);
 
   const stepDown = useCallback(() => {
+    if (widthRef.current < AUTO_MIN_WIDTH) return;
     const next = nextStep(scaleRef.current, -1);
     if (next !== null) setPref(next);
   }, [setPref]);
 
   const stepUp = useCallback(() => {
+    if (widthRef.current < AUTO_MIN_WIDTH) return;
     const next = nextStep(scaleRef.current, 1);
     if (next !== null) setPref(next);
   }, [setPref]);
 
   const reset = useCallback(() => {
+    if (widthRef.current < AUTO_MIN_WIDTH) return;
     setPref(1);
   }, [setPref]);
 
@@ -147,17 +159,21 @@ export function UIScaleProvider({ children, showToast }: UIScaleProviderProps) {
 
   useUIScaleShortcuts(value);
 
+  const noticeShownRef = useRef(false);
+
   useEffect(() => {
     if (
       !showToast ||
       pref !== 'auto' ||
       scale === 1 ||
+      noticeShownRef.current ||
       storage.getItem(UI_SCALE_NOTICE_KEY) === '1'
     ) {
       return;
     }
 
     const timer = setTimeout(() => {
+      noticeShownRef.current = true;
       storage.setItem(UI_SCALE_NOTICE_KEY, '1');
       showToast(tRef.current('uiScale.notice', { percent: Math.round(scale * 100) }), 'info', {
         durationMs: NOTICE_DURATION_MS,
