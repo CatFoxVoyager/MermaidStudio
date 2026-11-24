@@ -1,5 +1,35 @@
 # Changelog
 
+## [3.2.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v3.1.0...mermaid-studio-v3.2.0) (2026-11-24)
+
+
+### Features
+
+* **app:** route diagram creation through the naming dialog ([59c46c6](https://github.com/CatFoxVoyager/MermaidStudio/commit/59c46c61fff5efdbbd6f93e3fd69d11d9a6f67db))
+* **hooks:** stage diagram creation behind a naming draft ([d353924](https://github.com/CatFoxVoyager/MermaidStudio/commit/d35392422d8357fbc329686486d10d1c60e57bbd))
+* **i18n:** add new-diagram naming dialog strings ([1c1dcf8](https://github.com/CatFoxVoyager/MermaidStudio/commit/1c1dcf83a71de95e634960b5a986f6aa3dfb1e96))
+* **modals:** add the new-diagram naming dialog ([2c22ba7](https://github.com/CatFoxVoyager/MermaidStudio/commit/2c22ba700081c00b4bf2d158f2209c31d1721347))
+* **ui-scale:** add Alt/Ctrl scale shortcuts, active while typing ([94c1df0](https://github.com/CatFoxVoyager/MermaidStudio/commit/94c1df08ea2db44a6aef4031fcc62301e68c2088))
+* **ui-scale:** add scale rule and screen-to-local helpers ([e67d5a6](https://github.com/CatFoxVoyager/MermaidStudio/commit/e67d5a6a60f8496c074dd4d1f1a187edadb6b2ea))
+* **ui-scale:** add the interface scale menu to the top bar ([8eeac65](https://github.com/CatFoxVoyager/MermaidStudio/commit/8eeac65b84d0f6351eef91dd8db60869a37369e7))
+* **ui-scale:** align visual editor overlays, fit and pan under scale ([075004b](https://github.com/CatFoxVoyager/MermaidStudio/commit/075004bde4306b2117495feeaaf2cb08ab50d85d))
+* **ui-scale:** anchor menus, pickers and popovers in local pixels ([90928db](https://github.com/CatFoxVoyager/MermaidStudio/commit/90928dbb90ba3cb0faa63a6c02ffcd1f8847a5b0))
+* **ui-scale:** announce automatic scale once with change action ([570b7d6](https://github.com/CatFoxVoyager/MermaidStudio/commit/570b7d6319f9e343a6adf5885b5e74a7afe64e40))
+* **ui-scale:** apply automatic scale by default, before first render ([387395c](https://github.com/CatFoxVoyager/MermaidStudio/commit/387395c011f19effca18b935b7237c618c8d3830))
+* **ui-scale:** exempt the CodeMirror subtree and scale it by font size ([9d37ed8](https://github.com/CatFoxVoyager/MermaidStudio/commit/9d37ed8ec1d11d82bec2299b2ef0212b97f943c5))
+* **ui-scale:** keep preview overlays, fit and pan aligned under scale ([9028c8f](https://github.com/CatFoxVoyager/MermaidStudio/commit/9028c8f0ff0f7d8771a46659e6d4ba64e5362313))
+* **ui-scale:** open the scale menu from the command palette ([f7c99d4](https://github.com/CatFoxVoyager/MermaidStudio/commit/f7c99d4b2c7c84ce11b7579c547b0fb356023c07))
+* **ui-scale:** root zoom and scale-aware viewport units ([33816f6](https://github.com/CatFoxVoyager/MermaidStudio/commit/33816f62b1ecff0f3cee00e7f3c8846650d8c7c2))
+
+
+### Bug Fixes
+
+* **e2e:** throw on missing DOM targets in worstOverlayOffset ([9c8b4a7](https://github.com/CatFoxVoyager/MermaidStudio/commit/9c8b4a7727d81b993dbac7439a3b63502b54a8f3))
+* **modals:** activate mobile editor on confirm and fix dark contrast ([53e24d3](https://github.com/CatFoxVoyager/MermaidStudio/commit/53e24d32db9fcd05ff4e741fcfe7f54d9039e6bd))
+* **render:** apply look switches and Recursive font variations ([48fba7c](https://github.com/CatFoxVoyager/MermaidStudio/commit/48fba7c65941f2f5d1fd5676698b70f81de22588))
+* **ui-scale:** counter-zoom mermaid sandbox and sync picker anchor ([0441fd0](https://github.com/CatFoxVoyager/MermaidStudio/commit/0441fd0c45c38223f8a2eb3b71de95d880da15d1))
+* **ui-scale:** isolate scale shortcuts, boot fallback, and focus ([3e2f972](https://github.com/CatFoxVoyager/MermaidStudio/commit/3e2f972f30f76bd28b4c003af1469ca172ae5c23))
+
 ## [3.1.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v3.0.0...mermaid-studio-v3.1.0) (2026-11-23)
 
 
