@@ -18,6 +18,7 @@ import {
   applyScale,
   AUTO_MAX_WIDTH,
   AUTO_MIN_WIDTH,
+  clampScale,
   computeAutoScale,
   nextStep,
   readPref,
@@ -109,8 +110,10 @@ export function UIScaleProvider({ children, showToast }: UIScaleProviderProps) {
   }, [scale]);
 
   const setPref = useCallback((next: UIScalePref) => {
-    setPrefState(next);
-    writePref(next);
+    const normalized: UIScalePref =
+      next === 'auto' ? 'auto' : Number.isFinite(next) ? clampScale(next) : 'auto';
+    setPrefState(normalized);
+    writePref(normalized);
   }, []);
 
   const stepDown = useCallback(() => {

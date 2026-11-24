@@ -47,10 +47,13 @@ describe('nextStep', () => {
     [0.8, -1, 0.75],
     [0.85, -1, 0.8],
     [0.67, -1, 0.5],
-    [0.5, -1, null],
+    [0.5, -1, 0.25],
+    [0.25, -1, 0.1],
+    [0.1, -1, null],
     [0.8, 1, 0.9],
     [0.85, 1, 0.9],
-    [1.5, 1, null],
+    [1.5, 1, 2],
+    [2, 1, null],
   ])('depuis %s, direction %i → %s', (cur, dir, expected) => {
     expect(nextStep(cur, dir)).toBe(expected);
   });
@@ -58,13 +61,18 @@ describe('nextStep', () => {
 
 describe('readPref / writePref', () => {
   it.each<[string | null, UIScalePref]>([
+    ['0.1', 0.1],
     ['0.8', 0.8],
+    ['0.85', 0.85],
+    ['2', 2],
     ['auto', 'auto'],
     [null, 'auto'],
+    ['', 'auto'],
     ['abc', 'auto'],
     ['0', 'auto'],
+    ['0.05', 'auto'],
+    ['2.01', 'auto'],
     ['7', 'auto'],
-    ['0.85', 'auto'],
     ['0.8x', 'auto'],
   ])('%s → %s', (raw, expected) => {
     if (raw === null) {

@@ -41,9 +41,14 @@ describe('ui-scale inline boot script (index.html)', () => {
     ['auto', 1280, true, 0.8],
     ['auto', 1440, true, 1],
     ['auto', 960, false, 1],
+    ['0.1', 1280, true, 0.1],
     ['0.75', 1280, true, 0.75],
+    ['0.85', 1280, true, 0.85],
+    ['2', 1280, true, 2],
     ['0.75', 700, true, 1],
     ['1', 1280, true, 1],
+    ['0.05', 1280, true, 0.8],
+    ['2.5', 1280, true, 0.8],
     ['abc', 1280, true, 0.8],
   ])('préférence %s, %i px, pointeur fin %s → %s', (pref, w, fine, expected) => {
     localStorage.setItem(UI_SCALE_STORAGE_KEY, pref);

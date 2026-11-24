@@ -14,7 +14,15 @@ describe('uiScale i18n parity', () => {
     const frKeys = Object.keys(frSection).sort();
     expect(enKeys).toEqual(frKeys);
     expect(enKeys).toEqual(
-      expect.arrayContaining(['title', 'label', 'auto', 'autoHint', 'notice', 'noticeAction'])
+      expect.arrayContaining([
+        'title',
+        'label',
+        'auto',
+        'autoHint',
+        'sliderLabel',
+        'notice',
+        'noticeAction',
+      ])
     );
 
     for (const key of enKeys) {

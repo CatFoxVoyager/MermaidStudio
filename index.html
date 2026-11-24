@@ -20,9 +20,9 @@
         try {
           raw = localStorage.getItem('mermaid-studio-ui-scale');
         } catch (e) { /* storage indisponible : repli sur auto */ }
-        var pref = raw === 'auto' || raw === null ? NaN : Number(raw);
+        var pref = raw === 'auto' || raw === null || raw === '' ? NaN : Number(raw);
         var s = 1;
-        if (pref === 0.5 || pref === 0.67 || pref === 0.75 || pref === 0.8 || pref === 0.9 || pref === 1 || pref === 1.1 || pref === 1.25 || pref === 1.5) { s = pref; }
+        if (isFinite(pref) && pref >= 0.1 && pref <= 2) { s = Math.round(pref * 100) / 100; }
         else if (fine && w < 1440) { s = Math.max(0.67, Math.min(1, Math.round(w / 1600 * 20) / 20)); }
         if (s !== 1) { document.documentElement.style.setProperty('--ui-scale', String(s)); }
       })();

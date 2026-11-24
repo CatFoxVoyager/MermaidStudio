@@ -2,7 +2,12 @@ import { Check, Scaling } from 'lucide-react';
 import { type ReactElement, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type UIScaleApi, useUIScaleContext, useUIScaleTriggerFocusTick } from '@/hooks/useUIScale';
-import { scaleShortcutModifier, UI_SCALE_STEPS } from '@/utils/uiScale';
+import {
+  scaleShortcutModifier,
+  UI_SCALE_MAX,
+  UI_SCALE_MIN,
+  UI_SCALE_STEPS,
+} from '@/utils/uiScale';
 
 function UIScaleMenuInner({ ctx }: { ctx: UIScaleApi }): ReactElement {
   const { t } = useTranslation();
@@ -77,7 +82,7 @@ function UIScaleMenuInner({ ctx }: { ctx: UIScaleApi }): ReactElement {
           data-testid="ui-scale-menu"
           role="menu"
           aria-label={t('uiScale.title')}
-          className="absolute right-0 mt-1 w-48 max-h-[calc(80vh/var(--ui-scale))] overflow-y-auto rounded-lg shadow-lg z-50 py-1"
+          className="absolute right-0 mt-1 w-56 max-h-[calc(80vh/var(--ui-scale))] overflow-y-auto rounded-lg shadow-lg z-50 py-1"
           style={{
             background: 'var(--surface-raised)',
             border: '1px solid var(--border-subtle)',
@@ -107,31 +112,72 @@ function UIScaleMenuInner({ ctx }: { ctx: UIScaleApi }): ReactElement {
             {pref === 'auto' && <Check size={13} className="shrink-0" aria-hidden="true" />}
           </button>
 
-          <div className="my-1 h-px" style={{ background: 'var(--border-subtle)' }} />
-
-          {UI_SCALE_STEPS.map(step => {
-            const stepPercent = Math.round(step * 100);
-            const selected = pref === step;
-            return (
-              <button
-                key={stepPercent}
-                type="button"
-                data-testid={`ui-scale-option-${stepPercent}`}
-                role="menuitemradio"
-                aria-checked={selected}
-                onClick={() => {
-                  setPref(step);
-                  closeMenu();
-                  triggerRef.current?.focus();
-                }}
-                className="w-full flex items-center justify-between gap-2 text-left px-3 py-1.5 text-xs tabular-nums hover:bg-[var(--hover)] transition-colors"
-                style={{ color: selected ? 'var(--accent)' : 'var(--text-secondary)' }}
+          <div
+            className="my-1 pt-2 pb-1.5 px-3 border-t space-y-1.5"
+            style={{ borderColor: 'var(--border-subtle)' }}
+          >
+            <div className="flex items-center justify-between text-[11px]">
+              <span style={{ color: 'var(--text-tertiary)' }}>{t('uiScale.sliderLabel')}</span>
+              <span
+                className="font-medium tabular-nums"
+                style={{ color: pref === 'auto' ? 'var(--text-secondary)' : 'var(--accent)' }}
               >
-                <span>{stepPercent} %</span>
-                {selected && <Check size={13} className="shrink-0" aria-hidden="true" />}
-              </button>
-            );
-          })}
+                {percent} %
+              </span>
+            </div>
+            <input
+              type="range"
+              data-testid="ui-scale-slider"
+              min={Math.round(UI_SCALE_MIN * 100)}
+              max={Math.round(UI_SCALE_MAX * 100)}
+              step={1}
+              value={percent}
+              aria-label={t('uiScale.sliderLabel')}
+              aria-valuetext={`${percent} %`}
+              onChange={e => setPref(Number(e.target.value) / 100)}
+              className="w-full h-1.5 cursor-pointer accent-[var(--accent)]"
+            />
+            <div
+              className="flex justify-between text-[10px] tabular-nums"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              <span>{Math.round(UI_SCALE_MIN * 100)} %</span>
+              <span>100 %</span>
+              <span>{Math.round(UI_SCALE_MAX * 100)} %</span>
+            </div>
+          </div>
+
+          <div
+            className="grid grid-cols-3 gap-1 px-2 py-1.5 border-t"
+            style={{ borderColor: 'var(--border-subtle)' }}
+          >
+            {UI_SCALE_STEPS.map(step => {
+              const stepPercent = Math.round(step * 100);
+              const selected = pref === step;
+              return (
+                <button
+                  key={stepPercent}
+                  type="button"
+                  data-testid={`ui-scale-option-${stepPercent}`}
+                  role="menuitemradio"
+                  aria-checked={selected}
+                  onClick={() => {
+                    setPref(step);
+                    closeMenu();
+                    triggerRef.current?.focus();
+                  }}
+                  className="flex items-center justify-center rounded-md px-1.5 py-1 text-xs tabular-nums transition-colors hover:bg-[var(--hover)]"
+                  style={{
+                    background: selected ? 'var(--accent-dim)' : 'transparent',
+                    color: selected ? 'var(--accent)' : 'var(--text-secondary)',
+                    fontWeight: selected ? 600 : 400,
+                  }}
+                >
+                  {stepPercent} %
+                </button>
+              );
+            })}
+          </div>
 
           <div
             className="mt-1 pt-1.5 pb-1 px-3 border-t text-[11px]"

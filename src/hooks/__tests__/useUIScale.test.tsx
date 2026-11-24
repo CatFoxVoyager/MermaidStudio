@@ -276,8 +276,8 @@ describe('UIScaleProvider', () => {
     expect(document.documentElement.style.getPropertyValue('--ui-scale')).toBe('');
   });
 
-  it('stepDown au plancher (0.5) et stepUp au plafond (1.5) sont sans effet', () => {
-    localStorage.setItem(UI_SCALE_STORAGE_KEY, '0.5');
+  it('stepDown au plancher (0.1) et stepUp au plafond (2) sont sans effet', () => {
+    localStorage.setItem(UI_SCALE_STORAGE_KEY, '0.1');
     setViewport(1280, 720);
     mockMatchMedia(() => true);
 
@@ -285,15 +285,15 @@ describe('UIScaleProvider', () => {
     act(() => {
       probe.current()?.stepDown();
     });
-    expect(probe.current()?.pref).toBe(0.5);
+    expect(probe.current()?.pref).toBe(0.1);
 
     act(() => {
-      probe.current()?.setPref(1.5);
+      probe.current()?.setPref(2);
     });
     act(() => {
       probe.current()?.stepUp();
     });
-    expect(probe.current()?.pref).toBe(1.5);
+    expect(probe.current()?.pref).toBe(2);
   });
 
   it('sur mobile (< 768 px), stepDown, stepUp et reset sont sans effet et n’écrivent rien dans localStorage', () => {

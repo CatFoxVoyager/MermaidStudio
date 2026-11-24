@@ -18,13 +18,23 @@
 import { storage } from '@/utils/logger';
 import { isNativeShell } from '@/utils/platform';
 
-/** 'auto' or one of the UI_SCALE_STEPS values. */
+/** 'auto' or a manual scale factor in [UI_SCALE_MIN, UI_SCALE_MAX]. */
 export type UIScalePref = 'auto' | number;
 
 export const UI_SCALE_STORAGE_KEY = 'mermaid-studio-ui-scale';
 export const UI_SCALE_NOTICE_KEY = 'mermaid-studio-ui-scale-notice-shown';
 
-export const UI_SCALE_STEPS: readonly number[] = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5];
+export const UI_SCALE_MIN = 0.1;
+export const UI_SCALE_MAX = 2;
+
+export const UI_SCALE_STEPS: readonly number[] = [
+  0.1, 0.25, 0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 2,
+];
+
+/** Clamp and round a manual scale factor to 2 decimal places (1 % precision). */
+export function clampScale(value: number): number {
+  return Math.round(Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, value)) * 100) / 100;
+}
 
 export const AUTO_MIN_WIDTH = 768;
 export const AUTO_MAX_WIDTH = 1440;
@@ -95,14 +105,17 @@ export function nextStep(current: number, direction: -1 | 1): number | null {
 }
 
 /**
- * Read the stored preference. Anything that is not exactly a step value
- * (including a missing key) reads as 'auto'.
+ * Read the stored preference. Anything outside [UI_SCALE_MIN, UI_SCALE_MAX]
+ * or non-numeric (including a missing key) reads as 'auto'.
  */
 export function readPref(): UIScalePref {
   const raw = storage.getItem(UI_SCALE_STORAGE_KEY);
-  if (raw === null) return 'auto';
+  if (raw === null || raw === '' || raw === 'auto') return 'auto';
   const value = Number(raw);
-  return UI_SCALE_STEPS.includes(value) ? value : 'auto';
+  if (!Number.isFinite(value) || value < UI_SCALE_MIN || value > UI_SCALE_MAX) {
+    return 'auto';
+  }
+  return Math.round(value * 100) / 100;
 }
 
 /**
