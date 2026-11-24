@@ -35,3 +35,24 @@ test.describe('mobile', () => {
     await expect(page.getByTestId('ui-scale-button')).toHaveCount(0); // vrai dès la tâche 8
   });
 });
+
+test('réglage manuel : 100 % puis rechargement, puis retour à Auto', async ({ page }) => {
+  await page.getByTestId('ui-scale-button').click();
+  await page.getByTestId('ui-scale-option-100').click();
+  await TestUtils.expectZoom(page, 1);
+  await page.reload();
+  await TestUtils.waitForApp(page);
+  await TestUtils.expectZoom(page, 1);
+  await page.getByTestId('ui-scale-button').click();
+  await page.getByTestId('ui-scale-option-auto').click();
+  await TestUtils.expectZoom(page, 0.8);
+});
+
+test('125 % sur 1280 px : le bouton reste utilisable', async ({ page }) => {
+  await page.getByTestId('ui-scale-button').click();
+  await page.getByTestId('ui-scale-option-125').click();
+  await TestUtils.expectZoom(page, 1.25);
+  await expect(page.getByTestId('ui-scale-button')).toBeVisible();
+  await page.getByTestId('ui-scale-button').click();
+  await expect(page.getByTestId('ui-scale-menu')).toBeVisible();
+});

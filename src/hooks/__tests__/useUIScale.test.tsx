@@ -174,4 +174,28 @@ describe('UIScaleProvider', () => {
     expect(probe.current()?.scale).toBe(0.8);
     expect(document.documentElement.style.getPropertyValue('--ui-scale')).toBe('0.8');
   });
+
+  it('expose menuOpen, openMenu et closeMenu mémorisés par useCallback', () => {
+    setViewport(1280, 720);
+    mockMatchMedia(() => true);
+
+    const probe = renderProbe();
+    const initialOpen = probe.current()?.openMenu;
+    const initialClose = probe.current()?.closeMenu;
+    expect(probe.current()?.menuOpen).toBe(false);
+
+    act(() => {
+      probe.current()?.openMenu();
+    });
+    expect(probe.current()?.menuOpen).toBe(true);
+    expect(probe.current()?.openMenu).toBe(initialOpen);
+    expect(probe.current()?.closeMenu).toBe(initialClose);
+
+    act(() => {
+      probe.current()?.closeMenu();
+    });
+    expect(probe.current()?.menuOpen).toBe(false);
+    expect(probe.current()?.openMenu).toBe(initialOpen);
+    expect(probe.current()?.closeMenu).toBe(initialClose);
+  });
 });

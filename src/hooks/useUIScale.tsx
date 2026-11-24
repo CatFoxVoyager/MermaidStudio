@@ -24,9 +24,13 @@ export interface UIScaleApi {
   scale: number;
   autoScale: number | null;
   setPref(pref: UIScalePref): void;
+  menuOpen: boolean;
+  openMenu(options?: { focusTrigger?: boolean }): void;
+  closeMenu(): void;
 }
 
 const UIScaleContext = createContext<UIScaleApi | null>(null);
+const UIScaleTriggerFocusContext = createContext<number>(0);
 
 const DESKTOP_POINTER_QUERY = '(hover: hover) and (pointer: fine)';
 
@@ -64,18 +68,34 @@ export function UIScaleProvider({ children }: { children: ReactNode }) {
     applyScale(scale);
   }, [scale]);
 
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [focusTriggerTick, setFocusTriggerTick] = useState(0);
+
   const setPref = useCallback((next: UIScalePref) => {
     setPrefState(next);
     writePref(next);
   }, []);
 
+  const openMenu = useCallback((options?: { focusTrigger?: boolean }) => {
+    setMenuOpen(true);
+    if (options?.focusTrigger) {
+      setFocusTriggerTick((n) => n + 1);
+    }
+  }, []);
+
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false);
+  }, []);
+
   const value = useMemo<UIScaleApi>(
-    () => ({ pref, scale, autoScale, setPref }),
-    [pref, scale, autoScale, setPref]
+    () => ({ pref, scale, autoScale, setPref, menuOpen, openMenu, closeMenu }),
+    [pref, scale, autoScale, setPref, menuOpen, openMenu, closeMenu]
   );
 
   return (
-    <UIScaleContext.Provider value={value}>{children}</UIScaleContext.Provider>
+    <UIScaleTriggerFocusContext.Provider value={focusTriggerTick}>
+      <UIScaleContext.Provider value={value}>{children}</UIScaleContext.Provider>
+    </UIScaleTriggerFocusContext.Provider>
   );
 }
 
@@ -85,4 +105,13 @@ export function UIScaleProvider({ children }: { children: ReactNode }) {
  */
 export function useUIScaleContext(): UIScaleApi | null {
   return useContext(UIScaleContext);
+}
+
+/**
+ * Monotonic counter incremented each time `openMenu({ focusTrigger: true })`
+ * is invoked, allowing `UIScaleMenu` to focus its trigger button in a passive
+ * effect (after any closing modal's focus-restore cleanup).
+ */
+export function useUIScaleTriggerFocusTick(): number {
+  return useContext(UIScaleTriggerFocusContext);
 }

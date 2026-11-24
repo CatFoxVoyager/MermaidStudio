@@ -930,5 +930,12 @@
     "github": "View on GitHub",
     "githubCaption": "Open source — star the project and report issues",
     "license": "MIT License — © 2026 MermaidStudio"
+  },
+  "uiScale": {
+    "title": "Interface scale",
+    "label": "Interface scale: {{percent}} %",
+    "auto": "Auto",
+    "autoHint": "{{percent}} % on this screen",
+    "shortcuts": "Shortcuts: {{mod}} + / − / 0"
   }
 }
