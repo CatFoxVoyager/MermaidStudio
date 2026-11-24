@@ -1,4 +1,5 @@
 import { Page, Locator } from '@playwright/test';
+import { completeNewDiagramDialog } from './newDiagramDialog';
 
 export class AppLayoutPage {
   readonly page: Page;
@@ -92,6 +93,8 @@ export class TopBar {
     // Use first() to get the first matching element
     const anyNewDiagramButton = this.page.locator('[data-testid="empty-new-diagram"], [data-testid="new-diagram-button"]').first();
     await anyNewDiagramButton.click({ timeout: 10000 });
+    // Every creation now opens the naming dialog first; accept the default name.
+    await completeNewDiagramDialog(this.page);
   }
 
   async changeLanguage(lang: 'en' | 'fr') {

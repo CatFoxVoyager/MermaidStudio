@@ -1,4 +1,5 @@
 import { Page, Locator } from '@playwright/test';
+import { completeNewDiagramDialog } from './newDiagramDialog';
 
 export class TemplatesPage {
   readonly page: Page;
@@ -43,6 +44,9 @@ export class TemplatesPage {
     await this.waitForVisible();
     // TemplateLibrary uses direct click-to-select (no separate select button)
     await this.templateItems.nth(index).click();
+    // The template pick now opens the naming dialog first; accept the
+    // proposed name (the template title), which also closes this modal.
+    await completeNewDiagramDialog(this.page);
     // Wait for modal to close
     await this.modal.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
   }

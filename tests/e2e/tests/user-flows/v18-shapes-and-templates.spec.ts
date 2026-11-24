@@ -1,6 +1,7 @@
 import { test, expect, Page } from '@playwright/test';
 import { AppLayoutPage } from '../../support/page-objects/AppLayoutPage';
 import { TemplatesPage } from '../../support/page-objects/ModalPages';
+import { completeNewDiagramDialog } from '../../support/page-objects/newDiagramDialog';
 import { CANONICAL_SHAPES } from '../../../../src/lib/mermaid/shapes';
 import { TEMPLATES } from '../../../../src/constants/templates';
 import { DIAGRAM_LABELS } from '../../../../src/constants/diagramLabels';
@@ -229,6 +230,9 @@ test.describe('v1.8 Shapes & Templates Live Verification', () => {
         .first();
       await expect(card, `Template card not found: ${tpl.title}`).toBeVisible({ timeout: 5_000 });
       await card.click();
+      // A template pick now opens the naming dialog first; accept the proposed
+      // (template-title) name — this also closes the templates modal.
+      await completeNewDiagramDialog(page);
       await expect(modal).not.toBeVisible({ timeout: 5_000 });
 
       await expect
