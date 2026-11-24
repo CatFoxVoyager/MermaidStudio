@@ -36,6 +36,7 @@ test.describe('New diagram naming dialog', () => {
     const before = await appLayout.tabBar.tabs.count();
     await appLayout.newDiagram();
     await expect(appLayout.tabBar.tabs).toHaveCount(before + 1);
+    await expect(appLayout.tabBar.tabs.last()).toContainText(/Untitled Diagram|Diagramme sans titre/);
   });
 
   test('proposes the template title when a template is picked', async ({ page }) => {
@@ -45,6 +46,7 @@ test.describe('New diagram naming dialog', () => {
     await templatesPage.waitForVisible();
     const title = (await page.locator('[data-testid="template-name"]').first().textContent())?.trim();
     await page.locator('[data-testid="template-name"]').first().click();
+    expect(title).toBeTruthy();
     await expect(page.getByTestId('new-diagram-default-name')).toHaveText(title!);
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('new-diagram-name')).toHaveCount(0);

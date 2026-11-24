@@ -291,7 +291,7 @@ describe('App Component', () => {
       // Trigger new diagram via keyboard shortcut
       fireEvent.keyDown(window, { key: 'n', ctrlKey: true });
 
-      const nameField = await screen.findByTestId('new-diagram-name');
+      await screen.findByTestId('new-diagram-name');
       expect(createDiagram).not.toHaveBeenCalled();
 
       fireEvent.click(screen.getByTestId('new-diagram-default-name'));
@@ -453,7 +453,7 @@ describe('App Component', () => {
       // Fire keyboard event
       fireEvent.keyDown(window, { key: 'n', ctrlKey: true });
 
-      const nameField = await screen.findByTestId('new-diagram-name');
+      await screen.findByTestId('new-diagram-name');
       expect(createDiagram).not.toHaveBeenCalled();
 
       fireEvent.click(screen.getByTestId('new-diagram-default-name'));

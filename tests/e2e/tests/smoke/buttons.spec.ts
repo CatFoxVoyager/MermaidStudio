@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { completeNewDiagramDialog } from '../../support/page-objects/newDiagramDialog';
 
 test.describe('Button Functionality', () => {
   test.beforeEach(async ({ page }) => {
@@ -52,16 +53,15 @@ test.describe('Button Functionality', () => {
   });
 
   test('should create new diagram when clicking New Diagram button', async ({ page }) => {
+    const tabs = page.locator('[data-testid="tab"]');
+    const before = await tabs.count();
     const newDiagramButton = page.locator('[data-testid="new-diagram-button"]');
 
-    // Click new diagram button - should not throw any errors
+    // Click new diagram button and complete the naming dialog
     await newDiagramButton.click();
+    await completeNewDiagramDialog(page);
 
-    // Wait for any async operations to complete
-    await page.waitForTimeout(2000);
-
-    // If we get here without errors, the button click worked
-    // The button should still be visible (app didn't crash)
+    await expect(tabs).toHaveCount(before + 1);
     await expect(newDiagramButton).toBeVisible();
   });
 });

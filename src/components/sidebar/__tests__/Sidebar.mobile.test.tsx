@@ -48,7 +48,6 @@ describe('Sidebar mobile screen', () => {
       { diagram_id: 'diagram-a', tag_id: 'tag-architecture' },
       { diagram_id: 'diagram-b', tag_id: 'tag-workflow' },
     ]);
-    db.createDiagram.mockResolvedValue({ id: 'diagram-new', title: 'Untitled', content: '', folder_id: null });
     db.createTag.mockResolvedValue({ id: 'tag-new', name: 'draft', color: '#3b82f6' });
   });
 

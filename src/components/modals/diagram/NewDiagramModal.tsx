@@ -42,12 +42,12 @@ export function NewDiagramModal({ draft, onConfirm, onCancel }: NewDiagramModalP
         {t('common.cancel')}
       </button>
       <button
-        type="button"
+        type="submit"
+        form="new-diagram-form"
         data-testid="new-diagram-create"
-        onClick={submit}
         disabled={!canCreate}
-        className="px-4 py-2 rounded-lg text-xs font-medium text-white transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
-        style={{ background: 'var(--accent)' }}
+        className="px-4 py-2 rounded-lg text-xs font-medium transition-all hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
+        style={{ background: 'var(--accent)', color: 'var(--on-accent)' }}
       >
         {t('newDiagramDialog.create')}
       </button>
@@ -57,6 +57,7 @@ export function NewDiagramModal({ draft, onConfirm, onCancel }: NewDiagramModalP
   return (
     <Modal isOpen={true} onClose={onCancel} title={t('newDiagramDialog.title')} size="sm" footer={footer}>
       <form
+        id="new-diagram-form"
         className="p-5 space-y-3"
         onSubmit={e => {
           e.preventDefault();
@@ -75,6 +76,7 @@ export function NewDiagramModal({ draft, onConfirm, onCancel }: NewDiagramModalP
             id="new-diagram-name-input"
             ref={inputRef}
             data-testid="new-diagram-name"
+            enterKeyHint="done"
             value={name}
             onChange={e => setName(e.target.value)}
             placeholder={t('newDiagramDialog.namePlaceholder')}

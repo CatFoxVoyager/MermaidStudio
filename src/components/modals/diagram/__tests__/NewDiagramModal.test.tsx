@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { NewDiagramModal } from '../NewDiagramModal';
 import type { NewDiagramDraft } from '@/hooks/app/useDiagramActions';
@@ -15,12 +15,15 @@ const field = () => screen.getByTestId('new-diagram-name');
 const createButton = () => screen.getByTestId('new-diagram-create');
 
 describe('NewDiagramModal', () => {
-  it('opens with an empty focused field and a disabled Create button', () => {
+  it('opens with an empty focused field and a disabled Create button using --on-accent text', () => {
     setup();
     expect(screen.getByRole('dialog', { name: 'newDiagramDialog.title' })).toBeInTheDocument();
     expect(field()).toHaveValue('');
     expect(field()).toHaveFocus();
+    expect(field()).toHaveAttribute('enterkeyhint', 'done');
     expect(createButton()).toBeDisabled();
+    expect(createButton().style.color).toBe('var(--on-accent)');
+    expect(createButton().className).not.toContain('text-white');
   });
 
   it('labels the default-name button with the proposed name and fills the field with it', () => {
@@ -37,6 +40,7 @@ describe('NewDiagramModal', () => {
     const { onConfirm } = setup();
     fireEvent.change(field(), { target: { value: '  Réseau  ' } });
     fireEvent.submit(field().closest('form')!);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(onConfirm).toHaveBeenCalledWith('Réseau');
   });
 
@@ -44,6 +48,7 @@ describe('NewDiagramModal', () => {
     const { onConfirm } = setup();
     fireEvent.click(screen.getByTestId('new-diagram-default-name'));
     fireEvent.click(createButton());
+    expect(onConfirm).toHaveBeenCalledTimes(1);
     expect(onConfirm).toHaveBeenCalledWith('Untitled Diagram');
   });
 

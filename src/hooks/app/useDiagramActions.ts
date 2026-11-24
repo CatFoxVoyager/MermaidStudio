@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { activateCodePane } from '@/lib/editor/codeViewRegistry';
 import { createDiagram, createFolder } from '@/services/storage/database';
 import type { Template } from '@/types';
 import type { ModalName } from '../useModalManager';
@@ -102,7 +103,8 @@ export function useDiagramActions({
       setNewDiagramDraft(null);
       const diagram = await createDiagram(trimmed, draft.content, draft.folderId);
       refresh();
-      openDiagram(diagram.id);
+      await openDiagram(diagram.id);
+      activateCodePane();
       if (draft.templateTitle) {
         showToast(`${t('toast.opened')} "${trimmed}"`);
       }

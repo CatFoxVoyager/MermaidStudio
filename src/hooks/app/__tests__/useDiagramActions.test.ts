@@ -4,7 +4,12 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
+import { activateCodePane } from '@/lib/editor/codeViewRegistry';
 import { useDiagramActions } from '../useDiagramActions';
+
+vi.mock('@/lib/editor/codeViewRegistry', () => ({
+  activateCodePane: vi.fn(),
+}));
 
 // Mock database functions
 vi.mock('@/services/storage/database', () => ({
@@ -138,7 +143,7 @@ describe('useDiagramActions Hook', () => {
   });
 
   describe('confirmNewDiagram', () => {
-    it('creates the trimmed name, refreshes and opens the diagram', async () => {
+    it('creates the trimmed name, refreshes, opens the diagram, and activates the code pane', async () => {
       const { result } = setup();
 
       act(() => {
@@ -154,10 +159,14 @@ describe('useDiagramActions Hook', () => {
       await waitFor(() =>
         expect(mockOpenDiagram).toHaveBeenCalledWith(expect.stringMatching(/^diagram-\d+$/))
       );
+      expect(activateCodePane).toHaveBeenCalledTimes(1);
+      expect(mockOpenDiagram.mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(activateCodePane).mock.invocationCallOrder[0]
+      );
       expect(result.current.newDiagramDraft).toBeNull();
     });
 
-    it('with a blank name creates nothing', async () => {
+    it('with a blank name creates nothing and does not activate the code pane', async () => {
       const { result } = setup();
 
       act(() => {
@@ -169,9 +178,10 @@ describe('useDiagramActions Hook', () => {
 
       const { createDiagram } = await import('@/services/storage/database');
       expect(createDiagram).not.toHaveBeenCalled();
+      expect(activateCodePane).not.toHaveBeenCalled();
     });
 
-    it('cancelNewDiagram closes the draft and creates nothing', async () => {
+    it('cancelNewDiagram closes the draft, creates nothing, and does not activate the code pane', async () => {
       const { result } = setup();
 
       act(() => {
@@ -184,6 +194,7 @@ describe('useDiagramActions Hook', () => {
       const { createDiagram } = await import('@/services/storage/database');
       expect(result.current.newDiagramDraft).toBeNull();
       expect(createDiagram).not.toHaveBeenCalled();
+      expect(activateCodePane).not.toHaveBeenCalled();
     });
 
     it('a second confirm in the same tick does not create a second diagram', async () => {
@@ -275,7 +286,11 @@ describe('useDiagramActions Hook', () => {
         result.current.newDiagram();
       });
 
-      await expect(result.current.confirmNewDiagram('X')).rejects.toThrow('Database error');
+      await expect(
+        act(async () => {
+          await result.current.confirmNewDiagram('X');
+        })
+      ).rejects.toThrow('Database error');
     });
 
     it('should propagate createFolder errors to caller', async () => {
