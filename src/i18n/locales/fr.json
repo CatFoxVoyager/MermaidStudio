@@ -179,7 +179,9 @@
     "categoryDiagrams": "Diagrammes",
     "categoryPanels": "Panneaux",
     "about": "À propos de MermaidStudio",
-    "releaseNotes": "Notes de version"
+    "releaseNotes": "Notes de version",
+    "uiScale": "Échelle de l'interface…",
+    "uiScaleDesc": "Réduire ou agrandir toute l'interface"
   },
   "shortcuts": {
     "title": "Raccourcis clavier",

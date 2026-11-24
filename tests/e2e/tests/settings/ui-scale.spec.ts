@@ -67,3 +67,11 @@ test("raccourcis : Alt+−, Alt++, Alt+0, focus dans l'éditeur", async ({ page 
   await TestUtils.expectZoom(page, 1);
   expect(await page.evaluate(() => document.querySelector('.cm-content')!.textContent)).not.toContain('–');
 });
+
+test("la palette ouvre le menu d'échelle et rend le focus au bouton", async ({ page }) => {
+  await page.keyboard.press('Control+k');
+  await page.getByPlaceholder('Search commands…').fill('scale');
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('ui-scale-menu')).toBeVisible();
+  await expect(page.getByTestId('ui-scale-button')).toBeFocused();
+});

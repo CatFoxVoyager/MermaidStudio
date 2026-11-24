@@ -39,4 +39,16 @@ describe('uiScale i18n parity', () => {
       expect(frShortcuts[key].trim().length).toBeGreaterThan(0);
     }
   });
+
+  it('en.commands and fr.commands define uiScale and uiScaleDesc', () => {
+    const enCommands = (en as unknown as Record<string, Record<string, string>>).commands;
+    const frCommands = (fr as unknown as Record<string, Record<string, string>>).commands;
+
+    for (const key of ['uiScale', 'uiScaleDesc']) {
+      expect(typeof enCommands[key]).toBe('string');
+      expect(typeof frCommands[key]).toBe('string');
+      expect(enCommands[key].trim().length).toBeGreaterThan(0);
+      expect(frCommands[key].trim().length).toBeGreaterThan(0);
+    }
+  });
 });

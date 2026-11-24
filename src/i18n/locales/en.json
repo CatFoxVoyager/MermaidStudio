@@ -179,7 +179,9 @@
     "categoryDiagrams": "Diagrams",
     "categoryPanels": "Panels",
     "about": "About MermaidStudio",
-    "releaseNotes": "Release Notes"
+    "releaseNotes": "Release Notes",
+    "uiScale": "Interface scale…",
+    "uiScaleDesc": "Shrink or enlarge the whole interface"
   },
   "shortcuts": {
     "title": "Keyboard Shortcuts",
