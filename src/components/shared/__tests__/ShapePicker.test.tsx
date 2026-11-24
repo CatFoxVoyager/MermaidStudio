@@ -14,10 +14,11 @@
  * diam's EN label "Diamond" does not contain the query "losange", so a hit
  * can only have come from the FR label).
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ShapePicker } from '../ShapePicker';
 import { CANONICAL_SHAPES, SHAPE_CATEGORIES } from '@/lib/mermaid/shapes';
+import { applyScale } from '@/utils/uiScale';
 
 const ANCHOR = { right: 8, top: 40, maxHeight: 400 };
 
@@ -321,6 +322,23 @@ describe('ShapePicker', () => {
       expect(iconBtn.getAttribute('draggable')).toBe('true');
       fireEvent.dragStart(iconBtn);
       expect(onDragStartSpecial).toHaveBeenCalledWith('icon');
+    });
+  });
+
+  describe('UI scale anchor conversion', () => {
+    afterEach(() => {
+      applyScale(1);
+    });
+
+    it('converts screen-space anchor right, top and maxHeight to local pixels at scale 0.8', () => {
+      applyScale(0.8);
+      const { container } = renderPicker({
+        anchor: { right: 80, top: 160, maxHeight: 320 },
+      });
+      const root = container.querySelector('[data-shape-picker]') as HTMLElement;
+      expect(root.style.right).toBe('100px');
+      expect(root.style.top).toBe('200px');
+      expect(root.style.maxHeight).toBe('400px');
     });
   });
 });

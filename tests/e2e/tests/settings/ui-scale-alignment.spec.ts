@@ -96,6 +96,46 @@ test.describe('éditeur visuel', () => {
     expect(Math.max(Math.abs(x1 - c.x), Math.abs(y1 - c.y), Math.abs(x2 - tip.x), Math.abs(y2 - tip.y))).toBeLessThanOrEqual(1);
     await page.mouse.up();
   });
+
+  for (const scale of [0.8, 1.25]) {
+    test(`le sélecteur de formes reste sous son déclencheur à l'échelle ${scale}`, async ({ page }) => {
+      await TestUtils.setUiScale(page, scale);
+      const more = page.getByRole('button', { name: 'More', exact: true }).first();
+      await more.click();
+      const picker = await page.locator('[data-shape-picker]').boundingBox();
+      const btn = await more.boundingBox();
+      expect(picker).not.toBeNull();
+      expect(btn).not.toBeNull();
+      expect(Math.abs(picker!.y - (btn!.y + btn!.height + 8))).toBeLessThanOrEqual(1);
+      expect(Math.abs((picker!.x + picker!.width) - (btn!.x + btn!.width))).toBeLessThanOrEqual(1);
+      expect(picker!.x).toBeGreaterThanOrEqual(0);
+      expect(picker!.y + picker!.height).toBeLessThanOrEqual(640);
+    });
+  }
+});
+
+test.describe('menu contextuel', () => {
+  // Standard desktop height so the 8-item Welcome Diagram menu (~376 screen px
+  // at 1.25x) fits below the row without triggering the viewport bottom clamp
+  // (which is verified independently in ContextMenu.uiscale.test.tsx).
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  for (const scale of [0.8, 1.25]) {
+    test(`le menu contextuel reste accroché à sa rangée à l'échelle ${scale}`, async ({ page }) => {
+      await TestUtils.setUiScale(page, scale);
+      const row = page.getByText('Welcome Diagram', { exact: true }).first();
+      const geo = await row.evaluate(el => {
+        const r = (el.closest('.group') ?? el.closest('button') ?? el).getBoundingClientRect();
+        return { x: r.left, y: r.top, h: r.height, bottom: r.bottom };
+      });
+      await page.mouse.click(geo.x + 60, geo.y + geo.h / 2, { button: 'right' });
+      const menu = await page.getByRole('menu').boundingBox();
+      expect(menu).not.toBeNull();
+      expect(Math.abs(menu!.x - geo.x)).toBeLessThanOrEqual(1);
+      expect(Math.abs(menu!.y - (geo.bottom + 4))).toBeLessThanOrEqual(1);
+      await page.keyboard.press('Escape');
+    });
+  }
 });
 
 for (const scale of [0.8, 1.25]) {

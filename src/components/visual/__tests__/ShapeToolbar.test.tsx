@@ -21,10 +21,11 @@
  * - The hidden measurer row is aria-hidden + visibility:hidden, so RTL role
  *   queries never see its copies; title-attribute queries do.
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ShapeToolbar } from '../ShapeToolbar';
 import { CANONICAL_SHAPES } from '@/lib/mermaid/shapes';
+import { applyScale } from '@/utils/uiScale';
 
 // 38-05: the 26 legacy-era toolbar entries at HEAD before the SSOT growth.
 // Hand-typed ONCE as the historical baseline — the it.each below derives the
@@ -247,5 +248,73 @@ describe('ShapeToolbar', () => {
       fireEvent.keyDown(document, { key: 'Escape' });
       expect(container.querySelector('[data-shape-picker]')).toBeNull();
     });
+  });
+
+  describe('UI scale greedy fit consistency', () => {
+    afterEach(() => {
+      applyScale(1);
+      vi.restoreAllMocks();
+    });
+
+    it.each([1, 0.8, 1.25])(
+      'fits the same 4 primary shapes in a 500px local toolbar at scale %s',
+      (scale) => {
+        applyScale(scale);
+
+        // Local geometry: scroller clientWidth=500, paddingRight=12, prefix=120,
+        // More lane=68 => 300 local px available; each shape=60 + gap 4 = 64
+        // local px => floor(300 / 64) = 4 primary shapes regardless of UI scale.
+        // Under CSS zoom, clientWidth & computed paddingRight stay in local px
+        // while getBoundingClientRect() returns scaled screen px.
+        const origClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+        Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+          configurable: true,
+          get(this: HTMLElement) {
+            return this.classList.contains('scroll-fade-x') ? 500 : 0;
+          },
+        });
+
+        const origGetComputedStyle = window.getComputedStyle;
+        vi.spyOn(window, 'getComputedStyle').mockImplementation((el, pseudo) => {
+          const cs = origGetComputedStyle.call(window, el, pseudo);
+          if (el instanceof HTMLElement && el.classList.contains('scroll-fade-x')) {
+            return new Proxy(cs, {
+              get(target, prop) {
+                if (prop === 'paddingRight') return '12px';
+                const v = Reflect.get(target, prop);
+                return typeof v === 'function' ? v.bind(target) : v;
+              },
+            });
+          }
+          return cs;
+        });
+
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+          if (this.classList.contains('scroll-fade-x')) {
+            return { left: 0, top: 0, right: 500 * scale, bottom: 60 * scale, width: 500 * scale, height: 60 * scale, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+          }
+          if (this.tagName === 'BUTTON' && this.closest('[aria-hidden="true"]')) {
+            return { left: 0, top: 0, right: 60 * scale, bottom: 52 * scale, width: 60 * scale, height: 52 * scale, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+          }
+          if (this.parentElement?.classList.contains('scroll-fade-x') && this.classList.contains('shrink-0')) {
+            return { left: 120 * scale, top: 0, right: 400 * scale, bottom: 52 * scale, width: 280 * scale, height: 52 * scale, x: 120 * scale, y: 0, toJSON: () => ({}) } as DOMRect;
+          }
+          return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+        });
+
+        try {
+          const { container } = renderToolbar();
+          const primaryGroup = container.querySelector('.scroll-fade-x > div.flex.items-center.gap-1.shrink-0:not(.mr-2)');
+          expect(primaryGroup).not.toBeNull();
+          expect(primaryGroup!.querySelectorAll('button')).toHaveLength(4);
+        } finally {
+          if (origClientWidth) {
+            Object.defineProperty(HTMLElement.prototype, 'clientWidth', origClientWidth);
+          } else {
+            delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+          }
+        }
+      },
+    );
   });
 });

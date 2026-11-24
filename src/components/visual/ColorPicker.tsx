@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { Pipette } from 'lucide-react';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
+import { localViewport, screenToLocal } from '@/utils/uiScale';
 
 const PRESETS = [
   '#ffffff', '#f8fafc', '#f1f5f9', '#e2e8f0',
@@ -99,8 +100,8 @@ export function ColorPicker({ label, value, onChange, labelVariant = 'inspector'
       // Initial estimate (below the trigger); the layout effect below
       // clamps both axes against the popover's real measured box before
       // first paint.
-      const left = Math.max(margin, Math.min(r.left, window.innerWidth - 256 - margin));
-      setPopPos({ left, top: r.bottom + margin });
+      const left = Math.max(margin, Math.min(screenToLocal(r.left), localViewport().width - 256 - margin));
+      setPopPos({ left, top: screenToLocal(r.bottom) + margin });
     }
     setOpen(v => !v);
   };
@@ -111,12 +112,13 @@ export function ColorPicker({ label, value, onChange, labelVariant = 'inspector'
     const margin = 8;
     const realW = pop.offsetWidth;
     const realH = pop.offsetHeight;
+    const vp = localViewport();
     setPopPos(prev => {
       if (!prev) return prev;
-      let left = Math.min(prev.left, window.innerWidth - realW - margin);
+      let left = Math.min(prev.left, vp.width - realW - margin);
       left = Math.max(margin, left);
       // Flip above when the real box overflows the viewport bottom.
-      const maxTop = Math.max(margin, window.innerHeight - realH - margin);
+      const maxTop = Math.max(margin, vp.height - realH - margin);
       return { left, top: Math.min(prev.top, maxTop) };
     });
   }, [open]);
