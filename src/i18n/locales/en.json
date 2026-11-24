@@ -930,5 +930,12 @@
     "github": "View on GitHub",
     "githubCaption": "Open source — star the project and report issues",
     "license": "MIT License — © 2026 MermaidStudio"
+  },
+  "newDiagramDialog": {
+    "title": "New Diagram",
+    "nameLabel": "Diagram Name",
+    "namePlaceholder": "E.g. Network map",
+    "defaultName": "Untitled Diagram",
+    "create": "Create"
   }
 }
