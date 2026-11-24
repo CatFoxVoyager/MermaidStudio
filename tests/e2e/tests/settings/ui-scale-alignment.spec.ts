@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { TestUtils } from '../../support/utils/test-utils';
+import { AppLayoutPage } from '../../support/page-objects/AppLayoutPage';
 
 // Desktop viewport, short on purpose: the 0.8-scale height regression
 // (root painting 512px instead of 640px) is easiest to catch at low height.
@@ -9,6 +10,22 @@ test.beforeEach(async ({ page }) => {
   await TestUtils.pinUIScale(page, '1');
   await page.goto('/');
   await TestUtils.waitForApp(page);
+  const appLayout = new AppLayoutPage(page);
+  await appLayout.newDiagram();
+  // The fresh-profile empty state opens the "New Diagram" modal instead of
+  // creating silently — complete it so the editor stays reachable. The
+  // top-bar path (tab already open) creates directly, hence the try/catch.
+  const createModal = page.getByTestId('modal');
+  try {
+    await createModal.waitFor({ state: 'visible', timeout: 3000 });
+    await page.getByPlaceholder('E.g. Network map').fill('ui-scale-alignment');
+    await page.getByRole('button', { name: 'Create' }).click();
+    await createModal.waitFor({ state: 'hidden', timeout: 5000 });
+  } catch {
+    // No modal — the diagram was created directly.
+  }
+  await appLayout.workspace.editor.setCode('graph TD\n A --> B\n B --> C');
+  await TestUtils.waitForDiagramRender(page);
 });
 
 test("l'appli remplit le viewport à l'échelle 0.8", async ({ page }) => {
@@ -27,4 +44,56 @@ test("une modale peut occuper 90 % du viewport à l'échelle 0.8", async ({ page
     parseFloat(getComputedStyle(el).maxHeight)
   );
   expect(maxH).toBe(720); // px locaux : 90 % de 640 / 0,8
+});
+
+test.describe('éditeur visuel', () => {
+  const CANVAS = '[data-testid="visual-editor-canvas"]';
+
+  test.beforeEach(async ({ page }) => {
+    await page.getByTestId('workspace-view-visual').click();
+    await page.waitForSelector(CANVAS);
+    await page.waitForSelector('.visual-node-overlay');
+  });
+
+  for (const scale of [0.8, 1.25]) {
+    test(`surcouches de nœuds alignées à l'échelle ${scale}`, async ({ page }) => {
+      await TestUtils.setUiScale(page, scale);
+      await page.getByTestId('visual-fit-button').click(); await page.waitForTimeout(400);
+      expect(await TestUtils.worstOverlayOffset(page, '.visual-node-overlay', 'body')).toBeLessThanOrEqual(1);
+      const before = await TestUtils.overlayCenter(page, '.visual-node-overlay >> nth=0');
+      await TestUtils.dragPreview(page, 60, 20, CANVAS);       // sur la grille vide
+      const after = await TestUtils.overlayCenter(page, '.visual-node-overlay >> nth=0');
+      expect(Math.abs(after.x - before.x - 60)).toBeLessThanOrEqual(1);   // le canevas suit le pointeur 1:1
+      expect(Math.abs(after.y - before.y - 20)).toBeLessThanOrEqual(1);
+      expect(await TestUtils.worstOverlayOffset(page, '.visual-node-overlay', 'body')).toBeLessThanOrEqual(1);
+    });
+  }
+
+  test("la molette déplace le canevas de sa valeur en px écran", async ({ page }) => {
+    await TestUtils.setUiScale(page, 0.8);
+    const node = page.locator('.visual-node-overlay').first();
+    const before = await TestUtils.overlayCenter(page, node);
+    const p = await TestUtils.pointOnGrid(page, CANVAS);
+    await page.mouse.move(p.x, p.y); await page.mouse.wheel(0, 80); await page.waitForTimeout(300);
+    const after = await TestUtils.overlayCenter(page, node);
+    expect(before.y - after.y).toBeGreaterThanOrEqual(79); expect(before.y - after.y).toBeLessThanOrEqual(81);
+  });
+
+  test("la ligne de connexion part du centre du nœud à l'échelle 0.8", async ({ page }) => {
+    await TestUtils.setUiScale(page, 0.8);
+    const c = await TestUtils.overlayCenter(page, page.locator('.visual-node-overlay').first());
+    await page.mouse.move(c.x, c.y); await page.mouse.down();
+    const tip = { x: c.x + 40, y: c.y + 30 };
+    await page.mouse.move(tip.x, tip.y, { steps: 5 });
+    const [x1, y1, x2, y2] = await page.locator('[data-testid="drag-connect-indicator"] line')
+      .evaluate(el => {
+        // The line attributes are LOCAL px (SVG user units sit under the
+        // html zoom); multiply by --ui-scale to compare against the screen-px
+        // pointer coordinates.
+        const s = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale')) || 1;
+        return ['x1', 'y1', 'x2', 'y2'].map(a => Number(el.getAttribute(a)) * s);
+      });
+    expect(Math.max(Math.abs(x1 - c.x), Math.abs(y1 - c.y), Math.abs(x2 - tip.x), Math.abs(y2 - tip.y))).toBeLessThanOrEqual(1);
+    await page.mouse.up();
+  });
 });
