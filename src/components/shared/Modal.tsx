@@ -126,8 +126,8 @@ export function Modal({
           isRightPanel
             ? 'w-[380px] h-full border-l rounded-none max-md:w-full max-md:border-l-0 animate-slide-in-right'
             : isBottomPanel
-              ? 'w-full max-w-lg rounded-t-[24px] rounded-b-none border-t border-x max-h-[85vh] animate-slide-up safe-bottom'
-              : `w-full ${sizeClass} rounded-2xl max-md:max-w-full max-md:w-full max-md:h-full max-md:rounded-none max-md:max-h-[100dvh] max-h-[90vh] animate-slide-up`
+              ? 'w-full max-w-lg rounded-t-[24px] rounded-b-none border-t border-x max-h-[calc(85vh/var(--ui-scale))] animate-slide-up safe-bottom'
+              : `w-full ${sizeClass} rounded-2xl max-md:max-w-full max-md:w-full max-md:h-full max-md:rounded-none max-md:max-h-[100dvh] max-h-[calc(90vh/var(--ui-scale))] animate-slide-up`
         }`}
         style={{
           background: 'var(--surface-raised)',

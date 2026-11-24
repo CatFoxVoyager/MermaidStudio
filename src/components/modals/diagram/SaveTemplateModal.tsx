@@ -44,7 +44,7 @@ export function SaveTemplateModal({ content, onClose, onSaved }: Props) {
 
   return (
     <Modal isOpen={true} onClose={onClose} title={t('templates.saveAsTemplate')} size="sm" footer={footer}>
-      <div className="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
+      <div className="p-5 space-y-3 max-h-[calc(60vh/var(--ui-scale))] overflow-y-auto">
         <div>
           <label className="text-[11px] uppercase tracking-wider font-semibold mb-1 block" style={{ color: 'var(--text-tertiary)' }}>{t('templates.templateTitle')}</label>
           <input value={title} onChange={e => setTitle(e.target.value)}

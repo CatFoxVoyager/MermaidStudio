@@ -1,6 +1,29 @@
 import { Page, Locator } from '@playwright/test';
 
 export const TestUtils = {
+  // Wait for the desktop TopBar brand — proof that React mounted and the
+  // desktop tree rendered (mobile tree has its own brand testid).
+  async waitForApp(page: Page): Promise<void> {
+    await page.waitForSelector('[data-testid="topbar-brand"]');
+  },
+
+  // Drive the global interface scale for the current page by writing the
+  // `--ui-scale` custom property on <html> (the single source of scale).
+  async setUiScale(page: Page, scale: number): Promise<void> {
+    await page.evaluate(s =>
+      document.documentElement.style.setProperty('--ui-scale', String(s))
+    , scale);
+  },
+
+  // Pin the stored ui-scale preference before any page script runs —
+  // MUST be called before `page.goto`. Key mirrors UI_SCALE_STORAGE_KEY
+  // in src/utils/uiScale.ts (kept literal: e2e support does not import src).
+  async pinUIScale(page: Page, pref: 'auto' | number | string): Promise<void> {
+    await page.addInitScript(prefValue => {
+      window.localStorage.setItem('mermaid-studio-ui-scale', String(prefValue));
+    }, pref);
+  },
+
   async waitForDiagramRender(page: Page, timeout = 30000) {
     await page.waitForFunction(() => {
       const preview = document.querySelector('[data-testid="preview-panel"]');

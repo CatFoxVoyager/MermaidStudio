@@ -363,12 +363,14 @@ describe('AppLayout Component', () => {
   });
 
   describe('Mobile/Desktop Branch (Phase 14)', () => {
-    it('should render DESKTOP tree (h-screen, TopBar, WorkspacePanel) at ≥768px and be byte-identical to pre-Phase-14', () => {
+    it('should render DESKTOP tree (h-full, TopBar, WorkspacePanel) at ≥768px and be byte-identical to pre-Phase-14', () => {
       const { container } = render(<AppLayout {...mockProps} />);
 
-      // Root is the desktop div with h-screen (NOT h-dvh, NOT MobileLayout)
+      // Root is the desktop div with h-full (NOT h-dvh, NOT MobileLayout) —
+      // h-full + the html/body/#root height chain tracks the zoomed viewport
+      // under --ui-scale, where raw h-screen would overshoot.
       const root = container.firstChild as HTMLElement;
-      expect(root.className).toContain('h-screen');
+      expect(root.className).toContain('h-full');
       expect(root.className).not.toContain('h-dvh');
       expect(root.getAttribute('data-testid')).not.toBe('mobile-layout-root');
 

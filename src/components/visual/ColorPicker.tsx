@@ -178,7 +178,7 @@ export function ColorPicker({ label, value, onChange, labelVariant = 'inspector'
           <div
             ref={popRef}
             className="fixed z-50 w-64 rounded-xl border shadow-2xl p-3 animate-fade-in overflow-y-auto"
-            style={{ left: popPos.left, top: popPos.top, maxHeight: 'calc(100dvh - 16px)', background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
+            style={{ left: popPos.left, top: popPos.top, maxHeight: 'calc(100dvh / var(--ui-scale) - 16px)', background: 'var(--surface-floating)', borderColor: 'var(--border-subtle)' }}>
             {/* 5 columns of 40px swatches (iter-30 P1: was 32px in 8 cols).
                 iter-32: FOCUS_RING_CLASSES on swatches — the ring was the
                 UA default outline, breaking the app-wide recipe. */}

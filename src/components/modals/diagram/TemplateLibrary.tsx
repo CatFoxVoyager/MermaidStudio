@@ -271,7 +271,7 @@ export function TemplateLibrary({ isOpen = true, onSelect, onClose }: Props) {
     >
       {/* Modal Container */}
       <div
-        className="w-full max-w-3xl h-[80vh] max-h-[700px] flex flex-col rounded-xl shadow-2xl overflow-hidden"
+        className="w-full max-w-3xl h-[calc(80vh/var(--ui-scale))] max-h-[700px] flex flex-col rounded-xl shadow-2xl overflow-hidden"
         style={{ background: 'var(--surface-raised)', border: '1px solid var(--border-subtle)' }}
         onClick={e => e.stopPropagation()}
       >

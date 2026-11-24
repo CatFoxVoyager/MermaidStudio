@@ -153,7 +153,7 @@ export function ShapePicker({
         top: anchor.top,
         maxHeight: anchor.maxHeight,
         width: 264,
-        maxWidth: 'calc(100vw - 16px)',
+        maxWidth: 'calc(100vw / var(--ui-scale) - 16px)',
         background: 'var(--surface-raised)',
         borderColor: 'var(--border-subtle)',
       }}

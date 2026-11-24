@@ -135,7 +135,7 @@ export function AISettingsModal({ onClose }: Props) {
           <Loader2 size={32} className="animate-spin" style={{ color: 'var(--accent)' }} />
         </div>
       ) : (
-        <div className="p-5 space-y-5 overflow-y-auto overflow-x-visible max-h-[calc(100vh-200px)]">
+        <div className="p-5 space-y-5 overflow-y-auto overflow-x-visible max-h-[calc(100vh/var(--ui-scale)-200px)]">
           <div>
             <p
               className="text-[11px] font-semibold uppercase tracking-wider mb-2.5"
