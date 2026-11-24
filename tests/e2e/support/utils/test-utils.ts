@@ -48,16 +48,16 @@ export const TestUtils = {
   // Worst absolute misalignment, in screen pixels, between each element
   // matching `overlaySelector` and the nearest `svg g.node` inside
   // `scopeSelector` (nearest by centre distance). Max over left/top/width/
-  // height differences; returns -1 when the scope or nodes are missing so a
-  // broken selector never reads as "aligned".
+  // height differences; throws when the scope, nodes, or overlays are
+  // missing so a broken selector fails fast instead of reading as aligned.
   async worstOverlayOffset(page: Page, overlaySelector: string, scopeSelector: string): Promise<number> {
     return page.evaluate(([ovSel, scSel]) => {
       const scope = document.querySelector(scSel);
-      if (!scope) return -1;
+      if (!scope) throw new Error(`worstOverlayOffset: scope not found: ${scSel}`);
       const nodes = Array.from(scope.querySelectorAll('svg g.node'));
-      if (!nodes.length) return -1;
+      if (!nodes.length) throw new Error(`worstOverlayOffset: no svg g.node elements found in scope: ${scSel}`);
       const overlays = Array.from(document.querySelectorAll(ovSel));
-      if (!overlays.length) return -1;
+      if (!overlays.length) throw new Error(`worstOverlayOffset: no overlay elements found: ${ovSel}`);
       let worst = 0;
       for (const ov of overlays) {
         const o = ov.getBoundingClientRect();
