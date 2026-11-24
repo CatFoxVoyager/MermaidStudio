@@ -322,7 +322,14 @@ body {
 }
 
 /* ─── CodeMirror ─────────────────────────────────────────────── */
-.cm-editor { height: 100%; font-size: 14px; } /* was 13px — smaller than its own 16px accessory keys (iter-10 P1) */
+/* CodeMirror places fixed/absolute tooltips via viewport coordinates inside
+   .cm-editor; root zoom offsets them. Exempt the editor island and scale
+   its base font-size instead so it tracks --ui-scale without drifting. */
+.cm-editor {
+  zoom: calc(1 / var(--ui-scale));
+  height: 100%;
+  font-size: calc(14px * var(--ui-scale)); /* was 13px — smaller than its own 16px accessory keys (iter-10 P1) */
+}
 .cm-editor.cm-focused { outline: none !important; }
 .cm-scroller {
   font-family: 'JetBrains Mono', 'Fira Code', monospace !important;

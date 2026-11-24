@@ -152,3 +152,18 @@ for (const scale of [0.8, 1.25]) {
     expect(await TestUtils.worstOverlayOffset(page, '.node-overlay', '[data-testid="preview-panel"]')).toBeLessThanOrEqual(1);
   });
 }
+
+for (const scale of [0.8, 1.25]) {
+  test(`l'autocomplétion reste collée sous la ligne à l'échelle ${scale}`, async ({ page }) => {
+    await TestUtils.setUiScale(page, scale);
+    await page.locator('.cm-content').click();
+    await page.keyboard.press('Control+End'); await page.keyboard.press('Enter');
+    await page.keyboard.type('sub', { delay: 50 }); await page.waitForTimeout(800);
+    const gap = await page.evaluate(() => document.querySelector('.cm-tooltip')!.getBoundingClientRect().top
+      - document.querySelector('.cm-activeLine')!.getBoundingClientRect().bottom);
+    expect(gap).toBeGreaterThanOrEqual(-6); expect(gap).toBeLessThanOrEqual(2);   // −33 avant correction
+    const fills = await page.evaluate(() => Math.abs(document.querySelector('.cm-editor')!.getBoundingClientRect().height
+      - document.querySelector('[data-testid="code-editor"]')!.getBoundingClientRect().height));
+    expect(fills).toBeLessThanOrEqual(1);
+  });
+}
