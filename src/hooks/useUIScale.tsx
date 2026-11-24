@@ -4,15 +4,18 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useUIScaleShortcuts } from '@/hooks/useUIScaleShortcuts';
 import {
   applyScale,
   AUTO_MAX_WIDTH,
   AUTO_MIN_WIDTH,
   computeAutoScale,
+  nextStep,
   readPref,
   resolveScale,
   writePref,
@@ -24,6 +27,9 @@ export interface UIScaleApi {
   scale: number;
   autoScale: number | null;
   setPref(pref: UIScalePref): void;
+  stepDown(): void;
+  stepUp(): void;
+  reset(): void;
   menuOpen: boolean;
   openMenu(options?: { focusTrigger?: boolean }): void;
   closeMenu(): void;
@@ -71,10 +77,29 @@ export function UIScaleProvider({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [focusTriggerTick, setFocusTriggerTick] = useState(0);
 
+  const scaleRef = useRef(scale);
+  useEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
+
   const setPref = useCallback((next: UIScalePref) => {
     setPrefState(next);
     writePref(next);
   }, []);
+
+  const stepDown = useCallback(() => {
+    const next = nextStep(scaleRef.current, -1);
+    if (next !== null) setPref(next);
+  }, [setPref]);
+
+  const stepUp = useCallback(() => {
+    const next = nextStep(scaleRef.current, 1);
+    if (next !== null) setPref(next);
+  }, [setPref]);
+
+  const reset = useCallback(() => {
+    setPref(1);
+  }, [setPref]);
 
   const openMenu = useCallback((options?: { focusTrigger?: boolean }) => {
     setMenuOpen(true);
@@ -88,9 +113,22 @@ export function UIScaleProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<UIScaleApi>(
-    () => ({ pref, scale, autoScale, setPref, menuOpen, openMenu, closeMenu }),
-    [pref, scale, autoScale, setPref, menuOpen, openMenu, closeMenu]
+    () => ({
+      pref,
+      scale,
+      autoScale,
+      setPref,
+      stepDown,
+      stepUp,
+      reset,
+      menuOpen,
+      openMenu,
+      closeMenu,
+    }),
+    [pref, scale, autoScale, setPref, stepDown, stepUp, reset, menuOpen, openMenu, closeMenu]
   );
+
+  useUIScaleShortcuts(value);
 
   return (
     <UIScaleTriggerFocusContext.Provider value={focusTriggerTick}>

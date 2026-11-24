@@ -213,7 +213,11 @@
     "zoomIn": "Zoom in (fullscreen)",
     "zoomOut": "Zoom out (fullscreen)",
     "resetZoom": "Reset zoom (fullscreen)",
-    "closeModal": "Close modal / fullscreen"
+    "closeModal": "Close modal / fullscreen",
+    "interface": "Interface",
+    "uiScaleOut": "Decrease interface scale",
+    "uiScaleIn": "Increase interface scale",
+    "uiScaleReset": "Reset interface scale (100%)"
   },
   "export": {
     "title": "Export & Share",

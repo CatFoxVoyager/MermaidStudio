@@ -198,4 +198,84 @@ describe('UIScaleProvider', () => {
     expect(probe.current()?.openMenu).toBe(initialOpen);
     expect(probe.current()?.closeMenu).toBe(initialClose);
   });
+
+  it('depuis 0.8 auto, stepDown donne la préférence 0.75, stepUp remonte à 0.8, reset met à 1', () => {
+    setViewport(1280, 720);
+    mockMatchMedia(() => true);
+
+    const probe = renderProbe();
+    const initialStepDown = probe.current()?.stepDown;
+    const initialStepUp = probe.current()?.stepUp;
+    const initialReset = probe.current()?.reset;
+
+    expect(probe.current()?.scale).toBe(0.8);
+
+    act(() => {
+      probe.current()?.stepDown();
+    });
+    expect(probe.current()?.pref).toBe(0.75);
+    expect(probe.current()?.scale).toBe(0.75);
+    expect(localStorage.getItem(UI_SCALE_STORAGE_KEY)).toBe('0.75');
+    expect(document.documentElement.style.getPropertyValue('--ui-scale')).toBe('0.75');
+
+    // Références stables après changement d'échelle, sans fermeture périmée
+    expect(probe.current()?.stepDown).toBe(initialStepDown);
+    expect(probe.current()?.stepUp).toBe(initialStepUp);
+    expect(probe.current()?.reset).toBe(initialReset);
+
+    act(() => {
+      probe.current()?.stepUp();
+    });
+    expect(probe.current()?.pref).toBe(0.8);
+    expect(probe.current()?.scale).toBe(0.8);
+
+    act(() => {
+      probe.current()?.reset();
+    });
+    expect(probe.current()?.pref).toBe(1);
+    expect(probe.current()?.scale).toBe(1);
+    expect(document.documentElement.style.getPropertyValue('--ui-scale')).toBe('');
+  });
+
+  it('stepDown au plancher (0.5) et stepUp au plafond (1.5) sont sans effet', () => {
+    localStorage.setItem(UI_SCALE_STORAGE_KEY, '0.5');
+    setViewport(1280, 720);
+    mockMatchMedia(() => true);
+
+    const probe = renderProbe();
+    act(() => {
+      probe.current()?.stepDown();
+    });
+    expect(probe.current()?.pref).toBe(0.5);
+
+    act(() => {
+      probe.current()?.setPref(1.5);
+    });
+    act(() => {
+      probe.current()?.stepUp();
+    });
+    expect(probe.current()?.pref).toBe(1.5);
+  });
+
+  it('monte useUIScaleShortcuts : Alt+Minus déclenche stepDown sur window', () => {
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36',
+    });
+    setViewport(1280, 720);
+    mockMatchMedia(() => true);
+
+    const probe = renderProbe();
+    expect(probe.current()?.scale).toBe(0.8);
+
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { code: 'Minus', altKey: true, cancelable: true })
+      );
+    });
+
+    expect(probe.current()?.pref).toBe(0.75);
+    expect(probe.current()?.scale).toBe(0.75);
+  });
 });

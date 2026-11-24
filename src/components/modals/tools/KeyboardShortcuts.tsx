@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/shared/Modal';
+import { scaleShortcutModifier } from '@/utils/uiScale';
 
 interface Props {
   onClose: () => void;
@@ -7,6 +8,11 @@ interface Props {
 
 export function KeyboardShortcuts({ onClose }: Props) {
   const { t } = useTranslation();
+
+  const scaleMod =
+    scaleShortcutModifier(typeof navigator === 'undefined' ? '' : navigator.userAgent) === 'ctrl'
+      ? 'Ctrl'
+      : 'Alt';
 
   const GROUPS = [
     {
@@ -47,6 +53,14 @@ export function KeyboardShortcuts({ onClose }: Props) {
         { keys: '-', desc: t('shortcuts.zoomOut') },
         { keys: '0', desc: t('shortcuts.resetZoom') },
         { keys: 'Esc', desc: t('shortcuts.closeModal') },
+      ],
+    },
+    {
+      title: t('shortcuts.interface'),
+      shortcuts: [
+        { keys: `${scaleMod}++`, desc: t('shortcuts.uiScaleIn') },
+        { keys: `${scaleMod}+−`, desc: t('shortcuts.uiScaleOut') },
+        { keys: `${scaleMod}+0`, desc: t('shortcuts.uiScaleReset') },
       ],
     },
   ];

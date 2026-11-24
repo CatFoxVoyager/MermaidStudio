@@ -27,4 +27,16 @@ describe('uiScale i18n parity', () => {
     expect(enSection.autoHint).toContain('{{percent}}');
     expect(frSection.autoHint).toContain('{{percent}}');
   });
+
+  it('en.shortcuts and fr.shortcuts define interface scale shortcut keys', () => {
+    const enShortcuts = (en as unknown as Record<string, Record<string, string>>).shortcuts;
+    const frShortcuts = (fr as unknown as Record<string, Record<string, string>>).shortcuts;
+
+    for (const key of ['interface', 'uiScaleOut', 'uiScaleIn', 'uiScaleReset']) {
+      expect(typeof enShortcuts[key]).toBe('string');
+      expect(typeof frShortcuts[key]).toBe('string');
+      expect(enShortcuts[key].trim().length).toBeGreaterThan(0);
+      expect(frShortcuts[key].trim().length).toBeGreaterThan(0);
+    }
+  });
 });

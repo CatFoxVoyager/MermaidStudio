@@ -56,3 +56,14 @@ test('125 % sur 1280 px : le bouton reste utilisable', async ({ page }) => {
   await page.getByTestId('ui-scale-button').click();
   await expect(page.getByTestId('ui-scale-menu')).toBeVisible();
 });
+
+test("raccourcis : Alt+−, Alt++, Alt+0, focus dans l'éditeur", async ({ page }) => {
+  await page.locator('.cm-content').click();
+  await page.keyboard.press('Alt+Minus');
+  await TestUtils.expectZoom(page, 0.75);
+  await page.keyboard.press('Alt+Equal');
+  await TestUtils.expectZoom(page, 0.8);
+  await page.keyboard.press('Alt+Digit0');
+  await TestUtils.expectZoom(page, 1);
+  expect(await page.evaluate(() => document.querySelector('.cm-content')!.textContent)).not.toContain('–');
+});

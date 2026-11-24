@@ -213,7 +213,11 @@
     "zoomIn": "Zoom avant (plein écran)",
     "zoomOut": "Zoom arrière (plein écran)",
     "resetZoom": "Réinitialiser le zoom (plein écran)",
-    "closeModal": "Fermer la fenêtre / plein écran"
+    "closeModal": "Fermer la fenêtre / plein écran",
+    "interface": "Interface",
+    "uiScaleOut": "Réduire l'échelle de l'interface",
+    "uiScaleIn": "Agrandir l'échelle de l'interface",
+    "uiScaleReset": "Réinitialiser l'échelle (100 %)"
   },
   "export": {
     "title": "Exporter et partager",
