@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { StrictMode, useEffect } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
 import {
@@ -6,9 +6,48 @@ import {
   useUIScaleContext,
   type UIScaleApi,
 } from '@/hooks/useUIScale';
-import { applyScale, UI_SCALE_STORAGE_KEY } from '@/utils/uiScale';
+import type { ShowToastOptions, ToastItem } from '@/hooks/useToast';
+import {
+  applyScale,
+  UI_SCALE_NOTICE_KEY,
+  UI_SCALE_STORAGE_KEY,
+} from '@/utils/uiScale';
 import { mockMatchMedia, setViewport } from '@/utils/__tests__/uiScaleTestHelpers';
 import { log } from '@/utils/logger';
+import en from '../../i18n/locales/en.json';
+
+function lookupKey(obj: Record<string, unknown>, path: string): string {
+  const parts = path.split('.');
+  let cur: unknown = obj;
+  for (const p of parts) {
+    if (cur && typeof cur === 'object' && p in cur) {
+      cur = (cur as Record<string, unknown>)[p];
+    } else {
+      return path;
+    }
+  }
+  return typeof cur === 'string' ? cur : path;
+}
+
+const mockT = (key: string, opts?: Record<string, unknown>): string => {
+  let text = lookupKey(en as unknown as Record<string, unknown>, key);
+  if (opts) {
+    for (const [k, v] of Object.entries(opts)) {
+      text = text.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), String(v));
+    }
+  }
+  return text;
+};
+
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: mockT,
+    i18n: {
+      changeLanguage: vi.fn(() => Promise.resolve()),
+      language: 'en',
+    },
+  }),
+}));
 
 function Probe({ onValue }: { onValue: (api: UIScaleApi | null) => void }) {
   const api = useUIScaleContext();
@@ -18,10 +57,19 @@ function Probe({ onValue }: { onValue: (api: UIScaleApi | null) => void }) {
   return null;
 }
 
-function renderProbe(): { current: () => UIScaleApi | null } {
+type ShowToastFn = (
+  message: string,
+  type?: ToastItem['type'],
+  options?: ShowToastOptions
+) => void;
+
+function renderProbe(options?: {
+  showToast?: ShowToastFn;
+  strictMode?: boolean;
+}): { current: () => UIScaleApi | null; unmount: () => void } {
   let latest: UIScaleApi | null = null;
-  render(
-    <UIScaleProvider>
+  const tree = (
+    <UIScaleProvider showToast={options?.showToast}>
       <Probe
         onValue={(api) => {
           latest = api;
@@ -29,13 +77,16 @@ function renderProbe(): { current: () => UIScaleApi | null } {
       />
     </UIScaleProvider>
   );
-  return { current: () => latest };
+  const result = render(options?.strictMode ? <StrictMode>{tree}</StrictMode> : tree);
+  return { current: () => latest, unmount: result.unmount };
 }
 
 afterEach(() => {
   cleanup();
   applyScale(1);
   localStorage.removeItem(UI_SCALE_STORAGE_KEY);
+  localStorage.removeItem(UI_SCALE_NOTICE_KEY);
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -277,5 +328,124 @@ describe('UIScaleProvider', () => {
 
     expect(probe.current()?.pref).toBe(0.75);
     expect(probe.current()?.scale).toBe(0.75);
+  });
+
+  describe('notice unique', () => {
+    it('à 1280 px en auto, 1,6 s après le montage, appelle showToast avec action et pose UI_SCALE_NOTICE_KEY à 1', () => {
+      vi.useFakeTimers();
+      setViewport(1280, 720);
+      mockMatchMedia(() => true);
+      const showToast = vi.fn<ShowToastFn>();
+
+      const probe = renderProbe({ showToast });
+
+      // Not shown immediately or before 1.5s
+      expect(showToast).not.toHaveBeenCalled();
+      expect(localStorage.getItem(UI_SCALE_NOTICE_KEY)).toBeNull();
+
+      act(() => {
+        vi.advanceTimersByTime(1600);
+      });
+
+      expect(showToast).toHaveBeenCalledTimes(1);
+      expect(showToast).toHaveBeenCalledWith(
+        'Interface adjusted to 80 % for this screen.',
+        'info',
+        expect.objectContaining({
+          durationMs: 10000,
+          action: expect.objectContaining({
+            label: 'Change',
+            onClick: expect.any(Function),
+          }),
+        })
+      );
+      expect(localStorage.getItem(UI_SCALE_NOTICE_KEY)).toBe('1');
+
+      // Clicking the toast action opens the scale menu
+      const action = showToast.mock.calls[0][2]?.action;
+      expect(probe.current()?.menuOpen).toBe(false);
+      act(() => {
+        action?.onClick();
+      });
+      expect(probe.current()?.menuOpen).toBe(true);
+
+      // A second mount does not show the notice again
+      probe.unmount();
+      showToast.mockClear();
+      renderProbe({ showToast });
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(showToast).not.toHaveBeenCalled();
+    });
+
+    it('fonctionne sous React StrictMode sans annuler la notice par écriture prématurée du drapeau', () => {
+      vi.useFakeTimers();
+      setViewport(1280, 720);
+      mockMatchMedia(() => true);
+      const showToast = vi.fn<ShowToastFn>();
+
+      renderProbe({ showToast, strictMode: true });
+
+      // Flag must NOT be written before the timer fires
+      expect(localStorage.getItem(UI_SCALE_NOTICE_KEY)).toBeNull();
+
+      act(() => {
+        vi.advanceTimersByTime(1600);
+      });
+
+      expect(showToast).toHaveBeenCalledTimes(1);
+      expect(localStorage.getItem(UI_SCALE_NOTICE_KEY)).toBe('1');
+    });
+
+    it('préférence manuelle → aucune notice', () => {
+      vi.useFakeTimers();
+      localStorage.setItem(UI_SCALE_STORAGE_KEY, '0.75');
+      setViewport(1280, 720);
+      mockMatchMedia(() => true);
+      const showToast = vi.fn<ShowToastFn>();
+
+      renderProbe({ showToast });
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(showToast).not.toHaveBeenCalled();
+      expect(localStorage.getItem(UI_SCALE_NOTICE_KEY)).toBeNull();
+    });
+
+    it('1440 px → aucune notice', () => {
+      vi.useFakeTimers();
+      setViewport(1440, 900);
+      mockMatchMedia(() => true);
+      const showToast = vi.fn<ShowToastFn>();
+
+      renderProbe({ showToast });
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(showToast).not.toHaveBeenCalled();
+      expect(localStorage.getItem(UI_SCALE_NOTICE_KEY)).toBeNull();
+    });
+
+    it('démontage avant 1,5 s annule le minuteur sans poser le drapeau', () => {
+      vi.useFakeTimers();
+      setViewport(1280, 720);
+      mockMatchMedia(() => true);
+      const showToast = vi.fn<ShowToastFn>();
+
+      const probe = renderProbe({ showToast });
+      act(() => {
+        vi.advanceTimersByTime(500);
+      });
+      probe.unmount();
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+
+      expect(showToast).not.toHaveBeenCalled();
+      expect(localStorage.getItem(UI_SCALE_NOTICE_KEY)).toBeNull();
+    });
   });
 });

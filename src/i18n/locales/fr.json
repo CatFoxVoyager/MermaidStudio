@@ -942,6 +942,8 @@
     "label": "Échelle de l'interface : {{percent}} %",
     "auto": "Auto",
     "autoHint": "{{percent}} % sur cet écran",
-    "shortcuts": "Raccourcis : {{mod}} + / − / 0"
+    "shortcuts": "Raccourcis : {{mod}} + / − / 0",
+    "notice": "Interface ajustée à {{percent}} % pour cet écran.",
+    "noticeAction": "Modifier"
   }
 }

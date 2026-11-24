@@ -75,3 +75,15 @@ test("la palette ouvre le menu d'échelle et rend le focus au bouton", async ({ 
   await expect(page.getByTestId('ui-scale-menu')).toBeVisible();
   await expect(page.getByTestId('ui-scale-button')).toBeFocused();
 });
+
+test('notice une seule fois, avec son action', async ({ page }) => {
+  const notice = page.getByText(/Interface adjusted to 80/);
+  await expect(notice).toBeVisible({ timeout: 5000 });
+  await page.getByTestId('toast-action').click();
+  await expect(page.getByTestId('ui-scale-menu')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.reload();
+  await TestUtils.waitForApp(page);
+  await page.waitForTimeout(2500); // au-delà du délai d'affichage
+  await expect(page.getByText(/Interface adjusted to/)).toHaveCount(0);
+});

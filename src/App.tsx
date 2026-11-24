@@ -182,7 +182,7 @@ export default function App() {
             h1 exists at every viewport. The visible h1 is the static shell
             pre-mount (index.html); post-mount this roots the outline. */}
         <h1 className="sr-only">{t('header.appHeading')}</h1>
-        <UIScaleProvider>
+        <UIScaleProvider showToast={showToast}>
           <AppLayout
             theme={appState.theme}
             toggleTheme={appState.toggleTheme}

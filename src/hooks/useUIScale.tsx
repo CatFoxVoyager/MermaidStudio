@@ -8,8 +8,11 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import type { useToast } from '@/hooks/useToast';
 import { useUIScaleShortcuts } from '@/hooks/useUIScaleShortcuts';
+import { storage } from '@/utils/logger';
 import {
   applyScale,
   AUTO_MAX_WIDTH,
@@ -18,6 +21,7 @@ import {
   nextStep,
   readPref,
   resolveScale,
+  UI_SCALE_NOTICE_KEY,
   writePref,
   type UIScalePref,
 } from '@/utils/uiScale';
@@ -40,6 +44,14 @@ const UIScaleTriggerFocusContext = createContext<number>(0);
 
 const DESKTOP_POINTER_QUERY = '(hover: hover) and (pointer: fine)';
 
+const NOTICE_DELAY_MS = 1500;
+const NOTICE_DURATION_MS = 10000;
+
+export interface UIScaleProviderProps {
+  children: ReactNode;
+  showToast?: ReturnType<typeof useToast>['show'];
+}
+
 /**
  * Provides global UI scale state and mirrors the effective scale onto
  * `document.documentElement` via `--ui-scale`.
@@ -48,7 +60,13 @@ const DESKTOP_POINTER_QUERY = '(hover: hover) and (pointer: fine)';
  * preference is stored. Outside the auto band or on coarse pointers,
  * `autoScale` is `null`.
  */
-export function UIScaleProvider({ children }: { children: ReactNode }) {
+export function UIScaleProvider({ children, showToast }: UIScaleProviderProps) {
+  const { t } = useTranslation();
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+
   const [pref, setPrefState] = useState<UIScalePref>(() => readPref());
   const [width, setWidth] = useState<number>(() =>
     typeof window === 'undefined' ? AUTO_MAX_WIDTH : window.innerWidth
@@ -129,6 +147,30 @@ export function UIScaleProvider({ children }: { children: ReactNode }) {
   );
 
   useUIScaleShortcuts(value);
+
+  useEffect(() => {
+    if (
+      !showToast ||
+      pref !== 'auto' ||
+      scale === 1 ||
+      storage.getItem(UI_SCALE_NOTICE_KEY) === '1'
+    ) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      storage.setItem(UI_SCALE_NOTICE_KEY, '1');
+      showToast(tRef.current('uiScale.notice', { percent: Math.round(scale * 100) }), 'info', {
+        durationMs: NOTICE_DURATION_MS,
+        action: {
+          label: tRef.current('uiScale.noticeAction'),
+          onClick: () => openMenu({ focusTrigger: true }),
+        },
+      });
+    }, NOTICE_DELAY_MS);
+
+    return () => clearTimeout(timer);
+  }, [pref, scale, showToast, openMenu]);
 
   return (
     <UIScaleTriggerFocusContext.Provider value={focusTriggerTick}>

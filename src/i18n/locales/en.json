@@ -942,6 +942,8 @@
     "label": "Interface scale: {{percent}} %",
     "auto": "Auto",
     "autoHint": "{{percent}} % on this screen",
-    "shortcuts": "Shortcuts: {{mod}} + / − / 0"
+    "shortcuts": "Shortcuts: {{mod}} + / − / 0",
+    "notice": "Interface adjusted to {{percent}} % for this screen.",
+    "noticeAction": "Change"
   }
 }
