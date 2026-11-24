@@ -21,10 +21,14 @@
  * - The hidden measurer row is aria-hidden + visibility:hidden, so RTL role
  *   queries never see its copies; title-attribute queries do.
  */
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { useEffect } from 'react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { ShapeToolbar } from '../ShapeToolbar';
 import { CANONICAL_SHAPES } from '@/lib/mermaid/shapes';
+import { UIScaleProvider, useUIScaleContext, type UIScaleApi } from '@/hooks/useUIScale';
+import { applyScale, UI_SCALE_STORAGE_KEY } from '@/utils/uiScale';
+import { mockMatchMedia, setViewport } from '@/utils/__tests__/uiScaleTestHelpers';
 
 // 38-05: the 26 legacy-era toolbar entries at HEAD before the SSOT growth.
 // Hand-typed ONCE as the historical baseline — the it.each below derives the
@@ -246,6 +250,201 @@ describe('ShapeToolbar', () => {
       expect(container.querySelector('[data-shape-picker]')).not.toBeNull();
       fireEvent.keyDown(document, { key: 'Escape' });
       expect(container.querySelector('[data-shape-picker]')).toBeNull();
+    });
+  });
+
+  describe('UI scale greedy fit consistency', () => {
+    afterEach(() => {
+      applyScale(1);
+      localStorage.removeItem(UI_SCALE_STORAGE_KEY);
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    it.each([1, 0.8, 1.25])(
+      'fits the same 4 primary shapes in a 500px local toolbar at scale %s',
+      (scale) => {
+        applyScale(scale);
+
+        // Local geometry: scroller clientWidth=500, paddingRight=12, prefix=120,
+        // More lane=68 => 300 local px available; each shape=60 + gap 4 = 64
+        // local px => floor(300 / 64) = 4 primary shapes regardless of UI scale.
+        // Under CSS zoom, clientWidth & computed paddingRight stay in local px
+        // while getBoundingClientRect() returns scaled screen px.
+        const origClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+        Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+          configurable: true,
+          get(this: HTMLElement) {
+            return this.classList.contains('scroll-fade-x') ? 500 : 0;
+          },
+        });
+
+        const origGetComputedStyle = window.getComputedStyle;
+        vi.spyOn(window, 'getComputedStyle').mockImplementation((el, pseudo) => {
+          const cs = origGetComputedStyle.call(window, el, pseudo);
+          if (el instanceof HTMLElement && el.classList.contains('scroll-fade-x')) {
+            return new Proxy(cs, {
+              get(target, prop) {
+                if (prop === 'paddingRight') return '12px';
+                const v = Reflect.get(target, prop);
+                return typeof v === 'function' ? v.bind(target) : v;
+              },
+            });
+          }
+          return cs;
+        });
+
+        vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+          if (this.classList.contains('scroll-fade-x')) {
+            return { left: 0, top: 0, right: 500 * scale, bottom: 60 * scale, width: 500 * scale, height: 60 * scale, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+          }
+          if (this.tagName === 'BUTTON' && this.closest('[aria-hidden="true"]')) {
+            return { left: 0, top: 0, right: 60 * scale, bottom: 52 * scale, width: 60 * scale, height: 52 * scale, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+          }
+          if (this.parentElement?.classList.contains('scroll-fade-x') && this.classList.contains('shrink-0')) {
+            return { left: 120 * scale, top: 0, right: 400 * scale, bottom: 52 * scale, width: 280 * scale, height: 52 * scale, x: 120 * scale, y: 0, toJSON: () => ({}) } as DOMRect;
+          }
+          return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+        });
+
+        try {
+          const { container } = renderToolbar();
+          const primaryGroup = container.querySelector('.scroll-fade-x > div.flex.items-center.gap-1.shrink-0:not(.mr-2)');
+          expect(primaryGroup).not.toBeNull();
+          expect(primaryGroup!.querySelectorAll('button')).toHaveLength(4);
+        } finally {
+          if (origClientWidth) {
+            Object.defineProperty(HTMLElement.prototype, 'clientWidth', origClientWidth);
+          } else {
+            delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+          }
+        }
+      },
+    );
+
+    it('re-anchors an open ShapePicker when visibleCount reflows the toolbar', () => {
+      applyScale(1.25);
+      let toolbarWidth = 500;
+      let moreBottom = 229.5;
+      let resizeCb: ResizeObserverCallback | null = null;
+      const OrigResizeObserver = globalThis.ResizeObserver;
+      class FakeResizeObserver {
+        constructor(cb: ResizeObserverCallback) {
+          resizeCb = cb;
+        }
+        observe() {}
+        disconnect() {}
+        unobserve() {}
+      }
+      globalThis.ResizeObserver = FakeResizeObserver as unknown as typeof ResizeObserver;
+
+      const origClientWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'clientWidth');
+      Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+        configurable: true,
+        get(this: HTMLElement) {
+          return this.classList.contains('scroll-fade-x') ? toolbarWidth : 0;
+        },
+      });
+
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+        if (this.getAttribute('aria-label') === 'More') {
+          return { left: 1196, top: moreBottom - 66, right: 1270, bottom: moreBottom, width: 74, height: 66, x: 1196, y: moreBottom - 66, toJSON: () => ({}) } as DOMRect;
+        }
+        if (this.classList.contains('scroll-fade-x')) {
+          return { left: 0, top: 0, right: toolbarWidth * 1.25, bottom: 75, width: toolbarWidth * 1.25, height: 75, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+        }
+        if (this.tagName === 'BUTTON' && this.closest('[aria-hidden="true"]')) {
+          return { left: 0, top: 0, right: 75, bottom: 65, width: 75, height: 65, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+        }
+        if (this.parentElement?.classList.contains('scroll-fade-x') && this.classList.contains('shrink-0')) {
+          return { left: 150, top: 0, right: 500, bottom: 65, width: 350, height: 65, x: 150, y: 0, toJSON: () => ({}) } as DOMRect;
+        }
+        return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+      });
+
+      try {
+        const { container } = renderToolbar();
+        fireEvent.click(screen.getByRole('button', { name: 'More' }));
+        const picker = container.querySelector('[data-shape-picker]') as HTMLElement;
+        expect(picker).not.toBeNull();
+        expect(parseFloat(picker.style.top)).toBeCloseTo((229.5 + 8) / 1.25, 2);
+
+        // Simulate toolbar narrowing -> visibleCount shrinks -> scrollbar collapses -> More shifts up 3px
+        toolbarWidth = 350;
+        moreBottom = 226.5;
+        act(() => {
+          resizeCb?.([], {} as ResizeObserver);
+        });
+        expect(parseFloat(picker.style.top)).toBeCloseTo((226.5 + 8) / 1.25, 2);
+      } finally {
+        globalThis.ResizeObserver = OrigResizeObserver;
+        if (origClientWidth) {
+          Object.defineProperty(HTMLElement.prototype, 'clientWidth', origClientWidth);
+        } else {
+          delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+        }
+      }
+    });
+
+    it('re-anchors an open ShapePicker when uiScale changes without visibleCount changing', () => {
+      setViewport(1280, 720);
+      mockMatchMedia(() => true);
+
+      let moreBottom = 180;
+      let moreRight = 1000;
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+        if (this.getAttribute('aria-label') === 'More') {
+          return {
+            left: moreRight - 60,
+            top: moreBottom - 50,
+            right: moreRight,
+            bottom: moreBottom,
+            width: 60,
+            height: 50,
+            x: moreRight - 60,
+            y: moreBottom - 50,
+            toJSON: () => ({}),
+          } as DOMRect;
+        }
+        return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+      });
+
+      const apiRef: { current: UIScaleApi | null } = { current: null };
+      function ScaleProbe() {
+        const api = useUIScaleContext();
+        useEffect(() => {
+          apiRef.current = api;
+        });
+        return null;
+      }
+
+      const { container } = render(
+        <UIScaleProvider>
+          <ScaleProbe />
+          <ShapeToolbar
+            toolMode="select"
+            onToolMode={vi.fn()}
+            onAddShape={vi.fn()}
+            onDragStart={vi.fn()}
+          />
+        </UIScaleProvider>
+      );
+
+      expect(apiRef.current?.scale).toBe(0.8);
+      fireEvent.click(screen.getByRole('button', { name: 'More' }));
+      const picker = container.querySelector('[data-shape-picker]') as HTMLElement;
+      expect(picker).not.toBeNull();
+      expect(parseFloat(picker.style.top)).toBeCloseTo((180 + 8) / 0.8, 2);
+
+      // Change UI scale from 0.8 -> 1.25 while visibleCount stays unchanged (no ResizeObserver fire).
+      moreBottom = 260;
+      moreRight = 1120;
+      act(() => {
+        apiRef.current?.setPref(1.25);
+      });
+
+      expect(parseFloat(picker.style.top)).toBeCloseTo((260 + 8) / 1.25, 2);
+      expect(parseFloat(picker.style.right)).toBeCloseTo((1280 - 1120) / 1.25, 2);
     });
   });
 });

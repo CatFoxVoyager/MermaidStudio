@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
+import { localViewport, screenToLocal } from '@/utils/uiScale';
 
 export interface ContextMenuItem {
   label: string;
@@ -37,8 +38,9 @@ export function ContextMenu({ items, x, y, onClose, touch = false }: Props) {
     return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', key); };
   }, [onClose]);
 
-  const ax = Math.min(x, window.innerWidth - 200);
-  const ay = Math.min(y, window.innerHeight - items.length * rowHeight - 16);
+  const vp = localViewport();
+  const ax = Math.min(screenToLocal(x), vp.width - 200);
+  const ay = Math.min(screenToLocal(y), vp.height - items.length * rowHeight - 16);
 
   // Measured vertical clamp (iter-14 P2: the estimate ignored per-item
   // padding/dividers — the menu rendered 3px past the viewport bottom with
@@ -50,7 +52,7 @@ export function ContextMenu({ items, x, y, onClose, touch = false }: Props) {
     const el = panelRef.current;
     if (!el) {return;}
     const h = el.offsetHeight;
-    const overflow = ay + h - (window.innerHeight - 16);
+    const overflow = ay + h - (localViewport().height - 16);
     if (overflow > 0) {
       el.style.top = `${Math.max(8, ay - overflow)}px`;
     }

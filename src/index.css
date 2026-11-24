@@ -175,6 +175,11 @@ input::placeholder {
 
 /* ─── CSS Variables ──────────────────────────────────────────── */
 :root {
+  /* Global interface scale — single source of scale, consumed by
+     `html { zoom }` below and by every desktop viewport-unit calc
+     (`calc(<X> / var(--ui-scale))`). JavaScript reflects the preference
+     here via src/utils/uiScale.ts (applyScale); at 1 nothing changes. */
+  --ui-scale: 1;
   --surface-base: #fafaf9;
   --surface-raised: #ffffff;
   --surface-floating: #f4f4f2;
@@ -245,7 +250,13 @@ input::placeholder {
 /* ─── Base ───────────────────────────────────────────────────── */
 * { box-sizing: border-box; }
 
-html { -webkit-font-smoothing: antialiased; }
+/* Root zoom IS the interface scale: the whole box tree shrinks/grows from
+   this one property. Viewport units do NOT follow zoom — desktop components
+   must divide them by var(--ui-scale) (guard: viewportUnitsGuard.test.ts). */
+html {
+  -webkit-font-smoothing: antialiased;
+  zoom: var(--ui-scale);
+}
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
@@ -286,10 +297,17 @@ kbd {
 }
 
 /* Page level: no pull-to-refresh / overscroll echo on the app shell — the
-   diagram canvas owns pan and pinch gestures; the chrome must stay put. */
+   diagram canvas owns pan and pinch gestures; the chrome must stay put.
+   The height chain (html/body/#root at 100%) lets the desktop root use
+   h-full so it tracks the zoomed viewport instead of raw 100vh. */
 html,
 body {
+  height: 100%;
   overscroll-behavior: none;
+}
+
+#root {
+  height: 100%;
 }
 
 /* ─── Mermaid ────────────────────────────────────────────────── */
@@ -303,8 +321,28 @@ body {
   overflow: visible;
 }
 
+/* Mermaid measures HTML labels via getBoundingClientRect() during render;
+   counter-zoom its scratch container so SVG geometry and PNG exports are
+   independent of the global UI scale (matches .cm-editor exemption below). */
+.mermaid-render-sandbox {
+  zoom: calc(1 / var(--ui-scale));
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* ─── CodeMirror ─────────────────────────────────────────────── */
-.cm-editor { height: 100%; font-size: 14px; } /* was 13px — smaller than its own 16px accessory keys (iter-10 P1) */
+/* CodeMirror places fixed/absolute tooltips via viewport coordinates inside
+   .cm-editor; root zoom offsets them. Exempt the editor island and scale
+   its base font-size instead so it tracks --ui-scale without drifting. */
+.cm-editor {
+  zoom: calc(1 / var(--ui-scale));
+  height: 100%;
+  font-size: calc(14px * var(--ui-scale)); /* was 13px — smaller than its own 16px accessory keys (iter-10 P1) */
+}
 .cm-editor.cm-focused { outline: none !important; }
 .cm-scroller {
   font-family: 'JetBrains Mono', 'Fira Code', monospace !important;

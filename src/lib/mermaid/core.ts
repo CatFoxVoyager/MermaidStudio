@@ -461,13 +461,24 @@ export async function renderDiagram(
   doInit(currentTheme, hasCustomTheme, currentMermaidTheme, diagramType, requiredMaxTextSize);
 
   const safeId = id.replace(/[^a-zA-Z0-9_]/g, '_');
+  const sandbox =
+    typeof document !== 'undefined' && document.body
+      ? document.createElement('div')
+      : undefined;
+  if (sandbox) {
+    sandbox.className = 'mermaid-render-sandbox';
+    sandbox.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(sandbox);
+  }
   try {
     // Leading whitespace defeats mermaid's frontmatter detection (it needs
     // column 0): an indented `---` is lexed as an edge token and the render
     // dies with "got LINK" (critique iter-9 P1 — the stored seed shipped
     // with 18 leading spaces). Trim is render-only; the stored content and
     // the code pane keep their original bytes.
-    let { svg } = await mermaid.render(safeId, trimmed);
+    let { svg } = sandbox
+      ? await mermaid.render(safeId, trimmed, sandbox)
+      : await mermaid.render(safeId, trimmed);
 
     // Mermaid 12.3 insertLookDefs appends `<svg:stop>` inside `<linearGradient>`
     // for Neo look gradients, which HTML5 / DOMPurify strips unless normalized to `<stop>`.
@@ -540,6 +551,8 @@ export async function renderDiagram(
     }
 
     return { svg: '', error: originalError };
+  } finally {
+    sandbox?.remove();
   }
 }
 

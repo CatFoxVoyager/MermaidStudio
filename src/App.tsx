@@ -7,6 +7,7 @@ import { ModalProvider } from '@/components/layout/ModalProvider';
 import { NewDiagramModal } from '@/components/modals/diagram/NewDiagramModal';
 import { ServiceWorkerUpdateToast } from '@/components/shared/ServiceWorkerUpdateToast';
 import { MobileShellProvider } from '@/hooks/useMobileShell';
+import { UIScaleProvider } from '@/hooks/useUIScale';
 import { useKeyboardShortcuts, useDiagramActions, useAppShortcuts, useToast } from '@/hooks';
 import { useAppState } from './hooks/app/useAppState';
 import { useModalState } from './hooks/app/useModalState';
@@ -190,108 +191,110 @@ export default function App() {
             h1 exists at every viewport. The visible h1 is the static shell
             pre-mount (index.html); post-mount this roots the outline. */}
         <h1 className="sr-only">{t('header.appHeading')}</h1>
-        <AppLayout
-          theme={appState.theme}
-          toggleTheme={appState.toggleTheme}
-          defaultTheme={appState.defaultTheme}
-          setDefaultTheme={appState.setDefaultTheme}
-          language={appState.language}
-          onChangeLanguage={appState.setLanguage}
-          sidebarOpen={appState.sidebarOpen}
-          onToggleSidebar={() => appState.setSidebarOpen(v => !v)}
-          onOpenDiagram={appState.openDiagram}
-          onRefreshSidebar={appState.refresh}
-          onDiagramDeleted={appState.closeTabsByDiagramIds}
-          onDiagramRenamed={appState.renameDiagram}
-          tabs={appState.tabs}
-          activeTabId={appState.activeTabId}
-          activeTab={appState.activeTab}
-          onSelectTab={appState.setActiveTabId}
-          onCloseTab={appState.closeTab}
-          onContentChange={appState.updateTabContent}
-          onSave={modalHandlers.handleSave}
-          onShowHistory={modalOpen('showHistory')}
-          onShowExport={modalOpen('showExport')}
-          onToggleAI={modalToggle('showAI')}
-          onFullscreen={modalOpen('showFullscreen')}
-          onSaveTemplate={modalOpen('showSaveTemplate')}
-          onNewDiagram={newDiagram}
-          onNewDiagramInFolder={newDiagramInFolder}
-          onShowTemplates={modalOpen('showTemplates')}
-          onShowPalette={modalOpen('showPalette')}
-          onShowDiagramColors={openDiagramColors}
-          onShowAdvancedStyle={openAdvancedStyle}
-          onOpenCommandPalette={modalOpen('showPalette')}
-          onOpenAbout={modalOpen('showAbout')}
-          onOpenReleaseNotes={modalOpen('showWelcome')}
-          onOpenBackup={modalOpen('showBackup')}
-          onFocusMode={modalHandlers.toggleFocusMode}
-          onThemeIdChange={
-            activeTab
-              ? (themeId: string | null) => appState.updateTabTheme(activeTab.id, themeId)
-              : undefined
-          }
-          showAI={modals.showAI}
-          showDiagramColors={modals.showDiagramColors}
-          showAdvancedStyle={modals.showAdvancedStyle}
-          onAIApply={modalHandlers.handleAIApply}
-          onAIClose={handleCloseAIPanel}
-          onAIOpenSettings={modalOpen('showAISettings')}
-          onOpenAIPanel={handleOpenAIPanel}
-          aiFixMode={aiFixMode}
-          aiFixTrigger={aiFixTrigger}
-          onPreviewError={handlePreviewError}
-          previewError={previewError}
-          onDiagramColorsClose={modalClose('showDiagramColors')}
-          onAdvancedStyleClose={modalClose('showAdvancedStyle')}
-          focusMode={appState.focusMode}
-          renderTimeMs={appState.renderTimeMs}
-          onRenderTime={appState.setRenderTimeMs}
-          refreshKey={appState.refreshKey}
-          aiSettingsKey={appState.aiSettingsKey}
-        />
-        <ModalProvider
-          {...modals}
-          onCloseTemplates={modalClose('showTemplates')}
-          onOpenTemplates={modalOpen('showTemplates')}
-          onCloseHistory={modalClose('showHistory')}
-          onCloseExport={modalClose('showExport')}
-          onClosePalette={modalClose('showPalette')}
-          onCloseBackup={modalClose('showBackup')}
-          onCloseSaveTemplate={modalClose('showSaveTemplate')}
-          onCloseAISettings={modalClose('showAISettings')}
-          onCloseHelp={modalClose('showHelp')}
-          onCloseFullscreen={modalClose('showFullscreen')}
-          onCloseWelcome={handleCloseWelcome}
-          onCloseAbout={modalClose('showAbout')}
-          onOpenAbout={modalOpen('showAbout')}
-          onOpenWelcome={modalOpen('showWelcome')}
-          activeTab={appState.activeTab}
-          handleTemplateSelect={handleTemplateSelect}
-          handleRestore={modalHandlers.handleRestore}
-          handleCopyLink={modalHandlers.handleCopyLink}
-          newDiagram={newDiagram}
-          handleNewFolder={handleNewFolder}
-          diagrams={appState.diagrams}
-          onOpenDiagram={appState.openDiagram}
-          toggleAI={modalToggle('showAI')}
-          toggleTheme={appState.toggleTheme}
-          theme={appState.theme}
-          aiSettingsKey={appState.aiSettingsKey}
-          setAiSettingsKey={appState.setAiSettingsKey}
-          refresh={appState.refresh}
-          showToast={showToast}
-          toasts={toasts}
-          dismiss={dismiss}
-        />
-        {newDiagramDraft && (
-          <NewDiagramModal
-            key={newDiagramDraft.id}
-            draft={newDiagramDraft}
-            onConfirm={confirmNewDiagram}
-            onCancel={cancelNewDiagram}
+        <UIScaleProvider showToast={showToast}>
+          <AppLayout
+            theme={appState.theme}
+            toggleTheme={appState.toggleTheme}
+            defaultTheme={appState.defaultTheme}
+            setDefaultTheme={appState.setDefaultTheme}
+            language={appState.language}
+            onChangeLanguage={appState.setLanguage}
+            sidebarOpen={appState.sidebarOpen}
+            onToggleSidebar={() => appState.setSidebarOpen(v => !v)}
+            onOpenDiagram={appState.openDiagram}
+            onRefreshSidebar={appState.refresh}
+            onDiagramDeleted={appState.closeTabsByDiagramIds}
+            onDiagramRenamed={appState.renameDiagram}
+            tabs={appState.tabs}
+            activeTabId={appState.activeTabId}
+            activeTab={appState.activeTab}
+            onSelectTab={appState.setActiveTabId}
+            onCloseTab={appState.closeTab}
+            onContentChange={appState.updateTabContent}
+            onSave={modalHandlers.handleSave}
+            onShowHistory={modalOpen('showHistory')}
+            onShowExport={modalOpen('showExport')}
+            onToggleAI={modalToggle('showAI')}
+            onFullscreen={modalOpen('showFullscreen')}
+            onSaveTemplate={modalOpen('showSaveTemplate')}
+            onNewDiagram={newDiagram}
+            onNewDiagramInFolder={newDiagramInFolder}
+            onShowTemplates={modalOpen('showTemplates')}
+            onShowPalette={modalOpen('showPalette')}
+            onShowDiagramColors={openDiagramColors}
+            onShowAdvancedStyle={openAdvancedStyle}
+            onOpenCommandPalette={modalOpen('showPalette')}
+            onOpenAbout={modalOpen('showAbout')}
+            onOpenReleaseNotes={modalOpen('showWelcome')}
+            onOpenBackup={modalOpen('showBackup')}
+            onFocusMode={modalHandlers.toggleFocusMode}
+            onThemeIdChange={
+              activeTab
+                ? (themeId: string | null) => appState.updateTabTheme(activeTab.id, themeId)
+                : undefined
+            }
+            showAI={modals.showAI}
+            showDiagramColors={modals.showDiagramColors}
+            showAdvancedStyle={modals.showAdvancedStyle}
+            onAIApply={modalHandlers.handleAIApply}
+            onAIClose={handleCloseAIPanel}
+            onAIOpenSettings={modalOpen('showAISettings')}
+            onOpenAIPanel={handleOpenAIPanel}
+            aiFixMode={aiFixMode}
+            aiFixTrigger={aiFixTrigger}
+            onPreviewError={handlePreviewError}
+            previewError={previewError}
+            onDiagramColorsClose={modalClose('showDiagramColors')}
+            onAdvancedStyleClose={modalClose('showAdvancedStyle')}
+            focusMode={appState.focusMode}
+            renderTimeMs={appState.renderTimeMs}
+            onRenderTime={appState.setRenderTimeMs}
+            refreshKey={appState.refreshKey}
+            aiSettingsKey={appState.aiSettingsKey}
           />
-        )}
+          <ModalProvider
+            {...modals}
+            onCloseTemplates={modalClose('showTemplates')}
+            onOpenTemplates={modalOpen('showTemplates')}
+            onCloseHistory={modalClose('showHistory')}
+            onCloseExport={modalClose('showExport')}
+            onClosePalette={modalClose('showPalette')}
+            onCloseBackup={modalClose('showBackup')}
+            onCloseSaveTemplate={modalClose('showSaveTemplate')}
+            onCloseAISettings={modalClose('showAISettings')}
+            onCloseHelp={modalClose('showHelp')}
+            onCloseFullscreen={modalClose('showFullscreen')}
+            onCloseWelcome={handleCloseWelcome}
+            onCloseAbout={modalClose('showAbout')}
+            onOpenAbout={modalOpen('showAbout')}
+            onOpenWelcome={modalOpen('showWelcome')}
+            activeTab={appState.activeTab}
+            handleTemplateSelect={handleTemplateSelect}
+            handleRestore={modalHandlers.handleRestore}
+            handleCopyLink={modalHandlers.handleCopyLink}
+            newDiagram={newDiagram}
+            handleNewFolder={handleNewFolder}
+            diagrams={appState.diagrams}
+            onOpenDiagram={appState.openDiagram}
+            toggleAI={modalToggle('showAI')}
+            toggleTheme={appState.toggleTheme}
+            theme={appState.theme}
+            aiSettingsKey={appState.aiSettingsKey}
+            setAiSettingsKey={appState.setAiSettingsKey}
+            refresh={appState.refresh}
+            showToast={showToast}
+            toasts={toasts}
+            dismiss={dismiss}
+          />
+          {newDiagramDraft && (
+            <NewDiagramModal
+              key={newDiagramDraft.id}
+              draft={newDiagramDraft}
+              onConfirm={confirmNewDiagram}
+              onCancel={cancelNewDiagram}
+            />
+          )}
+        </UIScaleProvider>
       </MobileShellProvider>
       <ServiceWorkerUpdateToast />
     </>

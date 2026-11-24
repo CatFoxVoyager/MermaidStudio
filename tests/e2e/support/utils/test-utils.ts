@@ -1,6 +1,38 @@
-import { Page, Locator } from '@playwright/test';
+import { expect, Page, Locator } from '@playwright/test';
 
 export const TestUtils = {
+  // Wait for either the desktop or mobile TopBar brand — proof that React
+  // mounted and the active layout shell rendered.
+  async waitForApp(page: Page): Promise<void> {
+    await page.waitForSelector('[data-testid="topbar-brand"], [data-testid="mobile-topbar-brand"]');
+  },
+
+  // Wait until the computed zoom on <html> equals `value`.
+  async expectZoom(page: Page, value: number): Promise<void> {
+    await expect
+      .poll(() =>
+        page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).zoom))
+      )
+      .toBe(value);
+  },
+
+  // Drive the global interface scale for the current page by writing the
+  // `--ui-scale` custom property on <html> (the single source of scale).
+  async setUiScale(page: Page, scale: number): Promise<void> {
+    await page.evaluate(s =>
+      document.documentElement.style.setProperty('--ui-scale', String(s))
+    , scale);
+  },
+
+  // Pin the stored ui-scale preference before any page script runs —
+  // MUST be called before `page.goto`. Key mirrors UI_SCALE_STORAGE_KEY
+  // in src/utils/uiScale.ts (kept literal: e2e support does not import src).
+  async pinUIScale(page: Page, pref: 'auto' | number | string): Promise<void> {
+    await page.addInitScript(prefValue => {
+      window.localStorage.setItem('mermaid-studio-ui-scale', String(prefValue));
+    }, pref);
+  },
+
   async waitForDiagramRender(page: Page, timeout = 30000) {
     await page.waitForFunction(() => {
       const preview = document.querySelector('[data-testid="preview-panel"]');
@@ -10,6 +42,90 @@ export const TestUtils = {
       // For now, just check if SVG exists - data-rendered attribute seems to have issues
       return svg !== null;
     }, { timeout });
+  },
+
+  // Unrounded centre of the target's bounding rect, in screen pixels
+  // (getBoundingClientRect values, i.e. already multiplied by --ui-scale).
+  async overlayCenter(page: Page, target: Locator | string): Promise<{ x: number; y: number }> {
+    const loc = typeof target === 'string' ? page.locator(target) : target;
+    return loc.evaluate(el => {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+  },
+
+  // Worst absolute misalignment, in screen pixels, between each element
+  // matching `overlaySelector` and the nearest `svg g.node` inside
+  // `scopeSelector` (nearest by centre distance, piercing open shadow roots).
+  // Max over left/top/width/height differences; throws when the scope, nodes,
+  // or overlays are missing so a broken selector fails fast instead of reading
+  // as aligned.
+  async worstOverlayOffset(page: Page, overlaySelector: string, scopeSelector: string): Promise<number> {
+    return page.evaluate(([ovSel, scSel]) => {
+      const scope = document.querySelector(scSel);
+      if (!scope) throw new Error(`worstOverlayOffset: scope not found: ${scSel}`);
+      const collectNodes = (root: ParentNode): Element[] => {
+        const found = Array.from(root.querySelectorAll('svg g.node'));
+        for (const el of Array.from(root.querySelectorAll('*'))) {
+          if (el.shadowRoot) {
+            found.push(...collectNodes(el.shadowRoot));
+          }
+        }
+        return found;
+      };
+      const nodes = collectNodes(scope);
+      if (!nodes.length) throw new Error(`worstOverlayOffset: no svg g.node elements found in scope: ${scSel}`);
+      const overlays = Array.from(document.querySelectorAll(ovSel));
+      if (!overlays.length) throw new Error(`worstOverlayOffset: no overlay elements found: ${ovSel}`);
+      let worst = 0;
+      for (const ov of overlays) {
+        const o = ov.getBoundingClientRect();
+        const oc = { x: o.left + o.width / 2, y: o.top + o.height / 2 };
+        let nearest: DOMRect | null = null;
+        let nearestDist = Infinity;
+        for (const node of nodes) {
+          const r = node.getBoundingClientRect();
+          const d = Math.hypot(
+            r.left + r.width / 2 - oc.x,
+            r.top + r.height / 2 - oc.y,
+          );
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearest = r;
+          }
+        }
+        if (!nearest) continue;
+        const diff = Math.max(
+          Math.abs(o.left - nearest.left),
+          Math.abs(o.top - nearest.top),
+          Math.abs(o.width - nearest.width),
+          Math.abs(o.height - nearest.height),
+        );
+        worst = Math.max(worst, diff);
+      }
+      return worst;
+    }, [overlaySelector, scopeSelector]);
+  },
+
+  // A point on the empty grid of `scopeSelector`, 24 px from its bottom-left
+  // corner (screen pixels) — away from nodes, overlays and toolbar controls.
+  async pointOnGrid(page: Page, scopeSelector = '[data-testid="visual-editor-canvas"]'): Promise<{ x: number; y: number }> {
+    return page.evaluate(sel => {
+      const el = document.querySelector(sel);
+      if (!el) throw new Error(`pointOnGrid: scope not found: ${sel}`);
+      const r = el.getBoundingClientRect();
+      return { x: r.left + 24, y: r.bottom - 24 };
+    }, scopeSelector);
+  },
+
+  // Pointer pan gesture on the empty grid: press at pointOnGrid(scope),
+  // move by (dx, dy) screen px, release.
+  async dragPreview(page: Page, dx: number, dy: number, scopeSelector = '[data-testid="visual-editor-canvas"]'): Promise<void> {
+    const p = await this.pointOnGrid(page, scopeSelector);
+    await page.mouse.move(p.x, p.y);
+    await page.mouse.down();
+    await page.mouse.move(p.x + dx, p.y + dy, { steps: 5 });
+    await page.mouse.up();
   },
 
   async getDiagramErrors(page: Page) {

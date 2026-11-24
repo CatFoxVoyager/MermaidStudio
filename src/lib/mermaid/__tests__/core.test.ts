@@ -2,7 +2,7 @@
  * Tests for Mermaid core with SVG sanitization and input validation
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { renderDiagram, initMermaid, detectDiagramType } from '../core';
 import mermaid from 'mermaid';
 import DOMPurify from 'dompurify';
@@ -547,6 +547,29 @@ describe('PIPE-04 D9/D10 — temp-element non-remnance (mermaid 12 lock)', { tim
 
     // Zero residue for BOTH id forms of the computed export id.
     expect(document.querySelectorAll(`#${id}, #d${id}`).length).toBe(0);
+    expect(document.querySelectorAll('.mermaid-render-sandbox').length).toBe(0);
+  });
+
+  it('mounts mermaid.render inside a counter-zoomed .mermaid-render-sandbox and cleans it up', async () => {
+    let observedContainer: HTMLElement | undefined;
+    let wasConnected = false;
+    const spy = vi.spyOn(mermaid, 'render').mockImplementation(async (_id, _text, container) => {
+      observedContainer = container as HTMLElement | undefined;
+      wasConnected = Boolean(container?.isConnected);
+      return { svg: '<svg viewBox="0 0 100 50"></svg>', diagramType: 'flowchart-v2' };
+    });
+
+    try {
+      const { svg, error } = await renderDiagram('flowchart TD\n  A --> B', 'sandbox_probe');
+      expect(error).toBeNull();
+      expect(svg).toContain('<svg');
+      expect(observedContainer).toBeInstanceOf(HTMLDivElement);
+      expect(observedContainer?.className).toBe('mermaid-render-sandbox');
+      expect(wasConnected).toBe(true);
+      expect(document.querySelectorAll('.mermaid-render-sandbox').length).toBe(0);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

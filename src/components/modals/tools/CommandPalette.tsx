@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, FilePlus, FolderPlus, LayoutGrid as Layout, Clock, Download, Sun, Moon, Sparkles, Command, FileText, ChevronRight, Palette, SlidersHorizontal, Info, ScrollText } from 'lucide-react';
+import { Search, FilePlus, FolderPlus, LayoutGrid as Layout, Clock, Download, Sun, Moon, Sparkles, Command, FileText, ChevronRight, Palette, SlidersHorizontal, Info, ScrollText, Scaling } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useUIScaleContext } from '@/hooks/useUIScale';
 
 interface Cmd {
   id: string; label: string; description?: string;
@@ -32,6 +34,8 @@ export function CommandPalette({
   onOpenAbout, onOpenReleaseNotes,
 }: Props) {
   const { t } = useTranslation();
+  const uiScale = useUIScaleContext();
+  const isMobile = useMediaQuery('(max-width: 767.98px)');
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -50,6 +54,9 @@ export function CommandPalette({
       { id: 'style-advanced', label: t('editor.advancedStyling'), description: 'Advanced diagram styling options', icon: <SlidersHorizontal size={14} />, category: t('commands.categoryPanels'), action: () => { onOpenStylePanel('advanced'); onClose(); } },
     ] : []),
     { id: 'theme', label: `${theme === 'dark' ? 'Light' : 'Dark'} Mode`, description: 'Toggle color theme', icon: theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />, category: t('commands.categorySettings'), action: () => { onToggleTheme(); onClose(); } },
+    ...(uiScale && !isMobile ? [
+      { id: 'ui-scale', label: t('commands.uiScale'), description: t('commands.uiScaleDesc'), icon: <Scaling size={14} />, category: t('commands.categorySettings'), action: () => { onClose(); uiScale.openMenu({ focusTrigger: true }); } },
+    ] : []),
     ...(onOpenAbout ? [
       { id: 'about', label: t('commands.about'), description: 'About this app and its creator', icon: <Info size={14} />, category: t('commands.categorySettings'), action: () => { onOpenAbout(); onClose(); } },
     ] : []),
@@ -75,7 +82,7 @@ export function CommandPalette({
   function onKey(e: React.KeyboardEvent) {
     if (e.key === 'ArrowDown') { e.preventDefault(); setSel(s => Math.min(s + 1, flat.length - 1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setSel(s => Math.max(s - 1, 0)); }
-    else if (e.key === 'Enter') {flat[sel]?.action();}
+    else if (e.key === 'Enter') { e.preventDefault(); flat[sel]?.action(); }
     else if (e.key === 'Escape') {onClose();}
   }
 

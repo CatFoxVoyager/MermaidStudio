@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { renderDiagram } from '@/lib/mermaid/core';
 import { parseDiagram } from '@/lib/mermaid/codeUtils';
 import { postProcessDiagramSvg } from '@/utils/svgPostProcessing';
+import { screenToLocal } from '@/utils/uiScale';
 
 interface Props {
   content: string;
@@ -48,8 +49,8 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
     const { width: natW, height: natH } = extractSvgIntrinsicSize(targetSvg);
     if (natW <= 0 || natH <= 0) return;
     const padding = 32;
-    const availW = Math.max(64, rect.width - padding * 2);
-    const availH = Math.max(64, rect.height - padding * 2);
+    const availW = Math.max(64, screenToLocal(rect.width) - padding * 2);
+    const availH = Math.max(64, screenToLocal(rect.height) - padding * 2);
     const optimal = Math.min(1, availW / natW, availH / natH);
     setZoom(Math.max(0.05, Math.round(optimal * 100) / 100));
     setPan({ x: 0, y: 0 });
@@ -82,8 +83,9 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      const handled = e.key === 'Escape' || e.key === '+' || e.key === '=' ||
-        e.key === '-' || e.key === '0';
+      if (e.defaultPrevented) {return;}
+      const isZoomKey = e.key === '+' || e.key === '=' || e.key === '-' || e.key === '0';
+      const handled = e.key === 'Escape' || (isZoomKey && !e.altKey);
       if (!handled) {return;}
       // Capture phase: the preview panel keeps its own ctrl+zoom window
       // listener while this modal is open — stop the event here so the
@@ -120,8 +122,8 @@ export function FullscreenPreview({ content, themeId, onClose }: Props) {
       const dx = e.clientX - lastPos.current.x;
       const dy = e.clientY - lastPos.current.y;
       setPan(p => ({
-        x: p.x + dx,
-        y: p.y + dy,
+        x: p.x + screenToLocal(dx),
+        y: p.y + screenToLocal(dy),
       }));
       lastPos.current = { x: e.clientX, y: e.clientY };
     };

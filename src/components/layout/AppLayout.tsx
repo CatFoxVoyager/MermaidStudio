@@ -188,7 +188,7 @@ export function AppLayout({
 
   // Desktop tree (unchanged from pre-Phase-14)
   return (
-    <div className={`flex flex-col h-screen overflow-hidden ${theme === 'dark' ? 'dark' : ''}`}
+    <div className={`flex flex-col h-full overflow-hidden ${theme === 'dark' ? 'dark' : ''}`}
       style={{ background: 'var(--surface-base)', color: 'var(--text-primary)' }}>
       <TopBar
         theme={theme}

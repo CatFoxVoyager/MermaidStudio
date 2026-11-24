@@ -119,5 +119,58 @@ describe('useToast Secure ID Generation', () => {
 
       vi.useRealTimers();
     });
+
+    it('should attach action and respect custom durationMs', () => {
+      vi.useFakeTimers();
+
+      const { result } = renderHook(() => useToast());
+      const action = { label: 'Change', onClick: vi.fn() };
+
+      act(() => {
+        result.current.show('Interface adjusted', 'info', { durationMs: 10000, action });
+      });
+
+      expect(result.current.toasts).toHaveLength(1);
+      expect(result.current.toasts[0].type).toBe('info');
+      expect(result.current.toasts[0].action).toBe(action);
+
+      // Still present after 3s (past the default 2500ms)
+      act(() => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(result.current.toasts).toHaveLength(1);
+
+      // Dismissed once 10s elapses
+      act(() => {
+        vi.advanceTimersByTime(7000);
+      });
+      expect(result.current.toasts).toHaveLength(0);
+
+      vi.useRealTimers();
+    });
+
+    it('should cancel pending timers on dismiss and unmount', () => {
+      vi.useFakeTimers();
+
+      const { result, unmount } = renderHook(() => useToast());
+
+      act(() => {
+        result.current.show('First', 'info', { durationMs: 10000 });
+        result.current.show('Second', 'info', { durationMs: 10000 });
+      });
+
+      expect(vi.getTimerCount()).toBe(2);
+
+      const firstId = result.current.toasts[0].id;
+      act(() => {
+        result.current.dismiss(firstId);
+      });
+      expect(vi.getTimerCount()).toBe(1);
+
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+
+      vi.useRealTimers();
+    });
   });
 });

@@ -18,9 +18,10 @@
  * (search row shrink-0 above the overflow-y-auto scroller; scroll bounds
  * driven via defineProperty).
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { IconPicker } from '../IconPicker';
+import { applyScale } from '@/utils/uiScale';
 
 const fixtures = vi.hoisted(() => {
   const solidIcons: Record<string, { body: string }> = {
@@ -430,6 +431,24 @@ describe('IconPicker', () => {
 
       fireEvent.click(container.querySelector('[data-pack-filter="all"]')!);
       expect(container.querySelectorAll('[data-pack-section]').length).toBe(3);
+    });
+  });
+
+  describe('UI scale anchor conversion', () => {
+    afterEach(() => {
+      applyScale(1);
+    });
+
+    it('converts screen-space anchor right, top and maxHeight to local pixels at scale 0.8', async () => {
+      applyScale(0.8);
+      const { container } = renderPicker({
+        anchor: { right: 80, top: 160, maxHeight: 320 },
+      });
+      await settle();
+      const root = container.querySelector('[data-icon-picker]') as HTMLElement;
+      expect(root.style.right).toBe('100px');
+      expect(root.style.top).toBe('200px');
+      expect(root.style.maxHeight).toBe('400px');
     });
   });
 });

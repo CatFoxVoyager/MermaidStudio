@@ -8,6 +8,8 @@ import { ShapePreview } from '@/components/shared/ShapePreview';
 import { ShapePicker } from '@/components/shared/ShapePicker';
 import type { SpecialMediaShape } from '@/components/shared/ShapePicker';
 import { FOCUS_RING_CLASSES } from '@/components/shared/touchTargets';
+import { useUIScaleContext } from '@/hooks/useUIScale';
+import { getUiScale } from '@/utils/uiScale';
 
 interface ShapeButtonProps {
   shape: NodeShape;
@@ -86,6 +88,7 @@ export function ShapeToolbar({
   hasSelection,
 }: Props) {
   const { t } = useTranslation();
+  const uiScale = useUIScaleContext()?.scale ?? 1;
   const [moreOpen, setMoreOpen] = useState(false);
   // Adaptive primary count (desktop ask: the fixed count of 2 wasted a wide
   // panel — 11 shapes sat behind "More" next to ~900px of empty toolbar).
@@ -107,7 +110,8 @@ export function ShapeToolbar({
     if (!el || !measure || !group) {return;}
     const btns = Array.from(measure.querySelectorAll('button'));
     if (btns.length === 0) {return;}
-    const gap = 4; // gap-1 inside the primary group
+    const scale = getUiScale();
+    const gap = 4 * scale; // gap-1 inside the primary group
     const widths = btns.map(b => b.getBoundingClientRect().width + gap);
     // Room for the shape row = panel width minus everything that is NOT a
     // shape: the geometric prefix before the group (padding-left + tool
@@ -118,7 +122,7 @@ export function ShapeToolbar({
     // whatever it was when the panel was last narrow (grow-side bug).
     const elRect = el.getBoundingClientRect();
     const leftPrefix = group.getBoundingClientRect().left - elRect.left;
-    const padRight = parseFloat(getComputedStyle(el).paddingRight) || 0;
+    const padRight = (parseFloat(getComputedStyle(el).paddingRight) || 0) * scale;
     const deleteCluster = el.querySelector('[data-shapes-after]');
     const rightFixed = deleteCluster
       ? deleteCluster.getBoundingClientRect().width + gap
@@ -140,13 +144,13 @@ export function ShapeToolbar({
     // deterministic MIN_PRIMARY_SHAPE_COUNT floor; in a real browser with
     // measured geometry, never force more shapes than actually clear the
     // pinned More chip (fixes 320px & narrow desktop split overlaps).
-    const base = el.clientWidth - leftPrefix - padRight - rightFixed;
+    const base = el.clientWidth * scale - leftPrefix - padRight - rightFixed;
     const countAll = greedy(base);
     const count = el.clientWidth === 0
       ? MIN_PRIMARY_SHAPE_COUNT
       : countAll >= SHAPES.length
         ? countAll
-        : greedy(base - 68);
+        : greedy(base - 68 * scale);
     setVisibleCount(count);
   }, []);
 
@@ -186,17 +190,43 @@ export function ShapeToolbar({
     if (moreOpen && secondary.length === 0) {setMoreOpen(false);}
   }, [moreOpen, secondary.length]);
 
+  const updateMoreAnchor = useCallback(() => {
+    if (!moreBtnRef.current) {return;}
+    const r = moreBtnRef.current.getBoundingClientRect();
+    const next = {
+      right: window.innerWidth - r.right,
+      top: r.bottom + 8,
+      maxHeight: window.innerHeight - r.bottom - 24,
+    };
+    setMoreAnchor(prev =>
+      prev && prev.right === next.right && prev.top === next.top && prev.maxHeight === next.maxHeight
+        ? prev
+        : next
+    );
+  }, []);
+
+  // Keep the open ShapePicker anchored to the More button if the toolbar
+  // reflows after opening (e.g. ResizeObserver updates visibleCount after a
+  // scale change, collapsing a horizontal scrollbar and shifting top-1/2).
+  useLayoutEffect(() => {
+    if (!moreOpen) {return;}
+    updateMoreAnchor();
+  }, [moreOpen, visibleCount, updateMoreAnchor]);
+
+  // Re-anchor after UIScaleProvider commits the new --ui-scale in its layout
+  // effect so getBoundingClientRect() and ShapePicker's screenToLocal() both
+  // observe the updated zoom even when visibleCount does not change.
+  useEffect(() => {
+    if (!moreOpen) {return;}
+    updateMoreAnchor();
+  }, [moreOpen, uiScale, updateMoreAnchor]);
+
   const toggleMore = () => {
     // Anchor from the FIXED trigger's viewport rect (it lives outside the
     // scroller — iter-14: inside the scroller the More button itself was
     // off-screen at x397).
-    if (!moreOpen && moreBtnRef.current) {
-      const r = moreBtnRef.current.getBoundingClientRect();
-      setMoreAnchor({
-        right: window.innerWidth - r.right,
-        top: r.bottom + 8,
-        maxHeight: window.innerHeight - r.bottom - 24,
-      });
+    if (!moreOpen) {
+      updateMoreAnchor();
     }
     setMoreOpen(v => !v);
   };

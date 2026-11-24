@@ -179,7 +179,9 @@
     "categoryDiagrams": "Diagrams",
     "categoryPanels": "Panels",
     "about": "About MermaidStudio",
-    "releaseNotes": "Release Notes"
+    "releaseNotes": "Release Notes",
+    "uiScale": "Interface scale…",
+    "uiScaleDesc": "Shrink or enlarge the whole interface"
   },
   "shortcuts": {
     "title": "Keyboard Shortcuts",
@@ -213,7 +215,11 @@
     "zoomIn": "Zoom in (fullscreen)",
     "zoomOut": "Zoom out (fullscreen)",
     "resetZoom": "Reset zoom (fullscreen)",
-    "closeModal": "Close modal / fullscreen"
+    "closeModal": "Close modal / fullscreen",
+    "interface": "Interface",
+    "uiScaleOut": "Decrease interface scale",
+    "uiScaleIn": "Increase interface scale",
+    "uiScaleReset": "Reset interface scale (100%)"
   },
   "export": {
     "title": "Export & Share",
@@ -937,5 +943,14 @@
     "namePlaceholder": "E.g. Network map",
     "defaultName": "Untitled Diagram",
     "create": "Create"
+  },
+  "uiScale": {
+    "title": "Interface scale",
+    "label": "Interface scale: {{percent}} %",
+    "auto": "Auto",
+    "autoHint": "{{percent}} % on this screen",
+    "shortcuts": "Shortcuts: {{mod}} + / − / 0",
+    "notice": "Interface adjusted to {{percent}} % for this screen.",
+    "noticeAction": "Change"
   }
 }

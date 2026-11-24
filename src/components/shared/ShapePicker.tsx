@@ -7,6 +7,7 @@ import type { NodeShapeCanonical } from '@/lib/mermaid/shapes';
 import type { NodeShape } from '@/lib/mermaid/codeUtils';
 import { ShapePreview } from './ShapePreview';
 import { FOCUS_RING_CLASSES } from './touchTargets';
+import { screenToLocal } from '@/utils/uiScale';
 
 /**
  * 38-05 (SHP-03): the unified searchable categorized shape picker popover —
@@ -149,11 +150,11 @@ export function ShapePicker({
       data-shape-picker
       className="fixed z-20 flex flex-col rounded-xl border shadow-xl animate-fade-in overflow-hidden"
       style={{
-        right: anchor.right,
-        top: anchor.top,
-        maxHeight: anchor.maxHeight,
+        right: screenToLocal(anchor.right),
+        top: screenToLocal(anchor.top),
+        maxHeight: screenToLocal(anchor.maxHeight),
         width: 264,
-        maxWidth: 'calc(100vw - 16px)',
+        maxWidth: 'calc(100vw / var(--ui-scale) - 16px)',
         background: 'var(--surface-raised)',
         borderColor: 'var(--border-subtle)',
       }}

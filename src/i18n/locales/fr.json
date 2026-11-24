@@ -179,7 +179,9 @@
     "categoryDiagrams": "Diagrammes",
     "categoryPanels": "Panneaux",
     "about": "À propos de MermaidStudio",
-    "releaseNotes": "Notes de version"
+    "releaseNotes": "Notes de version",
+    "uiScale": "Échelle de l'interface…",
+    "uiScaleDesc": "Réduire ou agrandir toute l'interface"
   },
   "shortcuts": {
     "title": "Raccourcis clavier",
@@ -213,7 +215,11 @@
     "zoomIn": "Zoom avant (plein écran)",
     "zoomOut": "Zoom arrière (plein écran)",
     "resetZoom": "Réinitialiser le zoom (plein écran)",
-    "closeModal": "Fermer la fenêtre / plein écran"
+    "closeModal": "Fermer la fenêtre / plein écran",
+    "interface": "Interface",
+    "uiScaleOut": "Réduire l'échelle de l'interface",
+    "uiScaleIn": "Agrandir l'échelle de l'interface",
+    "uiScaleReset": "Réinitialiser l'échelle (100 %)"
   },
   "export": {
     "title": "Exporter et partager",
@@ -937,5 +943,14 @@
     "namePlaceholder": "ex. Carte du réseau",
     "defaultName": "Diagramme sans titre",
     "create": "Créer"
+  },
+  "uiScale": {
+    "title": "Échelle de l'interface",
+    "label": "Échelle de l'interface : {{percent}} %",
+    "auto": "Auto",
+    "autoHint": "{{percent}} % sur cet écran",
+    "shortcuts": "Raccourcis : {{mod}} + / − / 0",
+    "notice": "Interface ajustée à {{percent}} % pour cet écran.",
+    "noticeAction": "Modifier"
   }
 }

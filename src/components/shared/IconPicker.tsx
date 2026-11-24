@@ -6,6 +6,7 @@ import { getIconData } from '@iconify/utils';
 import { ICON_PICKER_PACKS } from './iconPickerPacks';
 import type { IconPack, IconPackKey, IconPickerPackSection } from './iconPickerPacks';
 import { FOCUS_RING_CLASSES } from './touchTargets';
+import { screenToLocal } from '@/utils/uiScale';
 
 /**
  * 39-05 (ICON-03, UI-SPEC Surface 2): the searchable FA6 icon picker
@@ -256,11 +257,11 @@ export function IconPicker({ anchor, onClose, onPick, selected, triggerRef }: Ic
       data-icon-picker
       className="fixed z-20 flex flex-col rounded-xl border shadow-xl animate-fade-in overflow-hidden"
       style={{
-        right: anchor.right,
-        top: anchor.top,
-        maxHeight: anchor.maxHeight,
+        right: screenToLocal(anchor.right),
+        top: screenToLocal(anchor.top),
+        maxHeight: screenToLocal(anchor.maxHeight),
         width: 264,
-        maxWidth: 'calc(100vw - 16px)',
+        maxWidth: 'calc(100vw / var(--ui-scale) - 16px)',
         background: 'var(--surface-raised)',
         borderColor: 'var(--border-subtle)',
       }}

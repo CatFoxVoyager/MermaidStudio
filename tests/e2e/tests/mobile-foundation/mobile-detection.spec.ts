@@ -60,12 +60,12 @@ test.describe('Mobile foundation — viewport detection (MFDN-01)', () => {
     const newDiagramButton = page.getByTestId('new-diagram-button');
     await expect(newDiagramButton).toBeVisible();
 
-    // Optional: assert desktop root container rendered with h-screen (not mobile's h-dvh).
+    // Optional: assert desktop root container rendered with h-full (not mobile's h-dvh).
     // NOTE: The theme class lives on <html> (document.documentElement) via useTheme
     // (useTheme.ts adds/removes the `dark` class on documentElement), NOT on <body>.
     // The desktop AppLayout root div carries the `dark` class conditionally and uses
-    // h-screen, so we assert that container is present to confirm the desktop tree.
-    const desktopRoot = page.locator('div.h-screen').first();
+    // h-full, so we assert that container is present to confirm the desktop tree.
+    const desktopRoot = page.locator('#root > div.h-full').first();
     await expect(desktopRoot).toBeVisible();
   });
 

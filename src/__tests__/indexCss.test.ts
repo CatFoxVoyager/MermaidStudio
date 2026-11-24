@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import css from '../index.css?raw';
 
 /**
@@ -44,5 +46,10 @@ describe('index.css syntax sanity', () => {
     // runs through it), so an actual parse failure surfaces here.
     const postcss = (await import('postcss')).default;
     expect(() => postcss.parse(css, { from: 'src/index.css' })).not.toThrow();
+  });
+
+  it('counter-zooms the Mermaid render sandbox so SVG/PNG geometry ignores --ui-scale', () => {
+    const rawCss = readFileSync(resolve(__dirname, '../index.css'), 'utf8');
+    expect(rawCss).toMatch(/\.mermaid-render-sandbox\s*\{[^}]*zoom:\s*calc\(1\s*\/\s*var\(--ui-scale\)\)/);
   });
 });

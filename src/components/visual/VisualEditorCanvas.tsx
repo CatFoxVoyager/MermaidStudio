@@ -14,6 +14,7 @@ import {
 } from '@/lib/mermaid/codeUtils';
 import type { ParsedDiagram, ParsedEdge, IconConfig, ImgConfig, EdgeMetadata, EdgeStyle } from '@/lib/mermaid/codeUtils';
 import { detectDiagramType } from '@/lib/mermaid/diagramType';
+import { getUiScale, screenToLocal } from '@/utils/uiScale';
 import { ShapeToolbar } from './ShapeToolbar';
 import { PropertiesPanel } from './PropertiesPanel';
 import type { SpecialMediaShape } from '../shared/ShapePicker';
@@ -76,12 +77,16 @@ export function extractSvgNodes(container: HTMLDivElement, zoom: number): NodeOv
     try {
       const rect = el.getBoundingClientRect();
       const containerRect = container.getBoundingClientRect();
+      // getBoundingClientRect values are screen px (canvas zoom × UI scale
+      // already applied); CSS left/top/width/height are local px — a single
+      // factor recovers them.
+      const local = zoom * getUiScale();
       overlays.push({
         id: nodeId,
-        x: (rect.left - containerRect.left) / zoom,
-        y: (rect.top - containerRect.top) / zoom,
-        width: rect.width / zoom,
-        height: rect.height / zoom,
+        x: (rect.left - containerRect.left) / local,
+        y: (rect.top - containerRect.top) / local,
+        width: rect.width / local,
+        height: rect.height / local,
       });
     } catch {
       // skip
@@ -138,13 +143,15 @@ export function extractSvgSubgraphs(
     const label = labelText?.textContent ?? sgId;
     try {
       const rect = el.getBoundingClientRect();
-      const clusterWidth = rect.width / zoom;
-      const clusterHeight = rect.height / zoom;
+      // Same single screen→local factor as extractSvgNodes.
+      const local = zoom * getUiScale();
+      const clusterWidth = rect.width / local;
+      const clusterHeight = rect.height / local;
       overlays.push({
         id: sgId,
         label,
-        x: (rect.left - containerRect.left) / zoom,
-        y: (rect.top - containerRect.top) / zoom,
+        x: (rect.left - containerRect.left) / local,
+        y: (rect.top - containerRect.top) / local,
         width: clusterWidth,
         height: isCollapsed ? clusterHeight : Math.min(clusterHeight, 30),
         isCollapsed,
@@ -231,11 +238,13 @@ export function extractSvgEdges(
 
   const containerRect = container.getBoundingClientRect();
   const svgRect = svg.getBoundingClientRect();
+  // Same single screen→local factor as extractSvgNodes.
+  const local = zoom * getUiScale();
   const svgBox = {
-    left: (svgRect.left - containerRect.left) / zoom,
-    top: (svgRect.top - containerRect.top) / zoom,
-    width: svgRect.width / zoom,
-    height: svgRect.height / zoom,
+    left: (svgRect.left - containerRect.left) / local,
+    top: (svgRect.top - containerRect.top) / local,
+    width: svgRect.width / local,
+    height: svgRect.height / local,
   };
 
   const svgToParsed = buildSvgToParsedEdgeMap(svg, parsedEdges, edgePaths);
@@ -423,8 +432,10 @@ export function VisualEditorCanvas({ content, diagramKey, theme, themeId, onChan
       const vpRect = viewport.getBoundingClientRect();
       const natSize = extractSvgIntrinsicSize(svgEl);
       if (vpRect.width >= 160 && vpRect.height >= 120 && natSize.width > 0 && natSize.height > 0) {
-        const availW = Math.max(64, vpRect.width - 64);
-        const availH = Math.max(64, vpRect.height - 64);
+        // Screen px → local px: natSize is intrinsic (local) geometry, so the
+        // available box must be too (the 160/120 guard stays screen-side).
+        const availW = Math.max(64, screenToLocal(vpRect.width) - 64);
+        const availH = Math.max(64, screenToLocal(vpRect.height) - 64);
         const prevSize = prevAutoFitSizeRef.current;
         const prevFitted = prevSize.width <= availW && prevSize.height <= availH;
         const nextOverflows = natSize.width > availW * 1.15 || natSize.height > availH * 1.15;
@@ -686,8 +697,9 @@ export function VisualEditorCanvas({ content, diagramKey, theme, themeId, onChan
     if (!dragStartRef.current && !dragConnectRef.current) {return;}
 
     if (dragConnectRef.current) {
-      // Armed: follow the pointer with the ghost line.
-      setDragConnect(prev => (prev ? { ...prev, x: e.clientX, y: e.clientY } : prev));
+      // Armed: follow the pointer with the ghost line. The indicator SVG's
+      // user units are local px, so screen clientX/Y are converted.
+      setDragConnect(prev => (prev ? { ...prev, x: screenToLocal(e.clientX), y: screenToLocal(e.clientY) } : prev));
       return;
     }
 
@@ -708,12 +720,14 @@ export function VisualEditorCanvas({ content, diagramKey, theme, themeId, onChan
     const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
     dragStartRef.current = null;
     dragConnectRef.current = nodeId;
+    // Ghost-line anchors: r and clientX/Y are screen px; the fixed indicator
+    // SVG's user units are local px under the html zoom, so convert.
     setDragConnect({
       sourceId: nodeId,
-      x1: r.left + r.width / 2,
-      y1: r.top + r.height / 2,
-      x: e.clientX,
-      y: e.clientY,
+      x1: screenToLocal(r.left + r.width / 2),
+      y1: screenToLocal(r.top + r.height / 2),
+      x: screenToLocal(e.clientX),
+      y: screenToLocal(e.clientY),
     });
   }
 
@@ -863,10 +877,12 @@ export function VisualEditorCanvas({ content, diagramKey, theme, themeId, onChan
       return;
     }
 
-    // Unlimited single-pointer pan in all directions (up, down, left, right)
+    // Unlimited single-pointer pan in all directions (up, down, left, right).
+    // Pan offsets are local CSS px while clientX/Y are screen px: convert so
+    // the canvas follows the pointer 1:1 under the interface scale.
     if (activePointersRef.current.size === 1 && isPanningRef.current) {
-      const dx = e.clientX - panStartRef.current.x;
-      const dy = e.clientY - panStartRef.current.y;
+      const dx = screenToLocal(e.clientX - panStartRef.current.x);
+      const dy = screenToLocal(e.clientY - panStartRef.current.y);
       panStartRef.current = { x: e.clientX, y: e.clientY };
       setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
       e.preventDefault();
@@ -927,7 +943,8 @@ export function VisualEditorCanvas({ content, diagramKey, theme, themeId, onChan
         const clampedDeltaY = Math.max(-50, Math.min(50, e.deltaY));
         setZoom(z => Math.max(0.05, Math.min(3, z - clampedDeltaY * 0.0025)));
       } else {
-        setPan(prev => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
+        // Wheel deltas are screen px; pan offsets are local CSS px.
+        setPan(prev => ({ x: prev.x - screenToLocal(e.deltaX), y: prev.y - screenToLocal(e.deltaY) }));
       }
     };
     el.addEventListener('wheel', handleWheel, { passive: false });
@@ -1047,12 +1064,13 @@ export function VisualEditorCanvas({ content, diagramKey, theme, themeId, onChan
     let { width: natW, height: natH } = extractSvgIntrinsicSize(svgEl);
     if (natW === 0 || natH === 0) {
       const r = svgEl.getBoundingClientRect();
-      natW = r.width / zoomRef.current;
-      natH = r.height / zoomRef.current;
+      natW = screenToLocal(r.width) / zoomRef.current;
+      natH = screenToLocal(r.height) / zoomRef.current;
     }
     if (natW <= 0 || natH <= 0 || vpRect.width <= 0 || vpRect.height <= 0) {return;}
-    const availW = Math.max(64, vpRect.width - 64);
-    const availH = Math.max(64, vpRect.height - 64);
+    // Screen px → local px, same as the auto-fit effect.
+    const availW = Math.max(64, screenToLocal(vpRect.width) - 64);
+    const availH = Math.max(64, screenToLocal(vpRect.height) - 64);
     const optimalZoom = Math.min(availW / natW, availH / natH);
     const finalZoom = Math.max(0.05, Math.min(3, Math.round(optimalZoom * 100) / 100));
     setZoom(finalZoom);
@@ -1232,6 +1250,7 @@ export function VisualEditorCanvas({ content, diagramKey, theme, themeId, onChan
       <div className="flex flex-1 overflow-hidden">
         <div
           ref={containerRef}
+          data-testid="visual-editor-canvas"
           className={`flex-1 relative overflow-hidden preview-grid ${toolMode === 'connect' ? '' : isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
           onPointerDown={handleCanvasPointerDown}
           onPointerMove={handleCanvasPointerMove}

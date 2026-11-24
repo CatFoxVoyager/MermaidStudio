@@ -2,6 +2,7 @@ import { Sun, Moon, Command, LayoutGrid as Layout, PanelLeft, GitBranch, HardDri
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { APP_VERSION } from '@/constants/app';
+import { UIScaleMenu } from '@/components/shared/UIScaleMenu';
 
 interface Props {
   theme: 'dark' | 'light';
@@ -52,9 +53,9 @@ export function TopBar({
   }, [showLangMenu]);
 
   return (
-    <header className="flex items-center justify-between h-11 px-3 shrink-0 border-b z-20"
+    <header className="@container flex items-center justify-between h-11 px-3 shrink-0 border-b z-20"
       style={{ background: 'var(--surface-raised)', borderColor: 'var(--border-subtle)' }}>
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 shrink-0">
         <button
           data-testid="sidebar-toggle"
           onClick={onToggleSidebar}
@@ -112,51 +113,60 @@ export function TopBar({
           <button
             data-testid="new-diagram-button"
             onClick={onNewDiagram}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--hover)]"
-            style={{ color: 'var(--text-secondary)' }}>
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors hover:bg-[var(--hover)]"
+            style={{ color: 'var(--text-secondary)' }}
+            title={t('header.newDiagram')}
+            aria-label={t('header.newDiagram')}>
             <FilePlus size={13} />
-            {t('header.newDiagram')}
+            <span className="hidden @[1140px]:inline">{t('header.newDiagram')}</span>
           </button>
         )}
         <button
           data-testid="templates-button"
           onClick={onOpenTemplates}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--hover)]"
-          style={{ color: 'var(--text-secondary)' }}>
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors hover:bg-[var(--hover)]"
+          style={{ color: 'var(--text-secondary)' }}
+          title={t('header.templates')}
+          aria-label={t('header.templates')}>
           <Layout size={13} />
-          {t('header.templates')}
+          <span className="hidden @[1140px]:inline">{t('header.templates')}</span>
         </button>
         <button
           data-testid="backup-button"
           onClick={onOpenBackup}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--hover)]"
-          style={{ color: 'var(--text-secondary)' }}>
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors hover:bg-[var(--hover)]"
+          style={{ color: 'var(--text-secondary)' }}
+          title={t('header.backupImport')}
+          aria-label={t('header.backupImport')}>
           <HardDrive size={13} />
-          {t('header.backupImport')}
+          <span className="hidden @[1140px]:inline">{t('header.backupImport')}</span>
         </button>
         {onOpenAbout && (
           <button
             data-testid="topbar-about"
             onClick={onOpenAbout}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--hover)]"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}
-            title={t('about.title')}>
+            title={t('about.title')}
+            aria-label={t('header.about')}>
             <Info size={13} />
-            {t('header.about')}
+            <span className="hidden @[1140px]:inline">{t('header.about')}</span>
           </button>
         )}
         {onOpenReleaseNotes && (
           <button
             data-testid="topbar-release-notes"
             onClick={onOpenReleaseNotes}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors hover:bg-[var(--hover)]"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors hover:bg-[var(--hover)]"
             style={{ color: 'var(--text-secondary)' }}
-            title={t('header.releaseNotes')}>
+            title={t('header.releaseNotes')}
+            aria-label={t('header.releaseNotes')}>
             <ScrollText size={13} />
-            {t('header.releaseNotes')}
+            <span className="hidden @[1140px]:inline">{t('header.releaseNotes')}</span>
           </button>
         )}
         <div className="w-px h-5 mx-1" style={{ background: 'var(--border-subtle)' }} />
+        <UIScaleMenu />
         <div className="relative" ref={langMenuRef}>
           <button onClick={() => setShowLangMenu(!showLangMenu)}
             className="p-1.5 rounded-lg transition-colors hover:bg-[var(--hover)]"

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/shared/Modal';
+import { scaleShortcutModifier } from '@/utils/uiScale';
 
 interface Props {
   onClose: () => void;
@@ -7,6 +8,11 @@ interface Props {
 
 export function KeyboardShortcuts({ onClose }: Props) {
   const { t } = useTranslation();
+
+  const scaleMod =
+    scaleShortcutModifier(typeof navigator === 'undefined' ? '' : navigator.userAgent) === 'ctrl'
+      ? 'Ctrl'
+      : 'Alt';
 
   const GROUPS = [
     {
@@ -49,11 +55,19 @@ export function KeyboardShortcuts({ onClose }: Props) {
         { keys: 'Esc', desc: t('shortcuts.closeModal') },
       ],
     },
+    {
+      title: t('shortcuts.interface'),
+      shortcuts: [
+        { keys: `${scaleMod}++`, desc: t('shortcuts.uiScaleIn') },
+        { keys: `${scaleMod}+−`, desc: t('shortcuts.uiScaleOut') },
+        { keys: `${scaleMod}+0`, desc: t('shortcuts.uiScaleReset') },
+      ],
+    },
   ];
 
   return (
     <Modal isOpen={true} onClose={onClose} title={t('shortcuts.title')} size="lg">
-      <div className="p-6 grid grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto">
+      <div className="p-6 grid grid-cols-2 gap-6 max-h-[calc(60vh/var(--ui-scale))] overflow-y-auto">
         {GROUPS.map(g => (
           <div key={g.title}>
             <h3 className="text-[11px] font-semibold uppercase tracking-wider mb-2.5" style={{ color: 'var(--text-tertiary)' }}>
