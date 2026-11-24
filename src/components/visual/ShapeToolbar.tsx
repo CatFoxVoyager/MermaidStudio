@@ -188,17 +188,35 @@ export function ShapeToolbar({
     if (moreOpen && secondary.length === 0) {setMoreOpen(false);}
   }, [moreOpen, secondary.length]);
 
+  const updateMoreAnchor = useCallback(() => {
+    if (!moreBtnRef.current) {return;}
+    const r = moreBtnRef.current.getBoundingClientRect();
+    const next = {
+      right: window.innerWidth - r.right,
+      top: r.bottom + 8,
+      maxHeight: window.innerHeight - r.bottom - 24,
+    };
+    setMoreAnchor(prev =>
+      prev && prev.right === next.right && prev.top === next.top && prev.maxHeight === next.maxHeight
+        ? prev
+        : next
+    );
+  }, []);
+
+  // Keep the open ShapePicker anchored to the More button if the toolbar
+  // reflows after opening (e.g. ResizeObserver updates visibleCount after a
+  // scale change, collapsing a horizontal scrollbar and shifting top-1/2).
+  useLayoutEffect(() => {
+    if (!moreOpen) {return;}
+    updateMoreAnchor();
+  }, [moreOpen, visibleCount, updateMoreAnchor]);
+
   const toggleMore = () => {
     // Anchor from the FIXED trigger's viewport rect (it lives outside the
     // scroller — iter-14: inside the scroller the More button itself was
     // off-screen at x397).
-    if (!moreOpen && moreBtnRef.current) {
-      const r = moreBtnRef.current.getBoundingClientRect();
-      setMoreAnchor({
-        right: window.innerWidth - r.right,
-        top: r.bottom + 8,
-        maxHeight: window.innerHeight - r.bottom - 24,
-      });
+    if (!moreOpen) {
+      updateMoreAnchor();
     }
     setMoreOpen(v => !v);
   };

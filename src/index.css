@@ -321,6 +321,19 @@ body {
   overflow: visible;
 }
 
+/* Mermaid measures HTML labels via getBoundingClientRect() during render;
+   counter-zoom its scratch container so SVG geometry and PNG exports are
+   independent of the global UI scale (matches .cm-editor exemption below). */
+.mermaid-render-sandbox {
+  zoom: calc(1 / var(--ui-scale));
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 /* ─── CodeMirror ─────────────────────────────────────────────── */
 /* CodeMirror places fixed/absolute tooltips via viewport coordinates inside
    .cm-editor; root zoom offsets them. Exempt the editor island and scale
