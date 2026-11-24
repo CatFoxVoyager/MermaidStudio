@@ -1,10 +1,19 @@
-import { Page, Locator } from '@playwright/test';
+import { expect, Page, Locator } from '@playwright/test';
 
 export const TestUtils = {
-  // Wait for the desktop TopBar brand — proof that React mounted and the
-  // desktop tree rendered (mobile tree has its own brand testid).
+  // Wait for either the desktop or mobile TopBar brand — proof that React
+  // mounted and the active layout shell rendered.
   async waitForApp(page: Page): Promise<void> {
-    await page.waitForSelector('[data-testid="topbar-brand"]');
+    await page.waitForSelector('[data-testid="topbar-brand"], [data-testid="mobile-topbar-brand"]');
+  },
+
+  // Wait until the computed zoom on <html> equals `value`.
+  async expectZoom(page: Page, value: number): Promise<void> {
+    await expect
+      .poll(() =>
+        page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).zoom))
+      )
+      .toBe(value);
   },
 
   // Drive the global interface scale for the current page by writing the

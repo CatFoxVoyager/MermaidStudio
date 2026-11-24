@@ -10,6 +10,23 @@
          are 0 everywhere, the nav sits flush at the viewport bottom, and the
          gesture zone stays browser chrome colored via theme-color. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- ui-scale-boot:start -->
+    <script>
+      (function () {
+        try {
+          var w = window.innerWidth;
+          if (w < 768) { return; }
+          var fine = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+          var raw = localStorage.getItem('mermaid-studio-ui-scale');
+          var pref = raw === 'auto' || raw === null ? NaN : Number(raw);
+          var s = 1;
+          if (pref === 0.5 || pref === 0.67 || pref === 0.75 || pref === 0.8 || pref === 0.9 || pref === 1 || pref === 1.1 || pref === 1.25 || pref === 1.5) { s = pref; }
+          else if (fine && w < 1440) { s = Math.max(0.67, Math.min(1, Math.round(w / 1600 * 20) / 20)); }
+          if (s !== 1) { document.documentElement.style.setProperty('--ui-scale', String(s)); }
+        } catch (e) { /* storage indisponible : laissé à 1 */ }
+      })();
+    </script>
+    <!-- ui-scale-boot:end -->
 
     <!-- Primary Meta Tags -->
     <title>MermaidStudio — Free Online Mermaid Diagram Editor</title>
