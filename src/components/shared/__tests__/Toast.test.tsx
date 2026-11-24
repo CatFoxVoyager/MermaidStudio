@@ -10,9 +10,7 @@ describe('Toast', () => {
   });
 
   it('omits toast-action button when action is not provided', () => {
-    const toasts: ToastItem[] = [
-      { id: 'toast-1', message: 'Saved', type: 'success' },
-    ];
+    const toasts: ToastItem[] = [{ id: 'toast-1', message: 'Saved', type: 'success' }];
     render(<Toast toasts={toasts} dismiss={vi.fn()} />);
 
     expect(screen.getByText('Saved')).toBeInTheDocument();

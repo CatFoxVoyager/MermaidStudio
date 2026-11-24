@@ -29,7 +29,10 @@ function stubUserAgent(ua: string): void {
 }
 
 function isCaptureOption(options: boolean | AddEventListenerOptions | undefined): boolean {
-  return options === true || (typeof options === 'object' && options !== null && options.capture === true);
+  return (
+    options === true ||
+    (typeof options === 'object' && options !== null && options.capture === true)
+  );
 }
 
 describe('useUIScaleShortcuts', () => {
@@ -156,7 +159,7 @@ describe('useUIScaleShortcuts', () => {
     expect(api.stepDown).not.toHaveBeenCalled();
     expect(tabPrevent).not.toHaveBeenCalled();
 
-    mockMatchMedia((q) => q.includes('standalone'));
+    mockMatchMedia(q => q.includes('standalone'));
 
     const pwaEvent = new KeyboardEvent('keydown', {
       code: 'Minus',
@@ -179,7 +182,7 @@ describe('useUIScaleShortcuts', () => {
   });
 
   it('Ctrl+Minus dans le shell natif (même standalone) ne fait rien', () => {
-    mockMatchMedia((q) => q.includes('standalone'));
+    mockMatchMedia(q => q.includes('standalone'));
     (window as { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true };
 
     const api = createMockApi();
@@ -198,7 +201,7 @@ describe('useUIScaleShortcuts', () => {
   });
 
   it('ignore Ctrl+Alt+Minus (AltGr) même en PWA installée', () => {
-    mockMatchMedia((q) => q.includes('standalone'));
+    mockMatchMedia(q => q.includes('standalone'));
     const api = createMockApi();
     renderHook(() => useUIScaleShortcuts(api));
 

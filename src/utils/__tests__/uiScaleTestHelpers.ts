@@ -13,15 +13,12 @@ import { vi } from 'vitest';
  * given predicate over the queried media string.
  */
 export function mockMatchMedia(matches: (query: string) => boolean): void {
-  vi.stubGlobal(
-    'matchMedia',
-    (query: string) => ({
-      matches: matches(query),
-      media: query,
-      addEventListener: () => {},
-      removeEventListener: () => {},
-    })
-  );
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: matches(query),
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
 }
 
 /**

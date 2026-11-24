@@ -4,20 +4,9 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { UIScaleMenu } from '@/components/shared/UIScaleMenu';
 import { Modal } from '@/components/shared/Modal';
-import {
-  UIScaleProvider,
-  useUIScaleContext,
-  type UIScaleApi,
-} from '@/hooks/useUIScale';
-import {
-  applyScale,
-  UI_SCALE_STEPS,
-  UI_SCALE_STORAGE_KEY,
-} from '@/utils/uiScale';
-import {
-  mockMatchMedia,
-  setViewport,
-} from '@/utils/__tests__/uiScaleTestHelpers';
+import { UIScaleProvider, useUIScaleContext, type UIScaleApi } from '@/hooks/useUIScale';
+import { applyScale, UI_SCALE_STEPS, UI_SCALE_STORAGE_KEY } from '@/utils/uiScale';
+import { mockMatchMedia, setViewport } from '@/utils/__tests__/uiScaleTestHelpers';
 import en from '../../../i18n/locales/en.json';
 
 function lookupKey(obj: Record<string, unknown>, path: string): string {
@@ -64,7 +53,7 @@ function renderWithProvider() {
   const result = render(
     <UIScaleProvider>
       <ContextProbe
-        onValue={(api) => {
+        onValue={api => {
           latest = api;
         }}
       />

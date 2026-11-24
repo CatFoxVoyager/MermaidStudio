@@ -35,8 +35,7 @@ describe('computeAutoScale', () => {
 });
 
 describe('resolveScale', () => {
-  it('laisse un palier manuel tel quel', () =>
-    expect(resolveScale(0.75, 1920, true)).toBe(0.75));
+  it('laisse un palier manuel tel quel', () => expect(resolveScale(0.75, 1920, true)).toBe(0.75));
   it('vaut 1 en auto sur pointeur grossier', () =>
     expect(resolveScale('auto', 1280, false)).toBe(1));
   it('suit la règle auto sur pointeur fin', () =>
@@ -52,11 +51,9 @@ describe('nextStep', () => {
     [0.8, 1, 0.9],
     [0.85, 1, 0.9],
     [1.5, 1, null],
-  ])('depuis %s, direction %i → %s',
-    (cur, dir, expected) => {
-      expect(nextStep(cur, dir)).toBe(expected);
-    }
-  );
+  ])('depuis %s, direction %i → %s', (cur, dir, expected) => {
+    expect(nextStep(cur, dir)).toBe(expected);
+  });
 });
 
 describe('readPref / writePref', () => {
@@ -135,12 +132,12 @@ describe('interceptsBrowserZoomKeys', () => {
   });
 
   it('est vrai en PWA installée hors shell natif', () => {
-    mockMatchMedia((q) => q.includes('standalone'));
+    mockMatchMedia(q => q.includes('standalone'));
     expect(interceptsBrowserZoomKeys()).toBe(true);
   });
 
   it('est faux dans le shell natif, même installé', () => {
-    mockMatchMedia((q) => q.includes('standalone'));
+    mockMatchMedia(q => q.includes('standalone'));
     (window as { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true };
     expect(interceptsBrowserZoomKeys()).toBe(false);
   });

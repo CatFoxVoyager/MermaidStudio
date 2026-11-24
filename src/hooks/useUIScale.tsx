@@ -85,8 +85,7 @@ export function UIScaleProvider({ children, showToast }: UIScaleProviderProps) {
       ? computeAutoScale(width)
       : null;
 
-  const scale =
-    width < AUTO_MIN_WIDTH ? 1 : resolveScale(pref, width, finePointer);
+  const scale = width < AUTO_MIN_WIDTH ? 1 : resolveScale(pref, width, finePointer);
 
   useEffect(() => {
     applyScale(scale);
@@ -122,7 +121,7 @@ export function UIScaleProvider({ children, showToast }: UIScaleProviderProps) {
   const openMenu = useCallback((options?: { focusTrigger?: boolean }) => {
     setMenuOpen(true);
     if (options?.focusTrigger) {
-      setFocusTriggerTick((n) => n + 1);
+      setFocusTriggerTick(n => n + 1);
     }
   }, []);
 

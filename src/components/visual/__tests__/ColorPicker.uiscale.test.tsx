@@ -13,7 +13,16 @@ const rect = (left: number, top: number, width: number, height: number): DOMRect
   bottom: top + height,
   x: left,
   y: top,
-  toJSON: () => ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top }),
+  toJSON: () => ({
+    left,
+    top,
+    width,
+    height,
+    right: left + width,
+    bottom: top + height,
+    x: left,
+    y: top,
+  }),
 });
 
 describe('ColorPicker under UI scale', () => {
@@ -26,9 +35,7 @@ describe('ColorPicker under UI scale', () => {
     applyScale(0.8);
     setViewport(1280, 640);
 
-    const { container } = render(
-      <ColorPicker label="Fill" value="#ffffff" onChange={vi.fn()} />,
-    );
+    const { container } = render(<ColorPicker label="Fill" value="#ffffff" onChange={vi.fn()} />);
 
     const trigger = screen.getByRole('button', { name: 'Fill' });
     trigger.getBoundingClientRect = () => rect(500, 180, 40, 20);
@@ -47,13 +54,17 @@ describe('ColorPicker under UI scale', () => {
 
     const origW = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
     const origH = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
-    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get: () => 256 });
-    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', { configurable: true, get: () => 400 });
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get: () => 256,
+    });
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get: () => 400,
+    });
 
     try {
-      const { container } = render(
-        <ColorPicker label="Fill" value="#ffffff" onChange={vi.fn()} />,
-      );
+      const { container } = render(<ColorPicker label="Fill" value="#ffffff" onChange={vi.fn()} />);
 
       const trigger = screen.getByRole('button', { name: 'Fill' });
       // Screen rect near bottom-right: left=1200 (local 1500), bottom=560 (local 700)

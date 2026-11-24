@@ -1,17 +1,9 @@
 import { StrictMode, useEffect } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
-import {
-  UIScaleProvider,
-  useUIScaleContext,
-  type UIScaleApi,
-} from '@/hooks/useUIScale';
+import { UIScaleProvider, useUIScaleContext, type UIScaleApi } from '@/hooks/useUIScale';
 import type { ShowToastOptions, ToastItem } from '@/hooks/useToast';
-import {
-  applyScale,
-  UI_SCALE_NOTICE_KEY,
-  UI_SCALE_STORAGE_KEY,
-} from '@/utils/uiScale';
+import { applyScale, UI_SCALE_NOTICE_KEY, UI_SCALE_STORAGE_KEY } from '@/utils/uiScale';
 import { mockMatchMedia, setViewport } from '@/utils/__tests__/uiScaleTestHelpers';
 import { log } from '@/utils/logger';
 import en from '../../i18n/locales/en.json';
@@ -57,21 +49,17 @@ function Probe({ onValue }: { onValue: (api: UIScaleApi | null) => void }) {
   return null;
 }
 
-type ShowToastFn = (
-  message: string,
-  type?: ToastItem['type'],
-  options?: ShowToastOptions
-) => void;
+type ShowToastFn = (message: string, type?: ToastItem['type'], options?: ShowToastOptions) => void;
 
-function renderProbe(options?: {
-  showToast?: ShowToastFn;
-  strictMode?: boolean;
-}): { current: () => UIScaleApi | null; unmount: () => void } {
+function renderProbe(options?: { showToast?: ShowToastFn; strictMode?: boolean }): {
+  current: () => UIScaleApi | null;
+  unmount: () => void;
+} {
   let latest: UIScaleApi | null = null;
   const tree = (
     <UIScaleProvider showToast={options?.showToast}>
       <Probe
-        onValue={(api) => {
+        onValue={api => {
           latest = api;
         }}
       />
@@ -96,7 +84,7 @@ describe('UIScaleProvider', () => {
     let seen: UIScaleApi | null | undefined;
     render(
       <Probe
-        onValue={(api) => {
+        onValue={api => {
           seen = api;
         }}
       />

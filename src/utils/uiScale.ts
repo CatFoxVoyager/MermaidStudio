@@ -24,9 +24,7 @@ export type UIScalePref = 'auto' | number;
 export const UI_SCALE_STORAGE_KEY = 'mermaid-studio-ui-scale';
 export const UI_SCALE_NOTICE_KEY = 'mermaid-studio-ui-scale-notice-shown';
 
-export const UI_SCALE_STEPS: readonly number[] = [
-  0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5,
-];
+export const UI_SCALE_STEPS: readonly number[] = [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5];
 
 export const AUTO_MIN_WIDTH = 768;
 export const AUTO_MAX_WIDTH = 1440;

@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { test, expect } from '@playwright/test';
 import { TestUtils } from '../../support/utils/test-utils';
 import { AppLayoutPage } from '../../support/page-objects/AppLayoutPage';
@@ -167,3 +168,33 @@ for (const scale of [0.8, 1.25]) {
     expect(fills).toBeLessThanOrEqual(1);
   });
 }
+
+test("l'export PNG garde les mêmes dimensions à l'échelle 1 et à 0.8", async ({ page }) => {
+  async function exportPngDimensions(): Promise<{ width: number; height: number }> {
+    await page.keyboard.press('Control+e');
+    const modal = page.getByTestId('modal');
+    await expect(modal).toBeVisible();
+    const downloadPromise = page.waitForEvent('download');
+    await modal.getByRole('button', { name: /Export PNG/i }).click();
+    const download = await downloadPromise;
+    const filePath = await download.path();
+    expect(filePath).not.toBeNull();
+    const bytes = await readFile(filePath!);
+    // PNG IHDR chunk starts at byte 8 (4-byte length + 4-byte "IHDR");
+    // big-endian width and height occupy bytes 16..19 and 20..23.
+    const width = bytes.readUInt32BE(16);
+    const height = bytes.readUInt32BE(20);
+    await page.keyboard.press('Escape');
+    await expect(modal).toBeHidden();
+    return { width, height };
+  }
+
+  await TestUtils.setUiScale(page, 1);
+  const atOne = await exportPngDimensions();
+  expect(atOne.width).toBeGreaterThan(0);
+  expect(atOne.height).toBeGreaterThan(0);
+
+  await TestUtils.setUiScale(page, 0.8);
+  const atPointEight = await exportPngDimensions();
+  expect(atPointEight).toEqual(atOne);
+});

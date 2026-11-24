@@ -14,7 +14,7 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-vi.mock('@/hooks/useUIScale', async (importOriginal) => {
+vi.mock('@/hooks/useUIScale', async importOriginal => {
   const actual = await importOriginal<typeof import('@/hooks/useUIScale')>();
   return {
     ...actual,
@@ -59,7 +59,7 @@ afterEach(() => {
 describe('CommandPalette - UI scale command', () => {
   it('shows ui-scale in the Settings category inside UIScaleProvider and calls onClose then openMenu({ focusTrigger: true })', async () => {
     setViewport(1280, 720);
-    mockMatchMedia((query) => query !== '(max-width: 767.98px)');
+    mockMatchMedia(query => query !== '(max-width: 767.98px)');
 
     const onClose = vi.fn();
     render(
@@ -86,7 +86,7 @@ describe('CommandPalette - UI scale command', () => {
 
   it('prevents default Enter behavior when activating ui-scale via keyboard so focus transfer does not click the trigger button', async () => {
     setViewport(1280, 720);
-    mockMatchMedia((query) => query !== '(max-width: 767.98px)');
+    mockMatchMedia(query => query !== '(max-width: 767.98px)');
 
     const onClose = vi.fn();
     render(
@@ -115,7 +115,7 @@ describe('CommandPalette - UI scale command', () => {
 
   it('omits the ui-scale command when rendered outside UIScaleProvider', () => {
     setViewport(1280, 720);
-    mockMatchMedia((query) => query !== '(max-width: 767.98px)');
+    mockMatchMedia(query => query !== '(max-width: 767.98px)');
 
     render(<CommandPalette {...createProps()} />);
 
@@ -125,7 +125,7 @@ describe('CommandPalette - UI scale command', () => {
 
   it('omits the ui-scale command on mobile matchMedia even inside UIScaleProvider', () => {
     setViewport(390, 844);
-    mockMatchMedia((query) => query === '(max-width: 767.98px)');
+    mockMatchMedia(query => query === '(max-width: 767.98px)');
 
     render(
       <UIScaleProvider>

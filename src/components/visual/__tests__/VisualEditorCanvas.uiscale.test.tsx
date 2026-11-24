@@ -28,7 +28,16 @@ const rect = (left: number, top: number, width: number, height: number) => ({
   bottom: top + height,
   x: left,
   y: top,
-  toJSON: () => ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top }),
+  toJSON: () => ({
+    left,
+    top,
+    width,
+    height,
+    right: left + width,
+    bottom: top + height,
+    x: left,
+    y: top,
+  }),
 });
 
 function setupEdgeSvg() {

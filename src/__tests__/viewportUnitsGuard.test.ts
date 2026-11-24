@@ -215,7 +215,13 @@ function readTemplate(text: string, i: number, n: number, out: Literal[]): numbe
  * Walk code characters, collecting string literals. With `stopAtBrace`,
  * stops at the `}` that closes an interpolation (caller skips it).
  */
-function scanCode(text: string, i: number, n: number, out: Literal[], stopAtBrace: boolean): number {
+function scanCode(
+  text: string,
+  i: number,
+  n: number,
+  out: Literal[],
+  stopAtBrace: boolean
+): number {
   while (i < n) {
     const ch = text[i];
     if (ch === '/' && text[i + 1] === '/') {

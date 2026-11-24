@@ -23,7 +23,7 @@ describe('ContextMenu under UI scale', () => {
           { label: 'Rename', onClick: vi.fn() },
           { label: 'Delete', onClick: vi.fn(), danger: true },
         ]}
-      />,
+      />
     );
 
     const menu = screen.getByRole('menu');
@@ -38,13 +38,13 @@ describe('ContextMenu under UI scale', () => {
     render(
       <ContextMenu
         x={1240} // local 1550 -> clamps to 1600 - 200 = 1400
-        y={620}  // local 775 -> clamps to 800 - 2 * 36 - 16 = 712
+        y={620} // local 775 -> clamps to 800 - 2 * 36 - 16 = 712
         onClose={vi.fn()}
         items={[
           { label: 'Open', onClick: vi.fn() },
           { label: 'Delete', onClick: vi.fn() },
         ]}
-      />,
+      />
     );
 
     const menu = screen.getByRole('menu');
@@ -73,7 +73,7 @@ describe('ContextMenu under UI scale', () => {
             { label: 'Open', onClick: vi.fn() },
             { label: 'Delete', onClick: vi.fn() },
           ]}
-        />,
+        />
       );
 
       const menu = screen.getByRole('menu');

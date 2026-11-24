@@ -1,11 +1,7 @@
 import { Check, Scaling } from 'lucide-react';
 import { type ReactElement, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  type UIScaleApi,
-  useUIScaleContext,
-  useUIScaleTriggerFocusTick,
-} from '@/hooks/useUIScale';
+import { type UIScaleApi, useUIScaleContext, useUIScaleTriggerFocusTick } from '@/hooks/useUIScale';
 import { scaleShortcutModifier, UI_SCALE_STEPS } from '@/utils/uiScale';
 
 function UIScaleMenuInner({ ctx }: { ctx: UIScaleApi }): ReactElement {
@@ -112,7 +108,7 @@ function UIScaleMenuInner({ ctx }: { ctx: UIScaleApi }): ReactElement {
 
           <div className="my-1 h-px" style={{ background: 'var(--border-subtle)' }} />
 
-          {UI_SCALE_STEPS.map((step) => {
+          {UI_SCALE_STEPS.map(step => {
             const stepPercent = Math.round(step * 100);
             const selected = pref === step;
             return (
