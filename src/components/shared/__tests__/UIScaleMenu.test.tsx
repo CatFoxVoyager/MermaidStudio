@@ -265,30 +265,4 @@ describe('UIScaleMenu', () => {
     expect(screen.getByTestId('ui-scale-option-auto')).not.toHaveTextContent('on this screen');
     expect(screen.getByTestId('ui-scale-menu')).toHaveTextContent('Shortcuts: Ctrl + / − / 0');
   });
-
-  it('slider adjusts scale continuously between 10% and 200% while keeping menu open', async () => {
-    setViewport(1280, 720);
-    mockMatchMedia(() => true);
-
-    const user = userEvent.setup();
-    const { api } = renderWithProvider();
-
-    await user.click(screen.getByTestId('ui-scale-button'));
-    const slider = screen.getByTestId('ui-scale-slider') as HTMLInputElement;
-    expect(slider.min).toBe('10');
-    expect(slider.max).toBe('200');
-    expect(slider.value).toBe('80');
-
-    fireEvent.change(slider, { target: { value: '35' } });
-    expect(api()?.pref).toBe(0.35);
-    expect(api()?.scale).toBe(0.35);
-    expect(localStorage.getItem(UI_SCALE_STORAGE_KEY)).toBe('0.35');
-    expect(document.documentElement.style.getPropertyValue('--ui-scale')).toBe('0.35');
-    expect(screen.getByTestId('ui-scale-menu')).toBeInTheDocument();
-
-    fireEvent.change(slider, { target: { value: '185' } });
-    expect(api()?.pref).toBe(1.85);
-    expect(api()?.scale).toBe(1.85);
-    expect(screen.getByTestId('ui-scale-button')).toHaveTextContent('185 %');
-  });
 });

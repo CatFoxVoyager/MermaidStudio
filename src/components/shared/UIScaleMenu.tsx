@@ -2,12 +2,7 @@ import { Check, Scaling } from 'lucide-react';
 import { type ReactElement, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type UIScaleApi, useUIScaleContext, useUIScaleTriggerFocusTick } from '@/hooks/useUIScale';
-import {
-  scaleShortcutModifier,
-  UI_SCALE_MAX,
-  UI_SCALE_MIN,
-  UI_SCALE_STEPS,
-} from '@/utils/uiScale';
+import { scaleShortcutModifier, UI_SCALE_STEPS } from '@/utils/uiScale';
 
 function UIScaleMenuInner({ ctx }: { ctx: UIScaleApi }): ReactElement {
   const { t } = useTranslation();
@@ -113,42 +108,7 @@ function UIScaleMenuInner({ ctx }: { ctx: UIScaleApi }): ReactElement {
           </button>
 
           <div
-            className="my-1 pt-2 pb-1.5 px-3 border-t space-y-1.5"
-            style={{ borderColor: 'var(--border-subtle)' }}
-          >
-            <div className="flex items-center justify-between text-[11px]">
-              <span style={{ color: 'var(--text-tertiary)' }}>{t('uiScale.sliderLabel')}</span>
-              <span
-                className="font-medium tabular-nums"
-                style={{ color: pref === 'auto' ? 'var(--text-secondary)' : 'var(--accent)' }}
-              >
-                {percent} %
-              </span>
-            </div>
-            <input
-              type="range"
-              data-testid="ui-scale-slider"
-              min={Math.round(UI_SCALE_MIN * 100)}
-              max={Math.round(UI_SCALE_MAX * 100)}
-              step={1}
-              value={percent}
-              aria-label={t('uiScale.sliderLabel')}
-              aria-valuetext={`${percent} %`}
-              onChange={e => setPref(Number(e.target.value) / 100)}
-              className="w-full h-1.5 cursor-pointer accent-[var(--accent)]"
-            />
-            <div
-              className="flex justify-between text-[10px] tabular-nums"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
-              <span>{Math.round(UI_SCALE_MIN * 100)} %</span>
-              <span>100 %</span>
-              <span>{Math.round(UI_SCALE_MAX * 100)} %</span>
-            </div>
-          </div>
-
-          <div
-            className="grid grid-cols-3 gap-1 px-2 py-1.5 border-t"
+            className="mt-1 grid grid-cols-3 gap-1 px-2 py-1.5 border-t"
             style={{ borderColor: 'var(--border-subtle)' }}
           >
             {UI_SCALE_STEPS.map(step => {

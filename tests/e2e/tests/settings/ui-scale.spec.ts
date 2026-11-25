@@ -48,17 +48,13 @@ test('réglage manuel : 100 % puis rechargement, puis retour à Auto', async ({ 
   await TestUtils.expectZoom(page, 0.8);
 });
 
-test('curseur continu (10 % à 200 %) : valeur personnalisée mémorisée au rechargement', async ({ page }) => {
+test('presets étendus (10 % à 200 %) : 25 % mémorisé au rechargement puis 200 %', async ({ page }) => {
   await page.getByTestId('ui-scale-button').click();
-  const slider = page.getByTestId('ui-scale-slider');
-  await expect(slider).toHaveAttribute('min', '10');
-  await expect(slider).toHaveAttribute('max', '200');
-  await slider.fill('42');
-  await TestUtils.expectZoom(page, 0.42);
-  await expect(page.getByTestId('ui-scale-menu')).toBeVisible();
+  await page.getByTestId('ui-scale-option-25').click();
+  await TestUtils.expectZoom(page, 0.25);
   await page.reload();
   await TestUtils.waitForApp(page);
-  await TestUtils.expectZoom(page, 0.42);
+  await TestUtils.expectZoom(page, 0.25);
   await page.getByTestId('ui-scale-button').click();
   await page.getByTestId('ui-scale-option-200').click();
   await TestUtils.expectZoom(page, 2);

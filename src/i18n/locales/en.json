@@ -949,7 +949,6 @@
     "label": "Interface scale: {{percent}} %",
     "auto": "Auto",
     "autoHint": "{{percent}} % on this screen",
-    "sliderLabel": "Custom scale",
     "shortcuts": "Shortcuts: {{mod}} + / − / 0",
     "notice": "Interface adjusted to {{percent}} % for this screen.",
     "noticeAction": "Change"

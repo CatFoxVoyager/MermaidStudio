@@ -63,15 +63,13 @@ describe('readPref / writePref', () => {
   it.each<[string | null, UIScalePref]>([
     ['0.1', 0.1],
     ['0.8', 0.8],
-    ['0.85', 0.85],
     ['2', 2],
     ['auto', 'auto'],
     [null, 'auto'],
     ['', 'auto'],
     ['abc', 'auto'],
     ['0', 'auto'],
-    ['0.05', 'auto'],
-    ['2.01', 'auto'],
+    ['0.85', 'auto'],
     ['7', 'auto'],
     ['0.8x', 'auto'],
   ])('%s → %s', (raw, expected) => {
