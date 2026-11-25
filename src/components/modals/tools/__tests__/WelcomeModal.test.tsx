@@ -1,17 +1,8 @@
-/**
- * Tests for the first-run Welcome modal (SXO/audit M4 + Phase 4).
- *
- * The modal leads with a 3-bullet value proposition (what the app does for
- * you), not with per-version release notes in contributor jargon: the
- * changelog is demoted to a link, and the Liberapay donation link sits
- * next to the GitHub card so a first-run visitor can support the project.
- * i18n is mocked with t(key) => key, so assertions target the keys.
- */
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { WelcomeModal } from '../WelcomeModal';
+import { WelcomeModal, RELEASES_URL } from '../WelcomeModal';
 import { APP_VERSION } from '@/constants/app';
+import { RECENT_RELEASES } from '@/utils/releaseNotes';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -19,40 +10,34 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-describe('WelcomeModal', () => {
+describe('WelcomeModal (Release Notes)', () => {
   const onClose = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('renders the welcome title with the app version as subtitle', () => {
+  it('renders the release notes title with the current app version as subtitle', () => {
     render(<WelcomeModal onClose={onClose} />);
-    expect(screen.getByText('welcome.title')).toBeInTheDocument();
-    expect(screen.getByText(`v${APP_VERSION}`)).toBeInTheDocument();
+    expect(screen.getByText('header.releaseNotes')).toBeInTheDocument();
+    expect(screen.getAllByText(`v${APP_VERSION}`).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('leads with exactly three value-proposition bullets', () => {
+  it('renders actual changelog entries for the latest release instead of generic value props', () => {
     render(<WelcomeModal onClose={onClose} />);
-    const bullets = screen.getAllByText(/welcome\.valueProp\d/);
-    expect(bullets).toHaveLength(3);
-    expect(screen.getByText('welcome.valueProp1')).toBeInTheDocument();
-    expect(screen.getByText('welcome.valueProp2')).toBeInTheDocument();
-    expect(screen.getByText('welcome.valueProp3')).toBeInTheDocument();
+    const latestCard = screen.getByTestId('release-notes-latest');
+    expect(latestCard).toHaveTextContent(`v${RECENT_RELEASES[0].version}`);
+    expect(latestCard).toHaveTextContent(RECENT_RELEASES[0].sections[0].items[0].text);
+    expect(screen.queryByText('welcome.valueProp1')).not.toBeInTheDocument();
   });
 
-  it('demotes per-version release notes to a changelog link', () => {
+  it('links to GitHub Releases rather than a raw CHANGELOG.md blob', () => {
     render(<WelcomeModal onClose={onClose} />);
-    // The jargon-y per-version list is gone…
-    expect(screen.queryByText(/welcome\.releaseNotes\./)).not.toBeInTheDocument();
-    // …replaced by a single link to the repository changelog.
-    const changelogLink = screen.getByRole('link', { name: /welcome\.changelogLink/ });
-    expect(changelogLink).toHaveAttribute(
-      'href',
-      'https://github.com/CatFoxVoyager/MermaidStudio/blob/main/CHANGELOG.md'
-    );
-    expect(changelogLink).toHaveAttribute('target', '_blank');
-    expect(changelogLink).toHaveAttribute('rel', 'noopener noreferrer');
+    const releasesLink = screen.getByRole('link', { name: /welcome\.allReleases/ });
+    expect(releasesLink).toHaveAttribute('href', RELEASES_URL);
+    expect(RELEASES_URL).toBe('https://github.com/CatFoxVoyager/MermaidStudio/releases');
+    expect(releasesLink).toHaveAttribute('target', '_blank');
+    expect(releasesLink).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
   it('shows the GitHub card plus the Liberapay support link', () => {

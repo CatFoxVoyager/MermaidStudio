@@ -133,7 +133,7 @@ const readmeUrl = String(jsonLd.codeRepository ?? ''); // the repo's canonical G
 const ownerName = readmeUrl.replace(/^https?:\/\/[^/]+\//, '').split('/')[0] ?? '';
 const repoName = readmeUrl.replace(/^https?:\/\/[^/]+\//, '').split('/')[1] ?? '';
 const docsUrl = `https://${ownerName.toLowerCase()}.github.io/${repoName}/`;
-const changelogUrl = `${readmeUrl}/blob/main/CHANGELOG.md`;
+const changelogUrl = `${readmeUrl}/releases`;
 const licenseUrl = String(jsonLd.license ?? '');
 
 // Honesty census: parsed from trustCopy.test.ts's BANNED_PHRASES array — the

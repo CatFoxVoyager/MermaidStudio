@@ -376,11 +376,11 @@ describe('trust-line external links (DOC-01/02)', () => {
     ).toBe(true);
   });
 
-  it('trust line links the changelog blob on the repo (DOC-02)', () => {
-    const changelog = REPO_URL + '/blob/main/CHANGELOG.md';
+  it('trust line links the releases/changelog page on the repo (DOC-02)', () => {
+    const changelog = REPO_URL + '/releases';
     expect(
       trustText,
-      'DOC-02: the trust line must carry a Changelog anchor to the CHANGELOG.md blob',
+      'DOC-02: the trust line must carry a Changelog anchor to GitHub Releases',
     ).toContain('href="' + changelog + '"');
   });
 

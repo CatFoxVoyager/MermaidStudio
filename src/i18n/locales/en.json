@@ -921,6 +921,10 @@
     "valueProp2": "Visual editor — drag and drop nodes over the live preview, with folders, tags and version history.",
     "valueProp3": "Free & private — open source (MIT), no accounts, local-first, cookieless analytics, works offline.",
     "changelogLink": "What's new in v{{version}}?",
+    "breakingChanges": "Breaking changes",
+    "features": "Features",
+    "bugFixes": "Bug fixes",
+    "allReleases": "View all releases on GitHub",
     "github": "View on GitHub",
     "githubCaption": "Open source — star the project and report issues"
   },

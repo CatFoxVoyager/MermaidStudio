@@ -921,6 +921,10 @@
     "valueProp2": "Éditeur visuel — glissez-déposez les nœuds sur l'aperçu live, avec dossiers, tags et historique de versions.",
     "valueProp3": "Gratuit & privé — open source (MIT), sans compte, local-first, analytique sans cookies, fonctionne hors ligne.",
     "changelogLink": "Nouveautés de la v{{version}}",
+    "breakingChanges": "Changements majeurs",
+    "features": "Nouveautés",
+    "bugFixes": "Corrections",
+    "allReleases": "Voir toutes les versions sur GitHub",
     "github": "Voir sur GitHub",
     "githubCaption": "Open source — mettez une étoile au projet et signalez les problèmes"
   },

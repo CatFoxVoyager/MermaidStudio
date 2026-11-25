@@ -1,11 +1,13 @@
 import { useTranslation } from 'react-i18next';
-import { ExternalLink, Cpu, MousePointerClick, ShieldCheck, History } from 'lucide-react';
+import { AlertTriangle, ExternalLink, History, Sparkles, Wrench } from 'lucide-react';
 import { Modal } from '@/components/shared/Modal';
 import { SupportLinks } from '@/components/shared/SupportLinks';
 import { APP_VERSION } from '@/constants/app';
+import { RECENT_RELEASES, type ReleaseEntry, type ReleaseSection } from '@/utils/releaseNotes';
 
 export const GITHUB_URL = 'https://github.com/CatFoxVoyager/MermaidStudio';
-export const CHANGELOG_URL = `${GITHUB_URL}/blob/main/CHANGELOG.md`;
+export const RELEASES_URL = `${GITHUB_URL}/releases`;
+export const CHANGELOG_URL = RELEASES_URL;
 
 export function GitHubIcon({ size = 18 }: { size?: number }) {
   return (
@@ -19,63 +21,171 @@ interface Props {
   onClose: () => void;
 }
 
+type TranslateFn = ReturnType<typeof useTranslation>['t'];
+
+function SectionBlock({
+  section,
+  t,
+}: {
+  section: ReleaseSection;
+  t: TranslateFn;
+}) {
+  const meta =
+    section.kind === 'breaking'
+      ? {
+          icon: AlertTriangle,
+          label: t('welcome.breakingChanges', 'Breaking changes'),
+          color: '#f59e0b',
+        }
+      : section.kind === 'features'
+        ? {
+            icon: Sparkles,
+            label: t('welcome.features', 'Features'),
+            color: 'var(--accent)',
+          }
+        : section.kind === 'fixes'
+          ? {
+              icon: Wrench,
+              label: t('welcome.bugFixes', 'Bug fixes'),
+              color: 'var(--text-secondary)',
+            }
+          : {
+              icon: History,
+              label: section.title,
+              color: 'var(--text-secondary)',
+            };
+  const Icon = meta.icon;
+
+  return (
+    <div className="space-y-1.5">
+      <div
+        className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider"
+        style={{ color: meta.color }}
+      >
+        <Icon size={13} aria-hidden="true" />
+        <span>{meta.label}</span>
+      </div>
+      <ul className="space-y-1 pl-1">
+        {section.items.map((item, idx) => (
+          <li
+            key={`${item.scope ?? 'item'}-${idx}`}
+            className="flex items-start gap-2 text-xs leading-relaxed"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: meta.color }} />
+            <span>
+              {item.scope && (
+                <span
+                  className="mr-1.5 inline-block rounded px-1.5 py-0.5 text-[11px] font-medium"
+                  style={{ background: 'var(--surface-overlay)', color: 'var(--text-secondary)' }}
+                >
+                  {item.scope}
+                </span>
+              )}
+              {item.text}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ReleaseSections({
+  release,
+  t,
+}: {
+  release: ReleaseEntry;
+  t: TranslateFn;
+}) {
+  return (
+    <div className="space-y-3">
+      {release.sections.map(section => (
+        <SectionBlock key={`${release.version}-${section.title}`} section={section} t={t} />
+      ))}
+    </div>
+  );
+}
+
 /**
- * First-run modal (SXO/audit M4 + Phase 4). Leads with a three-bullet value
- * proposition — what the app does for a first-time visitor — instead of
- * per-version release notes in contributor jargon; the changelog is demoted
- * to a link, and the Liberapay support link sits next to the GitHub card.
- * Shown automatically when the installed app version differs from the
- * one the user has already seen (tracked via `seenReleaseNotesVersion` in
- * AppSettings). The X close button is provided natively by the shared
- * `Modal` component.
+ * Release Notes modal — displays the current and recent release entries parsed
+ * directly from CHANGELOG.md at build time, plus links to GitHub Releases and
+ * project support. Shown automatically when the installed app version differs
+ * from `seenReleaseNotesVersion` in AppSettings, or on demand from the top bar,
+ * About modal, mobile menu, and command palette.
  */
 export function WelcomeModal({ onClose }: Props) {
   const { t } = useTranslation();
-
-  const valueProps = [
-    { icon: Cpu, key: 'valueProp1' as const },
-    { icon: MousePointerClick, key: 'valueProp2' as const },
-    { icon: ShieldCheck, key: 'valueProp3' as const },
-  ];
+  const [latest, ...previous] = RECENT_RELEASES;
 
   return (
     <Modal
       isOpen
       onClose={onClose}
-      title={t('welcome.title')}
+      title={t('header.releaseNotes')}
       subtitle={`v${APP_VERSION}`}
       size="lg"
     >
-      <div className="p-6 space-y-5">
-        <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-          {t('welcome.intro')}
-        </p>
-
-        <ul className="space-y-2.5">
-          {valueProps.map(({ icon: Icon, key }) => (
-            <li key={key} className="flex items-start gap-3">
+      <div className="p-6 space-y-5 max-h-[calc(70vh/var(--ui-scale))] overflow-y-auto">
+        {latest && (
+          <div
+            data-testid="release-notes-latest"
+            className="rounded-xl border p-4 space-y-3"
+            style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-base)' }}
+          >
+            <div className="flex items-center justify-between gap-2">
               <span
-                className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold"
                 style={{ background: 'var(--accent-dim)', color: 'var(--accent)' }}
               >
-                <Icon size={14} />
+                v{latest.version}
               </span>
-              <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                {t(`welcome.${key}`)}
-              </span>
-            </li>
-          ))}
-        </ul>
+              {latest.date && (
+                <span className="text-xs tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+                  {latest.date}
+                </span>
+              )}
+            </div>
+            <ReleaseSections release={latest} t={t} />
+          </div>
+        )}
+
+        {previous.length > 0 && (
+          <div className="space-y-2">
+            {previous.map(rel => (
+              <details
+                key={rel.version}
+                className="rounded-xl border px-4 py-2.5"
+                style={{ borderColor: 'var(--border-subtle)', background: 'var(--surface-base)' }}
+              >
+                <summary
+                  className="flex cursor-pointer items-center justify-between gap-2 text-xs font-medium select-none"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <span>v{rel.version}</span>
+                  {rel.date && (
+                    <span className="tabular-nums" style={{ color: 'var(--text-tertiary)' }}>
+                      {rel.date}
+                    </span>
+                  )}
+                </summary>
+                <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
+                  <ReleaseSections release={rel} t={t} />
+                </div>
+              </details>
+            ))}
+          </div>
+        )}
 
         <a
-          href={CHANGELOG_URL}
+          href={RELEASES_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 text-xs transition-colors hover:opacity-80"
           style={{ color: 'var(--text-secondary)' }}
         >
           <History size={13} aria-hidden="true" />
-          {t('welcome.changelogLink', { version: APP_VERSION })}
+          {t('welcome.allReleases', 'View all releases on GitHub')}
           <ExternalLink size={12} style={{ color: 'var(--text-tertiary)' }} aria-hidden="true" />
         </a>
 

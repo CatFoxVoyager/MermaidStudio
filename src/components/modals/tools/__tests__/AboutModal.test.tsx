@@ -7,15 +7,19 @@
  * line. i18n is mocked with t(key) => key, so assertions target the keys.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AboutModal } from '../AboutModal';
 import { APP_VERSION } from '@/constants/app';
+import { PLAY_STORE_URL } from '@/constants/playStore';
+
+let mockLanguage = 'en';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => key,
+    i18n: { language: mockLanguage },
   }),
 }));
 
@@ -25,6 +29,11 @@ describe('AboutModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockLanguage = 'en';
+  });
+
+  afterEach(() => {
+    delete (window as { Capacitor?: unknown }).Capacitor;
   });
 
   it('renders the about title with the app version as subtitle', () => {
@@ -63,5 +72,28 @@ describe('AboutModal', () => {
     expect(onShowReleaseNotes).toHaveBeenCalledTimes(1);
     // Opening the release notes must not go through the plain close path.
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('shows the Android Google Play app card with local badge on the web', () => {
+    render(<AboutModal onClose={onClose} onShowReleaseNotes={onShowReleaseNotes} />);
+    const card = screen.getByTestId('about-android-card');
+    expect(card).toHaveAttribute('href', PLAY_STORE_URL);
+    expect(card).toHaveAttribute('target', '_blank');
+    expect(card).toHaveAttribute('rel', 'noopener noreferrer');
+    const badge = card.querySelector('img');
+    expect(badge).toHaveAttribute('src', '/badges/google-play-badge-en.png');
+  });
+
+  it('switches the Google Play badge to French when language is fr', () => {
+    mockLanguage = 'fr';
+    render(<AboutModal onClose={onClose} onShowReleaseNotes={onShowReleaseNotes} />);
+    const badge = screen.getByTestId('about-android-card').querySelector('img');
+    expect(badge).toHaveAttribute('src', '/badges/google-play-badge-fr.png');
+  });
+
+  it('hides the Android Play card inside the installed native Android app', () => {
+    (window as { Capacitor?: unknown }).Capacitor = { isNativePlatform: () => true };
+    render(<AboutModal onClose={onClose} onShowReleaseNotes={onShowReleaseNotes} />);
+    expect(screen.queryByTestId('about-android-card')).not.toBeInTheDocument();
   });
 });

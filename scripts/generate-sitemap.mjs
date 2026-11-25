@@ -107,7 +107,7 @@ const repoUrl = String(jsonLd.codeRepository ?? '');
 const repoOwner = repoUrl.replace(/^https?:\/\/[^/]+\//, '').split('/')[0] ?? '';
 const repoName = repoUrl.replace(/^https?:\/\/[^/]+\//, '').split('/')[1] ?? '';
 const docsUrl = `https://${repoOwner.toLowerCase()}.github.io/${repoName}/`;
-const changelogUrl = `${repoUrl}/blob/main/CHANGELOG.md`;
+const changelogUrl = `${repoUrl}/releases`;
 const licenseUrl = String(jsonLd.license ?? '');
 
 const llmsTxt = [
