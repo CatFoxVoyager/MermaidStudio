@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.3.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v3.2.0...mermaid-studio-v3.3.0) (2026-11-27)
+
+
+### Features
+
+* **modals:** show Android app in About and real release notes ([68d243d](https://github.com/CatFoxVoyager/MermaidStudio/commit/68d243deaada548ee4e7a84c11da18ec526227f5))
+* **ui-scale:** add 10-200% slider and 12 presets in scale menu ([32635a1](https://github.com/CatFoxVoyager/MermaidStudio/commit/32635a145ab19e4dbc1a3a7ea07e7ae6efa13d26))
+
 ## [3.2.0](https://github.com/CatFoxVoyager/MermaidStudio/compare/mermaid-studio-v3.1.0...mermaid-studio-v3.2.0) (2026-11-24)
 
 
