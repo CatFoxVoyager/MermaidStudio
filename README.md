@@ -118,7 +118,7 @@ Application will be available at **http://localhost:5173**
 
 ```bash
 # Build and start container (port 3000)
-docker build -t mermaid-studio .
+docker build -f docker/Dockerfile -t mermaid-studio .
 docker run -p 3000:3000 mermaid-studio
 ```
 
@@ -166,7 +166,7 @@ git clone https://github.com/CatFoxVoyager/MermaidStudio.git
 cd MermaidStudio
 
 # Build image
-docker build -t mermaid-studio .
+docker build -f docker/Dockerfile -t mermaid-studio .
 
 # Run container
 docker run -d -p 3000:3000 --name mermaid-studio mermaid-studio
@@ -180,7 +180,7 @@ npm run build
 npm run preview
 
 # Docker
-docker build -t mermaid-studio:prod .
+docker build -f docker/Dockerfile -t mermaid-studio:prod .
 ```
 
 ---
@@ -258,7 +258,7 @@ The project uses an optimized multi-stage build:
 
 ```bash
 # Build image
-docker build -t mermaid-studio .
+docker build -f docker/Dockerfile -t mermaid-studio .
 
 # Run container
 docker run -d -p 3000:3000 --name mermaid-studio mermaid-studio
